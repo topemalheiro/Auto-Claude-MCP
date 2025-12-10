@@ -6,11 +6,21 @@ A production-ready framework for autonomous multi-session AI coding. Build compl
 
 Auto-Build uses a **multi-agent pattern** to build software autonomously:
 
-1. **Spec Agent** (`claude /spec`) - Interactive spec creation with strategic analysis (ultra-think)
-2. **Planner Agent** (Session 1) - Analyzes spec, creates chunk-based implementation plan
-3. **Coder Agent** (Sessions 2+) - Implements chunks one-by-one with verification
-4. **QA Reviewer Agent** - Validates all acceptance criteria before sign-off
-5. **QA Fixer Agent** - Fixes issues found by QA in a self-validating loop
+### Spec Creation Pipeline (8 phases)
+1. **Discovery** - Analyzes project structure
+2. **Requirements Gatherer** - Collects user requirements interactively
+3. **Research Agent** - Validates external integrations against documentation
+4. **Context Discovery** - Finds relevant files in codebase
+5. **Spec Writer** - Creates comprehensive spec.md
+6. **Spec Critic** - Uses ultrathink to find and fix issues before implementation
+7. **Planner** - Creates chunk-based implementation plan
+8. **Validation** - Ensures all outputs are valid
+
+### Implementation Pipeline
+1. **Planner Agent** (Session 1) - Analyzes spec, creates chunk-based implementation plan
+2. **Coder Agent** (Sessions 2+) - Implements chunks one-by-one with verification
+3. **QA Reviewer Agent** - Validates all acceptance criteria before sign-off
+4. **QA Fixer Agent** - Fixes issues found by QA in a self-validating loop
 
 Each session runs with a fresh context window. Progress is tracked via `implementation_plan.json` and Git commits.
 
@@ -23,60 +33,64 @@ Each session runs with a fresh context window. Progress is tracked via `implemen
 
 ### Setup
 
-**Step 1:** Copy files into your project
-
-Copy these two things from this repository into your project:
-
-1. The `auto-build` folder → copy to your project root
-2. The `.claude/commands/spec.md` file → copy to `.claude/commands/` in your project (create the folder if it doesn't exist)
-
-**Step 2:** Copy `.env.example` to `.env`
+**Step 1:** Copy the `auto-build` folder into your project
 
 ```bash
-cp auto-build/.env.example auto-build/.env
+# Copy the auto-build folder to your project root
+cp -r auto-build /path/to/your/project/
 ```
 
-**Step 3:** Get your OAuth token and add it to `.env`
+**Step 2:** Set up Python environment
 
 ```bash
-# Run this command to get your token
+cd your-project
+cd auto-build
+
+# Using uv (recommended)
+uv venv && uv pip install -r requirements.txt
+
+# Or using standard Python
+python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt
+```
+
+**Step 3:** Configure environment
+
+```bash
+cp .env.example .env
+
+# Get your OAuth token
 claude setup-token
 
-# Copy the token and paste it into auto-build/.env
-# Replace 'your-oauth-token-here' with your actual token
+# Add the token to .env
+# CLAUDE_CODE_OAUTH_TOKEN=your-token-here
 ```
 
-**Step 4:** Create a spec interactively (also sets up Python environment)
-
-You have two options:
-
-**Option 1:** Using Claude Code CLI in terminal
-
-```bash
-# Start Claude Code
-claude
-
-# Then write:
-/spec "whatever you want to create"
-```
-
-**Option 2:** Using your favorite IDE (like Cursor)
-
-Open your IDE's AI agent chat and write:
-
-```
-/spec "whatever you want to create"
-```
-
-The spec agent will guide you through creating a detailed specification and set up the Python environment automatically.
-
-**Step 5:** Activate the virtual environment and run
+**Step 4:** Create a spec using the orchestrator
 
 ```bash
 # Activate the virtual environment
 source auto-build/.venv/bin/activate
 
-# Run the autonomous build
+# Create a spec interactively
+python auto-build/spec_runner.py --interactive
+
+# Or with a task description
+python auto-build/spec_runner.py --task "Add user authentication with OAuth"
+```
+
+The spec orchestrator will:
+1. Analyze your project structure
+2. Gather requirements interactively
+3. **Research external integrations** against documentation
+4. Discover relevant codebase context
+5. Write the specification
+6. **Self-critique using ultrathink** to find and fix issues
+7. Generate an implementation plan
+8. Validate all outputs
+
+**Step 5:** Run the autonomous build
+
+```bash
 python auto-build/run.py --spec 001
 ```
 
@@ -121,33 +135,58 @@ The QA validation loop:
 4. Loop repeats until approved (up to 50 iterations)
 5. Final sign-off recorded in `implementation_plan.json`
 
-### Spec Validation (Self-Correcting)
+### Spec Creation Pipeline (Dynamic Complexity)
 
-The `/spec` command now includes mandatory validation checkpoints that catch errors before they propagate:
+The `spec_runner.py` orchestrator **automatically assesses task complexity** and adapts the number of phases accordingly:
 
 ```bash
-# Validate spec outputs manually
-python auto-build/validate_spec.py --spec-dir auto-build/specs/001-feature --checkpoint all
+# Simple task (auto-detected) - runs 3 phases
+python auto-build/spec_runner.py --task "Fix button color in Header"
 
-# Validate specific checkpoints
-python auto-build/validate_spec.py --spec-dir auto-build/specs/001-feature --checkpoint prereqs
-python auto-build/validate_spec.py --spec-dir auto-build/specs/001-feature --checkpoint spec
-python auto-build/validate_spec.py --spec-dir auto-build/specs/001-feature --checkpoint plan
+# Complex task (auto-detected) - runs 8 phases
+python auto-build/spec_runner.py --task "Add Graphiti memory integration with FalkorDB"
 
-# Auto-fix common issues
-python auto-build/validate_spec.py --spec-dir auto-build/specs/001-feature --checkpoint plan --auto-fix
+# Force a specific complexity level
+python auto-build/spec_runner.py --task "Update text" --complexity simple
+
+# Interactive mode
+python auto-build/spec_runner.py --interactive
+
+# Continue an interrupted spec
+python auto-build/spec_runner.py --continue 001-feature
 ```
 
-**Validation checkpoints:**
-| Checkpoint | What it validates |
-|------------|-------------------|
-| `prereqs` | project_index.json exists |
-| `context` | context.json has required fields |
-| `spec` | spec.md has required sections |
-| `plan` | implementation_plan.json has valid schema |
-| `all` | All of the above |
+**Complexity Tiers:**
 
-The spec agent runs these automatically and fixes any failures before proceeding.
+| Tier | Phases | When Used |
+|------|--------|-----------|
+| **SIMPLE** | 3 | 1-2 files, single service, no integrations (UI fixes, text changes) |
+| **STANDARD** | 6 | 3-10 files, 1-2 services, minimal integrations (features, bug fixes) |
+| **COMPLEX** | 8 | 10+ files, multiple services, external integrations (integrations, migrations) |
+
+**Phase Matrix:**
+
+| Phase | Simple | Standard | Complex |
+|-------|--------|----------|---------|
+| Discovery | ✓ | ✓ | ✓ |
+| Requirements | - | ✓ | ✓ |
+| **Research** | - | - | ✓ |
+| Context | - | ✓ | ✓ |
+| Spec Writing | Quick | Full | Full |
+| **Self-Critique** | - | - | ✓ |
+| Planning | Auto | ✓ | ✓ |
+| Validation | ✓ | ✓ | ✓ |
+
+**Complexity Detection Signals:**
+- Keywords: "fix", "typo", "color" → Simple | "integrate", "migrate", "oauth" → Complex
+- External integrations detected (redis, postgres, graphiti, etc.)
+- Number of files/services mentioned
+- Infrastructure changes (docker, deploy, schema)
+
+**Manual validation:**
+```bash
+python auto-build/validate_spec.py --spec-dir auto-build/specs/001-feature --checkpoint all
+```
 
 ### Isolated Worktrees (Safe by Default)
 
@@ -214,13 +253,11 @@ echo "Focus on fixing the login bug first" > auto-build/specs/001-name/HUMAN_INP
 
 ```
 your-project/
-├── .claude/commands/
-│   └── spec.md              # Interactive spec creation
 ├── .worktrees/              # Created during build (git-ignored)
 │   └── auto-build/          # Isolated workspace for AI coding
 ├── auto-build/
 │   ├── run.py               # Build entry point
-│   ├── spec_runner.py       # Spec creation orchestrator
+│   ├── spec_runner.py       # Spec creation orchestrator (8-phase pipeline)
 │   ├── validate_spec.py     # Spec validation with JSON schemas
 │   ├── agent.py             # Session orchestration
 │   ├── planner.py           # Deterministic implementation planner
@@ -234,13 +271,18 @@ your-project/
 │   │   ├── planner.md       # Session 1 - creates implementation plan
 │   │   ├── coder.md         # Sessions 2+ - implements chunks
 │   │   ├── spec_gatherer.md # Requirements gathering agent
+│   │   ├── spec_researcher.md # External integration research agent
 │   │   ├── spec_writer.md   # Spec document creation agent
+│   │   ├── spec_critic.md   # Self-critique agent (ultrathink)
 │   │   ├── qa_reviewer.md   # QA validation agent
 │   │   └── qa_fixer.md      # QA fix agent
 │   └── specs/
 │       └── 001-feature/     # Each spec in its own folder
 │           ├── spec.md
 │           ├── requirements.json     # User requirements (structured)
+│           ├── research.json         # External integration research
+│           ├── context.json          # Codebase context
+│           ├── critique_report.json  # Self-critique findings
 │           ├── implementation_plan.json
 │           ├── qa_report.md          # QA validation report
 │           └── QA_FIX_REQUEST.md     # Issues to fix (if rejected)
@@ -251,13 +293,14 @@ your-project/
 
 - **Domain Agnostic**: Works for any software project (web apps, APIs, CLIs, etc.)
 - **Multi-Session**: Unlimited sessions, each with fresh context
+- **Research-First Specs**: External integrations validated against documentation before implementation
+- **Self-Critique**: Specs are critiqued using ultrathink to find issues before coding begins
 - **Parallel Execution**: 2-3x speedup with multiple workers on independent phases
 - **Isolated Worktrees**: Build in a separate workspace - your current work is never touched
 - **Self-Verifying**: Agents test their work with browser automation before marking complete
 - **QA Validation Loop**: Automated QA agent validates all acceptance criteria before sign-off
 - **Self-Healing**: QA finds issues → Fixer agent resolves → QA re-validates (up to 50 iterations)
-- **Strategic Analysis**: Deep thinking phase during spec creation ensures thorough planning
-- **Spec Validation**: Mandatory checkpoints with JSON schema validation catch errors before they propagate
+- **8-Phase Spec Pipeline**: Discovery → Requirements → Research → Context → Spec → Critique → Plan → Validate
 - **Fix Bugs Immediately**: Agents fix discovered bugs in the same session, not later
 - **Defense-in-Depth Security**: OS sandbox, filesystem restrictions, command allowlist
 - **Secret Scanning**: Automatic pre-commit scanning blocks secrets with actionable fix instructions
