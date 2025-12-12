@@ -817,7 +817,7 @@ def run_review_checkpoint(
             if not spec_file.exists():
                 print_status("spec.md not found", "error")
                 continue
-            _open_file_in_editor(spec_file)
+            open_file_in_editor(spec_file)
             # After editing, invalidate any previous approval
             if state.approved:
                 state.invalidate(spec_dir)
@@ -830,7 +830,7 @@ def run_review_checkpoint(
             if not plan_file.exists():
                 print_status("implementation_plan.json not found", "error")
                 continue
-            _open_file_in_editor(plan_file)
+            open_file_in_editor(plan_file)
             # After editing, invalidate any previous approval
             if state.approved:
                 state.invalidate(spec_dir)
@@ -862,11 +862,12 @@ def run_review_checkpoint(
             sys.exit(1)
 
 
-def _open_file_in_editor(file_path: Path) -> bool:
+def open_file_in_editor(file_path: Path) -> bool:
     """
     Open a file in the user's preferred editor.
 
     Uses $EDITOR environment variable, falling back to common editors.
+    For VS Code and VS Code Insiders, uses --wait flag to block until closed.
 
     Args:
         file_path: Path to the file to edit
