@@ -302,53 +302,6 @@ body {
   outline-offset: 2px;
 }
 
-/* Badge semantic variants */
-.badge-success {
-  background-color: var(--success-light);
-  color: var(--success);
-}
-
-.badge-warning {
-  background-color: var(--warning-light);
-  color: var(--warning);
-}
-
-.badge-error {
-  background-color: var(--error-light);
-  color: var(--error);
-}
-
-.badge-info {
-  background-color: var(--info-light);
-  color: var(--info);
-}
-
-/* Progress bar styling */
-.progress-track {
-  background-color: var(--border);
-}
-
-.progress-fill {
-  background-color: var(--primary);
-}
-
-/* Toggle/Switch styling */
-.toggle-track {
-  background-color: var(--border);
-}
-
-.toggle-track[data-state="checked"] {
-  background-color: var(--primary);
-}
-
-.toggle-thumb {
-  background-color: white;
-}
-
-.dark .toggle-thumb[data-state="checked"] {
-  background-color: var(--primary-foreground);
-}
-
 /* Column status colors for Kanban */
 .column-backlog {
   border-top-color: var(--muted-foreground);
@@ -417,28 +370,6 @@ body {
     transparent 100%
   );
   background-size: 200% 100%;
-}
-
-/* Animation utilities */
-.transition-default {
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.transition-fast {
-  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.transition-slow {
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* Hover scale effect */
-.hover-scale {
-  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.hover-scale:hover {
-  transform: scale(1.02);
 }
 
 /* Reduced motion support */

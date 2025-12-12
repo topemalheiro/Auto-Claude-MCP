@@ -67,7 +67,7 @@ import {
   EXECUTION_PHASE_COLORS
 } from '../../shared/constants';
 import { startTask, stopTask, submitReview, checkTaskRunning, recoverStuckTask, deleteTask } from '../stores/task-store';
-import type { Task, TaskCategory, ExecutionPhase, WorktreeStatus, WorktreeDiff } from '../../shared/types';
+import type { Task, TaskCategory, ExecutionPhase, WorktreeStatus, WorktreeDiff, ReviewReason } from '../../shared/types';
 
 // Category icon mapping
 const CategoryIcon: Record<TaskCategory, typeof Target> = {
@@ -187,9 +187,12 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
 
   const handleRecover = async () => {
     setIsRecovering(true);
-    const result = await recoverStuckTask(task.id, 'backlog');
+    // Auto-restart the task after recovery (no need to click Start again)
+    const result = await recoverStuckTask(task.id, { autoRestart: true });
     if (result.success) {
       setIsStuck(false);
+      // Reset the check flag so it will re-verify running state
+      setHasCheckedRunning(false);
     }
     setIsRecovering(false);
   };
@@ -292,12 +295,23 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
                   Stuck
                 </Badge>
               ) : (
-                <Badge
-                  variant={task.status === 'done' ? 'success' : task.status === 'human_review' ? 'purple' : task.status === 'in_progress' ? 'info' : 'secondary'}
-                  className={cn('text-xs', (task.status === 'in_progress' && !isStuck) && 'status-running')}
-                >
-                  {TASK_STATUS_LABELS[task.status]}
-                </Badge>
+                <>
+                  <Badge
+                    variant={task.status === 'done' ? 'success' : task.status === 'human_review' ? 'purple' : task.status === 'in_progress' ? 'info' : 'secondary'}
+                    className={cn('text-xs', (task.status === 'in_progress' && !isStuck) && 'status-running')}
+                  >
+                    {TASK_STATUS_LABELS[task.status]}
+                  </Badge>
+                  {/* Review reason badge - explains why task needs human review */}
+                  {task.status === 'human_review' && task.reviewReason && (
+                    <Badge
+                      variant={task.reviewReason === 'completed' ? 'success' : task.reviewReason === 'errors' ? 'destructive' : 'warning'}
+                      className="text-xs"
+                    >
+                      {task.reviewReason === 'completed' ? 'Completed' : task.reviewReason === 'errors' ? 'Has Errors' : 'QA Issues'}
+                    </Badge>
+                  )}
+                </>
               )}
             </div>
           </div>
@@ -363,7 +377,7 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
                         ) : (
                           <>
                             <RotateCcw className="mr-2 h-4 w-4" />
-                            Recover Task (Move to Planning)
+                            Recover & Restart Task
                           </>
                         )}
                       </Button>
@@ -1033,18 +1047,20 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
               <AlertTriangle className="h-5 w-5 text-destructive" />
               Delete Task
             </AlertDialogTitle>
-            <AlertDialogDescription className="space-y-3">
-              <p>
-                Are you sure you want to delete <strong className="text-foreground">"{task.title}"</strong>?
-              </p>
-              <p className="text-destructive">
-                This action cannot be undone. All task files, including the spec, implementation plan, and any generated code will be permanently deleted from the project.
-              </p>
-              {deleteError && (
-                <p className="text-destructive bg-destructive/10 px-3 py-2 rounded-lg text-sm">
-                  {deleteError}
+            <AlertDialogDescription asChild>
+              <div className="text-sm text-muted-foreground space-y-3">
+                <p>
+                  Are you sure you want to delete <strong className="text-foreground">"{task.title}"</strong>?
                 </p>
-              )}
+                <p className="text-destructive">
+                  This action cannot be undone. All task files, including the spec, implementation plan, and any generated code will be permanently deleted from the project.
+                </p>
+                {deleteError && (
+                  <p className="text-destructive bg-destructive/10 px-3 py-2 rounded-lg text-sm">
+                    {deleteError}
+                  </p>
+                )}
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1081,27 +1097,29 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
               <FolderX className="h-5 w-5 text-destructive" />
               Discard Build
             </AlertDialogTitle>
-            <AlertDialogDescription className="space-y-3">
-              <p>
-                Are you sure you want to discard all changes for <strong className="text-foreground">"{task.title}"</strong>?
-              </p>
-              <p className="text-destructive">
-                This will permanently delete the isolated workspace and all uncommitted changes.
-                The task will be moved back to Planning status.
-              </p>
-              {worktreeStatus?.exists && (
-                <div className="bg-muted/50 rounded-lg p-3 text-sm">
-                  <div className="flex justify-between mb-1">
-                    <span className="text-muted-foreground">Files changed:</span>
-                    <span>{worktreeStatus.filesChanged || 0}</span>
+            <AlertDialogDescription asChild>
+              <div className="text-sm text-muted-foreground space-y-3">
+                <p>
+                  Are you sure you want to discard all changes for <strong className="text-foreground">"{task.title}"</strong>?
+                </p>
+                <p className="text-destructive">
+                  This will permanently delete the isolated workspace and all uncommitted changes.
+                  The task will be moved back to Planning status.
+                </p>
+                {worktreeStatus?.exists && (
+                  <div className="bg-muted/50 rounded-lg p-3 text-sm">
+                    <div className="flex justify-between mb-1">
+                      <span className="text-muted-foreground">Files changed:</span>
+                      <span>{worktreeStatus.filesChanged || 0}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Lines:</span>
+                      <span className="text-success">+{worktreeStatus.additions || 0}</span>
+                      <span className="text-destructive">-{worktreeStatus.deletions || 0}</span>
+                    </div>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Lines:</span>
-                    <span className="text-success">+{worktreeStatus.additions || 0}</span>
-                    <span className="text-destructive">-{worktreeStatus.deletions || 0}</span>
-                  </div>
-                </div>
-              )}
+                )}
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

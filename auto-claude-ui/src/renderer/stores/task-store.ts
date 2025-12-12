@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Task, TaskStatus, ImplementationPlan, Chunk, TaskMetadata, ExecutionProgress, ExecutionPhase } from '../../shared/types';
+import type { Task, TaskStatus, ImplementationPlan, Chunk, TaskMetadata, ExecutionProgress, ExecutionPhase, ReviewReason } from '../../shared/types';
 
 interface TaskState {
   tasks: Task[];
@@ -71,19 +71,28 @@ export const useTaskStore = create<TaskState>((set, get) => ({
           }))
         );
 
-        // Determine status based on chunks
-        // Note: chunks.every() returns true for empty arrays, so we must check length > 0
+        // Determine status and reviewReason based on chunks
+        // This logic must match the backend (project-store.ts) exactly
         const allCompleted = chunks.length > 0 && chunks.every((c) => c.status === 'completed');
         const anyInProgress = chunks.some((c) => c.status === 'in_progress');
         const anyFailed = chunks.some((c) => c.status === 'failed');
+        const anyCompleted = chunks.some((c) => c.status === 'completed');
 
         let status: TaskStatus = t.status;
+        let reviewReason: ReviewReason | undefined = t.reviewReason;
+
         if (allCompleted) {
+          // All chunks done - waiting for QA review
           status = 'ai_review';
+          reviewReason = undefined;
         } else if (anyFailed) {
+          // Some chunks failed - needs human attention
           status = 'human_review';
-        } else if (anyInProgress || chunks.some((c) => c.status === 'completed')) {
+          reviewReason = 'errors';
+        } else if (anyInProgress || anyCompleted) {
+          // Work in progress
           status = 'in_progress';
+          reviewReason = undefined;
         }
 
         return {
@@ -91,6 +100,7 @@ export const useTaskStore = create<TaskState>((set, get) => ({
           title: plan.feature || t.title,
           chunks,
           status,
+          reviewReason,
           updatedAt: new Date()
         };
       })
@@ -272,20 +282,26 @@ export async function checkTaskRunning(taskId: string): Promise<boolean> {
 
 /**
  * Recover a stuck task (status shows in_progress but no process running)
+ * @param taskId - The task ID to recover
+ * @param options - Recovery options (autoRestart defaults to true)
  */
 export async function recoverStuckTask(
   taskId: string,
-  targetStatus: TaskStatus = 'backlog'
-): Promise<{ success: boolean; message: string }> {
+  options: { targetStatus?: TaskStatus; autoRestart?: boolean } = { autoRestart: true }
+): Promise<{ success: boolean; message: string; autoRestarted?: boolean }> {
   const store = useTaskStore.getState();
 
   try {
-    const result = await window.electronAPI.recoverStuckTask(taskId, targetStatus);
+    const result = await window.electronAPI.recoverStuckTask(taskId, options);
 
     if (result.success && result.data) {
       // Update local state
       store.updateTaskStatus(taskId, result.data.newStatus);
-      return { success: true, message: result.data.message };
+      return { 
+        success: true, 
+        message: result.data.message,
+        autoRestarted: result.data.autoRestarted
+      };
     }
 
     return {

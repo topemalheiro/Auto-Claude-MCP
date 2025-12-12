@@ -154,11 +154,11 @@ export function TerminalGrid({ projectPath }: TerminalGridProps) {
         <PanelGroup direction="vertical" className="h-full">
           {terminalRows.map((row, rowIndex) => (
             <div key={rowIndex} className="contents">
-              <Panel defaultSize={100 / terminalRows.length} minSize={15}>
+              <Panel id={`row-${rowIndex}`} order={rowIndex} defaultSize={100 / terminalRows.length} minSize={15}>
                 <PanelGroup direction="horizontal" className="h-full">
                   {row.map((terminal, colIndex) => (
                     <div key={terminal.id} className="contents">
-                      <Panel defaultSize={100 / row.length} minSize={20}>
+                      <Panel id={terminal.id} order={colIndex} defaultSize={100 / row.length} minSize={20}>
                         <div className="h-full p-1">
                           <Terminal
                             id={terminal.id}

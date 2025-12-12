@@ -846,8 +846,10 @@ export function setupIpcHandlers(
     async (
       _,
       taskId: string,
-      targetStatus?: TaskStatus
-    ): Promise<IPCResult<{ taskId: string; recovered: boolean; newStatus: TaskStatus; message: string }>> => {
+      options?: { targetStatus?: TaskStatus; autoRestart?: boolean }
+    ): Promise<IPCResult<{ taskId: string; recovered: boolean; newStatus: TaskStatus; message: string; autoRestarted?: boolean }>> => {
+      const targetStatus = options?.targetStatus;
+      const autoRestart = options?.autoRestart ?? false;
       // Check if task is actually running
       const isActuallyRunning = agentManager.isRunning(taskId);
 
@@ -978,6 +980,54 @@ export function setupIpcHandlers(
         // Stop file watcher if it was watching this task
         fileWatcher.unwatch(taskId);
 
+        // Auto-restart the task if requested
+        let autoRestarted = false;
+        if (autoRestart && project) {
+          try {
+            // Set status to in_progress for the restart
+            newStatus = 'in_progress';
+            
+            // Update plan status for restart
+            if (plan) {
+              plan.status = 'in_progress';
+              plan.planStatus = 'in_progress';
+              writeFileSync(planPath, JSON.stringify(plan, null, 2));
+            }
+
+            // Start the task execution
+            const devMode = project.settings.devMode ?? false;
+            
+            // Check if we should use parallel mode
+            const hasMultipleChunks = task.chunks.length > 1;
+            const pendingChunks = task.chunks.filter(c => c.status === 'pending').length;
+            const parallelEnabled = project.settings.parallelEnabled;
+            const useParallel = parallelEnabled && hasMultipleChunks && pendingChunks > 1;
+            const workers = useParallel ? project.settings.maxWorkers : 1;
+
+            // Start file watcher for this task
+            const specsBaseDir = getSpecsDir(project.autoBuildPath, devMode);
+            const specDirForWatcher = path.join(project.path, specsBaseDir, task.specId);
+            fileWatcher.watch(taskId, specDirForWatcher);
+            
+            agentManager.startTaskExecution(
+              taskId,
+              project.path,
+              task.specId,
+              {
+                parallel: useParallel,
+                workers,
+                devMode
+              }
+            );
+            
+            autoRestarted = true;
+            console.log(`[Recovery] Auto-restarted task ${taskId}`);
+          } catch (restartError) {
+            console.error('Failed to auto-restart task after recovery:', restartError);
+            // Recovery succeeded but restart failed - still report success
+          }
+        }
+
         // Notify renderer of status change
         const mainWindow = getMainWindow();
         if (mainWindow) {
@@ -994,7 +1044,10 @@ export function setupIpcHandlers(
             taskId,
             recovered: true,
             newStatus,
-            message: `Task recovered successfully and moved to ${newStatus}`
+            message: autoRestarted 
+              ? 'Task recovered and restarted successfully'
+              : `Task recovered successfully and moved to ${newStatus}`,
+            autoRestarted
           }
         };
       } catch (error) {

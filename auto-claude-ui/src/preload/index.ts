@@ -127,9 +127,9 @@ const electronAPI: ElectronAPI = {
 
   recoverStuckTask: (
     taskId: string,
-    targetStatus?: import('../shared/types').TaskStatus
+    options?: import('../shared/types').TaskRecoveryOptions
   ): Promise<IPCResult<import('../shared/types').TaskRecoveryResult>> =>
-    ipcRenderer.invoke(IPC_CHANNELS.TASK_RECOVER_STUCK, taskId, targetStatus),
+    ipcRenderer.invoke(IPC_CHANNELS.TASK_RECOVER_STUCK, taskId, options),
 
   checkTaskRunning: (taskId: string): Promise<IPCResult<boolean>> =>
     ipcRenderer.invoke(IPC_CHANNELS.TASK_CHECK_RUNNING, taskId),

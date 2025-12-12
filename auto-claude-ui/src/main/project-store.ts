@@ -2,7 +2,7 @@ import { app } from 'electron';
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from 'fs';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
-import type { Project, ProjectSettings, Task, TaskStatus, TaskMetadata, ImplementationPlan } from '../shared/types';
+import type { Project, ProjectSettings, Task, TaskStatus, TaskMetadata, ImplementationPlan, ReviewReason } from '../shared/types';
 import { DEFAULT_PROJECT_SETTINGS, AUTO_BUILD_PATHS, getSpecsDir } from '../shared/constants';
 import { getAutoBuildPath } from './project-initializer';
 
@@ -213,8 +213,8 @@ export class ProjectStore {
           }
         }
 
-        // Determine task status from plan
-        const status = this.determineTaskStatus(plan, specPath);
+        // Determine task status and review reason from plan
+        const { status, reviewReason } = this.determineTaskStatusAndReason(plan, specPath);
 
         // Extract chunks from plan
         const chunks = plan?.phases.flatMap((phase) =>
@@ -234,6 +234,7 @@ export class ProjectStore {
           title: plan?.feature || dir.name,
           description,
           status,
+          reviewReason,
           chunks,
           logs: [],
           metadata,
@@ -249,16 +250,70 @@ export class ProjectStore {
   }
 
   /**
-   * Determine task status based on plan and files
+   * Determine task status and review reason based on plan and files.
+   *
+   * This method calculates the correct status from chunk progress and QA state,
+   * providing backwards compatibility for existing tasks with incorrect status.
+   *
+   * Review reasons:
+   * - 'completed': All chunks done, QA passed - ready for merge
+   * - 'errors': Chunks failed during execution - needs attention
+   * - 'qa_rejected': QA found issues that need fixing
    */
-  private determineTaskStatus(
+  private determineTaskStatusAndReason(
     plan: ImplementationPlan | null,
     specPath: string
-  ): TaskStatus {
-    // First, check if plan has an explicit status field (set by UI)
-    // This is the primary source of truth for persisted status
+  ): { status: TaskStatus; reviewReason?: ReviewReason } {
+    const allChunks = plan?.phases?.flatMap((p) => p.chunks) || [];
+
+    let calculatedStatus: TaskStatus = 'backlog';
+    let reviewReason: ReviewReason | undefined;
+
+    if (allChunks.length > 0) {
+      const completed = allChunks.filter((c) => c.status === 'completed').length;
+      const inProgress = allChunks.filter((c) => c.status === 'in_progress').length;
+      const failed = allChunks.filter((c) => c.status === 'failed').length;
+
+      if (completed === allChunks.length) {
+        // All chunks completed - check QA status
+        const qaSignoff = (plan as unknown as Record<string, unknown>)?.qa_signoff as { status?: string } | undefined;
+        if (qaSignoff?.status === 'approved') {
+          calculatedStatus = 'human_review';
+          reviewReason = 'completed';
+        } else {
+          calculatedStatus = 'ai_review';
+        }
+      } else if (failed > 0) {
+        // Some chunks failed - needs human attention
+        calculatedStatus = 'human_review';
+        reviewReason = 'errors';
+      } else if (inProgress > 0 || completed > 0) {
+        calculatedStatus = 'in_progress';
+      }
+    }
+
+    // Check QA report file for additional status info
+    const qaReportPath = path.join(specPath, AUTO_BUILD_PATHS.QA_REPORT);
+    if (existsSync(qaReportPath)) {
+      try {
+        const content = readFileSync(qaReportPath, 'utf-8');
+        if (content.includes('REJECTED') || content.includes('FAILED')) {
+          return { status: 'human_review', reviewReason: 'qa_rejected' };
+        }
+        if (content.includes('PASSED') || content.includes('APPROVED')) {
+          // QA passed - if all chunks done, move to human_review
+          if (allChunks.length > 0 && allChunks.every((c) => c.status === 'completed')) {
+            return { status: 'human_review', reviewReason: 'completed' };
+          }
+        }
+      } catch {
+        // Ignore read errors
+      }
+    }
+
+    // If we have an explicit status from the plan that's NOT inconsistent with chunks,
+    // prefer it (allows UI to set status like 'done' manually)
     if (plan?.status) {
-      // Map plan status to TaskStatus
       const statusMap: Record<string, TaskStatus> = {
         'pending': 'backlog',
         'in_progress': 'in_progress',
@@ -269,53 +324,33 @@ export class ProjectStore {
         'ai_review': 'ai_review',
         'backlog': 'backlog'
       };
-      const mappedStatus = statusMap[plan.status];
-      if (mappedStatus) {
-        return mappedStatus;
+      const storedStatus = statusMap[plan.status];
+
+      // Only trust stored status if it's not clearly wrong
+      if (storedStatus) {
+        const isStoredStatusValid =
+          storedStatus === 'done' || // User explicitly marked as done
+          (storedStatus === calculatedStatus) || // Matches calculated
+          (storedStatus === 'human_review' && calculatedStatus === 'ai_review'); // Human review is more advanced than ai_review
+
+        if (isStoredStatusValid) {
+          // Preserve reviewReason for human_review status
+          if (storedStatus === 'human_review' && !reviewReason) {
+            // Infer reason from chunk states
+            const hasFailedChunks = allChunks.some((c) => c.status === 'failed');
+            const allCompleted = allChunks.length > 0 && allChunks.every((c) => c.status === 'completed');
+            if (hasFailedChunks) {
+              reviewReason = 'errors';
+            } else if (allCompleted) {
+              reviewReason = 'completed';
+            }
+          }
+          return { status: storedStatus, reviewReason: storedStatus === 'human_review' ? reviewReason : undefined };
+        }
       }
     }
 
-    // Fallback: Check for QA report (human review needed)
-    const qaReportPath = path.join(specPath, AUTO_BUILD_PATHS.QA_REPORT);
-    if (existsSync(qaReportPath)) {
-      try {
-        const content = readFileSync(qaReportPath, 'utf-8');
-        if (content.includes('REJECTED') || content.includes('FAILED')) {
-          return 'human_review';
-        }
-        if (content.includes('PASSED') || content.includes('APPROVED')) {
-          return 'done';
-        }
-      } catch {
-        // Ignore
-      }
-    }
-
-    if (!plan) return 'backlog';
-
-    // Fallback: Derive from chunk statuses
-    const allChunks = plan.phases?.flatMap((p) => p.chunks) || [];
-
-    // No chunks yet means task is still in planning/backlog
-    if (allChunks.length === 0) {
-      return 'backlog';
-    }
-
-    const completed = allChunks.filter((c) => c.status === 'completed').length;
-    const inProgress = allChunks.filter((c) => c.status === 'in_progress').length;
-    const failed = allChunks.filter((c) => c.status === 'failed').length;
-
-    // All completed
-    if (completed === allChunks.length) {
-      return 'ai_review';
-    }
-
-    // Any in progress or some completed
-    if (inProgress > 0 || completed > 0 || failed > 0) {
-      return 'in_progress';
-    }
-
-    return 'backlog';
+    return { status: calculatedStatus, reviewReason: calculatedStatus === 'human_review' ? reviewReason : undefined };
   }
 }
 

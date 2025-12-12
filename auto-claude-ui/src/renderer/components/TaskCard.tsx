@@ -19,7 +19,7 @@ import {
   EXECUTION_PHASE_BADGE_COLORS
 } from '../../shared/constants';
 import { startTask, stopTask, checkTaskRunning, recoverStuckTask } from '../stores/task-store';
-import type { Task, TaskCategory, ExecutionPhase } from '../../shared/types';
+import type { Task, TaskCategory, ExecutionPhase, ReviewReason } from '../../shared/types';
 
 // Category icon mapping
 const CategoryIcon: Record<TaskCategory, typeof Zap> = {
@@ -74,9 +74,12 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
   const handleRecover = async (e: React.MouseEvent) => {
     e.stopPropagation();
     setIsRecovering(true);
-    const result = await recoverStuckTask(task.id, 'backlog');
+    // Auto-restart the task after recovery (no need to click Start again)
+    const result = await recoverStuckTask(task.id, { autoRestart: true });
     if (result.success) {
       setIsStuck(false);
+      // Reset the check flag so it will re-verify running state
+      setHasCheckedRunning(false);
     }
     setIsRecovering(false);
   };
@@ -111,6 +114,22 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
     }
   };
 
+  const getReviewReasonLabel = (reason?: ReviewReason): { label: string; variant: 'success' | 'destructive' | 'warning' } | null => {
+    if (!reason) return null;
+    switch (reason) {
+      case 'completed':
+        return { label: 'Completed', variant: 'success' };
+      case 'errors':
+        return { label: 'Has Errors', variant: 'destructive' };
+      case 'qa_rejected':
+        return { label: 'QA Issues', variant: 'warning' };
+      default:
+        return null;
+    }
+  };
+
+  const reviewReasonInfo = task.status === 'human_review' ? getReviewReasonLabel(task.reviewReason) : null;
+
   return (
     <Card
       className={cn(
@@ -129,7 +148,7 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
           >
             {task.title}
           </h3>
-          <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end max-w-[140px]">
+          <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end max-w-[160px]">
             {/* Stuck indicator - highest priority */}
             {isStuck && (
               <Badge
@@ -159,6 +178,15 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
             >
               {isStuck ? 'Needs Recovery' : getStatusLabel(task.status)}
             </Badge>
+            {/* Review reason badge - explains why task needs human review */}
+            {reviewReasonInfo && !isStuck && (
+              <Badge
+                variant={reviewReasonInfo.variant}
+                className="text-[10px] px-1.5 py-0.5"
+              >
+                {reviewReasonInfo.label}
+              </Badge>
+            )}
           </div>
         </div>
 

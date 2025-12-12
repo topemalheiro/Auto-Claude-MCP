@@ -35,6 +35,9 @@ export interface NotificationSettings {
 // Task Types
 export type TaskStatus = 'backlog' | 'in_progress' | 'ai_review' | 'human_review' | 'done';
 
+// Reason why a task is in human_review status
+export type ReviewReason = 'completed' | 'errors' | 'qa_rejected';
+
 export type ChunkStatus = 'pending' | 'in_progress' | 'completed' | 'failed';
 
 // Execution phases for visual progress tracking
@@ -130,6 +133,7 @@ export interface Task {
   title: string;
   description: string;
   status: TaskStatus;
+  reviewReason?: ReviewReason;  // Why task needs human review (only set when status is 'human_review')
   chunks: Chunk[];
   qaReport?: QAReport;
   logs: string[];
@@ -238,6 +242,12 @@ export interface TaskRecoveryResult {
   recovered: boolean;
   newStatus: TaskStatus;
   message: string;
+  autoRestarted?: boolean;
+}
+
+export interface TaskRecoveryOptions {
+  targetStatus?: TaskStatus;
+  autoRestart?: boolean;
 }
 
 export interface TaskProgressUpdate {
@@ -1022,7 +1032,7 @@ export interface ElectronAPI {
   stopTask: (taskId: string) => void;
   submitReview: (taskId: string, approved: boolean, feedback?: string) => Promise<IPCResult>;
   updateTaskStatus: (taskId: string, status: TaskStatus) => Promise<IPCResult>;
-  recoverStuckTask: (taskId: string, targetStatus?: TaskStatus) => Promise<IPCResult<TaskRecoveryResult>>;
+  recoverStuckTask: (taskId: string, options?: TaskRecoveryOptions) => Promise<IPCResult<TaskRecoveryResult>>;
   checkTaskRunning: (taskId: string) => Promise<IPCResult<boolean>>;
 
   // Workspace management (for human review)
