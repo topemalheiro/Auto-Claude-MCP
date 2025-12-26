@@ -255,25 +255,41 @@ function extractTarGz(archivePath, destDir) {
   // Ensure destination exists
   fs.mkdirSync(destDir, { recursive: true });
 
-  // Build tar arguments
-  // On Windows, paths like D:\path are misinterpreted as remote host:path
-  // --force-local tells tar to treat colons as part of the filename
-  const tarArgs = ['-xzf', archivePath, '-C', destDir];
-  if (os.platform() === 'win32') {
-    tarArgs.unshift('--force-local');
-  }
+  const isWindows = os.platform() === 'win32';
 
-  // Use tar command with array arguments (safer than string interpolation)
-  const result = spawnSync('tar', tarArgs, {
-    stdio: 'inherit',
-  });
+  // On Windows, use PowerShell to extract tar.gz (most reliable cross-platform)
+  // This avoids all the path escaping issues with tar command
+  if (isWindows) {
+    // PowerShell can extract tar.gz natively on Windows 10+
+    const psCommand = `
+      $ErrorActionPreference = 'Stop'
+      tar -xzf "${archivePath}" -C "${destDir}"
+    `;
 
-  if (result.error) {
-    throw new Error(`Failed to extract archive: ${result.error.message}`);
-  }
+    const result = spawnSync('powershell', ['-NoProfile', '-Command', psCommand], {
+      stdio: 'inherit',
+    });
 
-  if (result.status !== 0) {
-    throw new Error(`Failed to extract archive: tar exited with code ${result.status}`);
+    if (result.error) {
+      throw new Error(`Failed to extract archive: ${result.error.message}`);
+    }
+
+    if (result.status !== 0) {
+      throw new Error(`Failed to extract archive: PowerShell exited with code ${result.status}`);
+    }
+  } else {
+    // Unix: use tar directly
+    const result = spawnSync('tar', ['-xzf', archivePath, '-C', destDir], {
+      stdio: 'inherit',
+    });
+
+    if (result.error) {
+      throw new Error(`Failed to extract archive: ${result.error.message}`);
+    }
+
+    if (result.status !== 0) {
+      throw new Error(`Failed to extract archive: tar exited with code ${result.status}`);
+    }
   }
 
   console.log(`[download-python] Extraction complete`);
