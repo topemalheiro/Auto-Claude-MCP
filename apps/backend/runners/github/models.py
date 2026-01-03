@@ -383,6 +383,9 @@ class PRReviewResult:
 
     # Follow-up review tracking
     reviewed_commit_sha: str | None = None  # HEAD SHA at time of review
+    reviewed_file_blobs: dict[str, str] = field(
+        default_factory=dict
+    )  # filename → blob SHA at time of review (survives rebases)
     is_followup_review: bool = False  # True if this is a follow-up review
     previous_review_id: int | None = None  # Reference to the review this follows up on
     resolved_findings: list[str] = field(default_factory=list)  # Finding IDs now fixed
@@ -421,6 +424,7 @@ class PRReviewResult:
             "quick_scan_summary": self.quick_scan_summary,
             # Follow-up review fields
             "reviewed_commit_sha": self.reviewed_commit_sha,
+            "reviewed_file_blobs": self.reviewed_file_blobs,
             "is_followup_review": self.is_followup_review,
             "previous_review_id": self.previous_review_id,
             "resolved_findings": self.resolved_findings,
@@ -465,6 +469,7 @@ class PRReviewResult:
             quick_scan_summary=data.get("quick_scan_summary", {}),
             # Follow-up review fields
             reviewed_commit_sha=data.get("reviewed_commit_sha"),
+            reviewed_file_blobs=data.get("reviewed_file_blobs", {}),
             is_followup_review=data.get("is_followup_review", False),
             previous_review_id=data.get("previous_review_id"),
             resolved_findings=data.get("resolved_findings", []),
@@ -561,6 +566,12 @@ class FollowupReviewContext:
     # PR reviews since last review (formal review submissions from Cursor, CodeRabbit, etc.)
     # These are different from comments - they're full review submissions with body text
     pr_reviews_since_review: list[dict] = field(default_factory=list)
+
+    # Merge conflict status
+    has_merge_conflicts: bool = False  # True if PR has conflicts with base branch
+    merge_state_status: str = (
+        ""  # BEHIND, BLOCKED, CLEAN, DIRTY, HAS_HOOKS, UNKNOWN, UNSTABLE
+    )
 
     # Error flag - if set, context gathering failed and data may be incomplete
     error: str | None = None

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { useTerminalStore } from '../../stores/terminal-store';
 
 interface UsePtyProcessOptions {
@@ -22,8 +22,21 @@ export function usePtyProcess({
 }: UsePtyProcessOptions) {
   const isCreatingRef = useRef(false);
   const isCreatedRef = useRef(false);
+  const currentCwdRef = useRef(cwd);
   const setTerminalStatus = useTerminalStore((state) => state.setTerminalStatus);
   const updateTerminal = useTerminalStore((state) => state.updateTerminal);
+
+  // Track cwd changes - if cwd changes while terminal exists, trigger recreate
+  useEffect(() => {
+    if (currentCwdRef.current !== cwd) {
+      if (isCreatedRef.current) {
+        // Terminal exists, reset refs to allow recreation
+        isCreatedRef.current = false;
+        isCreatingRef.current = false;
+      }
+      currentCwdRef.current = cwd;
+    }
+  }, [cwd]);
 
   // Create PTY process
   useEffect(() => {
@@ -92,7 +105,22 @@ export function usePtyProcess({
     }
   }, [terminalId, cwd, projectPath, cols, rows, setTerminalStatus, updateTerminal, onCreated, onError]);
 
+  // Function to prepare for recreation by preventing the effect from running
+  // Call this BEFORE updating the store cwd to avoid race condition
+  const prepareForRecreate = useCallback(() => {
+    isCreatingRef.current = true;
+  }, []);
+
+  // Function to reset refs and allow recreation
+  // Call this AFTER destroying the old terminal
+  const resetForRecreate = useCallback(() => {
+    isCreatedRef.current = false;
+    isCreatingRef.current = false;
+  }, []);
+
   return {
     isCreated: isCreatedRef.current,
+    prepareForRecreate,
+    resetForRecreate,
   };
 }
