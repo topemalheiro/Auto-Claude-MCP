@@ -44,7 +44,7 @@ export function IssueList({
             issue={issue}
             isSelected={selectedIssueNumber === issue.number}
             onClick={() => onSelectIssue(issue.number)}
-            onInvestigate={() => onInvestigate(issue)}
+            onInvestigate={onInvestigate ? () => onInvestigate(issue) : undefined}
           />
         ))}
       </div>

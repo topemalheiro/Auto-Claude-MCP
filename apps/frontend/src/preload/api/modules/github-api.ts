@@ -288,6 +288,13 @@ export interface GitHubAPI {
   onPRReviewError: (
     callback: (projectId: string, error: { prNumber: number; error: string }) => void
   ) => IpcListenerCleanup;
+
+  // Auto-PR-Review operations (autonomous review and fix loop)
+  startAutoPRReview: (request: AutoPRReviewStartRequest) => Promise<AutoPRReviewStartResponse>;
+  stopAutoPRReview: (request: AutoPRReviewStopRequest) => Promise<AutoPRReviewStopResponse>;
+  getAutoPRReviewStatus: (request: AutoPRReviewStatusRequest) => Promise<AutoPRReviewStatusResponse>;
+  getAutoPRReviewConfig: () => Promise<{ config: AutoPRReviewConfig; enabled: boolean } | null>;
+  saveAutoPRReviewConfig: (args: { config: Partial<AutoPRReviewConfig>; enabled?: boolean }) => Promise<{ success: boolean; error?: string }>;
 }
 
 /**
@@ -490,7 +497,8 @@ export type AutoPRReviewStatus =
   | 'pr_ready_to_merge'
   | 'completed'
   | 'failed'
-  | 'cancelled';
+  | 'cancelled'
+  | 'max_iterations';
 
 /** Status of a CI check run */
 export interface CICheckStatus {
@@ -577,7 +585,7 @@ export interface AutoPRReviewStatusResponse {
 
 /** Type guard to check if a status is a terminal state */
 export function isTerminalStatus(status: AutoPRReviewStatus): boolean {
-  return ['completed', 'failed', 'cancelled', 'pr_ready_to_merge'].includes(status);
+  return ['completed', 'failed', 'cancelled', 'pr_ready_to_merge', 'max_iterations'].includes(status);
 }
 
 /** Type guard to check if a status indicates the review is in progress */
@@ -835,5 +843,21 @@ export const createGitHubAPI = (): GitHubAPI => ({
   onPRReviewError: (
     callback: (projectId: string, error: { prNumber: number; error: string }) => void
   ): IpcListenerCleanup =>
-    createIpcListener(IPC_CHANNELS.GITHUB_PR_REVIEW_ERROR, callback)
+    createIpcListener(IPC_CHANNELS.GITHUB_PR_REVIEW_ERROR, callback),
+
+  // Auto-PR-Review operations (autonomous review and fix loop)
+  startAutoPRReview: (request: AutoPRReviewStartRequest): Promise<AutoPRReviewStartResponse> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_AUTO_PR_REVIEW_START, request),
+
+  stopAutoPRReview: (request: AutoPRReviewStopRequest): Promise<AutoPRReviewStopResponse> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_AUTO_PR_REVIEW_STOP, request),
+
+  getAutoPRReviewStatus: (request: AutoPRReviewStatusRequest): Promise<AutoPRReviewStatusResponse> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_AUTO_PR_REVIEW_GET_STATUS, request),
+
+  getAutoPRReviewConfig: (): Promise<{ config: AutoPRReviewConfig; enabled: boolean } | null> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_AUTO_PR_REVIEW_GET_CONFIG),
+
+  saveAutoPRReviewConfig: (args: { config: Partial<AutoPRReviewConfig>; enabled?: boolean }): Promise<{ success: boolean; error?: string }> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_AUTO_PR_REVIEW_SAVE_CONFIG, args),
 });

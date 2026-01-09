@@ -18,7 +18,7 @@ import type {
   CICheckStatus,
   ExternalBotStatus,
   AutoPRReviewStatus,
-} from '../../../../preload/api/modules/github-api';
+} from '../types';
 
 // =============================================================================
 // Types
@@ -100,6 +100,12 @@ const STATUS_CONFIG: Record<AutoPRReviewStatus, StatusConfig> = {
     color: 'text-gray-600',
     bgColor: 'bg-gray-50',
     borderColor: 'border-gray-300',
+  },
+  max_iterations: {
+    label: 'autoPRReview.status.maxIterations',
+    color: 'text-orange-600',
+    bgColor: 'bg-orange-50',
+    borderColor: 'border-orange-300',
   },
 };
 
@@ -318,7 +324,7 @@ export function AutoPRReviewProgressCard({
   );
 
   const isTerminal = useMemo(
-    () => ['completed', 'failed', 'cancelled', 'pr_ready_to_merge'].includes(progress.status),
+    () => ['completed', 'failed', 'cancelled', 'pr_ready_to_merge', 'max_iterations'].includes(progress.status),
     [progress.status]
   );
 

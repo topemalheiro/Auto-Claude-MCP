@@ -16,6 +16,8 @@ import {
   ExternalLink,
   Play,
   Clock,
+  Wand2,
+  StopCircle,
 } from 'lucide-react';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
@@ -32,10 +34,13 @@ import { PRLogs } from './PRLogs';
 
 import type { PRData, PRReviewResult, PRReviewProgress } from '../hooks/useGitHubPRs';
 import type { NewCommitsCheck, MergeReadiness, PRLogs as PRLogsType, WorkflowsAwaitingApprovalResult } from '../../../../preload/api/modules/github-api';
+import { useAutoPRReview } from '../../github-issues/hooks/useAutoPRReview';
+import { AutoPRReviewProgressCard } from '../../github-issues/components/AutoPRReviewProgressCard';
 
 interface PRDetailProps {
   pr: PRData;
   projectId: string;
+  repoFullName: string | null;
   reviewResult: PRReviewResult | null;
   previousReviewResult: PRReviewResult | null;
   reviewProgress: PRReviewProgress | null;
@@ -68,6 +73,7 @@ function getStatusColor(status: PRReviewResult['overallStatus']): string {
 export function PRDetail({
   pr,
   projectId,
+  repoFullName,
   reviewResult,
   previousReviewResult,
   reviewProgress,
@@ -85,7 +91,7 @@ export function PRDetail({
   onAssignPR: _onAssignPR,
   onGetLogs,
 }: PRDetailProps) {
-  const { t } = useTranslation('common');
+  const { t } = useTranslation(['common', 'github']);
   // Selection state for findings
   const [selectedFindingIds, setSelectedFindingIds] = useState<Set<string>>(new Set());
   const [postedFindingIds, setPostedFindingIds] = useState<Set<string>>(new Set());
@@ -113,6 +119,20 @@ export function PRDetail({
   const [workflowsAwaiting, setWorkflowsAwaiting] = useState<WorkflowsAwaitingApprovalResult | null>(null);
   const [isApprovingWorkflow, setIsApprovingWorkflow] = useState<number | null>(null);
   const [workflowsExpanded, setWorkflowsExpanded] = useState(true);
+
+  // Auto PR Review state (autonomous review and fix loop)
+  const {
+    startReview: startAutoPRReview,
+    cancelReview: cancelAutoPRReview,
+    isReviewActive: isAutoPRReviewActive,
+    getReviewProgress: getAutoPRReviewProgress,
+    error: autoPRReviewError,
+    clearError: clearAutoPRReviewError,
+  } = useAutoPRReview();
+
+  // Check if auto PR review is active for this PR
+  const autoPRReviewProgress = repoFullName ? getAutoPRReviewProgress(repoFullName, pr.number) : undefined;
+  const isAutoReviewActive = repoFullName ? isAutoPRReviewActive(repoFullName, pr.number) : false;
 
   // Sync with store's newCommitsCheck when it changes (e.g., when switching PRs or after refresh)
   // Always sync to keep local state in sync with store, including null values
@@ -593,12 +613,104 @@ export function PRDetail({
     }
   };
 
+  // Handle starting Auto PR Review (autonomous review and fix loop)
+  const handleStartAutoPRReview = useCallback(async () => {
+    if (!repoFullName) return;
+
+    clearAutoPRReviewError();
+    const result = await startAutoPRReview({
+      repository: repoFullName,
+      prNumber: pr.number,
+    });
+
+    if (!result.success && result.error) {
+      // Error will be set in the hook state
+    }
+  }, [repoFullName, pr.number, startAutoPRReview, clearAutoPRReviewError]);
+
+  // Handle cancelling Auto PR Review
+  const handleCancelAutoPRReview = useCallback(async () => {
+    if (!repoFullName) return;
+
+    await cancelAutoPRReview(repoFullName, pr.number, 'User cancelled');
+  }, [repoFullName, pr.number, cancelAutoPRReview]);
+
   return (
     <ScrollArea className="flex-1">
       <div className="p-6 max-w-5xl mx-auto space-y-6">
 
         {/* Refactored Header */}
         <PRHeader pr={pr} isLoadingFiles={isLoadingFiles} />
+
+        {/* Auto PR Review Section - Autonomous review and fix loop */}
+        {repoFullName && (
+          <Card className="border-primary/30 bg-primary/5">
+            <CardContent className="py-4">
+              <div className="flex items-start gap-4">
+                <div className="p-2 rounded-lg bg-primary/10">
+                  <Wand2 className="h-5 w-5 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <h3 className="font-semibold text-foreground">
+                        {t('github:autoPRReview.title', 'Auto-PR-Review')}
+                      </h3>
+                      <p className="text-sm text-muted-foreground mt-0.5">
+                        {isAutoReviewActive
+                          ? t('github:autoPRReview.processing', 'Processing...')
+                          : t('github:autoPRReview.tooltip', 'Automatically review PRs and fix issues until ready for human approval')}
+                      </p>
+                    </div>
+                    {!isAutoReviewActive ? (
+                      <Button
+                        onClick={handleStartAutoPRReview}
+                        disabled={isReviewing}
+                        variant="default"
+                        size="sm"
+                        className="shrink-0"
+                      >
+                        <Play className="h-4 w-4 mr-2" />
+                        {t('github:autoPRReview.actions.start', 'Start Review')}
+                      </Button>
+                    ) : (
+                      <Button
+                        onClick={handleCancelAutoPRReview}
+                        variant="destructive"
+                        size="sm"
+                        className="shrink-0"
+                      >
+                        <StopCircle className="h-4 w-4 mr-2" />
+                        {t('github:autoPRReview.actions.cancel', 'Cancel Review')}
+                      </Button>
+                    )}
+                  </div>
+
+                  {/* Auto PR Review Error */}
+                  {autoPRReviewError && (
+                    <div className="mt-3 p-3 bg-destructive/10 border border-destructive/30 rounded-md text-sm text-destructive">
+                      <div className="flex items-start gap-2">
+                        <XCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                        <span>{autoPRReviewError}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Auto PR Review Progress Card */}
+                  {autoPRReviewProgress && isAutoReviewActive && (
+                    <div className="mt-4">
+                      <AutoPRReviewProgressCard
+                        progress={autoPRReviewProgress}
+                        onCancel={handleCancelAutoPRReview}
+                        t={(key: string) => t(key, key.split('.').pop() ?? key)}
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Merge Readiness Warning Banner - shows when real-time status contradicts AI verdict */}
         {mergeReadiness && mergeReadiness.blockers.length > 0 && reviewResult?.success && (

@@ -226,7 +226,13 @@ const browserMockAPI: ElectronAPI = {
     approveBatches: async () => ({ success: true, batches: [] }),
     onAnalyzePreviewProgress: () => () => {},
     onAnalyzePreviewComplete: () => () => {},
-    onAnalyzePreviewError: () => () => {}
+    onAnalyzePreviewError: () => () => {},
+    // Auto-PR-Review (autonomous PR review and fix loop)
+    startAutoPRReview: async () => ({ success: false, message: 'Not available in browser mode', error: 'Browser mock' }),
+    stopAutoPRReview: async () => ({ success: false, message: 'Not available in browser mode', error: 'Browser mock' }),
+    getAutoPRReviewStatus: async () => ({ isActive: false }),
+    getAutoPRReviewConfig: async () => null,
+    saveAutoPRReviewConfig: async () => ({ success: false, error: 'Not available in browser mode' })
   },
 
   // Claude Code Operations

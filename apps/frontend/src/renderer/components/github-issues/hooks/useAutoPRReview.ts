@@ -18,20 +18,16 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import type {
   AutoPRReviewConfig,
   AutoPRReviewProgress,
-  AutoPRReviewStatus,
   AutoPRReviewStartRequest,
   AutoPRReviewStartResponse,
-  AutoPRReviewStopRequest,
   AutoPRReviewStopResponse,
-  AutoPRReviewStatusRequest,
   AutoPRReviewStatusResponse,
-} from '../../../../preload/api/modules/github-api';
+} from '../types';
 import {
   DEFAULT_AUTO_PR_REVIEW_CONFIG,
   isTerminalStatus,
   isInProgressStatus,
-} from '../../../../preload/api/modules/github-api';
-import { IPC_CHANNELS } from '../../../../shared/constants';
+} from '../types';
 
 // =============================================================================
 // Types
@@ -82,29 +78,6 @@ export interface UseAutoPRReviewReturn {
 }
 
 /**
- * Electron IPC API interface for type safety
- */
-interface ElectronAPI {
-  invoke: <T>(channel: string, ...args: unknown[]) => Promise<T>;
-  on: (channel: string, listener: (...args: unknown[]) => void) => void;
-  off: (channel: string, listener: (...args: unknown[]) => void) => void;
-}
-
-// =============================================================================
-// Helper Functions
-// =============================================================================
-
-/**
- * Get the Electron IPC API from window
- */
-function getElectronAPI(): ElectronAPI | null {
-  if (typeof window !== 'undefined' && (window as unknown as { electronAPI?: ElectronAPI }).electronAPI) {
-    return (window as unknown as { electronAPI: ElectronAPI }).electronAPI;
-  }
-  return null;
-}
-
-/**
  * Generate a unique key for tracking a PR review
  */
 function getReviewKey(repository: string, prNumber: number): string {
@@ -122,33 +95,6 @@ function getReviewKey(repository: string, prNumber: number): string {
  * @param options.pollInterval - Interval in ms to poll for status updates (default: 5000)
  * @param options.autoRefresh - Whether to automatically refresh status (default: true)
  * @returns Hook state and actions
- *
- * @example
- * ```tsx
- * function AutoPRReviewPanel() {
- *   const {
- *     isEnabled,
- *     config,
- *     activeReviews,
- *     setEnabled,
- *     startReview,
- *     cancelReview,
- *   } = useAutoPRReview();
- *
- *   return (
- *     <div>
- *       <Toggle checked={isEnabled} onChange={setEnabled} />
- *       {activeReviews.map(review => (
- *         <ReviewCard
- *           key={`${review.repository}#${review.prNumber}`}
- *           review={review}
- *           onCancel={() => cancelReview(review.repository, review.prNumber)}
- *         />
- *       ))}
- *     </div>
- *   );
- * }
- * ```
  */
 export function useAutoPRReview(options?: {
   pollInterval?: number;
@@ -168,22 +114,20 @@ export function useAutoPRReview(options?: {
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const trackedReviewsRef = useRef<Set<string>>(new Set());
 
-  // Get Electron API
-  const electronAPI = getElectronAPI();
+  // Check if we have the API available
+  const hasAPI = typeof window !== 'undefined' && window.electronAPI?.github;
 
   // ==========================================================================
   // Load Initial State
   // ==========================================================================
 
   const loadConfig = useCallback(async () => {
-    if (!electronAPI) return;
+    if (!hasAPI) return;
 
     try {
-      const result = await electronAPI.invoke<{ config: AutoPRReviewConfig; enabled: boolean }>(
-        IPC_CHANNELS.GITHUB_AUTO_PR_REVIEW_GET_CONFIG
-      );
+      const result = await window.electronAPI.github.getAutoPRReviewConfig();
 
-      if (isMountedRef.current) {
+      if (isMountedRef.current && result) {
         setConfig(result.config);
         setIsEnabledState(result.enabled);
       }
@@ -193,14 +137,14 @@ export function useAutoPRReview(options?: {
         setError(message);
       }
     }
-  }, [electronAPI]);
+  }, [hasAPI]);
 
   // ==========================================================================
   // Status Refresh
   // ==========================================================================
 
   const refreshStatus = useCallback(async () => {
-    if (!electronAPI) return;
+    if (!hasAPI) return;
 
     const reviewsToCheck = Array.from(trackedReviewsRef.current);
     if (reviewsToCheck.length === 0) return;
@@ -218,10 +162,10 @@ export function useAutoPRReview(options?: {
       }
 
       try {
-        const result = await electronAPI.invoke<AutoPRReviewStatusResponse>(
-          IPC_CHANNELS.GITHUB_AUTO_PR_REVIEW_GET_STATUS,
-          { repository, prNumber } as AutoPRReviewStatusRequest
-        );
+        const result = await window.electronAPI.github.getAutoPRReviewStatus({
+          repository,
+          prNumber,
+        });
 
         if (result.isActive && result.progress) {
           updatedReviews.push(result.progress);
@@ -234,7 +178,7 @@ export function useAutoPRReview(options?: {
           // Review is no longer active
           reviewsToRemove.push(key);
         }
-      } catch (err) {
+      } catch {
         // Don't remove on error - might be temporary network issue
         // Keep tracking and try again on next poll
       }
@@ -248,23 +192,23 @@ export function useAutoPRReview(options?: {
     if (isMountedRef.current) {
       setActiveReviews(updatedReviews);
     }
-  }, [electronAPI]);
+  }, [hasAPI]);
 
   // ==========================================================================
   // Actions
   // ==========================================================================
 
   const setEnabled = useCallback(async (enabled: boolean) => {
-    if (!electronAPI) {
-      setError('Electron API not available');
+    if (!hasAPI) {
+      setError('API not available');
       return;
     }
 
     try {
-      const result = await electronAPI.invoke<{ success: boolean; error?: string }>(
-        IPC_CHANNELS.GITHUB_AUTO_PR_REVIEW_SAVE_CONFIG,
-        { config: {}, enabled }
-      );
+      const result = await window.electronAPI.github.saveAutoPRReviewConfig({
+        config: {},
+        enabled,
+      });
 
       if (!result.success) {
         throw new Error(result.error ?? 'Failed to update enabled state');
@@ -280,11 +224,11 @@ export function useAutoPRReview(options?: {
         setError(message);
       }
     }
-  }, [electronAPI]);
+  }, [hasAPI]);
 
   const updateConfig = useCallback(async (configUpdate: Partial<AutoPRReviewConfig>) => {
-    if (!electronAPI) {
-      setError('Electron API not available');
+    if (!hasAPI) {
+      setError('API not available');
       return;
     }
 
@@ -295,10 +239,9 @@ export function useAutoPRReview(options?: {
         requireHumanApproval: true as const,
       };
 
-      const result = await electronAPI.invoke<{ success: boolean; error?: string }>(
-        IPC_CHANNELS.GITHUB_AUTO_PR_REVIEW_SAVE_CONFIG,
-        { config: safeUpdate }
-      );
+      const result = await window.electronAPI.github.saveAutoPRReviewConfig({
+        config: safeUpdate,
+      });
 
       if (!result.success) {
         throw new Error(result.error ?? 'Failed to update config');
@@ -318,15 +261,15 @@ export function useAutoPRReview(options?: {
         setError(message);
       }
     }
-  }, [electronAPI]);
+  }, [hasAPI]);
 
   const startReview = useCallback(async (
     request: Omit<AutoPRReviewStartRequest, 'configOverrides'>
   ): Promise<AutoPRReviewStartResponse> => {
-    if (!electronAPI) {
+    if (!hasAPI) {
       return {
         success: false,
-        message: 'Electron API not available',
+        message: 'API not available',
         error: 'IPC communication not available',
       };
     }
@@ -336,10 +279,7 @@ export function useAutoPRReview(options?: {
         ...request,
       };
 
-      const result = await electronAPI.invoke<AutoPRReviewStartResponse>(
-        IPC_CHANNELS.GITHUB_AUTO_PR_REVIEW_START,
-        fullRequest
-      );
+      const result = await window.electronAPI.github.startAutoPRReview(fullRequest);
 
       if (result.success) {
         // Track this review for status polling
@@ -368,32 +308,27 @@ export function useAutoPRReview(options?: {
         error: message,
       };
     }
-  }, [electronAPI, refreshStatus]);
+  }, [hasAPI, refreshStatus]);
 
   const cancelReview = useCallback(async (
     repository: string,
     prNumber: number,
     reason?: string
   ): Promise<AutoPRReviewStopResponse> => {
-    if (!electronAPI) {
+    if (!hasAPI) {
       return {
         success: false,
-        message: 'Electron API not available',
+        message: 'API not available',
         error: 'IPC communication not available',
       };
     }
 
     try {
-      const request: AutoPRReviewStopRequest = {
+      const result = await window.electronAPI.github.stopAutoPRReview({
         repository,
         prNumber,
         reason,
-      };
-
-      const result = await electronAPI.invoke<AutoPRReviewStopResponse>(
-        IPC_CHANNELS.GITHUB_AUTO_PR_REVIEW_STOP,
-        request
-      );
+      });
 
       if (result.success) {
         // Refresh to update the cancelled state in UI
@@ -418,7 +353,7 @@ export function useAutoPRReview(options?: {
         error: message,
       };
     }
-  }, [electronAPI, refreshStatus]);
+  }, [hasAPI, refreshStatus]);
 
   const isReviewActive = useCallback((repository: string, prNumber: number): boolean => {
     const key = getReviewKey(repository, prNumber);
@@ -465,7 +400,7 @@ export function useAutoPRReview(options?: {
 
   // Set up status polling
   useEffect(() => {
-    if (!autoRefresh || !electronAPI) return;
+    if (!autoRefresh || !hasAPI) return;
 
     // Initial refresh
     refreshStatus();
@@ -483,7 +418,7 @@ export function useAutoPRReview(options?: {
         pollIntervalRef.current = null;
       }
     };
-  }, [autoRefresh, pollInterval, refreshStatus, electronAPI]);
+  }, [autoRefresh, pollInterval, refreshStatus, hasAPI]);
 
   // ==========================================================================
   // Return
@@ -513,12 +448,9 @@ export function useAutoPRReview(options?: {
 export type {
   AutoPRReviewConfig,
   AutoPRReviewProgress,
-  AutoPRReviewStatus,
   AutoPRReviewStartRequest,
   AutoPRReviewStartResponse,
-  AutoPRReviewStopRequest,
   AutoPRReviewStopResponse,
-  AutoPRReviewStatusRequest,
   AutoPRReviewStatusResponse,
 };
 

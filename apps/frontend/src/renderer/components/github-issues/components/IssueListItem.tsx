@@ -50,17 +50,19 @@ export function IssueListItem({ issue, isSelected, onClick, onInvestigate }: Iss
             )}
           </div>
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8"
-          onClick={(e) => {
-            e.stopPropagation();
-            onInvestigate();
-          }}
-        >
-          <Sparkles className="h-4 w-4" />
-        </Button>
+        {onInvestigate && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8"
+            onClick={(e) => {
+              e.stopPropagation();
+              onInvestigate();
+            }}
+          >
+            <Sparkles className="h-4 w-4" />
+          </Button>
+        )}
       </div>
     </div>
   );

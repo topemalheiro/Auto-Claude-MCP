@@ -241,6 +241,7 @@ export function GitHubPRs({ onOpenSettings, isActive = false }: GitHubPRsProps) 
             <PRDetail
               pr={selectedPR}
               projectId={selectedProjectId || ""}
+              repoFullName={repoFullName}
               reviewResult={reviewResult}
               previousReviewResult={previousReviewResult}
               reviewProgress={reviewProgress}

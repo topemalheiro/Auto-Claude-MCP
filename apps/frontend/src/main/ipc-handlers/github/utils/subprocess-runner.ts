@@ -60,6 +60,8 @@ export interface SubprocessOptions {
   progressPattern?: RegExp;
   /** Additional environment variables to pass to the subprocess */
   env?: Record<string, string>;
+  /** AbortSignal for cancellation support */
+  signal?: AbortSignal;
 }
 
 /**
