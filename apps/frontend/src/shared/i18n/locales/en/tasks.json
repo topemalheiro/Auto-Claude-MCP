@@ -275,5 +275,15 @@
       "label": "Complex",
       "description": "Large features with extensive research"
     }
+  },
+  "methodology": {
+    "label": "Methodology",
+    "helpText": "Choose which methodology plugin to use for task execution.",
+    "placeholder": "Select methodology",
+    "loading": "Loading methodologies...",
+    "noMethodologies": "No methodologies available",
+    "verified": "Verified",
+    "unverified": "Community",
+    "unverifiedWarning": "Community plugins are not verified by the Auto Claude team. Use with caution."
   }
 }

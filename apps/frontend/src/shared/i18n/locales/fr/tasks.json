@@ -275,5 +275,15 @@
       "label": "Complexe",
       "description": "Grandes fonctionnalités avec recherche approfondie"
     }
+  },
+  "methodology": {
+    "label": "Méthodologie",
+    "helpText": "Choisissez quel plugin de méthodologie utiliser pour l'exécution de la tâche.",
+    "placeholder": "Sélectionner une méthodologie",
+    "loading": "Chargement des méthodologies...",
+    "noMethodologies": "Aucune méthodologie disponible",
+    "verified": "Vérifié",
+    "unverified": "Communauté",
+    "unverifiedWarning": "Les plugins communautaires ne sont pas vérifiés par l'équipe Auto Claude. À utiliser avec précaution."
   }
 }

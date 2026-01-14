@@ -153,6 +153,7 @@ export interface TaskDraft {
   requireReviewBeforeCoding?: boolean;
   executionMode?: ExecutionMode;
   executionComplexity?: ExecutionComplexity;
+  methodology?: string;  // Methodology plugin name (e.g., 'native', 'bmad')
   savedAt: Date;
 }
 
@@ -233,6 +234,7 @@ export interface TaskMetadata {
   // Execution mode
   executionMode?: ExecutionMode;  // Full auto (no interruption) or semi-auto (checkpoints)
   executionComplexity?: ExecutionComplexity;  // How much planning/effort to invest (auto, quick, standard, complex)
+  methodology?: string;  // Methodology plugin name (e.g., 'native', 'bmad')
 
   // Agent configuration (from agent profile or manual selection)
   model?: ModelType;  // Claude model to use (haiku, sonnet, opus) - used when not auto profile
