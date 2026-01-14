@@ -284,6 +284,10 @@
     "noMethodologies": "Aucune méthodologie disponible",
     "verified": "Vérifié",
     "unverified": "Communauté",
-    "unverifiedWarning": "Les plugins communautaires ne sont pas vérifiés par l'équipe Auto Claude. À utiliser avec précaution."
+    "unverifiedWarning": "Les plugins communautaires ne sont pas vérifiés par l'équipe Auto Claude. À utiliser avec précaution.",
+    "badge": {
+      "native": "Native",
+      "bmad": "BMAD"
+    }
   }
 }

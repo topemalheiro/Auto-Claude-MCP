@@ -14,6 +14,7 @@ import {
 } from './ui/dropdown-menu';
 import { cn, formatRelativeTime, sanitizeMarkdownForDisplay } from '../lib/utils';
 import { PhaseProgressIndicator } from './PhaseProgressIndicator';
+import { MethodologyBadge } from './MethodologyBadge';
 import {
   TASK_CATEGORY_LABELS,
   TASK_CATEGORY_COLORS,
@@ -73,6 +74,7 @@ function taskCardPropsAreEqual(prevProps: TaskCardProps, nextProps: TaskCardProp
     prevTask.subtasks.length === nextTask.subtasks.length &&
     prevTask.metadata?.category === nextTask.metadata?.category &&
     prevTask.metadata?.complexity === nextTask.metadata?.complexity &&
+    prevTask.metadata?.methodology === nextTask.metadata?.methodology &&
     prevTask.metadata?.archivedAt === nextTask.metadata?.archivedAt &&
     prevTask.metadata?.prUrl === nextTask.metadata?.prUrl &&
     // Check if any subtask statuses changed (compare all subtasks)
@@ -428,6 +430,10 @@ export const TaskCard = memo(function TaskCard({ task, onClick, onStatusChange }
                 )}
                 {TASK_CATEGORY_LABELS[task.metadata.category]}
               </Badge>
+            )}
+            {/* Methodology badge - shows which methodology the task uses */}
+            {task.metadata?.methodology && (
+              <MethodologyBadge methodology={task.metadata.methodology} />
             )}
             {/* Impact badge - high visibility for important tasks */}
             {task.metadata?.impact && (task.metadata.impact === 'high' || task.metadata.impact === 'critical') && (
