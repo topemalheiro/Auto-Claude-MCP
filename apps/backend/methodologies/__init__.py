@@ -23,6 +23,13 @@ from apps.backend.methodologies.exceptions import (
     PluginLoadError,
     ProtocolViolationError,
 )
+from apps.backend.methodologies.manifest import (
+    ArtifactDefinition,
+    CheckpointDefinition,
+    MethodologyManifest,
+    PhaseDefinition,
+    load_manifest,
+)
 from apps.backend.methodologies.protocols import (
     Artifact,
     Checkpoint,
@@ -49,6 +56,10 @@ from apps.backend.methodologies.protocols import (
     TaskStateManager,
     # Service protocols (for type hints)
     WorkspaceService,
+)
+from apps.backend.methodologies.registry import (
+    MethodologyRegistryImpl,
+    RegistryEntry,
 )
 
 __all__ = [
@@ -83,4 +94,13 @@ __all__ = [
     "ManifestValidationError",
     "PluginLoadError",
     "ProtocolViolationError",
+    # Registry implementation
+    "MethodologyRegistryImpl",
+    "RegistryEntry",
+    # Manifest types and loader
+    "MethodologyManifest",
+    "PhaseDefinition",
+    "CheckpointDefinition",
+    "ArtifactDefinition",
+    "load_manifest",
 ]
