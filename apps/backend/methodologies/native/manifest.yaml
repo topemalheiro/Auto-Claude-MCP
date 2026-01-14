@@ -25,18 +25,26 @@ phases:
     description: "Generate specification document"
     artifacts:
       - spec-md
-  - id: plan
-    name: "Planning"
-    description: "Create implementation plan with subtasks"
-    artifacts:
-      - implementation-plan-json
   - id: validate
     name: "Validation"
     description: "Validate spec completeness"
+  - id: planning
+    name: "Planning"
+    description: "Create implementation plan from spec via planner agent"
+    artifacts:
+      - implementation-plan-json
+  - id: coding
+    name: "Coding"
+    description: "Implement subtasks from the plan via coder agent"
+  - id: qa_validation
+    name: "QA Validation"
+    description: "Validate acceptance criteria via QA reviewer/fixer loop"
+    artifacts:
+      - qa-report-md
 
 checkpoints:
   - id: after_planning
-    phase: plan
+    phase: planning
     description: "Review implementation plan before coding"
   - id: after_spec
     phase: spec
@@ -62,6 +70,10 @@ artifacts:
     name: "Implementation Plan"
     type: json
     path: "implementation_plan.json"
+  - id: qa-report-md
+    name: "QA Report"
+    type: markdown
+    path: "qa_report.md"
 
 complexity_levels:
   - quick

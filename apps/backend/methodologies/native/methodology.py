@@ -48,19 +48,22 @@ class NativeRunner:
     This class implements the MethodologyRunner Protocol, providing the interface
     for the plugin framework to execute the Native methodology.
 
-    The Native methodology follows a 6-phase pipeline:
+    The Native methodology follows an 8-phase pipeline:
     1. Discovery - Gather project context and user requirements
     2. Requirements - Structure and validate requirements
     3. Context - Build codebase context for implementation
     4. Spec - Generate specification document
-    5. Plan - Create implementation plan with subtasks
-    6. Validate - Validate spec completeness
+    5. Validate - Validate spec completeness
+    6. Planning - Create implementation plan via planner agent
+    7. Coding - Implement subtasks via coder agent
+    8. QA Validation - Validate via QA reviewer/fixer loop
 
     Delegation Pattern:
         - Discovery: delegates to spec.discovery.run_discovery_script
         - Requirements: delegates to spec.requirements module
         - Context: delegates to spec.context module
-        - Spec/Plan/Validate: require framework agent infrastructure
+        - Spec/Validate: require framework agent infrastructure
+        - Planning/Coding/QA: delegate to agents module
 
     Example:
         runner = NativeRunner()
@@ -69,6 +72,9 @@ class NativeRunner:
         for phase in phases:
             result = runner.execute_phase(phase.id)
     """
+
+    # Default model for agent execution (Story 2.5)
+    _DEFAULT_AGENT_MODEL: str = "claude-sonnet-4-5-20250929"
 
     def __init__(self) -> None:
         """Initialize NativeRunner instance."""
@@ -269,8 +275,11 @@ class NativeRunner:
             "requirements": self._execute_requirements,
             "context": self._execute_context,
             "spec": self._execute_spec,
-            "plan": self._execute_plan,
             "validate": self._execute_validate,
+            # Story 2.5: Implementation phases
+            "planning": self._execute_planning,
+            "coding": self._execute_coding,
+            "qa_validation": self._execute_qa_validation,
         }
 
         handler = dispatch.get(phase_id)
@@ -512,41 +521,6 @@ class NativeRunner:
             "Use SpecOrchestrator for full pipeline execution.",
         )
 
-    def _execute_plan(self) -> PhaseResult:
-        """Execute the planning phase.
-
-        Creates implementation plan via agent execution.
-        Requires framework agent infrastructure for full implementation.
-
-        Returns:
-            PhaseResult with success status and artifacts
-        """
-        if self._spec_dir is None:
-            return PhaseResult(
-                success=False,
-                phase_id="plan",
-                error="No spec_dir configured. Set spec_dir in task_config.metadata.",
-            )
-
-        plan_file = self._spec_dir / "implementation_plan.json"
-
-        # Check if plan already exists
-        if plan_file.exists():
-            return PhaseResult(
-                success=True,
-                phase_id="plan",
-                message="Implementation plan already exists",
-                artifacts=[str(plan_file)],
-            )
-
-        # Plan generation requires agent execution via framework
-        return PhaseResult(
-            success=False,
-            phase_id="plan",
-            error="Plan generation requires framework agent infrastructure. "
-            "Use SpecOrchestrator for full pipeline execution.",
-        )
-
     def _execute_validate(self) -> PhaseResult:
         """Execute the validation phase.
 
@@ -584,6 +558,317 @@ class NativeRunner:
                 success=False,
                 phase_id="validate",
                 error=f"Validation failed: {'; '.join(errors)}",
+            )
+
+    # =========================================================================
+    # Story 2.5: Implementation Phase Methods
+    # =========================================================================
+
+    def _run_async(self, coro):
+        """Run an async coroutine safely from sync context.
+
+        Handles the case where we might already be in an async context
+        by using a ThreadPoolExecutor with asyncio.run().
+
+        Args:
+            coro: The async coroutine to execute
+
+        Returns:
+            The result of the coroutine
+
+        Note:
+            Uses asyncio.run() which creates a new event loop. This is
+            preferred over get_event_loop() which is deprecated in Python 3.10+.
+        """
+        import asyncio
+
+        try:
+            # Check if we're already in an async context
+            asyncio.get_running_loop()
+            # We're in an async context, run in thread
+            import concurrent.futures
+
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                return executor.submit(asyncio.run, coro).result()
+        except RuntimeError:
+            # No running loop, safe to use asyncio.run
+            return asyncio.run(coro)
+
+    def _execute_planning(self) -> PhaseResult:
+        """Execute the planning phase via planner agent.
+
+        Invokes the existing planner agent to create implementation_plan.json
+        from the spec.md document. Uses the Claude SDK client for agent execution.
+
+        Returns:
+            PhaseResult with success status and implementation_plan.json artifact
+
+        Story Reference: Story 2.5 AC#1 - Planning phase produces implementation_plan.json
+        """
+        if self._spec_dir is None:
+            return PhaseResult(
+                success=False,
+                phase_id="planning",
+                error="No spec_dir configured. Set spec_dir in task_config.metadata.",
+            )
+
+        # Check if spec.md exists
+        spec_file = self._spec_dir / "spec.md"
+        if not spec_file.exists():
+            return PhaseResult(
+                success=False,
+                phase_id="planning",
+                error="spec.md not found. Run spec phase first.",
+            )
+
+        # Check if plan already exists
+        plan_file = self._spec_dir / "implementation_plan.json"
+        if plan_file.exists():
+            return PhaseResult(
+                success=True,
+                phase_id="planning",
+                message="Implementation plan already exists",
+                artifacts=[str(plan_file)],
+            )
+
+        # Report progress
+        self._invoke_progress_callback("Starting planner agent...", 10.0)
+
+        try:
+            from apps.backend.agents.session import run_agent_session
+            from apps.backend.core.client import create_client
+            from apps.backend.prompts_pkg.prompt_generator import (
+                generate_planner_prompt,
+            )
+            from apps.backend.task_logger import LogPhase
+
+            project_dir = Path(self._worktree_path or self._project_dir)
+
+            # Generate planner prompt
+            self._invoke_progress_callback("Generating planner prompt...", 20.0)
+            prompt = generate_planner_prompt(self._spec_dir, project_dir)
+
+            # Create client for planner agent
+            self._invoke_progress_callback("Creating planner agent client...", 30.0)
+            model = (
+                self._task_config.metadata.get("model", self._DEFAULT_AGENT_MODEL)
+                if self._task_config
+                else self._DEFAULT_AGENT_MODEL
+            )
+            client = create_client(
+                project_dir,
+                self._spec_dir,
+                model=model,
+                agent_type="planner",
+                max_thinking_tokens=None,
+            )
+
+            # Run planner agent session
+            self._invoke_progress_callback("Running planner agent...", 50.0)
+
+            async def _run_planner():
+                async with client:
+                    status, response = await run_agent_session(
+                        client,
+                        prompt,
+                        self._spec_dir,
+                        verbose=False,
+                        phase=LogPhase.PLANNING,
+                    )
+                    return status, response
+
+            status, response = self._run_async(_run_planner())
+
+            self._invoke_progress_callback("Planner agent completed", 90.0)
+
+            # Verify the plan was created
+            if plan_file.exists():
+                return PhaseResult(
+                    success=True,
+                    phase_id="planning",
+                    message="Implementation plan created by planner agent",
+                    artifacts=[str(plan_file)],
+                )
+            else:
+                return PhaseResult(
+                    success=False,
+                    phase_id="planning",
+                    error=f"Planner agent completed with status '{status}' but implementation_plan.json was not created",
+                )
+
+        except Exception as e:
+            logger.error(f"Planning phase failed: {e}")
+            return PhaseResult(
+                success=False,
+                phase_id="planning",
+                error=f"Planning phase failed: {str(e)}",
+            )
+
+    def _execute_coding(self) -> PhaseResult:
+        """Execute the coding phase via coder agent.
+
+        Loads the implementation_plan.json and executes each subtask via the
+        coder agent. Updates subtask status in the plan after each execution.
+
+        Returns:
+            PhaseResult with success status
+
+        Story Reference: Story 2.5 AC#2 - Coding phase implements subtasks
+        """
+        if self._spec_dir is None:
+            return PhaseResult(
+                success=False,
+                phase_id="coding",
+                error="No spec_dir configured. Set spec_dir in task_config.metadata.",
+            )
+
+        # Check if plan exists
+        plan_file = self._spec_dir / "implementation_plan.json"
+        if not plan_file.exists():
+            return PhaseResult(
+                success=False,
+                phase_id="coding",
+                error="implementation_plan.json not found. Run planning phase first.",
+            )
+
+        self._invoke_progress_callback("Loading implementation plan...", 5.0)
+
+        try:
+            from apps.backend.agents.coder import run_autonomous_agent
+
+            project_dir = Path(self._worktree_path or self._project_dir)
+
+            self._invoke_progress_callback("Starting coder agent loop...", 10.0)
+
+            model = (
+                self._task_config.metadata.get("model", self._DEFAULT_AGENT_MODEL)
+                if self._task_config
+                else self._DEFAULT_AGENT_MODEL
+            )
+
+            async def _run_coder():
+                await run_autonomous_agent(
+                    project_dir=project_dir,
+                    spec_dir=self._spec_dir,
+                    model=model,
+                    max_iterations=None,
+                    verbose=False,
+                    source_spec_dir=None,
+                )
+
+            self._run_async(_run_coder())
+
+            self._invoke_progress_callback("Coder agent completed", 100.0)
+
+            # Check if all subtasks are completed
+            from apps.backend.progress import is_build_complete
+
+            if is_build_complete(self._spec_dir):
+                return PhaseResult(
+                    success=True,
+                    phase_id="coding",
+                    message="All subtasks implemented successfully",
+                    artifacts=[],
+                )
+            else:
+                # Get progress info
+                from apps.backend.progress import count_subtasks
+
+                completed, total = count_subtasks(self._spec_dir)
+                return PhaseResult(
+                    success=False,
+                    phase_id="coding",
+                    error=f"Coding incomplete: {completed}/{total} subtasks completed",
+                )
+
+        except Exception as e:
+            logger.error(f"Coding phase failed: {e}")
+            return PhaseResult(
+                success=False,
+                phase_id="coding",
+                error=f"Coding phase failed: {str(e)}",
+            )
+
+    def _execute_qa_validation(self) -> PhaseResult:
+        """Execute the QA validation phase via QA reviewer/fixer loop.
+
+        Runs the QA validation loop that:
+        1. QA reviewer validates acceptance criteria
+        2. If issues found, QA fixer applies fixes
+        3. Loop continues until approved or max iterations
+
+        Returns:
+            PhaseResult with success status and qa_report.md artifact
+
+        Story Reference: Story 2.5 AC#3 - QA validation with reviewer/fixer loop
+        """
+        if self._spec_dir is None:
+            return PhaseResult(
+                success=False,
+                phase_id="qa_validation",
+                error="No spec_dir configured. Set spec_dir in task_config.metadata.",
+            )
+
+        # Check if build is complete
+        from apps.backend.progress import is_build_complete
+
+        if not is_build_complete(self._spec_dir):
+            return PhaseResult(
+                success=False,
+                phase_id="qa_validation",
+                error="Build not complete. Run coding phase first.",
+            )
+
+        self._invoke_progress_callback("Starting QA validation loop...", 10.0)
+
+        try:
+            from apps.backend.qa.loop import run_qa_validation_loop
+
+            project_dir = Path(self._worktree_path or self._project_dir)
+
+            model = (
+                self._task_config.metadata.get("model", self._DEFAULT_AGENT_MODEL)
+                if self._task_config
+                else self._DEFAULT_AGENT_MODEL
+            )
+
+            async def _run_qa():
+                return await run_qa_validation_loop(
+                    project_dir=project_dir,
+                    spec_dir=self._spec_dir,
+                    model=model,
+                    verbose=False,
+                )
+
+            approved = self._run_async(_run_qa())
+
+            self._invoke_progress_callback("QA validation completed", 100.0)
+
+            # Get QA report artifact
+            qa_report = self._spec_dir / "qa_report.md"
+            artifacts = [str(qa_report)] if qa_report.exists() else []
+
+            if approved:
+                return PhaseResult(
+                    success=True,
+                    phase_id="qa_validation",
+                    message="QA validation passed - all acceptance criteria verified",
+                    artifacts=artifacts,
+                )
+            else:
+                return PhaseResult(
+                    success=False,
+                    phase_id="qa_validation",
+                    error="QA validation failed - see qa_report.md for details",
+                    artifacts=artifacts,
+                )
+
+        except Exception as e:
+            logger.error(f"QA validation phase failed: {e}")
+            return PhaseResult(
+                success=False,
+                phase_id="qa_validation",
+                error=f"QA validation phase failed: {str(e)}",
             )
 
     def get_checkpoints(self) -> list[Checkpoint]:
@@ -639,14 +924,19 @@ class NativeRunner:
     # Story 2.4: Progress Reporting Methods
     # =========================================================================
 
-    # Phase weights for percentage calculation (Story 2.4 Task 6)
+    # Phase weights for percentage calculation (Story 2.4 Task 6, Story 2.5)
+    # Phase weights for percentage calculation (Story 2.4 Task 6, Story 2.5)
+    # Total: 100% (5+5+5+10+5+10+40+20 = 100)
     _PHASE_WEIGHTS: dict[str, int] = {
-        "discovery": 10,
-        "requirements": 10,
-        "context": 15,
-        "spec": 25,
-        "plan": 20,
-        "validate": 20,
+        "discovery": 5,
+        "requirements": 5,
+        "context": 5,
+        "spec": 10,
+        "validate": 5,
+        # Story 2.5: Implementation phases
+        "planning": 10,
+        "coding": 40,
+        "qa_validation": 20,
     }
 
     def _emit_progress_event(
@@ -831,18 +1121,35 @@ class NativeRunner:
                 is_optional=False,
             ),
             Phase(
-                id="plan",
-                name="Planning",
-                description="Create implementation plan with subtasks",
+                id="validate",
+                name="Validation",
+                description="Validate spec completeness",
                 order=5,
                 status=PhaseStatus.PENDING,
                 is_optional=False,
             ),
+            # Story 2.5: Implementation phases
             Phase(
-                id="validate",
-                name="Validation",
-                description="Validate spec completeness",
+                id="planning",
+                name="Planning",
+                description="Create implementation plan from spec via planner agent",
                 order=6,
+                status=PhaseStatus.PENDING,
+                is_optional=False,
+            ),
+            Phase(
+                id="coding",
+                name="Coding",
+                description="Implement subtasks from the plan via coder agent",
+                order=7,
+                status=PhaseStatus.PENDING,
+                is_optional=False,
+            ),
+            Phase(
+                id="qa_validation",
+                name="QA Validation",
+                description="Validate acceptance criteria via QA reviewer/fixer loop",
+                order=8,
                 status=PhaseStatus.PENDING,
                 is_optional=False,
             ),
@@ -855,7 +1162,7 @@ class NativeRunner:
                 id="after_planning",
                 name="Planning Review",
                 description="Review implementation plan before coding",
-                phase_id="plan",
+                phase_id="planning",
                 status=CheckpointStatus.PENDING,
                 requires_approval=True,
             ),
@@ -911,6 +1218,15 @@ class NativeRunner:
                 file_path="implementation_plan.json",
                 phase_id="plan",
                 content_type="application/json",
+            ),
+            # Story 2.5: QA artifacts
+            Artifact(
+                id="qa-report-md",
+                artifact_type="markdown",
+                name="QA Report",
+                file_path="qa_report.md",
+                phase_id="qa_validation",
+                content_type="text/markdown",
             ),
         ]
 

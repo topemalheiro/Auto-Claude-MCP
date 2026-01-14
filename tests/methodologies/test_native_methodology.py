@@ -282,16 +282,16 @@ class TestNativeManifestValidation:
         manifest = load_manifest(manifest_path)
         assert manifest.entry_point == "methodology.NativeRunner"
 
-    def test_manifest_has_six_phases(self):
-        """Test that manifest defines exactly 6 phases."""
+    def test_manifest_has_nine_phases(self):
+        """Test that manifest defines exactly 9 phases (6 spec + 3 implementation)."""
         from apps.backend.methodologies.manifest import load_manifest
 
         manifest_path = NATIVE_METHODOLOGY_DIR / "manifest.yaml"
         manifest = load_manifest(manifest_path)
-        assert len(manifest.phases) == 6
+        assert len(manifest.phases) == 8
 
     def test_manifest_phase_ids_are_correct(self):
-        """Test that phases have the correct IDs per AC #2."""
+        """Test that phases have the correct IDs (6 spec + 3 implementation)."""
         from apps.backend.methodologies.manifest import load_manifest
 
         manifest_path = NATIVE_METHODOLOGY_DIR / "manifest.yaml"
@@ -302,8 +302,11 @@ class TestNativeManifestValidation:
             "requirements",
             "context",
             "spec",
-            "plan",
             "validate",
+            # Story 2.5: Implementation phases
+            "planning",
+            "coding",
+            "qa_validation",
         ]
         actual_phase_ids = [phase.id for phase in manifest.phases]
         assert actual_phase_ids == expected_phase_ids
@@ -446,7 +449,7 @@ class TestNativeRunnerInitialization:
 
         # Should not raise after initialization
         phases = runner.get_phases()
-        assert len(phases) == 6
+        assert len(phases) == 8  # 6 spec + 3 implementation phases (Story 2.5)
 
     def test_runner_cannot_initialize_twice(self, mock_context, mock_workspace_manager):
         """Test runner raises error if initialized twice."""
@@ -484,16 +487,16 @@ class TestNativeRunnerPhases:
         phases = initialized_runner.get_phases()
         assert isinstance(phases, list)
 
-    def test_get_phases_returns_six_phases(self, initialized_runner):
-        """Test get_phases returns exactly 6 phases."""
+    def test_get_phases_returns_nine_phases(self, initialized_runner):
+        """Test get_phases returns exactly 9 phases (6 spec + 3 implementation)."""
         phases = initialized_runner.get_phases()
-        assert len(phases) == 6
+        assert len(phases) == 8
 
     def test_phases_have_correct_order(self, initialized_runner):
-        """Test phases are in correct execution order."""
+        """Test phases are in correct execution order (1-8)."""
         phases = initialized_runner.get_phases()
         orders = [phase.order for phase in phases]
-        assert orders == [1, 2, 3, 4, 5, 6]
+        assert orders == [1, 2, 3, 4, 5, 6, 7, 8]
 
     def test_phases_have_pending_status_initially(self, initialized_runner):
         """Test all phases start with PENDING status."""
@@ -567,13 +570,13 @@ class TestNativeRunnerArtifacts:
         artifacts = initialized_runner.get_artifacts()
         assert isinstance(artifacts, list)
 
-    def test_get_artifacts_returns_four_artifacts(self, initialized_runner):
-        """Test get_artifacts returns exactly 4 artifacts."""
+    def test_get_artifacts_returns_five_artifacts(self, initialized_runner):
+        """Test get_artifacts returns exactly 5 artifacts (4 spec + 1 QA)."""
         artifacts = initialized_runner.get_artifacts()
-        assert len(artifacts) == 4
+        assert len(artifacts) == 5
 
     def test_artifacts_have_expected_ids(self, initialized_runner):
-        """Test artifacts have the expected IDs."""
+        """Test artifacts have the expected IDs (4 spec + 1 QA)."""
         artifacts = initialized_runner.get_artifacts()
 
         expected_ids = {
@@ -581,6 +584,8 @@ class TestNativeRunnerArtifacts:
             "context-json",
             "spec-md",
             "implementation-plan-json",
+            # Story 2.5: QA artifact
+            "qa-report-md",
         }
         actual_ids = {artifact.id for artifact in artifacts}
         assert actual_ids == expected_ids
@@ -749,10 +754,14 @@ class TestNativeRunnerGetPhasesStory22:
     """Test NativeRunner get_phases returns correct phase info (Story 2.2 AC#2)."""
 
     def test_get_phases_returns_phases_with_ids(self, initialized_runner):
-        """Test phases have expected IDs matching manifest."""
+        """Test phases have expected IDs matching manifest (5 spec + 3 implementation)."""
         phases = initialized_runner.get_phases()
 
-        expected_ids = ["discovery", "requirements", "context", "spec", "plan", "validate"]
+        expected_ids = [
+            "discovery", "requirements", "context", "spec", "validate",
+            # Story 2.5: Implementation phases
+            "planning", "coding", "qa_validation"
+        ]
         actual_ids = [phase.id for phase in phases]
 
         assert actual_ids == expected_ids
@@ -804,13 +813,6 @@ class TestNativeRunnerPhaseExecutionNoSpecDir:
     def test_spec_fails_without_spec_dir(self, initialized_runner):
         """Test spec phase fails without spec_dir."""
         result = initialized_runner.execute_phase("spec")
-
-        assert result.success is False
-        assert "spec_dir" in result.error.lower()
-
-    def test_plan_fails_without_spec_dir(self, initialized_runner):
-        """Test plan phase fails without spec_dir."""
-        result = initialized_runner.execute_phase("plan")
 
         assert result.success is False
         assert "spec_dir" in result.error.lower()
@@ -924,33 +926,6 @@ class TestNativeRunnerSpecPhase:
         assert result.success is True
         assert "already exists" in result.message.lower()
         assert len(result.artifacts) == 1
-
-
-class TestNativeRunnerPlanPhase:
-    """Test plan phase execution (Story 2.2 Task 9)."""
-
-    def test_plan_fails_without_existing_file(self, initialized_runner_with_spec_dir):
-        """Test plan phase fails when implementation_plan.json doesn't exist."""
-        result = initialized_runner_with_spec_dir.execute_phase("plan")
-
-        # Plan generation requires agent infrastructure
-        assert result.success is False
-        assert "framework" in result.error.lower() or "agent" in result.error.lower()
-
-    def test_plan_returns_existing_if_present(self, initialized_runner_with_spec_dir):
-        """Test plan phase succeeds if implementation_plan.json already exists."""
-        import json
-
-        runner = initialized_runner_with_spec_dir
-
-        # Create existing plan
-        plan_file = runner._spec_dir / "implementation_plan.json"
-        plan_file.write_text(json.dumps({"subtasks": []}))
-
-        result = runner.execute_phase("plan")
-
-        assert result.success is True
-        assert "already exists" in result.message.lower()
 
 
 class TestNativeRunnerValidatePhase:
@@ -1722,8 +1697,8 @@ class TestIncrementalProgressReporting:
         assert event.phase_id == "spec"
         assert event.status == "in_progress"
         assert event.message == "Generating specification..."
-        # 50% within spec phase (35-60%) = 35 + (25 * 0.5) = 47.5% overall
-        assert event.percentage == 47.5
+        # Story 2.5: 50% within spec phase (15-25%) = 15 + (10 * 0.5) = 20% overall
+        assert event.percentage == 20.0
 
     def test_phase_percentage_within_bounds(self, initialized_runner_with_spec_dir):
         """Test incremental progress percentage stays within phase bounds."""
@@ -1741,7 +1716,7 @@ class TestIncrementalProgressReporting:
         mock_progress.update = MagicMock()
         runner._context.progress = mock_progress
 
-        # Emit progress at 50% within spec phase (which is 35-60% overall)
+        # Story 2.5: Emit progress at 50% within spec phase (which is 15-25% overall)
         runner.emit_incremental_progress(
             phase_id="spec",
             message="Halfway through spec",
@@ -1749,8 +1724,8 @@ class TestIncrementalProgressReporting:
         )
 
         event = emitted_events[0]
-        # Spec phase: start=35%, end=60%, so 50% within = 35 + (25 * 0.5) = 47.5%
-        assert 35.0 <= event.percentage <= 60.0
+        # Spec phase: start=15%, end=25%, so 50% within = 15 + (10 * 0.5) = 20%
+        assert 15.0 <= event.percentage <= 25.0
 
 
 # =============================================================================
@@ -1903,55 +1878,88 @@ class TestProgressCallbacks:
 
 
 class TestPhasePercentageCalculation:
-    """Test phase percentage calculation (Story 2.4 Task 6)."""
+    """Test phase percentage calculation (Story 2.4 Task 6, updated for Story 2.5).
+
+    With Story 2.5 (after removing duplicate plan phase), the weights are:
+    - discovery: 5%, requirements: 5%, context: 5%, spec: 10%, validate: 5%
+    - planning: 10%, coding: 40%, qa_validation: 20%
+    Total: 100%
+
+    Phase ranges:
+    - discovery: 0-5%
+    - requirements: 5-10%
+    - context: 10-15%
+    - spec: 15-25%
+    - validate: 25-30%
+    - planning: 30-40%
+    - coding: 40-80%
+    - qa_validation: 80-100%
+    """
 
     def test_discovery_starts_at_zero(self, initialized_runner):
         """Test discovery phase starts at 0%."""
         assert initialized_runner._get_phase_start_percentage("discovery") == 0.0
 
-    def test_discovery_ends_at_ten(self, initialized_runner):
-        """Test discovery phase ends at 10%."""
-        assert initialized_runner._get_phase_end_percentage("discovery") == 10.0
+    def test_discovery_ends_at_five(self, initialized_runner):
+        """Test discovery phase ends at 5%."""
+        assert initialized_runner._get_phase_end_percentage("discovery") == 5.0
 
-    def test_requirements_starts_at_ten(self, initialized_runner):
-        """Test requirements phase starts at 10%."""
-        assert initialized_runner._get_phase_start_percentage("requirements") == 10.0
+    def test_requirements_starts_at_five(self, initialized_runner):
+        """Test requirements phase starts at 5%."""
+        assert initialized_runner._get_phase_start_percentage("requirements") == 5.0
 
-    def test_requirements_ends_at_twenty(self, initialized_runner):
-        """Test requirements phase ends at 20%."""
-        assert initialized_runner._get_phase_end_percentage("requirements") == 20.0
+    def test_requirements_ends_at_ten(self, initialized_runner):
+        """Test requirements phase ends at 10%."""
+        assert initialized_runner._get_phase_end_percentage("requirements") == 10.0
 
-    def test_context_starts_at_twenty(self, initialized_runner):
-        """Test context phase starts at 20%."""
-        assert initialized_runner._get_phase_start_percentage("context") == 20.0
+    def test_context_starts_at_ten(self, initialized_runner):
+        """Test context phase starts at 10%."""
+        assert initialized_runner._get_phase_start_percentage("context") == 10.0
 
-    def test_context_ends_at_thirty_five(self, initialized_runner):
-        """Test context phase ends at 35%."""
-        assert initialized_runner._get_phase_end_percentage("context") == 35.0
+    def test_context_ends_at_fifteen(self, initialized_runner):
+        """Test context phase ends at 15%."""
+        assert initialized_runner._get_phase_end_percentage("context") == 15.0
 
-    def test_spec_starts_at_thirty_five(self, initialized_runner):
-        """Test spec phase starts at 35%."""
-        assert initialized_runner._get_phase_start_percentage("spec") == 35.0
+    def test_spec_starts_at_fifteen(self, initialized_runner):
+        """Test spec phase starts at 15%."""
+        assert initialized_runner._get_phase_start_percentage("spec") == 15.0
 
-    def test_spec_ends_at_sixty(self, initialized_runner):
-        """Test spec phase ends at 60%."""
-        assert initialized_runner._get_phase_end_percentage("spec") == 60.0
+    def test_spec_ends_at_twenty_five(self, initialized_runner):
+        """Test spec phase ends at 25%."""
+        assert initialized_runner._get_phase_end_percentage("spec") == 25.0
 
-    def test_plan_starts_at_sixty(self, initialized_runner):
-        """Test plan phase starts at 60%."""
-        assert initialized_runner._get_phase_start_percentage("plan") == 60.0
+    def test_validate_starts_at_twenty_five(self, initialized_runner):
+        """Test validate phase starts at 25%."""
+        assert initialized_runner._get_phase_start_percentage("validate") == 25.0
 
-    def test_plan_ends_at_eighty(self, initialized_runner):
-        """Test plan phase ends at 80%."""
-        assert initialized_runner._get_phase_end_percentage("plan") == 80.0
+    def test_validate_ends_at_thirty(self, initialized_runner):
+        """Test validate phase ends at 30%."""
+        assert initialized_runner._get_phase_end_percentage("validate") == 30.0
 
-    def test_validate_starts_at_eighty(self, initialized_runner):
-        """Test validate phase starts at 80%."""
-        assert initialized_runner._get_phase_start_percentage("validate") == 80.0
+    # Story 2.5: Implementation phase percentage tests
+    def test_planning_starts_at_thirty(self, initialized_runner):
+        """Test planning phase starts at 30%."""
+        assert initialized_runner._get_phase_start_percentage("planning") == 30.0
 
-    def test_validate_ends_at_hundred(self, initialized_runner):
-        """Test validate phase ends at 100%."""
-        assert initialized_runner._get_phase_end_percentage("validate") == 100.0
+    def test_planning_ends_at_forty(self, initialized_runner):
+        """Test planning phase ends at 40%."""
+        assert initialized_runner._get_phase_end_percentage("planning") == 40.0
+
+    def test_coding_starts_at_forty(self, initialized_runner):
+        """Test coding phase starts at 40%."""
+        assert initialized_runner._get_phase_start_percentage("coding") == 40.0
+
+    def test_coding_ends_at_eighty(self, initialized_runner):
+        """Test coding phase ends at 80%."""
+        assert initialized_runner._get_phase_end_percentage("coding") == 80.0
+
+    def test_qa_validation_starts_at_eighty(self, initialized_runner):
+        """Test qa_validation phase starts at 80%."""
+        assert initialized_runner._get_phase_start_percentage("qa_validation") == 80.0
+
+    def test_qa_validation_ends_at_hundred(self, initialized_runner):
+        """Test qa_validation phase ends at 100%."""
+        assert initialized_runner._get_phase_end_percentage("qa_validation") == 100.0
 
     def test_unknown_phase_returns_zero(self, initialized_runner):
         """Test unknown phase returns 0%."""
@@ -2031,3 +2039,325 @@ class TestNativeRunnerCleanup:
         runner = NativeRunner()
         # Should not raise
         runner.cleanup()
+
+
+# =============================================================================
+# Story 2.5: Implementation Phase Tests
+# =============================================================================
+
+
+class TestNativeRunnerPlanningPhase:
+    """Test planning implementation phase execution (Story 2.5 AC#1)."""
+
+    def test_planning_phase_exists_in_phases(self, initialized_runner):
+        """Test planning phase is in phases list."""
+        phases = initialized_runner.get_phases()
+        phase_ids = [p.id for p in phases]
+        assert "planning" in phase_ids
+
+    def test_planning_phase_fails_without_spec_dir(self, initialized_runner):
+        """Test planning phase fails without spec_dir."""
+        result = initialized_runner.execute_phase("planning")
+        assert result.success is False
+        assert "spec_dir" in result.error.lower()
+
+    def test_planning_phase_fails_without_spec_md(self, initialized_runner_with_spec_dir):
+        """Test planning phase fails if spec.md doesn't exist."""
+        result = initialized_runner_with_spec_dir.execute_phase("planning")
+        assert result.success is False
+        assert "spec.md" in result.error.lower()
+
+    def test_planning_returns_existing_plan(self, initialized_runner_with_spec_dir):
+        """Test planning phase returns existing plan if present."""
+        import json
+
+        runner = initialized_runner_with_spec_dir
+
+        # Create spec.md and existing plan
+        spec_file = runner._spec_dir / "spec.md"
+        spec_file.write_text("# Test Spec\n\nContent here.")
+
+        plan_file = runner._spec_dir / "implementation_plan.json"
+        plan_file.write_text(json.dumps({"subtasks": [{"id": "1.1"}]}))
+
+        result = runner.execute_phase("planning")
+
+        assert result.success is True
+        assert "already exists" in result.message.lower()
+        assert str(plan_file) in result.artifacts
+
+
+class TestNativeRunnerCodingPhase:
+    """Test coding implementation phase execution (Story 2.5 AC#2)."""
+
+    def test_coding_phase_exists_in_phases(self, initialized_runner):
+        """Test coding phase is in phases list."""
+        phases = initialized_runner.get_phases()
+        phase_ids = [p.id for p in phases]
+        assert "coding" in phase_ids
+
+    def test_coding_phase_fails_without_spec_dir(self, initialized_runner):
+        """Test coding phase fails without spec_dir."""
+        result = initialized_runner.execute_phase("coding")
+        assert result.success is False
+        assert "spec_dir" in result.error.lower()
+
+    def test_coding_phase_fails_without_plan(self, initialized_runner_with_spec_dir):
+        """Test coding phase fails if implementation_plan.json doesn't exist."""
+        result = initialized_runner_with_spec_dir.execute_phase("coding")
+        assert result.success is False
+        assert "implementation_plan.json" in result.error.lower()
+
+
+class TestNativeRunnerQAValidationPhase:
+    """Test QA validation phase execution (Story 2.5 AC#3)."""
+
+    def test_qa_validation_phase_exists_in_phases(self, initialized_runner):
+        """Test qa_validation phase is in phases list."""
+        phases = initialized_runner.get_phases()
+        phase_ids = [p.id for p in phases]
+        assert "qa_validation" in phase_ids
+
+    def test_qa_validation_phase_fails_without_spec_dir(self, initialized_runner):
+        """Test qa_validation phase fails without spec_dir."""
+        result = initialized_runner.execute_phase("qa_validation")
+        assert result.success is False
+        assert "spec_dir" in result.error.lower()
+
+    def test_qa_validation_phase_fails_without_complete_build(self, initialized_runner_with_spec_dir):
+        """Test qa_validation phase fails if build not complete."""
+        import json
+
+        runner = initialized_runner_with_spec_dir
+
+        # Create incomplete plan (some subtasks not completed)
+        plan_file = runner._spec_dir / "implementation_plan.json"
+        plan_file.write_text(json.dumps({
+            "subtasks": [
+                {"id": "1.1", "status": "completed"},
+                {"id": "1.2", "status": "pending"}  # Not complete
+            ]
+        }))
+
+        result = runner.execute_phase("qa_validation")
+        assert result.success is False
+        assert "complete" in result.error.lower()
+
+
+class TestNativeRunnerImplementationPhaseIntegration:
+    """Test integration between implementation phases (Story 2.5)."""
+
+    def test_implementation_phases_have_correct_order(self, initialized_runner):
+        """Test implementation phases are ordered after spec phases."""
+        phases = initialized_runner.get_phases()
+
+        # Get phase orders
+        phase_order = {p.id: p.order for p in phases}
+
+        # Implementation phases should come after spec phases
+        assert phase_order["planning"] > phase_order["validate"]
+        assert phase_order["coding"] > phase_order["planning"]
+        assert phase_order["qa_validation"] > phase_order["coding"]
+
+    def test_qa_report_artifact_exists(self, initialized_runner):
+        """Test qa-report-md artifact is defined."""
+        artifacts = initialized_runner.get_artifacts()
+        artifact_ids = [a.id for a in artifacts]
+        assert "qa-report-md" in artifact_ids
+
+    def test_qa_report_artifact_has_correct_phase(self, initialized_runner):
+        """Test qa-report-md artifact is associated with qa_validation phase."""
+        artifacts = initialized_runner.get_artifacts()
+        qa_artifact = next(a for a in artifacts if a.id == "qa-report-md")
+        assert qa_artifact.phase_id == "qa_validation"
+
+    def test_qa_report_artifact_has_correct_file_path(self, initialized_runner):
+        """Test qa-report-md artifact has correct file path."""
+        artifacts = initialized_runner.get_artifacts()
+        qa_artifact = next(a for a in artifacts if a.id == "qa-report-md")
+        assert qa_artifact.file_path == "qa_report.md"
+
+
+class TestNativeRunnerAgentInvocation:
+    """Test that implementation phases invoke correct agent functions (Story 2.5)."""
+
+    def test_planning_invokes_run_agent_session(self, initialized_runner_with_spec_dir):
+        """Test planning phase calls run_agent_session with correct args."""
+        import json
+        from unittest.mock import patch, MagicMock, AsyncMock
+
+        runner = initialized_runner_with_spec_dir
+
+        # Create spec.md (required for planning)
+        spec_file = runner._spec_dir / "spec.md"
+        spec_file.write_text("# Test Spec\n\n## Overview\nTest content")
+
+        # Mock the agent session and related functions
+        mock_session = AsyncMock(return_value=("complete", "response"))
+        mock_client = MagicMock()
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=None)
+
+        with patch(
+            "apps.backend.agents.session.run_agent_session",
+            mock_session,
+        ), patch(
+            "apps.backend.core.client.create_client",
+            return_value=mock_client,
+        ) as mock_create_client, patch(
+            "apps.backend.prompts_pkg.prompt_generator.generate_planner_prompt",
+            return_value="test prompt",
+        ):
+            # The phase will fail because implementation_plan.json isn't created
+            # but we can verify the agent was invoked
+            result = runner.execute_phase("planning")
+
+            # Verify create_client was called with correct agent_type
+            mock_create_client.assert_called_once()
+            call_kwargs = mock_create_client.call_args
+            assert call_kwargs[1]["agent_type"] == "planner"
+
+            # Verify run_agent_session was called
+            mock_session.assert_called_once()
+
+    def test_coding_invokes_run_autonomous_agent(self, initialized_runner_with_spec_dir):
+        """Test coding phase calls run_autonomous_agent with correct args."""
+        import json
+        from unittest.mock import patch, MagicMock, AsyncMock
+
+        runner = initialized_runner_with_spec_dir
+
+        # Create implementation_plan.json (required for coding)
+        plan_file = runner._spec_dir / "implementation_plan.json"
+        plan_file.write_text(json.dumps({
+            "subtasks": [
+                {"id": "1.1", "title": "Test", "status": "pending"}
+            ]
+        }))
+
+        mock_coder = AsyncMock()
+
+        with patch(
+            "apps.backend.agents.coder.run_autonomous_agent",
+            mock_coder,
+        ), patch(
+            "apps.backend.progress.is_build_complete",
+            return_value=True,
+        ):
+            result = runner.execute_phase("coding")
+
+            # Verify run_autonomous_agent was called
+            mock_coder.assert_called_once()
+
+            # Verify it was called with spec_dir
+            call_kwargs = mock_coder.call_args
+            assert call_kwargs[1]["spec_dir"] == runner._spec_dir
+
+    def test_qa_validation_invokes_run_qa_validation_loop(self, initialized_runner_with_spec_dir):
+        """Test qa_validation phase calls run_qa_validation_loop with correct args."""
+        import json
+        from unittest.mock import patch, AsyncMock
+
+        runner = initialized_runner_with_spec_dir
+
+        # Create complete build (all subtasks completed)
+        plan_file = runner._spec_dir / "implementation_plan.json"
+        plan_file.write_text(json.dumps({
+            "subtasks": [
+                {"id": "1.1", "status": "completed"},
+                {"id": "1.2", "status": "completed"}
+            ]
+        }))
+
+        mock_qa_loop = AsyncMock(return_value=True)  # Return approved
+
+        with patch(
+            "apps.backend.qa.loop.run_qa_validation_loop",
+            mock_qa_loop,
+        ), patch(
+            "apps.backend.progress.is_build_complete",
+            return_value=True,
+        ):
+            result = runner.execute_phase("qa_validation")
+
+            # Verify run_qa_validation_loop was called
+            mock_qa_loop.assert_called_once()
+
+            # Verify result
+            assert result.success is True
+            assert "passed" in result.message.lower()
+
+    def test_model_from_task_config_metadata(self, initialized_runner_with_spec_dir):
+        """Test that model is read from task_config.metadata if available."""
+        import json
+        from unittest.mock import patch, MagicMock, AsyncMock
+
+        runner = initialized_runner_with_spec_dir
+
+        # Set a custom model in task_config metadata
+        runner._task_config.metadata["model"] = "claude-opus-4-5-20251101"
+
+        # Create spec.md (required for planning)
+        spec_file = runner._spec_dir / "spec.md"
+        spec_file.write_text("# Test Spec\n\n## Overview\nTest content")
+
+        mock_client = MagicMock()
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=None)
+        mock_session = AsyncMock(return_value=("complete", "response"))
+
+        with patch(
+            "apps.backend.agents.session.run_agent_session",
+            mock_session,
+        ), patch(
+            "apps.backend.core.client.create_client",
+            return_value=mock_client,
+        ) as mock_create_client, patch(
+            "apps.backend.prompts_pkg.prompt_generator.generate_planner_prompt",
+            return_value="test prompt",
+        ):
+            result = runner.execute_phase("planning")
+
+            # Verify create_client was called with the custom model
+            mock_create_client.assert_called_once()
+            call_kwargs = mock_create_client.call_args
+            assert call_kwargs[1]["model"] == "claude-opus-4-5-20251101"
+
+    def test_default_model_used_when_not_in_metadata(self, initialized_runner_with_spec_dir):
+        """Test that DEFAULT_AGENT_MODEL is used when model not in metadata."""
+        import json
+        from unittest.mock import patch, MagicMock, AsyncMock
+
+        from apps.backend.methodologies.native.methodology import NativeRunner
+
+        runner = initialized_runner_with_spec_dir
+
+        # Ensure no model in metadata
+        if "model" in runner._task_config.metadata:
+            del runner._task_config.metadata["model"]
+
+        # Create spec.md (required for planning)
+        spec_file = runner._spec_dir / "spec.md"
+        spec_file.write_text("# Test Spec\n\n## Overview\nTest content")
+
+        mock_client = MagicMock()
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=None)
+        mock_session = AsyncMock(return_value=("complete", "response"))
+
+        with patch(
+            "apps.backend.agents.session.run_agent_session",
+            mock_session,
+        ), patch(
+            "apps.backend.core.client.create_client",
+            return_value=mock_client,
+        ) as mock_create_client, patch(
+            "apps.backend.prompts_pkg.prompt_generator.generate_planner_prompt",
+            return_value="test prompt",
+        ):
+            result = runner.execute_phase("planning")
+
+            # Verify create_client was called with the default model
+            mock_create_client.assert_called_once()
+            call_kwargs = mock_create_client.call_args
+            assert call_kwargs[1]["model"] == NativeRunner._DEFAULT_AGENT_MODEL
