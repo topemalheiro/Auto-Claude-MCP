@@ -11,6 +11,7 @@ Architecture Source: architecture.md#Checkpoint-Service
 import asyncio
 import json
 import logging
+import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -85,6 +86,93 @@ FIXED_CHECKPOINTS: list[Checkpoint] = [
 
 
 @dataclass
+class FeedbackAttachment:
+    """Attachment associated with checkpoint feedback (Story 5.3).
+
+    Attributes:
+        id: Unique identifier for the attachment
+        type: Type of attachment ('file' or 'link')
+        name: Display name for the attachment
+        path: File path (for files) or URL (for links)
+        size: File size in bytes (for files)
+        mime_type: MIME type (for files)
+    """
+
+    id: str
+    type: str  # 'file' or 'link'
+    name: str
+    path: str
+    size: int | None = None
+    mime_type: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize attachment to dictionary."""
+        result = {
+            "id": self.id,
+            "type": self.type,
+            "name": self.name,
+            "path": self.path,
+        }
+        if self.size is not None:
+            result["size"] = self.size
+        if self.mime_type is not None:
+            result["mime_type"] = self.mime_type
+        return result
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "FeedbackAttachment":
+        """Deserialize attachment from dictionary."""
+        return cls(
+            id=data["id"],
+            type=data["type"],
+            name=data["name"],
+            path=data["path"],
+            size=data.get("size"),
+            mime_type=data.get("mime_type"),
+        )
+
+
+@dataclass
+class CheckpointFeedback:
+    """Feedback entry for a checkpoint (Story 5.3).
+
+    Attributes:
+        id: Unique identifier for the feedback entry
+        checkpoint_id: ID of the checkpoint this feedback belongs to
+        feedback: The feedback text
+        attachments: List of attached files or links
+        created_at: When the feedback was submitted
+    """
+
+    id: str
+    checkpoint_id: str
+    feedback: str
+    attachments: list[FeedbackAttachment] = field(default_factory=list)
+    created_at: datetime = field(default_factory=datetime.now)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize feedback to dictionary."""
+        return {
+            "id": self.id,
+            "checkpoint_id": self.checkpoint_id,
+            "feedback": self.feedback,
+            "attachments": [a.to_dict() for a in self.attachments],
+            "created_at": self.created_at.isoformat(),
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "CheckpointFeedback":
+        """Deserialize feedback from dictionary."""
+        return cls(
+            id=data["id"],
+            checkpoint_id=data["checkpoint_id"],
+            feedback=data["feedback"],
+            attachments=[FeedbackAttachment.from_dict(a) for a in data.get("attachments", [])],
+            created_at=datetime.fromisoformat(data["created_at"]),
+        )
+
+
+@dataclass
 class CheckpointResult:
     """Result from a checkpoint pause/resume cycle.
 
@@ -94,6 +182,7 @@ class CheckpointResult:
             (approve, reject, revise). Use CheckpointDecision.is_valid()
             to validate.
         feedback: Optional user feedback or comments
+        attachments: Optional list of attached files/links (Story 5.3)
         resumed_at: Timestamp when execution resumed
         metadata: Additional context from the checkpoint
     """
@@ -101,6 +190,7 @@ class CheckpointResult:
     checkpoint_id: str
     decision: str  # One of CheckpointDecision values: "approve", "reject", "revise"
     feedback: str | None = None
+    attachments: list[FeedbackAttachment] = field(default_factory=list)
     resumed_at: datetime | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
@@ -122,6 +212,7 @@ class CheckpointState:
         artifacts: List of artifact paths produced so far
         context: Additional execution context
         is_paused: Whether execution is currently paused
+        feedback_history: History of feedback provided at checkpoints (Story 5.3)
     """
 
     task_id: str
@@ -131,6 +222,7 @@ class CheckpointState:
     artifacts: list[str] = field(default_factory=list)
     context: dict[str, Any] = field(default_factory=dict)
     is_paused: bool = True
+    feedback_history: list[CheckpointFeedback] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize state to dictionary for JSON persistence."""
@@ -142,6 +234,7 @@ class CheckpointState:
             "artifacts": self.artifacts,
             "context": self.context,
             "is_paused": self.is_paused,
+            "feedback_history": [f.to_dict() for f in self.feedback_history],
         }
 
     @classmethod
@@ -155,6 +248,7 @@ class CheckpointState:
             artifacts=data.get("artifacts", []),
             context=data.get("context", {}),
             is_paused=data.get("is_paused", True),
+            feedback_history=[CheckpointFeedback.from_dict(f) for f in data.get("feedback_history", [])],
         )
 
 
@@ -229,10 +323,12 @@ class CheckpointService:
         self._resume_event = asyncio.Event()
         self._decision: str | None = None
         self._feedback: str | None = None
+        self._attachments: list[FeedbackAttachment] = []
         self._current_checkpoint_id: str | None = None
 
         # State persistence
         self._state_file = self.spec_dir / "checkpoint_state.json"
+        self._feedback_history_file = self.spec_dir / "feedback_history.json"
 
         # Event callback (to be set by framework)
         self._event_callback: CheckpointEventCallback = None
@@ -339,11 +435,12 @@ class CheckpointService:
         await self._resume_event.wait()
         self._resume_event.clear()
 
-        # Build result
+        # Build result (Story 5.3: include attachments)
         result = CheckpointResult(
             checkpoint_id=checkpoint.id,
             decision=self._decision or "approve",
             feedback=self._feedback,
+            attachments=self._attachments,
             resumed_at=datetime.now(),
             metadata={"phase_id": phase_id, "artifacts": artifacts or []},
         )
@@ -352,9 +449,10 @@ class CheckpointService:
         state.is_paused = False
         self._save_state(state)
 
-        # Reset decision/feedback for next checkpoint
+        # Reset decision/feedback/attachments for next checkpoint
         self._decision = None
         self._feedback = None
+        self._attachments = []
         self._current_checkpoint_id = None
 
         logger.info(
@@ -362,7 +460,12 @@ class CheckpointService:
         )
         return result
 
-    def resume(self, decision: str, feedback: str | None = None) -> None:
+    def resume(
+        self,
+        decision: str,
+        feedback: str | None = None,
+        attachments: list[dict[str, Any]] | None = None,
+    ) -> None:
         """Resume execution from a checkpoint.
 
         Called by the frontend/framework when the user has reviewed the
@@ -371,6 +474,7 @@ class CheckpointService:
         Args:
             decision: User's decision (approve, reject, revise)
             feedback: Optional feedback or comments from user
+            attachments: Optional list of attachment dicts (Story 5.3)
         """
         if not self._current_checkpoint_id:
             logger.warning("resume() called but no checkpoint is active")
@@ -383,6 +487,21 @@ class CheckpointService:
 
         self._decision = decision
         self._feedback = feedback
+
+        # Convert attachment dicts to FeedbackAttachment objects (Story 5.3)
+        self._attachments = []
+        if attachments:
+            for a in attachments:
+                self._attachments.append(FeedbackAttachment.from_dict(a))
+
+        # Save feedback with attachments to history if provided (Story 5.3)
+        if feedback:
+            self._save_feedback_to_history(
+                self._current_checkpoint_id,
+                feedback,
+                self._attachments,
+            )
+
         self._resume_event.set()
 
     def get_current_checkpoint(self) -> Checkpoint | None:
@@ -470,6 +589,108 @@ class CheckpointService:
                 logger.warning(f"Failed to remove checkpoint state: {e}")
 
     # =========================================================================
+    # Feedback History (Story 5.3)
+    # =========================================================================
+
+    def _save_feedback_to_history(
+        self,
+        checkpoint_id: str,
+        feedback: str,
+        attachments: list[FeedbackAttachment] | None = None,
+    ) -> CheckpointFeedback:
+        """Save feedback with attachments to the history file.
+
+        Args:
+            checkpoint_id: ID of the checkpoint this feedback is for
+            feedback: The feedback text
+            attachments: Optional list of attachments
+
+        Returns:
+            The created CheckpointFeedback object
+        """
+        # Create feedback entry
+        feedback_entry = CheckpointFeedback(
+            id=str(uuid.uuid4()),
+            checkpoint_id=checkpoint_id,
+            feedback=feedback,
+            attachments=attachments or [],
+            created_at=datetime.now(),
+        )
+
+        # Load existing history
+        history = self.load_feedback_history()
+
+        # Append new entry
+        history.append(feedback_entry)
+
+        # Save updated history
+        self._save_feedback_history(history)
+
+        logger.debug(f"Saved feedback for checkpoint {checkpoint_id}")
+        return feedback_entry
+
+    def _save_feedback_history(self, history: list[CheckpointFeedback]) -> None:
+        """Save feedback history to JSON file.
+
+        Args:
+            history: List of feedback entries to save
+        """
+        try:
+            self.spec_dir.mkdir(parents=True, exist_ok=True)
+            with open(self._feedback_history_file, "w") as f:
+                json.dump([fb.to_dict() for fb in history], f, indent=2)
+            logger.debug(f"Feedback history saved to {self._feedback_history_file}")
+        except OSError as e:
+            logger.error(f"Failed to save feedback history: {e}")
+            raise
+
+    def load_feedback_history(self) -> list[CheckpointFeedback]:
+        """Load feedback history from JSON file.
+
+        Returns:
+            List of feedback entries, empty if file doesn't exist
+        """
+        if not self._feedback_history_file.exists():
+            logger.debug(f"No feedback history file at {self._feedback_history_file}")
+            return []
+
+        try:
+            with open(self._feedback_history_file) as f:
+                data = json.load(f)
+            history = [CheckpointFeedback.from_dict(fb) for fb in data]
+            logger.debug(f"Loaded {len(history)} feedback entries from history")
+            return history
+        except (OSError, json.JSONDecodeError, KeyError) as e:
+            logger.error(f"Failed to load feedback history: {e}")
+            return []
+
+    def get_feedback_for_checkpoint(
+        self, checkpoint_id: str
+    ) -> list[CheckpointFeedback]:
+        """Get all feedback entries for a specific checkpoint.
+
+        Args:
+            checkpoint_id: ID of the checkpoint to get feedback for
+
+        Returns:
+            List of feedback entries for the checkpoint
+        """
+        history = self.load_feedback_history()
+        return [fb for fb in history if fb.checkpoint_id == checkpoint_id]
+
+    def clear_feedback_history(self) -> None:
+        """Remove feedback history file.
+
+        Called after successful task completion to clean up.
+        """
+        if self._feedback_history_file.exists():
+            try:
+                self._feedback_history_file.unlink()
+                logger.debug(f"Removed feedback history file {self._feedback_history_file}")
+            except OSError as e:
+                logger.warning(f"Failed to remove feedback history: {e}")
+
+    # =========================================================================
     # Checkpoint Detection
     # =========================================================================
 
@@ -527,6 +748,9 @@ class CheckpointService:
             checkpoint: The checkpoint that was reached
             state: Current checkpoint state
         """
+        # Get feedback history for this task (Story 5.3)
+        feedback_history = self.load_feedback_history()
+
         event_data = {
             "event": "checkpoint_reached",
             "task_id": self.task_id,
@@ -537,6 +761,7 @@ class CheckpointService:
             "paused_at": state.paused_at.isoformat(),
             "artifacts": state.artifacts,
             "requires_approval": checkpoint.requires_approval,
+            "feedback_history": [fb.to_dict() for fb in feedback_history],  # Story 5.3
         }
 
         logger.debug(f"Emitting checkpoint_reached event: {event_data}")
@@ -592,6 +817,7 @@ class CheckpointService:
             checkpoint_id=checkpoint.id,
             decision=self._decision or "approve",
             feedback=self._feedback,
+            attachments=self._attachments,
             resumed_at=datetime.now(),
             metadata={
                 "phase_id": state.phase_id,
@@ -606,6 +832,7 @@ class CheckpointService:
 
         self._decision = None
         self._feedback = None
+        self._attachments = []
         self._current_checkpoint_id = None
 
         logger.info(f"Recovered checkpoint {checkpoint.id} with decision: {result.decision}")

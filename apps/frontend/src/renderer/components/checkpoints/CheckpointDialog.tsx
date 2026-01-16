@@ -38,7 +38,8 @@ import { Button } from '../ui/button';
 import { Textarea } from '../ui/textarea';
 import { cn } from '../../lib/utils';
 
-import type { CheckpointDialogProps, CheckpointArtifact, CheckpointDecisionItem } from './types';
+import type { CheckpointDialogProps, CheckpointArtifact, CheckpointDecisionItem, FeedbackAttachment } from './types';
+import { FeedbackHistory } from './FeedbackHistory';
 
 /**
  * Get the appropriate icon for an artifact type.
@@ -278,6 +279,7 @@ export function CheckpointDialog({
   onOpenChange,
   onViewArtifact,
   isProcessing = false,
+  feedbackHistory,
 }: CheckpointDialogProps) {
   const { t } = useTranslation(['checkpoints', 'common']);
   const [expanded, setExpanded] = useState(false);
@@ -334,6 +336,22 @@ export function CheckpointDialog({
           {checkpoint.artifacts.length > 0 && (
             <div className="bg-card border border-border rounded-xl p-4">
               <ArtifactList artifacts={checkpoint.artifacts} onViewArtifact={onViewArtifact} />
+            </div>
+          )}
+
+          {/* Feedback History Section (Story 5.3) */}
+          {feedbackHistory && feedbackHistory.length > 0 && (
+            <div className="bg-card border border-border rounded-xl p-4">
+              <FeedbackHistory
+                feedbackHistory={feedbackHistory}
+                onViewAttachment={(attachment: FeedbackAttachment) => {
+                  // For link attachments, open in browser
+                  if (attachment.type === 'link') {
+                    window.open(attachment.path, '_blank', 'noopener,noreferrer');
+                  }
+                  // For file attachments, could emit an event to view in app
+                }}
+              />
             </div>
           )}
 

@@ -32,5 +32,26 @@
     "info": "Info",
     "warning": "Warning",
     "critical": "Critical"
+  },
+  "feedback": {
+    "placeholder": "Enter your feedback or guidance for the AI...",
+    "submit": "Submit Feedback",
+    "submitting": "Submitting...",
+    "attachFile": "Attach File",
+    "addLinkButton": "Add Link",
+    "removeAttachment": "Remove attachment",
+    "linkNamePlaceholder": "Link name (optional)",
+    "linkUrlPlaceholder": "https://...",
+    "cancelLink": "Cancel",
+    "addLink": "Add",
+    "attachments_one": "{{count}} attachment",
+    "attachments_other": "{{count}} attachments",
+    "attachmentCount_one": "{{count}} file",
+    "attachmentCount_other": "{{count}} files",
+    "invalidUrl": "Please enter a valid URL (http:// or https://)",
+    "fileAttachmentComingSoon": "File attachment coming soon",
+    "historyTitle": "Previous Feedback",
+    "showAll": "Show all ({{count}})",
+    "showLess": "Show less"
   }
 }

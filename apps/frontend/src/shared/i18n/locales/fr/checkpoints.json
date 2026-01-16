@@ -32,5 +32,26 @@
     "info": "Info",
     "warning": "Avertissement",
     "critical": "Critique"
+  },
+  "feedback": {
+    "placeholder": "Entrez vos commentaires ou conseils pour l'IA...",
+    "submit": "Envoyer le commentaire",
+    "submitting": "Envoi en cours...",
+    "attachFile": "Joindre un fichier",
+    "addLinkButton": "Ajouter un lien",
+    "removeAttachment": "Supprimer la pièce jointe",
+    "linkNamePlaceholder": "Nom du lien (facultatif)",
+    "linkUrlPlaceholder": "https://...",
+    "cancelLink": "Annuler",
+    "addLink": "Ajouter",
+    "attachments_one": "{{count}} pièce jointe",
+    "attachments_other": "{{count}} pièces jointes",
+    "attachmentCount_one": "{{count}} fichier",
+    "attachmentCount_other": "{{count}} fichiers",
+    "invalidUrl": "Veuillez entrer une URL valide (http:// ou https://)",
+    "fileAttachmentComingSoon": "Pièce jointe bientôt disponible",
+    "historyTitle": "Commentaires précédents",
+    "showAll": "Tout afficher ({{count}})",
+    "showLess": "Afficher moins"
   }
 }

@@ -2,6 +2,7 @@
  * Types for checkpoint dialog components.
  *
  * Story Reference: Story 5.2 - Implement Checkpoint Dialog Component
+ * Story Reference: Story 5.3 - Implement Checkpoint Feedback Input
  * Architecture Source: architecture.md#Checkpoint-Service
  */
 
@@ -78,4 +79,66 @@ export interface CheckpointDialogProps {
   onViewArtifact?: (artifact: CheckpointArtifact) => void;
   /** Whether an action is being processed */
   isProcessing?: boolean;
+  /** Callback when user submits feedback with optional attachments (Story 5.3) */
+  onFeedbackSubmit?: (feedback: string, attachments?: FeedbackAttachment[]) => void;
+  /** Previous feedback history for this checkpoint (Story 5.3) */
+  feedbackHistory?: CheckpointFeedback[];
+}
+
+/**
+ * Attachment type for feedback (Story 5.3).
+ */
+export interface FeedbackAttachment {
+  /** Unique identifier for the attachment */
+  id: string;
+  /** Type of attachment */
+  type: 'file' | 'link';
+  /** Display name for the attachment */
+  name: string;
+  /** File path (for files) or URL (for links) */
+  path: string;
+  /** File size in bytes (for files) */
+  size?: number;
+  /** MIME type (for files) */
+  mimeType?: string;
+}
+
+/**
+ * Feedback entry for a checkpoint (Story 5.3).
+ */
+export interface CheckpointFeedback {
+  /** Unique identifier for the feedback entry */
+  id: string;
+  /** ID of the checkpoint this feedback belongs to */
+  checkpointId: string;
+  /** The feedback text */
+  feedback: string;
+  /** Attached files or links */
+  attachments: FeedbackAttachment[];
+  /** When the feedback was submitted */
+  createdAt: string;
+}
+
+/**
+ * Props for the FeedbackInput component (Story 5.3).
+ */
+export interface FeedbackInputProps {
+  /** Callback when feedback is submitted */
+  onSubmit: (feedback: string, attachments?: FeedbackAttachment[]) => void;
+  /** Placeholder text for the textarea */
+  placeholder?: string;
+  /** Whether the component is disabled */
+  disabled?: boolean;
+  /** Whether an action is being processed */
+  isProcessing?: boolean;
+}
+
+/**
+ * Props for the FeedbackHistory component (Story 5.3).
+ */
+export interface FeedbackHistoryProps {
+  /** List of feedback entries to display */
+  feedbackHistory: CheckpointFeedback[];
+  /** Callback when user wants to view an attachment */
+  onViewAttachment?: (attachment: FeedbackAttachment) => void;
 }
