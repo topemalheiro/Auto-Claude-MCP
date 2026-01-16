@@ -88,10 +88,85 @@ class ProgressService(Protocol):
 
 @runtime_checkable
 class CheckpointService(Protocol):
-    """Protocol for Semi-Auto pause points service."""
+    """Protocol for Semi-Auto pause points service.
 
-    def create_checkpoint(self, checkpoint_id: str, data: dict[str, Any]) -> None:
-        """Create a checkpoint for user review."""
+    The CheckpointService manages pause points in Semi-Auto execution mode.
+    It handles checkpoint detection, state persistence, pause/resume, and
+    event notification to the frontend.
+
+    Story Reference: Story 5.1 - Implement Checkpoint Service
+    Architecture Source: architecture.md#Checkpoint-Service
+
+    Required Methods:
+        create_checkpoint: Create a checkpoint for user review
+        check_and_pause: Check if phase has checkpoint and pause if so
+        resume: Resume execution from a checkpoint
+        is_paused: Check if currently paused at a checkpoint
+        load_state: Load persisted checkpoint state
+        clear_state: Remove checkpoint state file
+    """
+
+    def create_checkpoint(self, checkpoint_id: str, data: dict[str, Any]) -> Any:
+        """Create a checkpoint for user review.
+
+        Args:
+            checkpoint_id: Unique identifier for the checkpoint
+            data: Data to be reviewed at the checkpoint
+
+        Returns:
+            The created checkpoint state
+        """
+        ...
+
+    async def check_and_pause(
+        self,
+        phase_id: str,
+        artifacts: list[str] | None = None,
+        context: dict[str, Any] | None = None,
+    ) -> Any | None:
+        """Check if a checkpoint exists for the phase and pause if so.
+
+        Args:
+            phase_id: ID of the phase that just completed
+            artifacts: List of artifact paths produced so far
+            context: Additional execution context to persist
+
+        Returns:
+            CheckpointResult if a checkpoint was reached and resumed,
+            None if no checkpoint for this phase
+        """
+        ...
+
+    def resume(self, decision: str, feedback: str | None = None) -> None:
+        """Resume execution from a checkpoint.
+
+        Args:
+            decision: User's decision (approve, reject, revise)
+            feedback: Optional feedback or comments from user
+        """
+        ...
+
+    def is_paused(self) -> bool:
+        """Check if execution is currently paused at a checkpoint.
+
+        Returns:
+            True if paused at a checkpoint, False otherwise
+        """
+        ...
+
+    def load_state(self) -> Any | None:
+        """Load checkpoint state from persistent storage.
+
+        Returns:
+            CheckpointState if file exists, None otherwise
+        """
+        ...
+
+    def clear_state(self) -> None:
+        """Remove checkpoint state file.
+
+        Called after successful task completion to clean up.
+        """
         ...
 
 
