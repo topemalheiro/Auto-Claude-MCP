@@ -1,0 +1,92 @@
+name: bmad
+version: "1.0.0"
+description: "BMAD (Business Model Agile Development) methodology - structured approach with PRD, architecture, and story-driven development"
+author: "BMad"
+entry_point: methodology.BMADRunner
+
+phases:
+  - id: analyze
+    name: "Project Analysis"
+    description: "Analyze project structure and gather context"
+    artifacts:
+      - analysis-json
+  - id: prd
+    name: "PRD Creation"
+    description: "Create Product Requirements Document"
+    artifacts:
+      - prd-md
+  - id: architecture
+    name: "Architecture"
+    description: "Design and document system architecture"
+    artifacts:
+      - architecture-md
+  - id: epics
+    name: "Epic & Story Creation"
+    description: "Create epics and break down into stories"
+    artifacts:
+      - epics-md
+  - id: stories
+    name: "Story Preparation"
+    description: "Prepare and refine stories for development"
+    artifacts:
+      - stories-md
+  - id: dev
+    name: "Development"
+    description: "Implement stories via dev-story workflow"
+  - id: review
+    name: "Code Review"
+    description: "Review implementation via code-review workflow"
+    artifacts:
+      - review-report-md
+
+checkpoints:
+  - id: after_prd
+    phase: prd
+    description: "Review Product Requirements Document before architecture"
+  - id: after_architecture
+    phase: architecture
+    description: "Review architecture design before epic creation"
+  - id: after_epics
+    phase: epics
+    description: "Review epics and stories before development"
+  - id: after_story
+    phase: dev
+    description: "Review story implementation before continuing"
+  - id: after_review
+    phase: review
+    description: "Review code review results before completion"
+
+artifacts:
+  - id: analysis-json
+    name: "Project Analysis"
+    type: json
+    path: "analysis.json"
+  - id: prd-md
+    name: "Product Requirements Document"
+    type: markdown
+    path: "prd.md"
+  - id: architecture-md
+    name: "Architecture Document"
+    type: markdown
+    path: "architecture.md"
+  - id: epics-md
+    name: "Epics Document"
+    type: markdown
+    path: "epics.md"
+  - id: stories-md
+    name: "Story Files"
+    type: markdown
+    path: "stories/*.md"
+  - id: review-report-md
+    name: "Review Report"
+    type: markdown
+    path: "review_report.md"
+
+complexity_levels:
+  - quick
+  - standard
+  - complex
+
+execution_modes:
+  - full_auto
+  - semi_auto
