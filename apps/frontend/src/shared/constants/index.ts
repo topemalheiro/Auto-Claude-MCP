@@ -35,3 +35,6 @@ export * from './api-profiles';
 
 // Configuration and paths
 export * from './config';
+
+// Methodology plugin sources
+export * from './methodology-sources';

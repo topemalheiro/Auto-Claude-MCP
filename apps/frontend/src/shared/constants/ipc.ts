@@ -152,6 +152,7 @@ export const IPC_CHANNELS = {
   // Shell operations
   SHELL_OPEN_EXTERNAL: 'shell:openExternal',
   SHELL_OPEN_TERMINAL: 'shell:openTerminal',
+  SHELL_OPEN_TERMINAL_WITH_COMMAND: 'shell:openTerminalWithCommand',
 
   // Roadmap operations
   ROADMAP_GET: 'roadmap:get',
@@ -538,5 +539,13 @@ export const IPC_CHANNELS = {
   // Sentry error reporting
   SENTRY_STATE_CHANGED: 'sentry:state-changed',  // Notify main process when setting changes
   GET_SENTRY_DSN: 'sentry:get-dsn',              // Get DSN from main process (env var)
-  GET_SENTRY_CONFIG: 'sentry:get-config'         // Get full Sentry config (DSN + sample rates)
+  GET_SENTRY_CONFIG: 'sentry:get-config',        // Get full Sentry config (DSN + sample rates)
+
+  // Methodology plugin operations
+  METHODOLOGY_CHECK_INSTALLED: 'methodology:checkInstalled',    // Check if methodology is installed in project
+  METHODOLOGY_INSTALL: 'methodology:install',                   // Install methodology
+  METHODOLOGY_GET_CONFIG: 'methodology:getConfig',              // Get project's methodology config
+  METHODOLOGY_SAVE_CONFIG: 'methodology:saveConfig',            // Save project's methodology config
+  METHODOLOGY_LIST_AVAILABLE: 'methodology:listAvailable',      // List available methodologies with their sources
+  METHODOLOGY_CHECK_COMPATIBILITY: 'methodology:checkCompatibility'  // Check version compatibility
 } as const;

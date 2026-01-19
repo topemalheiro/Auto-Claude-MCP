@@ -51,6 +51,8 @@ import { OnboardingWizard } from './components/onboarding';
 import { AppUpdateNotification } from './components/AppUpdateNotification';
 import { ProactiveSwapListener } from './components/ProactiveSwapListener';
 import { GitHubSetupModal } from './components/GitHubSetupModal';
+import { MethodologyWarningDialog } from './components/MethodologyWarningDialog';
+import { useMethodologyCompatibility } from './hooks/useMethodologyCompatibility';
 import { useProjectStore, loadProjects, addProject, initializeProject, removeProject } from './stores/project-store';
 import { useTaskStore, loadTasks } from './stores/task-store';
 import { useSettingsStore, loadSettings, loadProfiles } from './stores/settings-store';
@@ -61,7 +63,7 @@ import { initDownloadProgressListener } from './stores/download-store';
 import { GlobalDownloadIndicator } from './components/GlobalDownloadIndicator';
 import { useIpcListeners } from './hooks/useIpc';
 import { useGlobalTerminalListeners } from './hooks/useGlobalTerminalListeners';
-import { COLOR_THEMES, UI_SCALE_MIN, UI_SCALE_MAX, UI_SCALE_DEFAULT } from '../shared/constants';
+import { COLOR_THEMES, UI_SCALE_MIN, UI_SCALE_MAX, UI_SCALE_DEFAULT, getInstallCommand } from '../shared/constants';
 import type { Task, Project, ColorTheme } from '../shared/types';
 import { ProjectTabBar } from './components/ProjectTabBar';
 import { AddProjectModal } from './components/AddProjectModal';
@@ -104,6 +106,14 @@ export function App() {
   // Load global terminal output listeners to buffer output across project switches
   // This ensures terminal output is captured even when the terminal component is not rendered
   useGlobalTerminalListeners();
+
+  // Methodology compatibility check
+  const {
+    warning: methodologyWarning,
+    dismissWarning: dismissMethodologyWarning,
+    continueAnyway: continueWithMethodology,
+    switchToNative: switchToNativeMethodology,
+  } = useMethodologyCompatibility();
 
   // Stores
   const projects = useProjectStore((state) => state.projects);
@@ -665,6 +675,39 @@ export function App() {
         const updatedProject = useProjectStore.getState().projects.find(p => p.id === projectId);
         console.log('[InitDialog] Updated project:', updatedProject);
 
+        // Save methodology configuration AFTER initialization completes
+        // This ensures .auto-claude directory exists before we write to it
+        // Note: Use pendingProject for methodology since it was set during project creation
+        // (updatedProject from store may not have settings synced yet)
+        const projectPath = updatedProject?.path || pendingProject?.path;
+        if (projectPath) {
+          const methodology = pendingProject?.settings?.methodology || updatedProject?.settings?.methodology || 'native';
+          console.log('[InitDialog] Saving methodology config:', methodology, 'from pendingProject:', pendingProject?.settings?.methodology);
+          try {
+            await window.electronAPI.saveMethodologyConfig(projectPath, {
+              name: methodology,
+              version: '1.0.0',
+              source: methodology === 'native' ? 'native' : 'npm',
+              installedAt: new Date().toISOString()
+            });
+
+            // If methodology requires installation, open user's preferred terminal with install command
+            const installCommand = getInstallCommand(methodology);
+            if (installCommand) {
+              console.log('[InitDialog] Opening terminal for methodology installation:', methodology, installCommand);
+              try {
+                await window.electronAPI.openTerminalWithCommand(installCommand, projectPath);
+              } catch (termErr) {
+                console.warn('[InitDialog] Failed to open terminal for methodology install:', termErr);
+                // Non-fatal - user can run the command manually
+              }
+            }
+          } catch (err) {
+            console.warn('[InitDialog] Failed to save methodology config:', err);
+            // Non-fatal - methodology can be configured later
+          }
+        }
+
         // Mark as successful to prevent onOpenChange from treating this as a skip
         setInitSuccess(true);
         setIsInitializing(false);
@@ -1035,6 +1078,14 @@ export function App() {
             onSkip={handleGitHubSetupSkip}
           />
         )}
+
+        {/* Methodology Version Warning Dialog - shows when incompatible methodology version detected */}
+        <MethodologyWarningDialog
+          warning={methodologyWarning}
+          onContinue={continueWithMethodology}
+          onSwitchToNative={switchToNativeMethodology}
+          onDismiss={dismissMethodologyWarning}
+        />
 
         {/* Remove Project Confirmation Dialog */}
         <Dialog open={showRemoveProjectDialog} onOpenChange={(open) => {

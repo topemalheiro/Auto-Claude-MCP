@@ -325,6 +325,13 @@
     "badge": {
       "native": "Native",
       "bmad": "BMAD"
+    },
+    "versionWarning": {
+      "title": "Avertissement de version de méthodologie",
+      "description": "La version installée de {{methodology}} ({{version}}) peut ne pas être entièrement compatible avec Auto Claude. Recommandé : {{minVersion}}+",
+      "riskNotice": "Cela pourrait causer un comportement inattendu lors de l'exécution des tâches. Vous pouvez continuer quand même ou passer à la méthodologie native.",
+      "continueAnyway": "Continuer quand même",
+      "useNative": "Utiliser Native"
     }
   },
   "bulkPR": {

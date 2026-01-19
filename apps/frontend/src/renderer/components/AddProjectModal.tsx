@@ -14,6 +14,7 @@ import {
 } from './ui/dialog';
 import { cn } from '../lib/utils';
 import { addProject } from '../stores/project-store';
+import { MethodologySelector } from './task-form/MethodologySelector';
 import type { Project } from '../../shared/types';
 
 type ModalStep = 'choose' | 'create-form';
@@ -30,6 +31,7 @@ export function AddProjectModal({ open, onOpenChange, onProjectAdded }: AddProje
   const [projectName, setProjectName] = useState('');
   const [projectLocation, setProjectLocation] = useState('');
   const [initGit, setInitGit] = useState(true);
+  const [methodology, setMethodology] = useState('native');
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -40,6 +42,7 @@ export function AddProjectModal({ open, onOpenChange, onProjectAdded }: AddProje
       setProjectName('');
       setProjectLocation('');
       setInitGit(true);
+      setMethodology('native');
       setError(null);
     }
   }, [open]);
@@ -139,7 +142,26 @@ export function AddProjectModal({ open, onOpenChange, onProjectAdded }: AddProje
             // Non-fatal - main branch can be set later in settings
           }
         }
-        onProjectAdded?.(project, true); // New projects always need init
+
+        // Save methodology preference in project settings (NOT methodology.json yet)
+        // The methodology.json will be saved AFTER initialization completes
+        // to avoid creating .auto-claude directory prematurely
+        let projectWithSettings = project;
+        try {
+          await window.electronAPI.updateProjectSettings(project.id, {
+            methodology
+          });
+          // Also update local project object so it's available in pendingProject
+          // The IPC call updates the main store, but we need it in the object we pass
+          projectWithSettings = {
+            ...project,
+            settings: { ...project.settings, methodology }
+          };
+        } catch {
+          // Non-fatal - methodology can be set later
+        }
+
+        onProjectAdded?.(projectWithSettings, true); // New projects always need init
         onOpenChange(false);
       }
     } catch (err) {
@@ -272,6 +294,13 @@ export function AddProjectModal({ open, onOpenChange, onProjectAdded }: AddProje
             {t('addProject.initGit')}
           </Label>
         </div>
+
+        {/* Methodology Selector */}
+        <MethodologySelector
+          value={methodology}
+          onChange={setMethodology}
+          idPrefix="create-project"
+        />
 
         {error && (
           <div className="text-sm text-destructive bg-destructive/10 rounded-lg p-3" role="alert">

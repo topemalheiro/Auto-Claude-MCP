@@ -340,10 +340,13 @@ function getInstallCommand(isUpdate: boolean): string {
 }
 
 /**
- * Escape single quotes in a string for use in AppleScript
+ * Escape a string for use in AppleScript double-quoted strings.
+ * AppleScript uses backslash to escape special characters inside double quotes.
  */
 export function escapeAppleScriptString(str: string): string {
-  return str.replace(/'/g, "'\\''");
+  // Escape backslashes first (to avoid double-escaping)
+  // Then escape double quotes
+  return str.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 }
 
 /**
@@ -407,13 +410,15 @@ export async function openTerminalWithCommand(command: string): Promise<void> {
 
     if (terminalId === 'iterm2') {
       // iTerm2
+      // IMPORTANT: create window FIRST, then activate - this prevents opening a blank default window
+      // when iTerm2 isn't already running (same pattern as Terminal.app)
       script = `
         tell application "iTerm"
-          activate
           create window with default profile
           tell current session of current window
             write text "${escapedCommand}"
           end tell
+          activate
         end tell
       `;
     } else if (terminalId === 'warp') {

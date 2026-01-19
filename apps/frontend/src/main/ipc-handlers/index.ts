@@ -34,6 +34,7 @@ import { registerMcpHandlers } from './mcp-handlers';
 import { registerProfileHandlers } from './profile-handlers';
 import { registerTerminalWorktreeIpcHandlers } from './terminal';
 import { registerCheckpointHandlers } from './checkpoint-handlers';
+import { registerMethodologyHandlers } from './methodology-handlers';
 import { notificationService } from '../notification-service';
 
 /**
@@ -122,6 +123,9 @@ export function setupIpcHandlers(
   // Checkpoint handlers (Semi-Auto execution mode - Story 5.4)
   registerCheckpointHandlers(agentManager, getMainWindow);
 
+  // Methodology plugin handlers (project-level methodology settings)
+  registerMethodologyHandlers();
+
   console.warn('[IPC] All handler modules registered successfully');
 }
 
@@ -149,5 +153,6 @@ export {
   registerClaudeCodeHandlers,
   registerMcpHandlers,
   registerProfileHandlers,
-  registerCheckpointHandlers
+  registerCheckpointHandlers,
+  registerMethodologyHandlers
 };

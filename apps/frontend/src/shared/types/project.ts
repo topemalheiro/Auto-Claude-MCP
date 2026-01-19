@@ -26,6 +26,8 @@ export interface ProjectSettings {
   mainBranch?: string;
   /** Include CLAUDE.md instructions in agent system prompt (default: true) */
   useClaudeMd?: boolean;
+  /** Default methodology name for this project (default: 'native') */
+  methodology?: string;
 }
 
 export interface NotificationSettings {

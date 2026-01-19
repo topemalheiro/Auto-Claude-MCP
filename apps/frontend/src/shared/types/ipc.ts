@@ -26,6 +26,11 @@ import type {
   McpTestConnectionResult
 } from './project';
 import type {
+  ProjectMethodologyConfig,
+  MethodologyInstallResult,
+  MethodologyCompatibilityResult
+} from './methodology';
+import type {
   Task,
   TaskStatus,
   TaskStartOptions,
@@ -626,6 +631,8 @@ export interface ElectronAPI {
   // Shell operations
   openExternal: (url: string) => Promise<void>;
   openTerminal: (dirPath: string) => Promise<IPCResult<void>>;
+  /** Open user's preferred terminal with a command. Optionally cd to a directory first. */
+  openTerminalWithCommand: (command: string, cwd?: string) => Promise<IPCResult<void>>;
 
   // Auto Claude source environment operations
   getSourceEnv: () => Promise<IPCResult<SourceEnvConfig>>;
@@ -814,6 +821,21 @@ export interface ElectronAPI {
   // MCP Server health check operations
   checkMcpHealth: (server: CustomMcpServer) => Promise<IPCResult<McpHealthCheckResult>>;
   testMcpConnection: (server: CustomMcpServer) => Promise<IPCResult<McpTestConnectionResult>>;
+
+  // Methodology Plugin operations
+  checkMethodologyInstalled: (projectPath: string, name: string) => Promise<IPCResult<MethodologyInstallResult>>;
+  installMethodology: (projectPath: string, name: string, version?: string) => Promise<IPCResult<MethodologyInstallResult>>;
+  getMethodologyConfig: (projectPath: string) => Promise<IPCResult<ProjectMethodologyConfig | null>>;
+  saveMethodologyConfig: (projectPath: string, config: ProjectMethodologyConfig) => Promise<IPCResult<void>>;
+  listAvailableMethodologies: () => Promise<IPCResult<Array<{
+    name: string;
+    type: string;
+    verification: string;
+    packageName?: string;
+    minVersion: string;
+    maxVersion?: string;
+  }>>>;
+  checkMethodologyCompatibility: (name: string, version: string) => Promise<IPCResult<MethodologyCompatibilityResult>>;
 }
 
 declare global {

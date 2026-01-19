@@ -350,7 +350,50 @@ const browserMockAPI: ElectronAPI = {
   openLogsFolder: async () => ({ success: false, error: 'Not available in browser mode' }),
   copyDebugInfo: async () => ({ success: false, error: 'Not available in browser mode' }),
   getRecentErrors: async () => [],
-  listLogFiles: async () => []
+  listLogFiles: async () => [],
+
+  // Methodology Plugin Operations
+  checkMethodologyInstalled: async (_projectPath: string, name: string) => ({
+    success: true,
+    data: {
+      success: name === 'native',
+      version: name === 'native' ? '1.0.0' : undefined,
+      error: name === 'native' ? undefined : 'Not installed (browser mock)'
+    }
+  }),
+  installMethodology: async (_projectPath: string, _name: string, _version?: string) => ({
+    success: false,
+    data: {
+      success: false,
+      error: 'Installation not available in browser mode'
+    }
+  }),
+  getMethodologyConfig: async (_projectPath: string) => ({
+    success: true,
+    data: {
+      name: 'native',
+      version: '1.0.0',
+      source: 'native' as const,
+      installedAt: new Date().toISOString()
+    }
+  }),
+  saveMethodologyConfig: async (_projectPath: string, _config: any) => ({
+    success: true,
+    data: undefined
+  }),
+  listAvailableMethodologies: async () => ({
+    success: true,
+    data: [
+      { name: 'native', type: 'native', verification: 'native', minVersion: '1.0.0' },
+      { name: 'bmad', type: 'npm', verification: 'verified', packageName: 'bmad-method', minVersion: '1.0.0' }
+    ]
+  }),
+  checkMethodologyCompatibility: async (_name: string, _version: string) => ({
+    success: true,
+    data: {
+      compatible: true
+    }
+  })
 };
 
 /**

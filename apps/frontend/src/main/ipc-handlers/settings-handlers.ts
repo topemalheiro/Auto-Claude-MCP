@@ -21,6 +21,7 @@ import { setUpdateChannel, setUpdateChannelWithDowngradeCheck } from '../app-upd
 import { getSettingsPath, readSettingsFile } from '../settings-utils';
 import { configureTools, getToolPath, getToolInfo, isPathFromWrongPlatform, preWarmToolCache } from '../cli-tool-manager';
 import { parseEnvFile } from './utils';
+import { openTerminalWithCommand } from './claude-code-handlers';
 
 const settingsPath = getSettingsPath();
 
@@ -521,6 +522,50 @@ export function registerSettingsHandlers(
         return {
           success: false,
           error: `Failed to open terminal: ${errorMsg}`
+        };
+      }
+    }
+  );
+
+  // Open terminal with a specific command using user's preferred terminal
+  ipcMain.handle(
+    IPC_CHANNELS.SHELL_OPEN_TERMINAL_WITH_COMMAND,
+    async (_, command: string, cwd?: string): Promise<IPCResult<void>> => {
+      try {
+        // Validate command input
+        if (!command || typeof command !== 'string' || command.trim() === '') {
+          return {
+            success: false,
+            error: 'Command is required and must be a non-empty string'
+          };
+        }
+
+        // Build the full command with cd if cwd is provided
+        let fullCommand = command;
+        if (cwd) {
+          const resolvedCwd = path.resolve(cwd);
+          if (!existsSync(resolvedCwd)) {
+            return {
+              success: false,
+              error: `Directory does not exist: ${resolvedCwd}`
+            };
+          }
+          // Prefix with cd command
+          fullCommand = process.platform === 'win32'
+            ? `cd /d "${resolvedCwd}" && ${command}`
+            : `cd "${resolvedCwd}" && ${command}`;
+        }
+
+        console.log('[Shell] Opening terminal with command:', fullCommand);
+        await openTerminalWithCommand(fullCommand);
+
+        return { success: true };
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+        console.error('[Shell] Failed to open terminal with command:', errorMsg);
+        return {
+          success: false,
+          error: `Failed to open terminal with command: ${errorMsg}`
         };
       }
     }
