@@ -434,16 +434,19 @@ export async function openTerminalWithCommand(command: string): Promise<void> {
         end tell
       `;
     } else if (terminalId === 'kitty') {
-      // Kitty - use command line
-      spawn('kitty', ['--', 'bash', '-c', command], { detached: true, stdio: 'ignore' }).unref();
+      // Kitty - use command line, keep terminal open after command completes
+      const bashCommand = `${command}; exec bash`;
+      spawn('kitty', ['--', 'bash', '-c', bashCommand], { detached: true, stdio: 'ignore' }).unref();
       return;
     } else if (terminalId === 'alacritty') {
-      // Alacritty - use command line
-      spawn('open', ['-a', 'Alacritty', '--args', '-e', 'bash', '-c', command], { detached: true, stdio: 'ignore' }).unref();
+      // Alacritty - use command line, keep terminal open after command completes
+      const bashCommand = `${command}; exec bash`;
+      spawn('open', ['-a', 'Alacritty', '--args', '-e', 'bash', '-c', bashCommand], { detached: true, stdio: 'ignore' }).unref();
       return;
     } else if (terminalId === 'wezterm') {
-      // WezTerm - use command line
-      spawn('wezterm', ['start', '--', 'bash', '-c', command], { detached: true, stdio: 'ignore' }).unref();
+      // WezTerm - use command line, keep terminal open after command completes
+      const bashCommand = `${command}; exec bash`;
+      spawn('wezterm', ['start', '--', 'bash', '-c', bashCommand], { detached: true, stdio: 'ignore' }).unref();
       return;
     } else if (terminalId === 'ghostty') {
       // Ghostty
@@ -588,31 +591,35 @@ export async function openTerminalWithCommand(command: string): Promise<void> {
         }
       } else if (terminalId === 'hyper') {
         // Hyper - Electron-based terminal
+        // Hyper doesn't support running commands on startup, so we fall back to PowerShell
+        // but inform the user about their Hyper preference
         const hyperPaths = [
           path.join(process.env.LOCALAPPDATA || '', 'Programs', 'Hyper', 'Hyper.exe'),
           path.join(process.env.USERPROFILE || '', 'AppData', 'Local', 'Programs', 'Hyper', 'Hyper.exe'),
         ];
         const hyperPath = hyperPaths.find(p => existsSync(p));
         if (hyperPath) {
-          // Launch Hyper and it will pick up the shell; send command via PowerShell since Hyper
-          // doesn't have a built-in way to run commands on startup
-          await runWindowsCommand(`start "" "${hyperPath}"`);
-          console.log('[Claude Code] Hyper opened - command must be pasted manually');
+          // Hyper doesn't support command-line args for running commands
+          // Fall back to PowerShell for reliable command execution
+          console.warn('[Claude Code] Hyper does not support running commands on startup, using PowerShell');
+          await runWindowsCommand(`start powershell -NoExit -Command "${escapedCommand}"`);
         } else {
           console.warn('[Claude Code] Hyper not found, falling back to PowerShell');
           await runWindowsCommand(`start powershell -NoExit -Command "${escapedCommand}"`);
         }
       } else if (terminalId === 'tabby') {
         // Tabby (formerly Terminus) - modern terminal for Windows
+        // Tabby doesn't support running commands on startup, so we fall back to PowerShell
         const tabbyPaths = [
           path.join(process.env.LOCALAPPDATA || '', 'Programs', 'Tabby', 'Tabby.exe'),
           path.join(process.env.USERPROFILE || '', 'AppData', 'Local', 'Programs', 'Tabby', 'Tabby.exe'),
         ];
         const tabbyPath = tabbyPaths.find(p => existsSync(p));
         if (tabbyPath) {
-          // Tabby opens with default shell; similar to Hyper, no command line arg for running commands
-          await runWindowsCommand(`start "" "${tabbyPath}"`);
-          console.log('[Claude Code] Tabby opened - command must be pasted manually');
+          // Tabby doesn't support command-line args for running commands
+          // Fall back to PowerShell for reliable command execution
+          console.warn('[Claude Code] Tabby does not support running commands on startup, using PowerShell');
+          await runWindowsCommand(`start powershell -NoExit -Command "${escapedCommand}"`);
         } else {
           console.warn('[Claude Code] Tabby not found, falling back to PowerShell');
           await runWindowsCommand(`start powershell -NoExit -Command "${escapedCommand}"`);
@@ -711,11 +718,15 @@ export async function openTerminalWithCommand(command: string): Promise<void> {
       spawn('wezterm', ['start', '--', 'bash', '-c', bashCommand], { detached: true, stdio: 'ignore' }).unref();
       return;
     } else if (terminalId === 'hyper') {
-      spawn('hyper', [], { detached: true, stdio: 'ignore' }).unref();
-      return;
+      // Hyper doesn't support running commands on startup via CLI
+      // Fall back to xterm or gnome-terminal for reliable command execution
+      console.warn('[Claude Code] Hyper does not support running commands on startup, trying fallback terminal');
+      // Don't return - fall through to auto-detect
     } else if (terminalId === 'tabby') {
-      spawn('tabby', [], { detached: true, stdio: 'ignore' }).unref();
-      return;
+      // Tabby doesn't support running commands on startup via CLI
+      // Fall back to xterm or gnome-terminal for reliable command execution
+      console.warn('[Claude Code] Tabby does not support running commands on startup, trying fallback terminal');
+      // Don't return - fall through to auto-detect
     } else if (terminalId === 'xterm') {
       spawn('xterm', ['-e', 'bash', '-c', bashCommand], { detached: true, stdio: 'ignore' }).unref();
       return;
