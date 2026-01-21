@@ -16,6 +16,7 @@ import copy
 import json
 import logging
 import os
+import tempfile
 import threading
 import time
 from pathlib import Path
@@ -442,6 +443,90 @@ def load_claude_md(project_dir: Path) -> str | None:
     return None
 
 
+# Linux ARG_MAX limit is typically 128KB per single argument (MAX_ARG_STRLEN).
+# Use a safe threshold of 90KB to leave room for other command-line arguments.
+# See: https://github.com/AndyMik90/Auto-Claude/issues/384
+_SYSTEM_PROMPT_SIZE_THRESHOLD = 90 * 1024  # 90KB
+
+
+def _prepare_system_prompt(
+    project_dir: Path,
+) -> tuple[str, str | None]:
+    """
+    Build and prepare the system prompt, handling large prompts via temp file.
+
+    On Linux, there's a kernel limit (MAX_ARG_STRLEN) of ~128KB for single
+    command-line arguments. When CLAUDE.md is large, the combined system prompt
+    can exceed this limit, causing errno 7 (E2BIG - "Argument list too long").
+
+    This function detects when the prompt would exceed a safe threshold and
+    writes it to a temporary file, using the @filepath syntax that the
+    Claude CLI supports for file-based arguments.
+
+    Args:
+        project_dir: Root directory of the project
+
+    Returns:
+        Tuple of (system_prompt_value, temp_file_path)
+        - system_prompt_value: Either the prompt content or "@filepath" reference
+        - temp_file_path: Path to temp file if created, None otherwise
+    """
+    # Build base prompt
+    base_prompt = (
+        f"You are an expert full-stack developer building production-quality software. "
+        f"Your working directory is: {project_dir.resolve()}\n"
+        f"Your filesystem access is RESTRICTED to this directory only. "
+        f"Use relative paths (starting with ./) for all file operations. "
+        f"Never use absolute paths or try to access files outside your working directory.\n\n"
+        f"You follow existing code patterns, write clean maintainable code, and verify "
+        f"your work through thorough testing. You communicate progress through Git commits "
+        f"and build-progress.txt updates."
+    )
+
+    # Include CLAUDE.md if enabled and present
+    claude_md_content: str | None = None
+    if should_use_claude_md():
+        claude_md_content = load_claude_md(project_dir)
+        if claude_md_content:
+            base_prompt = f"{base_prompt}\n\n# Project Instructions (from CLAUDE.md)\n\n{claude_md_content}"
+
+    # Check if prompt exceeds safe threshold
+    prompt_size = len(base_prompt.encode("utf-8"))
+    if prompt_size > _SYSTEM_PROMPT_SIZE_THRESHOLD:
+        # Write to temp file and use @filepath syntax
+        # ruff: noqa: SIM115
+        temp_file = tempfile.NamedTemporaryFile(
+            mode="w",
+            suffix=".txt",
+            delete=False,
+            encoding="utf-8",
+        )
+        temp_file.write(base_prompt)
+        temp_file.close()
+
+        logger.info(
+            f"System prompt size ({prompt_size:,} bytes) exceeds threshold "
+            f"({_SYSTEM_PROMPT_SIZE_THRESHOLD:,} bytes). Using temp file: {temp_file.name}"
+        )
+        print(f"   - CLAUDE.md: large prompt ({prompt_size:,} bytes), using temp file")
+
+        return f"@{temp_file.name}", temp_file.name
+
+    # Prompt is small enough to pass directly
+    claude_md_info = ""
+    if should_use_claude_md():
+        if claude_md_content:
+            claude_md_info = "included in system prompt"
+        else:
+            claude_md_info = "not found in project root"
+    else:
+        claude_md_info = "disabled by project settings"
+
+    print(f"   - CLAUDE.md: {claude_md_info}")
+
+    return base_prompt, None
+
+
 def create_client(
     project_dir: Path,
     spec_dir: Path,
@@ -771,34 +856,15 @@ def create_client(
                 server_config["headers"] = custom["headers"]
             mcp_servers[server_id] = server_config
 
-    # Build system prompt
-    base_prompt = (
-        f"You are an expert full-stack developer building production-quality software. "
-        f"Your working directory is: {project_dir.resolve()}\n"
-        f"Your filesystem access is RESTRICTED to this directory only. "
-        f"Use relative paths (starting with ./) for all file operations. "
-        f"Never use absolute paths or try to access files outside your working directory.\n\n"
-        f"You follow existing code patterns, write clean maintainable code, and verify "
-        f"your work through thorough testing. You communicate progress through Git commits "
-        f"and build-progress.txt updates."
-    )
-
-    # Include CLAUDE.md if enabled and present
-    if should_use_claude_md():
-        claude_md_content = load_claude_md(project_dir)
-        if claude_md_content:
-            base_prompt = f"{base_prompt}\n\n# Project Instructions (from CLAUDE.md)\n\n{claude_md_content}"
-            print("   - CLAUDE.md: included in system prompt")
-        else:
-            print("   - CLAUDE.md: not found in project root")
-    else:
-        print("   - CLAUDE.md: disabled by project settings")
+    # Build system prompt (handles large prompts via temp file to avoid errno 7)
+    # See: https://github.com/AndyMik90/Auto-Claude/issues/384
+    system_prompt_value, _temp_prompt_file = _prepare_system_prompt(project_dir)
     print()
 
     # Build options dict, conditionally including output_format
     options_kwargs: dict[str, Any] = {
         "model": model,
-        "system_prompt": base_prompt,
+        "system_prompt": system_prompt_value,
         "allowed_tools": allowed_tools_list,
         "mcp_servers": mcp_servers,
         "hooks": {

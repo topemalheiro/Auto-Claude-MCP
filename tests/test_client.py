@@ -135,3 +135,101 @@ class TestClientTokenValidation:
 
             # Verify validation was called with the token
             mock_validate.assert_called_once_with(valid_token)
+
+
+class TestSystemPromptPreparation:
+    """Tests for _prepare_system_prompt function."""
+
+    def test_small_prompt_returns_direct_string(self, tmp_path, monkeypatch):
+        """Verify small system prompts are returned as direct strings."""
+        from core.client import _prepare_system_prompt
+
+        # Disable CLAUDE.md to keep prompt small
+        monkeypatch.setenv("USE_CLAUDE_MD", "false")
+
+        prompt_value, temp_file = _prepare_system_prompt(tmp_path)
+
+        # Small prompts should be returned directly, not as temp file reference
+        assert not prompt_value.startswith("@")
+        assert temp_file is None
+        # Verify prompt contains expected content
+        assert "expert full-stack developer" in prompt_value
+        assert str(tmp_path) in prompt_value
+
+    def test_large_prompt_returns_temp_file_reference(self, tmp_path, monkeypatch):
+        """Verify large system prompts use temp file with @filepath syntax."""
+        from core.client import _prepare_system_prompt
+
+        # Create a large CLAUDE.md file (>90KB threshold)
+        # Need ~95KB+ to exceed the 90KB threshold (base prompt is ~300 bytes)
+        large_content = "# Project Instructions\n\n" + ("This is a test line. " * 5000)
+        large_md_file = tmp_path / "CLAUDE.md"
+        large_md_file.write_text(large_content, encoding="utf-8")
+
+        # Enable CLAUDE.md
+        monkeypatch.setenv("USE_CLAUDE_MD", "true")
+
+        prompt_value, temp_file = _prepare_system_prompt(tmp_path)
+
+        # Large prompts should use @filepath syntax
+        assert prompt_value.startswith("@")
+        assert temp_file is not None
+        assert temp_file in prompt_value
+
+        # Verify temp file exists and contains the prompt
+        assert os.path.exists(temp_file)
+        with open(temp_file, encoding="utf-8") as f:
+            content = f.read()
+            assert "expert full-stack developer" in content
+            assert "Project Instructions" in content
+
+        # Cleanup temp file
+        os.unlink(temp_file)
+
+    def test_medium_prompt_uses_direct_string(self, tmp_path, monkeypatch):
+        """Verify medium-sized prompts (under 90KB) don't use temp file."""
+        from core.client import _prepare_system_prompt
+
+        # Create a medium CLAUDE.md file (<90KB threshold)
+        medium_content = "# Project Instructions\n\n" + ("This is a test line. " * 100)
+        medium_md_file = tmp_path / "CLAUDE.md"
+        medium_md_file.write_text(medium_content, encoding="utf-8")
+
+        # Enable CLAUDE.md
+        monkeypatch.setenv("USE_CLAUDE_MD", "true")
+
+        prompt_value, temp_file = _prepare_system_prompt(tmp_path)
+
+        # Medium prompts should be returned directly
+        assert not prompt_value.startswith("@")
+        assert temp_file is None
+        assert "Project Instructions" in prompt_value
+
+    def test_prompt_with_claude_md_disabled(self, tmp_path, monkeypatch):
+        """Verify prompt respects USE_CLAUDE_MD=false setting."""
+        from core.client import _prepare_system_prompt
+
+        # Create CLAUDE.md but disable its inclusion
+        md_file = tmp_path / "CLAUDE.md"
+        md_file.write_text("# Custom Instructions\n\nDo not include this.", encoding="utf-8")
+        monkeypatch.setenv("USE_CLAUDE_MD", "false")
+
+        prompt_value, temp_file = _prepare_system_prompt(tmp_path)
+
+        # Prompt should not include CLAUDE.md content
+        assert "Custom Instructions" not in prompt_value
+        assert "Do not include this" not in prompt_value
+        assert temp_file is None
+
+    def test_prompt_without_claude_md_file(self, tmp_path, monkeypatch):
+        """Verify prompt works when CLAUDE.md file doesn't exist."""
+        from core.client import _prepare_system_prompt
+
+        # Enable CLAUDE.md but don't create the file
+        monkeypatch.setenv("USE_CLAUDE_MD", "true")
+
+        prompt_value, temp_file = _prepare_system_prompt(tmp_path)
+
+        # Prompt should have base content but no CLAUDE.md
+        assert "expert full-stack developer" in prompt_value
+        assert temp_file is None
