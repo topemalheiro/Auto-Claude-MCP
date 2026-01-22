@@ -919,19 +919,12 @@ export interface ElectronAPI {
   testMcpConnection: (server: CustomMcpServer) => Promise<IPCResult<McpTestConnectionResult>>;
 
   // Screenshot capture operations
-  getSources: () => Promise<IPCResult<ScreenshotSource[]> & { devMode?: boolean }>;
+  getSources: () => Promise<IPCResult<Array<{
+    id: string;
+    name: string;
+    thumbnail: string;
+  }>>>;
   capture: (options: { sourceId: string }) => Promise<IPCResult<string>>;
-
-  // Queue Routing API (rate limit recovery)
-  queue: import('../../preload/api/queue-api').QueueAPI;
-}
-
-/** Platform information exposed via contextBridge for platform-specific behavior */
-export interface PlatformInfo {
-  isWindows: boolean;
-  isMacOS: boolean;
-  isLinux: boolean;
-  isUnix: boolean;
 }
 
 declare global {

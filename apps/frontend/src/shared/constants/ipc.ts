@@ -567,22 +567,7 @@ export const IPC_CHANNELS = {
   GET_SENTRY_DSN: 'sentry:get-dsn',              // Get DSN from main process (env var)
   GET_SENTRY_CONFIG: 'sentry:get-config',        // Get full Sentry config (DSN + sample rates)
 
-  // Spell check
-  SPELLCHECK_SET_LANGUAGES: 'spellcheck:setLanguages',  // Set spell check language (syncs with i18n)
-
   // Screenshot capture
   SCREENSHOT_GET_SOURCES: 'screenshot:getSources',  // Get available screens/windows
-  SCREENSHOT_CAPTURE: 'screenshot:capture',          // Capture screenshot from source
-
-  // Queue routing (rate limit recovery)
-  QUEUE_GET_RUNNING_TASKS_BY_PROFILE: 'queue:getRunningTasksByProfile',
-  QUEUE_GET_BEST_PROFILE_FOR_TASK: 'queue:getBestProfileForTask',
-  QUEUE_ASSIGN_PROFILE_TO_TASK: 'queue:assignProfileToTask',
-  QUEUE_UPDATE_TASK_SESSION: 'queue:updateTaskSession',
-  QUEUE_GET_TASK_SESSION: 'queue:getTaskSession',
-
-  // Queue routing events (main -> renderer)
-  QUEUE_PROFILE_SWAPPED: 'queue:profileSwapped',      // Task switched to different profile
-  QUEUE_SESSION_CAPTURED: 'queue:sessionCaptured',    // Session ID captured from running task
-  QUEUE_BLOCKED_NO_PROFILES: 'queue:blockedNoProfiles' // All profiles unavailable
+  SCREENSHOT_CAPTURE: 'screenshot:capture'          // Capture screenshot from source
 } as const;
