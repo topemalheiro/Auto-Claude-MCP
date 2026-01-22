@@ -54,39 +54,6 @@ function findTaskIndex(tasks: Task[], taskId: string): number {
 const taskStatusChangeListeners = new Set<(taskId: string, oldStatus: TaskStatus | undefined, newStatus: TaskStatus) => void>();
 
 /**
- * Track last activity timestamp per task for stuck detection.
- * If we've received activity (execution progress, status update) within a threshold,
- * the task is considered active even if the process check fails.
- * This prevents race conditions where stuck detection fires before process is registered.
- */
-const taskLastActivity = new Map<string, number>();
-const STUCK_ACTIVITY_THRESHOLD_MS = 60_000; // 60 seconds — matches catastrophic stuck check interval
-
-/**
- * Record activity for a task (call this when we receive execution progress or status updates)
- */
-export function recordTaskActivity(taskId: string): void {
-  taskLastActivity.set(taskId, Date.now());
-}
-
-/**
- * Check if a task has had recent activity within the threshold.
- * Used by stuck detection to avoid false positives.
- */
-export function hasRecentActivity(taskId: string): boolean {
-  const lastActivity = taskLastActivity.get(taskId);
-  if (!lastActivity) return false;
-  return Date.now() - lastActivity < STUCK_ACTIVITY_THRESHOLD_MS;
-}
-
-/**
- * Clear activity tracking for a task (call when task completes or is deleted)
- */
-export function clearTaskActivity(taskId: string): void {
-  taskLastActivity.delete(taskId);
-}
-
-/**
  * Notify all registered listeners when a task status changes
  */
 function notifyTaskStatusChange(taskId: string, oldStatus: TaskStatus | undefined, newStatus: TaskStatus): void {
@@ -256,10 +223,7 @@ export const useTaskStore = create<TaskState>((set, get) => ({
       };
     }),
 
-  updateTaskStatus: (taskId, status, reviewReason) => {
-    // Record activity for stuck detection — status changes prove the task is alive
-    recordTaskActivity(taskId);
-
+  updateTaskStatus: (taskId, status) => {
     // Capture old status before update
     const state = get();
     const index = findTaskIndex(state.tasks, taskId);
@@ -270,18 +234,8 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     const oldTask = state.tasks[index];
     const oldStatus = oldTask.status;
 
-    // Skip if status AND reviewReason are the same
-    if (oldStatus === status && oldTask.reviewReason === reviewReason) {
-      debugLog('[updateTaskStatus] Status and reviewReason unchanged, skipping:', { taskId, status, reviewReason });
-      return;
-    }
-
-    debugLog('[updateTaskStatus] START:', {
-      taskId,
-      oldStatus,
-      newStatus: status,
-      allInProgress: state.tasks.filter(t => t.status === 'in_progress' && !t.metadata?.archivedAt).map(t => t.id)
-    });
+    // Skip if status is the same
+    if (oldStatus === status) return;
 
     // Perform the state update
     set((state) => {
@@ -386,10 +340,122 @@ export const useTaskStore = create<TaskState>((set, get) => ({
             }))
           });
 
-          // NOTE: We do NOT update status from plan anymore.
-          // XState is the source of truth for status - it emits TASK_STATUS_CHANGE.
-          // Plan updates only update subtasks, title, and other non-status fields.
-          // This prevents race conditions where a stale plan overwrites XState status.
+          const allCompleted = subtasks.every((s) => s.status === 'completed');
+          const anyFailed = subtasks.some((s) => s.status === 'failed');
+          const anyInProgress = subtasks.some((s) => s.status === 'in_progress');
+          const anyCompleted = subtasks.some((s) => s.status === 'completed');
+
+          let status: TaskStatus = t.status;
+          let reviewReason: ReviewReason | undefined = t.reviewReason;
+
+          // RACE CONDITION FIX: Don't let stale plan data override status during active execution
+          // Strengthen guard: ANY active phase means NO status recalculation from plan data
+          const activePhases: ExecutionPhase[] = ['planning', 'coding', 'qa_review', 'qa_fixing'];
+          const isInActivePhase = Boolean(t.executionProgress?.phase && activePhases.includes(t.executionProgress.phase));
+
+          // FIX (Flip-Flop Bug): Terminal phases should NOT trigger status recalculation
+          // When phase is 'complete' or 'failed', the task has finished and status should be stable
+          const isInTerminalPhase = Boolean(t.executionProgress?.phase && isTerminalPhase(t.executionProgress.phase));
+
+          // FIX (Subtask 2-1): Terminal task statuses should NEVER be recalculated from plan data
+          // pr_created, done, and error are finalized workflow states set by explicit user/system actions
+          // Once a task reaches these statuses, they should only change via explicit user actions (like drag-drop)
+          // This prevents stale plan file reads from incorrectly downgrading completed tasks
+          // NOTE: Keep this in sync with TERMINAL_STATUSES in project-store.ts
+          const TERMINAL_TASK_STATUSES: TaskStatus[] = ['pr_created', 'done', 'error'];
+          const isInTerminalStatus = TERMINAL_TASK_STATUSES.includes(t.status);
+
+          // FIX (Flip-Flop Bug): Respect explicit human_review status from plan file
+          // When the plan explicitly says 'human_review', don't override it with calculated status
+          // Note: ImplementationPlan type already defines status?: TaskStatus
+          const planStatus = plan.status;
+          const isExplicitHumanReview = planStatus === 'human_review';
+
+          // FIX (ACS-203): Add defensive check for terminal status transitions
+          // Before allowing transition to 'done', 'human_review', or 'ai_review', verify:
+          // 1. Subtasks array is properly populated (not empty)
+          // 2. All subtasks are actually completed (for 'done' and 'ai_review' statuses)
+          const hasSubtasks = subtasks.length > 0;
+          const terminalStatuses: TaskStatus[] = ['human_review', 'done'];
+
+          // If task is currently in a terminal status, validate subtasks before allowing downgrade
+          // This prevents flip-flop when plan file is written with incomplete data
+          const shouldBlockTerminalTransition = (newStatus: TaskStatus): boolean => {
+            // Block if: moving to terminal status but subtasks indicate incomplete work
+            if (terminalStatuses.includes(newStatus) || newStatus === 'ai_review') {
+              // For ai_review, all subtasks must be completed
+              if (newStatus === 'ai_review' && (!allCompleted || !hasSubtasks)) {
+                return true;
+              }
+              // For done, all subtasks must be completed
+              if (newStatus === 'done' && (!allCompleted || !hasSubtasks)) {
+                return true;
+              }
+              // For human_review with 'completed' reason, all subtasks must be done
+              // But allow 'errors' or 'qa_rejected' reasons even with incomplete subtasks
+              if (newStatus === 'human_review' && anyFailed) {
+                return false; // Allow human_review for failed subtasks
+              }
+            }
+            return false;
+          };
+
+          // Only recalculate status if:
+          // 1. NOT in an active execution phase (planning, coding, qa_review, qa_fixing)
+          // 2. NOT in a terminal phase (complete, failed) - status should be stable
+          // 3. NOT in a terminal task status (pr_created, done) - finalized workflow states
+          // 4. Plan doesn't explicitly say human_review
+          // 5. Would not create an invalid terminal transition (ACS-203)
+          if (!isInActivePhase && !isInTerminalPhase && !isInTerminalStatus && !isExplicitHumanReview) {
+            if (allCompleted && hasSubtasks) {
+              // FIX (Flip-Flop Bug): Don't downgrade from terminal statuses to ai_review
+              // Once a task reaches human_review or done, it should stay there
+              // unless explicitly changed (these are finalized workflow states)
+              if (!terminalStatuses.includes(t.status)) {
+                status = 'ai_review';
+              }
+            } else if (anyFailed) {
+              status = 'human_review';
+              reviewReason = 'errors';
+            } else if (anyInProgress || anyCompleted) {
+              status = 'in_progress';
+            }
+          }
+
+          // FIX (ACS-203): Final validation - prevent invalid terminal status transitions
+          // This catches cases where the logic above would set a terminal status
+          // but the subtask state doesn't support it (e.g., empty subtasks array)
+          if (shouldBlockTerminalTransition(status)) {
+            // Capture attempted status before reassignment for accurate logging
+            const attemptedStatus = status;
+            // Keep current status instead of transitioning to invalid terminal state
+            status = t.status;
+            debugLog('[updateTaskFromPlan] Blocked invalid terminal transition:', {
+              taskId,
+              attemptedStatus,
+              currentStatus: t.status,
+              hasSubtasks,
+              allCompleted,
+              anyFailed,
+              subtaskCount: subtasks.length
+            });
+          }
+
+          debugLog('[updateTaskFromPlan] Status computation:', {
+            taskId,
+            currentStatus: t.status,
+            newStatus: status,
+            isInActivePhase,
+            isInTerminalPhase,
+            isInTerminalStatus,
+            isExplicitHumanReview,
+            planStatus,
+            currentPhase: t.executionProgress?.phase,
+            allCompleted,
+            anyFailed,
+            anyInProgress,
+            anyCompleted
+          });
 
           return {
             ...t,
