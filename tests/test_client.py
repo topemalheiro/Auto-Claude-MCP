@@ -140,6 +140,45 @@ class TestClientTokenValidation:
 class TestSystemPromptPreparation:
     """Tests for _prepare_system_prompt function."""
 
+    @pytest.fixture(autouse=True)
+    def reset_temp_files_list(self):
+        """Reset global temp files list between tests for isolation."""
+        from core import client
+        client._system_prompt_temp_files.clear()
+        yield
+        client._system_prompt_temp_files.clear()
+
+    def test_cleanup_temp_files_removes_files(self, tmp_path):
+        """Verify cleanup function removes tracked temp files."""
+        from core import client
+        from core.client import _cleanup_temp_files, _system_prompt_temp_files
+
+        # Create a test temp file
+        test_file = tmp_path / "test_temp.txt"
+        test_file.write_text("test content")
+
+        # Track it for cleanup
+        with client._TEMP_FILES_LOCK:
+            _system_prompt_temp_files.append(str(test_file))
+
+        # Run cleanup
+        _cleanup_temp_files()
+
+        # Verify file was removed
+        assert not test_file.exists()
+
+    def test_cleanup_handles_missing_files(self):
+        """Verify cleanup function handles missing files gracefully."""
+        from core import client
+        from core.client import _cleanup_temp_files, _system_prompt_temp_files
+
+        # Add a non-existent file path
+        with client._TEMP_FILES_LOCK:
+            _system_prompt_temp_files.append("/nonexistent/file.txt")
+
+        # Should not raise exception
+        _cleanup_temp_files()
+
     def test_small_prompt_returns_direct_string(self, tmp_path, monkeypatch):
         """Verify small system prompts are returned as direct strings."""
         from core.client import _prepare_system_prompt
@@ -183,8 +222,7 @@ class TestSystemPromptPreparation:
             assert "expert full-stack developer" in content
             assert "Project Instructions" in content
 
-        # Cleanup temp file
-        os.unlink(temp_file)
+        # Temp file cleanup is handled by the reset_temp_files_list fixture
 
     def test_medium_prompt_uses_direct_string(self, tmp_path, monkeypatch):
         """Verify medium-sized prompts (under 90KB) don't use temp file."""

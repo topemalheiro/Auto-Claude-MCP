@@ -451,14 +451,20 @@ _SYSTEM_PROMPT_SIZE_THRESHOLD = 90 * 1024  # 90KB
 
 # Track temp files for cleanup on exit
 _system_prompt_temp_files: list[str] = []
+# Lock for thread-safe access to _system_prompt_temp_files
+_TEMP_FILES_LOCK = threading.Lock()
 
 
 def _cleanup_temp_files() -> None:
     """Clean up temporary files created for system prompts.
 
     This is called automatically on process exit via atexit.
+    Thread-safe: copies the list before iterating to avoid race conditions.
     """
-    for temp_file_path in _system_prompt_temp_files:
+    with _TEMP_FILES_LOCK:
+        files_to_clean = list(_system_prompt_temp_files)
+
+    for temp_file_path in files_to_clean:
         try:
             if os.path.exists(temp_file_path):
                 os.unlink(temp_file_path)
@@ -519,23 +525,30 @@ def _prepare_system_prompt(
         # Use delete=False to keep the file for the CLI subprocess to read
         # File is tracked and cleaned up on exit via atexit handler
         temp_file_path: str
-        with tempfile.NamedTemporaryFile(
-            mode="w",
-            suffix=".txt",
-            delete=False,
-            encoding="utf-8",
-        ) as temp_file:
-            temp_file.write(base_prompt)
-            temp_file_path = temp_file.name
+        try:
+            with tempfile.NamedTemporaryFile(
+                mode="w",
+                suffix=".txt",
+                delete=False,
+                encoding="utf-8",
+            ) as temp_file:
+                temp_file.write(base_prompt)
+                temp_file_path = temp_file.name
+        except OSError as e:
+            logger.error(f"Failed to create temp file for large system prompt: {e}")
+            raise RuntimeError(
+                f"Failed to write large system prompt ({prompt_size:,} bytes) to temp file. "
+                f"Ensure temp directory is writable or reduce CLAUDE.md size."
+            ) from e
 
-        # Register for cleanup on exit
-        _system_prompt_temp_files.append(temp_file_path)
+        # Register for cleanup on exit (thread-safe)
+        with _TEMP_FILES_LOCK:
+            _system_prompt_temp_files.append(temp_file_path)
 
         logger.info(
             f"System prompt size ({prompt_size:,} bytes) exceeds threshold "
             f"({_SYSTEM_PROMPT_SIZE_THRESHOLD:,} bytes). Using temp file: {temp_file_path}"
         )
-        print(f"   - CLAUDE.md: large prompt ({prompt_size:,} bytes), using temp file")
 
         return f"@{temp_file_path}", temp_file_path
 
@@ -886,6 +899,11 @@ def create_client(
     # Build system prompt (handles large prompts via temp file to avoid errno 7)
     # See: https://github.com/AndyMik90/Auto-Claude/issues/384
     system_prompt_value, _temp_prompt_file = _prepare_system_prompt(project_dir)
+
+    # Log when using temp file for large prompt
+    if _temp_prompt_file:
+        prompt_size = len(system_prompt_value.encode("utf-8"))
+        print(f"   - CLAUDE.md: large prompt ({prompt_size:,} bytes), using temp file")
     print()
 
     # Build options dict, conditionally including output_format
