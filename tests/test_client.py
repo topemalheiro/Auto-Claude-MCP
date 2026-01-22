@@ -90,9 +90,7 @@ class TestClientTokenValidation:
 
         # Mock the SDK client to avoid actual initialization
         mock_sdk_client = MagicMock()
-        with patch(
-            "core.simple_client.ClaudeSDKClient", return_value=mock_sdk_client
-        ):
+        with patch("core.simple_client.ClaudeSDKClient", return_value=mock_sdk_client):
             from core.simple_client import create_simple_client
 
             client = create_simple_client(agent_type="merge_resolver")
@@ -100,18 +98,17 @@ class TestClientTokenValidation:
             # Verify SDK client was created
             assert client is mock_sdk_client
 
-    def test_create_client_validates_token_before_sdk_init(
-        self, tmp_path, monkeypatch
-    ):
+    def test_create_client_validates_token_before_sdk_init(self, tmp_path, monkeypatch):
         """Verify create_client() validates token format before SDK initialization."""
         valid_token = "sk-ant-oat01-valid-token"
         monkeypatch.setenv("CLAUDE_CODE_OAUTH_TOKEN", valid_token)
         monkeypatch.setattr("core.auth.get_token_from_keychain", lambda: None)
 
         # Mock validate_token_not_encrypted to verify it's called
-        with patch(
-            "core.client.validate_token_not_encrypted"
-        ) as mock_validate, patch("core.client.ClaudeSDKClient"):
+        with (
+            patch("core.client.validate_token_not_encrypted") as mock_validate,
+            patch("core.client.ClaudeSDKClient"),
+        ):
             from core.client import create_client
 
             create_client(tmp_path, tmp_path, "claude-sonnet-4", "coder")
@@ -126,9 +123,10 @@ class TestClientTokenValidation:
         monkeypatch.setattr("core.auth.get_token_from_keychain", lambda: None)
 
         # Mock validate_token_not_encrypted to verify it's called
-        with patch(
-            "core.simple_client.validate_token_not_encrypted"
-        ) as mock_validate, patch("core.simple_client.ClaudeSDKClient"):
+        with (
+            patch("core.simple_client.validate_token_not_encrypted") as mock_validate,
+            patch("core.simple_client.ClaudeSDKClient"),
+        ):
             from core.simple_client import create_simple_client
 
             create_simple_client(agent_type="merge_resolver")
@@ -144,6 +142,7 @@ class TestSystemPromptPreparation:
     def reset_temp_files_list(self):
         """Reset global temp files list between tests for isolation."""
         from core import client
+
         client._system_prompt_temp_files.clear()
         yield
         client._system_prompt_temp_files.clear()
@@ -196,7 +195,7 @@ class TestSystemPromptPreparation:
         assert str(tmp_path) in prompt_value
 
     def test_large_prompt_returns_temp_file_reference(self, tmp_path, monkeypatch):
-        """Verify large system prompts use temp file with @filepath syntax."""
+        """Verify large system prompts use temp file with CLAUDE_SYSTEM_PROMPT_FILE."""
         from core.client import _prepare_system_prompt
 
         # Create a large CLAUDE.md file (>90KB threshold)
@@ -210,10 +209,10 @@ class TestSystemPromptPreparation:
 
         prompt_value, temp_file = _prepare_system_prompt(tmp_path)
 
-        # Large prompts should use @filepath syntax
-        assert prompt_value.startswith("@")
+        # Large prompts should use temp file (return empty string for prompt_value)
+        # The file path is passed via CLAUDE_SYSTEM_PROMPT_FILE environment variable
+        assert prompt_value == ""
         assert temp_file is not None
-        assert temp_file in prompt_value
 
         # Verify temp file exists and contains the prompt
         assert os.path.exists(temp_file)
@@ -249,7 +248,9 @@ class TestSystemPromptPreparation:
 
         # Create CLAUDE.md but disable its inclusion
         md_file = tmp_path / "CLAUDE.md"
-        md_file.write_text("# Custom Instructions\n\nDo not include this.", encoding="utf-8")
+        md_file.write_text(
+            "# Custom Instructions\n\nDo not include this.", encoding="utf-8"
+        )
         monkeypatch.setenv("USE_CLAUDE_MD", "false")
 
         prompt_value, temp_file = _prepare_system_prompt(tmp_path)

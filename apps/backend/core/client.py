@@ -28,6 +28,17 @@ from core.platform import (
     validate_cli_path,
 )
 
+# Apply runtime monkey-patch to SDK for CLAUDE_SYSTEM_PROMPT_FILE support
+# This enables large system prompts to be passed via temp file to avoid ARG_MAX limits
+# See: https://github.com/AndyMik90/Auto-Claude/issues/384
+try:
+    from scripts.patch_sdk_system_prompt import apply_sdk_patch
+
+    apply_sdk_patch()
+except ImportError:
+    # Patch module not available (e.g., during testing), continue without it
+    pass
+
 logger = logging.getLogger(__name__)
 
 # =============================================================================
@@ -488,15 +499,19 @@ def _prepare_system_prompt(
     can exceed this limit, causing errno 7 (E2BIG - "Argument list too long").
 
     This function detects when the prompt would exceed a safe threshold and
-    writes it to a temporary file, using the @filepath syntax that the
-    Claude CLI supports for file-based arguments.
+    writes it to a temporary file. The file path is passed via environment
+    variable (CLAUDE_SYSTEM_PROMPT_FILE) since the CLI does not support
+    @filepath syntax for --system-prompt.
+
+    Note: This is a workaround until the SDK/CLI supports --system-prompt-file
+    or system_prompt_file option. See: https://github.com/anthropics/claude-code
 
     Args:
         project_dir: Root directory of the project
 
     Returns:
         Tuple of (system_prompt_value, temp_file_path)
-        - system_prompt_value: Either the prompt content or "@filepath" reference
+        - system_prompt_value: Empty string when using temp file, prompt content otherwise
         - temp_file_path: Path to temp file if created, None otherwise
     """
     # Build base prompt
@@ -550,7 +565,9 @@ def _prepare_system_prompt(
             f"({_SYSTEM_PROMPT_SIZE_THRESHOLD:,} bytes). Using temp file: {temp_file_path}"
         )
 
-        return f"@{temp_file_path}", temp_file_path
+        # Return empty string for system_prompt_value since we'll pass the file path
+        # via environment variable (CLAUDE_SYSTEM_PROMPT_FILE) in create_client()
+        return "", temp_file_path
 
     # Prompt is small enough to pass directly
     claude_md_info = ""
@@ -902,8 +919,10 @@ def create_client(
 
     # Log when using temp file for large prompt
     if _temp_prompt_file:
-        prompt_size = len(system_prompt_value.encode("utf-8"))
-        print(f"   - CLAUDE.md: large prompt ({prompt_size:,} bytes), using temp file")
+        # Pass temp file path via environment variable since @filepath syntax
+        # is not supported by the CLI for --system-prompt
+        sdk_env["CLAUDE_SYSTEM_PROMPT_FILE"] = _temp_prompt_file
+        print("   - CLAUDE.md: large prompt (using temp file)")
     print()
 
     # Build options dict, conditionally including output_format
