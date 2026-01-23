@@ -9,7 +9,8 @@ import {
   CheckCircle2,
   XCircle,
   TrendingUp,
-  Activity
+  Activity,
+  DollarSign
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { ScrollArea } from './ui/scroll-area';
@@ -240,6 +241,12 @@ export function Analytics({ projectId }: AnalyticsProps) {
                       value={summary.totalTokens}
                       icon={<BarChart3 className="h-4 w-4" />}
                       tooltip={t('analytics:tooltips.tokenUsage')}
+                    />
+                    <MetricCard
+                      label={t('analytics:labels.actualCost')}
+                      value={`$${summary.totalCostUsd.toFixed(2)}`}
+                      icon={<DollarSign className="h-4 w-4" />}
+                      tooltip={t('analytics:tooltips.cost')}
                     />
                   </div>
 
@@ -529,27 +536,40 @@ function TaskRow({ task, t }: TaskRowProps) {
   };
 
   // Build sublabel with date and optional token/cost info
-  let sublabel = new Date(task.createdAt).toLocaleDateString();
-  if (task.totalTokens > 0) {
-    sublabel += ` • ${formatTokenCount(task.totalTokens)} tokens`;
-  }
-  if (task.costDetails?.actualCostUsd) {
-    sublabel += ` • ${formatCost(task.costDetails.actualCostUsd)}`;
-  }
+  const dateStr = new Date(task.createdAt).toLocaleDateString();
+
+  // Format duration - show "< 1s" for very short durations, hide if 0
+  const durationStr = task.totalDurationMs > 0
+    ? (task.totalDurationMs < 1000 ? '< 1s' : formatDuration(task.totalDurationMs))
+    : null;
 
   return (
     <div className="flex items-center justify-between rounded-lg border border-border p-3">
       <div className="min-w-0 flex-1">
         <h5 className="truncate font-medium text-foreground">{task.title}</h5>
-        <p className="text-xs text-muted-foreground">
-          {sublabel}
-        </p>
-      </div>
-      <div className="flex items-center gap-4 text-sm">
-        <div className="flex items-center gap-1 text-muted-foreground">
-          <Clock className="h-3 w-3" />
-          <span>{formatDuration(task.totalDurationMs)}</span>
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <span>{dateStr}</span>
+          {task.totalTokens > 0 && (
+            <>
+              <span className="text-muted-foreground/50">•</span>
+              <span className="text-primary/70">{formatTokenCount(task.totalTokens)} tokens</span>
+            </>
+          )}
+          {task.costDetails?.actualCostUsd && task.costDetails.actualCostUsd > 0 && (
+            <>
+              <span className="text-muted-foreground/50">•</span>
+              <span className="text-green-600 dark:text-green-400">{formatCost(task.costDetails.actualCostUsd)}</span>
+            </>
+          )}
         </div>
+      </div>
+      <div className="flex items-center gap-3 text-sm shrink-0">
+        {durationStr && (
+          <div className="flex items-center gap-1 text-muted-foreground">
+            <Clock className="h-3 w-3" />
+            <span>{durationStr}</span>
+          </div>
+        )}
         <span className={cn('font-medium', outcomeColors[task.outcome])}>
           {outcomeLabels[task.outcome] || task.outcome}
         </span>

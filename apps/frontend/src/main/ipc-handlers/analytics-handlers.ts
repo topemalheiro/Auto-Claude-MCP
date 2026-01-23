@@ -564,6 +564,7 @@ function aggregateAnalytics(
 
   // Aggregate metrics
   let totalTokens = 0;
+  let totalCostUsd = 0;
   let totalDurationMs = 0;
   let successCount = 0;
   let errorCount = 0;
@@ -573,6 +574,12 @@ function aggregateAnalytics(
     // Update totals
     totalTokens += analytics.totalTokens;
     totalDurationMs += analytics.totalDurationMs;
+    // Add cost from task if available
+    if (analytics.costDetails?.actualCostUsd) {
+      totalCostUsd += analytics.costDetails.actualCostUsd;
+    } else if (analytics.costDetails?.estimatedApiCostUsd) {
+      totalCostUsd += analytics.costDetails.estimatedApiCostUsd;
+    }
 
     // Update feature metrics
     const featureMetrics = byFeature[analytics.feature];
@@ -611,6 +618,7 @@ function aggregateAnalytics(
   if (insightsData.sessionCount > 0) {
     const insightsChatTokens = insightsData.totalInputTokens + insightsData.totalOutputTokens;
     totalTokens += insightsChatTokens;
+    totalCostUsd += insightsData.totalCostUsd;
     byFeature["insights"].tokenCount += insightsChatTokens;
 
     // Count all sessions as "tasks" for the insights feature
@@ -659,6 +667,7 @@ function aggregateAnalytics(
     period: filter,
     dateRange,
     totalTokens,
+    totalCostUsd,
     totalTasks: taskAnalytics.length,
     averageDurationMs,
     successRate,

@@ -134,6 +134,7 @@ export interface AnalyticsSummary {
   period: DateFilter;
   dateRange: DateRange;
   totalTokens: number;
+  totalCostUsd: number;  // Total estimated API cost across all tasks
   totalTasks: number;
   averageDurationMs: number;
   successRate: number;  // Percentage: (done + pr_created + staged) / total * 100

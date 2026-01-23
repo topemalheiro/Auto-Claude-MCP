@@ -125,7 +125,8 @@
     "tokenUsage": "Total des tokens consommés par les modèles IA lors de l'exécution des tâches",
     "duration": "Temps écoulé du début à la fin de la tâche",
     "successRate": "Pourcentage de tâches terminées avec succès (terminées, PR créée ou préparées)",
-    "drillDown": "Cliquez pour voir le détail"
+    "drillDown": "Cliquez pour voir le détail",
+    "cost": "Coût total de l'API en USD pour tous les appels aux modèles IA"
   },
   "summary": {
     "title": "Résumé",

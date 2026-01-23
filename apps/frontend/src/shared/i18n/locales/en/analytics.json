@@ -125,7 +125,8 @@
     "tokenUsage": "Total tokens consumed by AI models during task execution",
     "duration": "Time elapsed from task start to completion",
     "successRate": "Percentage of tasks completed successfully (done, PR created, or staged)",
-    "drillDown": "Click to view detailed breakdown"
+    "drillDown": "Click to view detailed breakdown",
+    "cost": "Total API cost in USD for all AI model calls"
   },
   "summary": {
     "title": "Summary",
