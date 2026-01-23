@@ -143,7 +143,6 @@ function loadInsightsTokenUsage(projectPath: string, dateRange: DateRange): Insi
         let sessionInputTokens = 0;
         let sessionOutputTokens = 0;
         let sessionCostUsd = 0;
-        let sessionHasTokens = false;
 
         // Aggregate token usage from assistant messages
         for (const msg of session.messages) {
@@ -151,53 +150,66 @@ function loadInsightsTokenUsage(projectPath: string, dateRange: DateRange): Insi
             sessionInputTokens += msg.tokenUsage.inputTokens || 0;
             sessionOutputTokens += msg.tokenUsage.outputTokens || 0;
             sessionCostUsd += msg.tokenUsage.totalCostUsd || 0;
-            sessionHasTokens = true;
           }
         }
 
-        if (sessionHasTokens) {
+        // Update totals for sessions with tokens
+        if (sessionInputTokens > 0 || sessionOutputTokens > 0) {
           result.totalInputTokens += sessionInputTokens;
           result.totalOutputTokens += sessionOutputTokens;
           result.totalCostUsd += sessionCostUsd;
-          result.sessionCount += 1;
-
-          // Create synthetic TaskAnalytics entry for drill-down
-          const sessionTitle = session.title || `Chat Session`;
-          const sessionCreatedAt = session.createdAt;
-          const sessionUpdatedAt = session.updatedAt;
-
-          // Get model from session config (default to sonnet for insights)
-          const model = session.modelConfig?.model || "sonnet";
-
-          // Calculate estimated API cost if actual cost not available
-          const estimatedApiCost = calculateApiCost(sessionInputTokens, sessionOutputTokens, model);
-
-          result.taskAnalytics.push({
-            taskId: `insights-${session.id}`,
-            specId: session.id,
-            title: sessionTitle,
-            feature: "insights" as FeatureType,
-            totalTokens: sessionInputTokens + sessionOutputTokens,
-            totalDurationMs: sessionCreatedAt && sessionUpdatedAt
-              ? Math.max(0, new Date(sessionUpdatedAt).getTime() - new Date(sessionCreatedAt).getTime())
-              : 0,
-            phases: [], // Insights chat doesn't have phases
-            outcome: "done" as TaskOutcome,
-            createdAt: sessionCreatedAt || new Date().toISOString(),
-            completedAt: sessionUpdatedAt,
-            // Add token details
-            tokenDetails: {
-              inputTokens: sessionInputTokens,
-              outputTokens: sessionOutputTokens,
-            },
-            // Add cost details
-            costDetails: {
-              actualCostUsd: sessionCostUsd > 0 ? sessionCostUsd : undefined,
-              estimatedApiCostUsd: estimatedApiCost,
-              model,
-            },
-          });
         }
+
+        // Count all sessions (not just ones with tokens)
+        result.sessionCount += 1;
+
+        // Create TaskAnalytics entry for ALL sessions (for drill-down support)
+        const sessionTitle = session.title || `Chat Session`;
+        const sessionCreatedAt = session.createdAt;
+        const sessionUpdatedAt = session.updatedAt;
+
+        // Get model from session config (default to sonnet for insights)
+        const model = session.modelConfig?.model || "sonnet";
+
+        // Calculate session duration
+        const sessionDurationMs = sessionCreatedAt && sessionUpdatedAt
+          ? Math.max(0, new Date(sessionUpdatedAt).getTime() - new Date(sessionCreatedAt).getTime())
+          : 0;
+
+        // Calculate estimated API cost if actual cost not available
+        const estimatedApiCost = calculateApiCost(sessionInputTokens, sessionOutputTokens, model);
+
+        const taskAnalyticsEntry = {
+          taskId: `insights-${session.id}`,
+          specId: session.id,
+          title: sessionTitle,
+          feature: "insights" as FeatureType,
+          totalTokens: sessionInputTokens + sessionOutputTokens,
+          totalDurationMs: sessionDurationMs,
+          phases: [], // Insights chat doesn't have phases
+          outcome: "done" as TaskOutcome,
+          createdAt: sessionCreatedAt || new Date().toISOString(),
+          completedAt: sessionUpdatedAt,
+          // Add token details
+          tokenDetails: {
+            inputTokens: sessionInputTokens,
+            outputTokens: sessionOutputTokens,
+          },
+          // Add cost details
+          costDetails: {
+            actualCostUsd: sessionCostUsd > 0 ? sessionCostUsd : undefined,
+            estimatedApiCostUsd: estimatedApiCost,
+            model,
+          },
+        };
+        console.log("[Analytics] Created insights task entry:", {
+          title: sessionTitle,
+          totalTokens: taskAnalyticsEntry.totalTokens,
+          durationMs: sessionDurationMs,
+          tokenDetails: taskAnalyticsEntry.tokenDetails,
+          costDetails: taskAnalyticsEntry.costDetails,
+        });
+        result.taskAnalytics.push(taskAnalyticsEntry);
       } catch {
         // Skip invalid session files
       }
@@ -584,28 +596,54 @@ function aggregateAnalytics(
     }
   }
 
-  // Add insights chat token usage to the "insights" feature
+  // Add insights chat sessions to the "insights" feature
   const insightsData = loadInsightsTokenUsage(projectPath, dateRange);
-  console.log("[Analytics] Insights token usage:", {
+  console.log("[Analytics] Insights data loaded:", {
     projectPath,
     dateRange: { start: dateRange.start.toISOString(), end: dateRange.end.toISOString() },
-    insightsTokens: {
-      totalInputTokens: insightsData.totalInputTokens,
-      totalOutputTokens: insightsData.totalOutputTokens,
-      sessionCount: insightsData.sessionCount,
-      taskAnalyticsCount: insightsData.taskAnalytics.length,
-    },
+    sessionCount: insightsData.sessionCount,
+    totalInputTokens: insightsData.totalInputTokens,
+    totalOutputTokens: insightsData.totalOutputTokens,
+    taskAnalyticsCount: insightsData.taskAnalytics.length,
   });
-  if (insightsData.totalInputTokens > 0 || insightsData.totalOutputTokens > 0) {
+
+  // Always add insights sessions (even those without tokens)
+  if (insightsData.sessionCount > 0) {
     const insightsChatTokens = insightsData.totalInputTokens + insightsData.totalOutputTokens;
     totalTokens += insightsChatTokens;
     byFeature["insights"].tokenCount += insightsChatTokens;
-    // Count sessions as "tasks" for the insights feature
+
+    // Count all sessions as "tasks" for the insights feature
     byFeature["insights"].taskCount += insightsData.sessionCount;
     byFeature["insights"].successCount += insightsData.sessionCount; // Chat sessions are always "successful"
-    // Add synthetic task analytics for drill-down support
+    successCount += insightsData.sessionCount;
+
+    // Calculate average duration for insights sessions
+    const totalInsightsDurationMs = insightsData.taskAnalytics.reduce(
+      (sum, task) => sum + task.totalDurationMs,
+      0
+    );
+    totalDurationMs += totalInsightsDurationMs;
+
+    if (insightsData.taskAnalytics.length > 0) {
+      // Calculate running average for insights duration
+      const oldAvg = byFeature["insights"].averageDurationMs;
+      const oldCount = byFeature["insights"].taskCount - insightsData.sessionCount;
+      const newAvg = totalInsightsDurationMs / insightsData.taskAnalytics.length;
+      byFeature["insights"].averageDurationMs = oldCount > 0
+        ? (oldAvg * oldCount + newAvg * insightsData.sessionCount) / byFeature["insights"].taskCount
+        : newAvg;
+    }
+
+    // Add all task analytics for drill-down support
     taskAnalytics.push(...insightsData.taskAnalytics);
-    console.log("[Analytics] Added insights tokens:", { insightsChatTokens, totalTokens, byFeature: byFeature["insights"], addedTasks: insightsData.taskAnalytics.length });
+    console.log("[Analytics] Added insights sessions:", {
+      insightsChatTokens,
+      totalTokens,
+      avgDurationMs: byFeature["insights"].averageDurationMs,
+      featureMetrics: byFeature["insights"],
+      addedTasks: insightsData.taskAnalytics.length,
+    });
   }
 
   // Calculate overall success rate

@@ -25,6 +25,7 @@ import { DateFilterBar } from './analytics/DateFilterBar';
 import { FeatureTabs } from './analytics/FeatureTabs';
 import { MetricCard } from './analytics/MetricCard';
 import type { DateFilter, FeatureType, FeatureMetrics } from '../../shared/types';
+import { formatCost, formatTokenCount } from '../../shared/constants/pricing';
 
 interface AnalyticsProps {
   projectId: string;
@@ -493,9 +494,19 @@ interface TaskRowProps {
   task: {
     taskId: string;
     title: string;
+    totalTokens: number;
     totalDurationMs: number;
     outcome: string;
     createdAt: string;
+    tokenDetails?: {
+      inputTokens: number;
+      outputTokens: number;
+    };
+    costDetails?: {
+      actualCostUsd?: number;
+      estimatedApiCostUsd?: number;
+      model?: string;
+    };
   };
   t: (key: string) => string;
 }
@@ -517,12 +528,21 @@ function TaskRow({ task, t }: TaskRowProps) {
     in_progress: t('analytics:outcomes.inProgress')
   };
 
+  // Build sublabel with date and optional token/cost info
+  let sublabel = new Date(task.createdAt).toLocaleDateString();
+  if (task.totalTokens > 0) {
+    sublabel += ` • ${formatTokenCount(task.totalTokens)} tokens`;
+  }
+  if (task.costDetails?.actualCostUsd) {
+    sublabel += ` • ${formatCost(task.costDetails.actualCostUsd)}`;
+  }
+
   return (
     <div className="flex items-center justify-between rounded-lg border border-border p-3">
       <div className="min-w-0 flex-1">
         <h5 className="truncate font-medium text-foreground">{task.title}</h5>
         <p className="text-xs text-muted-foreground">
-          {new Date(task.createdAt).toLocaleDateString()}
+          {sublabel}
         </p>
       </div>
       <div className="flex items-center gap-4 text-sm">
