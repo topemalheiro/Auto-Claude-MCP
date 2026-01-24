@@ -1,10 +1,8 @@
 import { useState, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { Download, RefreshCw, CheckCircle2, AlertCircle, AlertTriangle, ExternalLink } from "lucide-react";
+import { Download, RefreshCw, CheckCircle2, AlertCircle, ExternalLink } from "lucide-react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
-import rehypeRaw from "rehype-raw";
-import rehypeSanitize from "rehype-sanitize";
 import { Button } from "./ui/button";
 import { Progress } from "./ui/progress";
 import {
@@ -73,6 +71,14 @@ export function AppUpdateNotification() {
   const [isDownloaded, setIsDownloaded] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
   const [showReadOnlyWarning, setShowReadOnlyWarning] = useState(false);
+
+  // Create markdown components with translated accessibility text
+  const markdownComponents: Components = useMemo(
+    () => ({
+      a: createSafeLink(t("common:accessibility.opensInNewWindow")),
+    }),
+    [t]
+  );
 
   // Create markdown components with translated accessibility text
   const markdownComponents: Components = useMemo(
@@ -215,11 +221,7 @@ export function AppUpdateNotification() {
           {updateInfo.releaseNotes && (
             <div className="bg-background rounded-lg p-4 max-h-64 overflow-y-auto border border-border/50">
               <div className="prose prose-sm dark:prose-invert max-w-none">
-                <ReactMarkdown
-                  remarkPlugins={[remarkGfm]}
-                  rehypePlugins={[rehypeRaw, rehypeSanitize]}
-                  components={markdownComponents}
-                >
+                <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
                   {updateInfo.releaseNotes}
                 </ReactMarkdown>
               </div>
