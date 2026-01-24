@@ -713,12 +713,15 @@ export class ProjectStore {
     const phase = phaseMap[planStatus];
     if (!phase) return undefined;
 
-    return {
-      phase,
-      phaseProgress: 50,
-      overallProgress: 50
-    };
-  }
+      // Plan review stage (human approval of spec before coding starts)
+      // Only show plan_review when user explicitly requested human review via checkbox
+      if (isPlanReviewStage && storedStatus === 'human_review' && metadata?.requireReviewBeforeCoding) {
+        debugLog('[determineTaskStatusAndReason] Plan review stage detected:', {
+          planStatus: plan.status,
+          reason: 'Spec creation complete, awaiting user approval'
+        });
+        return { status: 'human_review', reviewReason: 'plan_review' };
+      }
 
   /**
    * Infer execution progress from persisted XState state.
