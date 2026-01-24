@@ -271,20 +271,29 @@ Current question: {message}"""
 
                 elif msg_type == "ResultMessage":
                     # Capture session usage from final result
-                    debug("insights_runner", "ResultMessage received",
-                          has_usage=hasattr(msg, "usage"),
-                          usage_value=str(msg.usage) if hasattr(msg, "usage") else "N/A")
+                    debug(
+                        "insights_runner",
+                        "ResultMessage received",
+                        has_usage=hasattr(msg, "usage"),
+                        usage_value=str(msg.usage) if hasattr(msg, "usage") else "N/A",
+                    )
                     if hasattr(msg, "usage") and msg.usage:
                         usage = msg.usage
                         session_usage = {
                             "input_tokens": usage.get("input_tokens", 0),
                             "output_tokens": usage.get("output_tokens", 0),
                         }
-                        if hasattr(msg, "total_cost_usd") and msg.total_cost_usd is not None:
+                        if (
+                            hasattr(msg, "total_cost_usd")
+                            and msg.total_cost_usd is not None
+                        ):
                             session_usage["total_cost_usd"] = msg.total_cost_usd
-                        debug("insights_runner", "Token usage captured",
-                              input_tokens=session_usage["input_tokens"],
-                              output_tokens=session_usage["output_tokens"])
+                        debug(
+                            "insights_runner",
+                            "Token usage captured",
+                            input_tokens=session_usage["input_tokens"],
+                            output_tokens=session_usage["output_tokens"],
+                        )
 
             # Ensure we have a newline at the end
             if response_text and not response_text.endswith("\n"):

@@ -122,7 +122,9 @@ async def post_session_processing(
     print_key_value("New commits", str(new_commits))
 
     # Save token usage to subtask in implementation plan
-    if session_usage and (session_usage.input_tokens > 0 or session_usage.output_tokens > 0):
+    if session_usage and (
+        session_usage.input_tokens > 0 or session_usage.output_tokens > 0
+    ):
         update_subtask_token_usage(
             spec_dir=spec_dir,
             subtask_id=subtask_id,
