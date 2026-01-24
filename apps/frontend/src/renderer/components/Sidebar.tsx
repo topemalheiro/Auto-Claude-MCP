@@ -47,11 +47,6 @@ import {
   initializeProject
 } from '../stores/project-store';
 import { useSettingsStore, saveSettings } from '../stores/settings-store';
-import {
-  useProjectEnvStore,
-  loadProjectEnvConfig,
-  clearProjectEnvConfig
-} from '../stores/project-env-store';
 import { AddProjectModal } from './AddProjectModal';
 import { GitSetupModal } from './GitSetupModal';
 import { RateLimitIndicator } from './RateLimitIndicator';
@@ -122,6 +117,31 @@ export function Sidebar({
 
   // Sidebar collapsed state from settings
   const isCollapsed = settings.sidebarCollapsed ?? false;
+
+  const toggleSidebar = () => {
+    saveSettings({ sidebarCollapsed: !isCollapsed });
+  };
+
+  // Load env config when project changes to check GitHub/GitLab enabled state
+  useEffect(() => {
+    const loadEnvConfig = async () => {
+      if (selectedProject?.autoBuildPath) {
+        try {
+          const result = await window.electronAPI.getProjectEnv(selectedProject.id);
+          if (result.success && result.data) {
+            setEnvConfig(result.data);
+          } else {
+            setEnvConfig(null);
+          }
+        } catch {
+          setEnvConfig(null);
+        }
+      } else {
+        setEnvConfig(null);
+      }
+    };
+    loadEnvConfig();
+  }, [selectedProject?.id, selectedProject?.autoBuildPath]);
 
   const toggleSidebar = () => {
     saveSettings({ sidebarCollapsed: !isCollapsed });
