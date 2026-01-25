@@ -27,7 +27,7 @@ export function registerQueueRoutingHandlers(
         const data = agentManager.getRunningTasksByProfile();
         return { success: true, data };
       } catch (error) {
-        console.error('[QueueRouting] Failed to get running tasks by profile:', error instanceof Error ? error.message : String(error));
+        console.error('[QueueRouting] Failed to get running tasks by profile:', error);
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Unknown error'
@@ -84,7 +84,7 @@ export function registerQueueRoutingHandlers(
 
         return { success: true, data: bestProfile };
       } catch (error) {
-        console.error('[QueueRouting] Failed to get best profile for task:', error instanceof Error ? error.message : String(error));
+        console.error('[QueueRouting] Failed to get best profile for task:', error);
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Unknown error'
@@ -107,7 +107,7 @@ export function registerQueueRoutingHandlers(
         agentManager.assignProfileToTask(taskId, profileId, profileName, reason);
         return { success: true };
       } catch (error) {
-        console.error('[QueueRouting] Failed to assign profile to task:', error instanceof Error ? error.message : String(error));
+        console.error('[QueueRouting] Failed to assign profile to task:', error);
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Unknown error'
@@ -128,7 +128,7 @@ export function registerQueueRoutingHandlers(
         agentManager.updateTaskSession(taskId, sessionId);
         return { success: true };
       } catch (error) {
-        console.error('[QueueRouting] Failed to update task session:', error instanceof Error ? error.message : String(error));
+        console.error('[QueueRouting] Failed to update task session:', error);
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Unknown error'
@@ -148,7 +148,7 @@ export function registerQueueRoutingHandlers(
         const sessionId = agentManager.getTaskSessionId(taskId);
         return { success: true, data: sessionId ?? null };
       } catch (error) {
-        console.error('[QueueRouting] Failed to get task session:', error instanceof Error ? error.message : String(error));
+        console.error('[QueueRouting] Failed to get task session:', error);
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Unknown error'

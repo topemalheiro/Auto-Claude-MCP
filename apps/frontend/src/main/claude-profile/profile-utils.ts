@@ -6,7 +6,7 @@
 import { homedir } from 'os';
 import { join } from 'path';
 import { existsSync, readFileSync, readdirSync, mkdirSync } from 'fs';
-import type { ClaudeProfile, APIProfile } from '../../shared/types';
+import type { ClaudeProfile } from '../../shared/types';
 import { getCredentialsFromKeychain } from './credential-utils';
 
 /**

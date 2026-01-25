@@ -276,6 +276,61 @@ All frontend UI text uses `react-i18next`. Translation files: `apps/frontend/src
 
 **Namespaces:** `common`, `navigation`, `settings`, `dialogs`, `tasks`, `errors`, `onboarding`, `welcome`
 
+memory = get_graphiti_memory(spec_dir, project_dir)
+context = memory.get_context_for_session("Implementing feature X")
+memory.add_session_insight("Pattern: use React hooks for state")
+```
+
+## Development Guidelines
+
+### No Time Estimates
+
+**CRITICAL: Never provide time estimates or predictions for how long tasks will take.**
+
+AI-assisted development dramatically changes implementation timelines, making traditional estimates misleading. Avoid:
+- Week/day/hour estimates (e.g., "Week 1: Foundation", "This will take 2-3 days")
+- Phrases like "quick fix", "simple change", "this should be fast"
+- Roadmaps with time-based phases
+
+Instead:
+- Focus on **what** needs to be done, not **when**
+- Break work into actionable steps without duration predictions
+- Use priority-based ordering (High Impact, Low Effort) rather than time-based phases
+- Let users judge timing for themselves based on their context
+
+```
+// ❌ WRONG - Time-based roadmap
+Week 1: Foundation
+Week 2: Prevention over Detection
+Week 3: Calibration
+
+// ✅ CORRECT - Priority-based ordering
+Phase 1: Foundation (High Impact, Low Effort)
+Phase 2: Prevention over Detection
+Phase 3: Calibration
+```
+
+### Frontend Internationalization (i18n)
+
+**CRITICAL: Always use i18n translation keys for all user-facing text in the frontend.**
+
+The frontend uses `react-i18next` for internationalization. All labels, buttons, messages, and user-facing text MUST use translation keys.
+
+**Translation file locations:**
+- `apps/frontend/src/shared/i18n/locales/en/*.json` - English translations
+- `apps/frontend/src/shared/i18n/locales/fr/*.json` - French translations
+
+**Translation namespaces:**
+- `common.json` - Shared labels, buttons, common terms
+- `navigation.json` - Sidebar navigation items, sections
+- `settings.json` - Settings page content
+- `dialogs.json` - Dialog boxes and modals
+- `tasks.json` - Task/spec related content
+- `errors.json` - Error messages (structured error information with substitution support)
+- `onboarding.json` - Onboarding wizard content
+- `welcome.json` - Welcome screen content
+
+**Usage pattern:**
 ```tsx
 import { useTranslation } from 'react-i18next';
 const { t } = useTranslation(['navigation', 'common']);

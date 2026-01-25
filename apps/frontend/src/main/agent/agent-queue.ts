@@ -8,7 +8,7 @@ import { AgentProcessManager } from './agent-process';
 import { RoadmapConfig } from './types';
 import type { IdeationConfig, Idea } from '../../shared/types';
 import { AUTO_BUILD_PATHS } from '../../shared/constants';
-import { detectRateLimit, createSDKRateLimitInfo, getProfileEnv } from '../rate-limit-detector';
+import { detectRateLimit, createSDKRateLimitInfo, getBestAvailableProfileEnv } from '../rate-limit-detector';
 import { getAPIProfileEnv } from '../services/profile';
 import { getOAuthModeClearVars } from './env-utils';
 import { debugLog, debugError } from '../../shared/utils/debug-logger';

@@ -46,15 +46,14 @@ import { pythonEnvManager } from './python-env-manager';
 import { getUsageMonitor } from './claude-profile/usage-monitor';
 import { initializeUsageMonitorForwarding } from './ipc-handlers/terminal-handlers';
 import { initializeAppUpdater, stopPeriodicUpdates } from './app-updater';
-import { DEFAULT_APP_SETTINGS, IPC_CHANNELS, SPELL_CHECK_LANGUAGE_MAP, DEFAULT_SPELL_CHECK_LANGUAGE, ADD_TO_DICTIONARY_LABELS } from '../shared/constants';
-import { getAppLanguage, initAppLanguage } from './app-language';
+import { DEFAULT_APP_SETTINGS, IPC_CHANNELS } from '../shared/constants';
 import { readSettingsFile } from './settings-utils';
 import { setupErrorLogging } from './app-logger';
 import { initSentryMain } from './sentry';
 import { preWarmToolCache } from './cli-tool-manager';
-import { initializeClaudeProfileManager } from './claude-profile-manager';
+import { initializeClaudeProfileManager, getClaudeProfileManager } from './claude-profile-manager';
 import { isMacOS, isWindows } from './platform';
-import type { AppSettings } from '../shared/types';
+import type { AppSettings, AuthFailureInfo } from '../shared/types';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Window sizing constants
@@ -507,22 +506,9 @@ app.whenReady().then(() => {
         if (migratedProfileIds.length > 0) {
           console.warn('[main] Found migrated profiles that need re-authentication:', migratedProfileIds);
 
-          // Check ALL migrated profiles for valid credentials, not just the active one
-          // This prevents stale migrated flags from triggering unnecessary re-auth prompts
-          // when the user switches to a different profile later
-          for (const profileId of migratedProfileIds) {
-            const profile = profileManager.getProfile(profileId);
-            if (profile && isProfileAuthenticated(profile)) {
-              // Credentials are valid - clear the migrated flag
-              console.warn('[main] Migrated profile has valid credentials via file fallback, clearing migrated flag:', profile.name);
-              profileManager.clearMigratedProfile(profileId);
-            }
-          }
-
-          // Re-check if the active profile still needs re-auth after clearing valid ones
-          const remainingMigratedIds = profileManager.getMigratedProfileIds();
-          if (remainingMigratedIds.includes(activeProfile.id)) {
-            // Active profile still needs re-auth - show the modal
+          // If the active profile was migrated, show auth failure modal immediately
+          if (migratedProfileIds.includes(activeProfile.id)) {
+            // Wait for renderer to be ready before sending the event
             mainWindow.webContents.once('did-finish-load', () => {
               // Small delay to ensure stores are initialized
               setTimeout(() => {

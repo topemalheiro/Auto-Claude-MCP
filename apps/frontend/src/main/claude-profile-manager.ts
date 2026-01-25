@@ -113,8 +113,6 @@ export class ClaudeProfileManager {
         continue;
       }
 
-      // Import dynamically to avoid circular dependency issues
-      const { getEmailFromConfigDir } = require('./claude-profile/profile-utils');
       const configEmail = getEmailFromConfigDir(profile.configDir);
 
       if (configEmail && profile.email !== configEmail) {
@@ -495,24 +493,17 @@ export class ClaudeProfileManager {
     const profile = this.getActiveProfile();
     const env: Record<string, string> = {};
 
-    // Default profile: Claude CLI uses ~/.claude implicitly (no env var needed)
-    if (profile?.isDefault) {
-      console.warn('[ClaudeProfileManager] Using default profile (Claude CLI uses ~/.claude)');
-      return env;
-    }
-
-    // Non-default profiles: set CLAUDE_CONFIG_DIR to point Claude CLI to profile's config
-    // Claude CLI will read fresh tokens from Keychain, benefiting from auto-refresh
+    // All profiles now use explicit CLAUDE_CONFIG_DIR for isolation
+    // This prevents interference with external Claude Code CLI usage
     if (profile?.configDir) {
       // Expand ~ to home directory for the environment variable
-      const expandedConfigDir = normalizeWindowsPath(
-        profile.configDir.startsWith('~')
-          ? profile.configDir.replace(/^~/, homedir())
-          : profile.configDir
-      );
-
+      const expandedConfigDir = profile.configDir.startsWith('~')
+        ? profile.configDir.replace(/^~/, homedir())
+        : profile.configDir;
       env.CLAUDE_CONFIG_DIR = expandedConfigDir;
-      console.warn('[ClaudeProfileManager] Using CLAUDE_CONFIG_DIR for profile:', profile.name, expandedConfigDir);
+      if (process.env.DEBUG === 'true') {
+        console.warn('[ClaudeProfileManager] Using CLAUDE_CONFIG_DIR for profile:', profile.name, expandedConfigDir);
+      }
     } else {
       console.warn('[ClaudeProfileManager] Profile has no configDir configured:', profile?.name);
     }
@@ -727,11 +718,9 @@ export class ClaudeProfileManager {
     }
 
     // Expand ~ to home directory for the environment variable
-    const expandedConfigDir = normalizeWindowsPath(
-      profile.configDir.startsWith('~')
-        ? profile.configDir.replace(/^~/, require('os').homedir())
-        : profile.configDir
-    );
+    const expandedConfigDir = profile.configDir.startsWith('~')
+      ? profile.configDir.replace(/^~/, require('os').homedir())
+      : profile.configDir;
 
     if (process.env.DEBUG === 'true') {
       console.warn('[ClaudeProfileManager] getProfileEnv:', {
@@ -743,10 +732,7 @@ export class ClaudeProfileManager {
       });
     }
 
-    // Retrieve OAuth token from Keychain and pass it to subprocess
-    // This ensures the backend Python agent can authenticate even when
-    // there's no .credentials.json file in the profile directory
-    const env: Record<string, string> = {
+    return {
       CLAUDE_CONFIG_DIR: expandedConfigDir
     };
 

@@ -10,7 +10,7 @@ import { terminalNameGenerator } from '../terminal-name-generator';
 import { readSettingsFileAsync } from '../settings-utils';
 import { debugLog, } from '../../shared/utils/debug-logger';
 import { migrateSession } from '../claude-profile/session-utils';
-import { DEFAULT_CLAUDE_CONFIG_DIR, createProfileDirectory } from '../claude-profile/profile-utils';
+import { createProfileDirectory } from '../claude-profile/profile-utils';
 import { isValidConfigDir } from '../utils/config-path-validator';
 
 
@@ -539,12 +539,13 @@ export function registerTerminalHandlers(
   );
 
   // Request all profiles usage immediately (for startup/refresh)
+  // Optional forceRefresh parameter bypasses cache to get fresh data
   ipcMain.handle(
     IPC_CHANNELS.ALL_PROFILES_USAGE_REQUEST,
-    async (): Promise<IPCResult<AllProfilesUsage | null>> => {
+    async (_event: IpcMainInvokeEvent, forceRefresh: boolean = false): Promise<IPCResult<AllProfilesUsage | null>> => {
       try {
         const monitor = getUsageMonitor();
-        const allProfilesUsage = await monitor.getAllProfilesUsage();
+        const allProfilesUsage = await monitor.getAllProfilesUsage(forceRefresh);
         return { success: true, data: allProfilesUsage };
       } catch (error) {
         return {

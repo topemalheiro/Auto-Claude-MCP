@@ -77,6 +77,8 @@ export interface ClaudeUsageSnapshot {
   weeklyUsageValue?: number;
   /** Weekly usage limit (total quota) */
   weeklyUsageLimit?: number;
+  /** True if profile has invalid refresh token and needs re-authentication */
+  needsReauthentication?: boolean;
 }
 
 /**
@@ -112,6 +114,8 @@ export interface ProfileUsageSummary {
   lastFetchedAt?: string;
   /** Error message if usage fetch failed */
   fetchError?: string;
+  /** True if profile has invalid refresh token and needs re-authentication */
+  needsReauthentication?: boolean;
 }
 
 /**

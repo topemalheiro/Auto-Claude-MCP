@@ -6,8 +6,7 @@ import type { Project, ProjectSettings, Task, TaskStatus, TaskMetadata, Implemen
 import { DEFAULT_PROJECT_SETTINGS, AUTO_BUILD_PATHS, getSpecsDir, JSON_ERROR_PREFIX, JSON_ERROR_TITLE_SUFFIX, TASK_STATUS_PRIORITY } from '../shared/constants';
 import { getAutoBuildPath, isInitialized } from './project-initializer';
 import { getTaskWorktreeDir } from './worktree-paths';
-import { findAllSpecPaths } from './utils/spec-path-helpers';
-import { ensureAbsolutePath } from './utils/path-helpers';
+import { isValidTaskId, findAllSpecPaths } from './utils/spec-path-helpers';
 
 interface TabState {
   openProjectIds: string[];
@@ -186,24 +185,6 @@ export class ProjectStore {
         : null,
       tabOrder: tabState.tabOrder.filter(id => validProjectIds.includes(id))
     };
-    this.save();
-  }
-
-  /**
-   * Get kanban column preferences for a specific project
-   */
-  getKanbanPreferences(projectId: string): KanbanPreferences | null {
-    return this.data.kanbanPreferences?.[projectId] ?? null;
-  }
-
-  /**
-   * Save kanban column preferences for a specific project
-   */
-  saveKanbanPreferences(projectId: string, preferences: KanbanPreferences): void {
-    if (!this.data.kanbanPreferences) {
-      this.data.kanbanPreferences = {};
-    }
-    this.data.kanbanPreferences[projectId] = preferences;
     this.save();
   }
 
@@ -680,8 +661,15 @@ export class ProjectStore {
     const storedStatus = statusMap[plan.status] || 'backlog';
     const reviewReason = storedStatus === 'human_review' ? plan.reviewReason : undefined;
 
-    return { status: storedStatus, reviewReason };
-  }
+    // ========================================================================
+    // STEP 1: Check for terminal statuses (highest priority - always respected)
+    // ========================================================================
+    if (plan?.status) {
+      const storedStatus = statusMap[plan.status];
+      if (storedStatus && TERMINAL_STATUSES.has(storedStatus)) {
+        return { status: storedStatus };
+      }
+    }
 
   /**
    * Infer execution progress from plan status for XState snapshot restoration.
@@ -710,47 +698,92 @@ export class ProjectStore {
       'error': 'failed'
     };
 
-    const phase = phaseMap[planStatus];
-    if (!phase) return undefined;
+      // During active execution, respect the stored status to prevent jumping
+      if (isActiveProcessStatus && storedStatus === 'in_progress') {
+        return { status: 'in_progress' };
+      }
 
       // Plan review stage (human approval of spec before coding starts)
-      // Only show plan_review when user explicitly requested human review via checkbox
-      if (isPlanReviewStage && storedStatus === 'human_review' && metadata?.requireReviewBeforeCoding) {
-        debugLog('[determineTaskStatusAndReason] Plan review stage detected:', {
-          planStatus: plan.status,
-          reason: 'Spec creation complete, awaiting user approval'
-        });
+      if (isPlanReviewStage && storedStatus === 'human_review') {
         return { status: 'human_review', reviewReason: 'plan_review' };
       }
 
-  /**
-   * Infer execution progress from persisted XState state.
-   * This is more precise than inferring from plan status since it uses the exact machine state.
-   */
-  private inferExecutionProgressFromXState(xstateState: string): { phase: ExecutionPhase; phaseProgress: number; overallProgress: number } | undefined {
-    // Map XState state directly to execution phase
-    const phaseMap: Record<string, ExecutionPhase> = {
-      'backlog': 'idle',
-      'planning': 'planning',
-      'plan_review': 'planning',
-      'coding': 'coding',
-      'qa_review': 'qa_review',
-      'qa_fixing': 'qa_fixing',
-      'human_review': 'complete',
-      'error': 'failed',
-      'creating_pr': 'complete',
-      'pr_created': 'complete',
-      'done': 'complete'
-    };
+      // Explicit human_review status should be preserved unless we have evidence to change it
+      if (storedStatus === 'human_review') {
+        // Infer review reason from subtask/QA state
+        const hasFailedSubtasks = allSubtasks.some((s) => s.status === 'failed');
+        const allCompleted = allSubtasks.length > 0 && allSubtasks.every((s) => s.status === 'completed');
+        let reviewReason: ReviewReason | undefined;
+        if (hasFailedSubtasks) {
+          reviewReason = 'errors';
+        } else if (allCompleted) {
+          reviewReason = 'completed';
+        }
+        return { status: 'human_review', reviewReason };
+      }
 
-    const phase = phaseMap[xstateState];
-    if (!phase) return undefined;
+      // Explicit ai_review status should be preserved
+      if (storedStatus === 'ai_review') {
+        return { status: 'ai_review' };
+      }
+    }
 
-    return {
-      phase,
-      phaseProgress: phase === 'complete' ? 100 : 50,
-      overallProgress: phase === 'complete' ? 100 : 50
-    };
+    // ========================================================================
+    // STEP 3: Check QA report file for status info
+    // ========================================================================
+    const qaReportPath = path.join(specPath, AUTO_BUILD_PATHS.QA_REPORT);
+    if (existsSync(qaReportPath)) {
+      try {
+        const content = readFileSync(qaReportPath, 'utf-8');
+        if (content.includes('REJECTED') || content.includes('FAILED')) {
+          return { status: 'human_review', reviewReason: 'qa_rejected' };
+        }
+        if (content.includes('PASSED') || content.includes('APPROVED')) {
+          // QA passed - if all subtasks done, move to human_review
+          if (allSubtasks.length > 0 && allSubtasks.every((s) => s.status === 'completed')) {
+            return { status: 'human_review', reviewReason: 'completed' };
+          }
+        }
+      } catch {
+        // Ignore read errors
+      }
+    }
+
+    // ========================================================================
+    // STEP 4: Calculate status from subtask analysis (fallback only)
+    // This is the lowest priority - only used when no explicit status is set
+    // ========================================================================
+    let calculatedStatus: TaskStatus = 'backlog';
+    let reviewReason: ReviewReason | undefined;
+
+    if (allSubtasks.length > 0) {
+      const completed = allSubtasks.filter((s) => s.status === 'completed').length;
+      const inProgress = allSubtasks.filter((s) => s.status === 'in_progress').length;
+      const failed = allSubtasks.filter((s) => s.status === 'failed').length;
+
+      if (completed === allSubtasks.length) {
+        // All subtasks completed - check QA status
+        const qaSignoff = (plan as unknown as Record<string, unknown>)?.qa_signoff as { status?: string } | undefined;
+        if (qaSignoff?.status === 'approved') {
+          calculatedStatus = 'human_review';
+          reviewReason = 'completed';
+        } else {
+          // Manual tasks skip AI review and go directly to human review
+          calculatedStatus = metadata?.sourceType === 'manual' ? 'human_review' : 'ai_review';
+          if (metadata?.sourceType === 'manual') {
+            reviewReason = 'completed';
+          }
+        }
+      } else if (failed > 0) {
+        // Some subtasks failed - needs human attention
+        calculatedStatus = 'human_review';
+        reviewReason = 'errors';
+      } else if (inProgress > 0 || completed > 0) {
+        calculatedStatus = 'in_progress';
+      }
+    }
+
+    return { status: calculatedStatus, reviewReason: calculatedStatus === 'human_review' ? reviewReason : undefined };
   }
 
   /**
@@ -801,7 +834,7 @@ export class ProjectStore {
             metadata.archivedInVersion = version;
           }
 
-          writeFileSync(metadataPath, JSON.stringify(metadata, null, 2), 'utf-8');
+          writeFileSync(metadataPath, JSON.stringify(metadata, null, 2));
         } catch (error) {
           console.error(`[ProjectStore] archiveTasks: Failed to archive task ${taskId} at ${specPath}:`, error);
           hasErrors = true;
@@ -859,7 +892,7 @@ export class ProjectStore {
 
           delete metadata.archivedAt;
           delete metadata.archivedInVersion;
-          writeFileSync(metadataPath, JSON.stringify(metadata, null, 2), 'utf-8');
+          writeFileSync(metadataPath, JSON.stringify(metadata, null, 2));
         } catch (error) {
           console.error(`[ProjectStore] unarchiveTasks: Failed to unarchive task ${taskId} at ${specPath}:`, error);
           hasErrors = true;
