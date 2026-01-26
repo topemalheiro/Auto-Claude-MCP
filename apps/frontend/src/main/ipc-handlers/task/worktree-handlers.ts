@@ -23,11 +23,6 @@ import { persistPlanStatus, updateTaskMetadataPrUrl } from './plan-file-utils';
 import { getIsolatedGitEnv, detectWorktreeBranch, refreshGitIndex } from '../../utils/git-isolation';
 import { killProcessGracefully } from '../../platform';
 import { stripAnsiCodes } from '../../../shared/utils/ansi-sanitizer';
-import { taskStateManager } from '../../task-state-manager';
-// Branch validation utilities - extracted to avoid Electron import in tests
-import { GIT_BRANCH_REGEX, validateWorktreeBranch } from './worktree-branch-utils';
-// Re-export for other modules that import from this file
-export { GIT_BRANCH_REGEX, validateWorktreeBranch };
 
 // Initialize electron-log (safe for re-import scenarios)
 try {
