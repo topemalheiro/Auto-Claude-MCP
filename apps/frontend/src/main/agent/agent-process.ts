@@ -631,7 +631,7 @@ export class AgentProcessManager {
       // spawn() failed synchronously (e.g., command not found, permission denied)
       // Clean up tracking entry and propagate error
       this.state.deleteProcess(taskId);
-      this.emitter.emit('error', taskId, err instanceof Error ? err.message : String(err), projectId);
+      this.emitter.emit('error', taskId, err instanceof Error ? err.message : String(err));
       throw err;
     }
 
