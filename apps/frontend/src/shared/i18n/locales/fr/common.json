@@ -95,6 +95,18 @@
     "linux": "Linux",
     "unknown": "Inconnu"
   },
+  "actions": {
+    "save": "Enregistrer",
+    "apply": "Appliquer",
+    "delete": "Supprimer",
+    "settings": "Paramètres"
+  },
+  "os": {
+    "windows": "Windows",
+    "macos": "macOS",
+    "linux": "Linux",
+    "unknown": "Inconnu"
+  },
   "labels": {
     "loading": "Chargement...",
     "error": "Erreur",

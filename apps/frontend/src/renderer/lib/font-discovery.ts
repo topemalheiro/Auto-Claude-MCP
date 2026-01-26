@@ -73,7 +73,7 @@ export async function isFontAvailable(
     );
 
     return isAvailable;
-  } catch (_error) {
+  } catch (error) {
     // If check() fails, conservatively assume font is not available
     return false;
   }
@@ -192,7 +192,7 @@ export async function waitForFontLoad(
 
     // Check if the font is now available
     return await isFontAvailable(fontFamily);
-  } catch (_error) {
+  } catch (error) {
     return false;
   }
 }

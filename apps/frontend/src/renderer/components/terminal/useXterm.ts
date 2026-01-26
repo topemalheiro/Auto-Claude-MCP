@@ -5,17 +5,11 @@ import { WebLinksAddon } from '@xterm/addon-web-links';
 import { SerializeAddon } from '@xterm/addon-serialize';
 import { terminalBufferManager } from '../../lib/terminal-buffer-manager';
 import { registerOutputCallback, unregisterOutputCallback } from '../../stores/terminal-store';
+import { useTerminalFontSettingsStore } from '../../stores/terminal-font-settings-store';
+import { isWindows as checkIsWindows, isLinux as checkIsLinux } from '../../lib/os-detection';
+import { debounce } from '../../lib/debounce';
+import { DEFAULT_TERMINAL_THEME } from '../../lib/terminal-theme';
 import { debugLog, debugError } from '../../../shared/utils/debug-logger';
-
-// Type augmentation for navigator.userAgentData (modern User-Agent Client Hints API)
-interface NavigatorUAData {
-  platform: string;
-}
-declare global {
-  interface Navigator {
-    userAgentData?: NavigatorUAData;
-  }
-}
 
 interface UseXtermOptions {
   terminalId: string;
@@ -54,15 +48,6 @@ export interface UseXtermReturn {
   rows: number;
   /** Whether dimensions have been measured and are ready */
   dimensionsReady: boolean;
-}
-
-// Debounce helper function
-function debounce<T extends (...args: unknown[]) => void>(fn: T, ms: number): T {
-  let timeoutId: ReturnType<typeof setTimeout> | null = null;
-  return ((...args: unknown[]) => {
-    if (timeoutId) clearTimeout(timeoutId);
-    timeoutId = setTimeout(() => fn(...args), ms);
-  }) as T;
 }
 
 export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsReady }: UseXtermOptions): UseXtermReturn {
@@ -353,6 +338,47 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
 
     return unsubscribe;
   }, []); // Only terminalId needed - re-subscribe when terminal changes
+
+  // Subscribe to font settings changes and update terminal reactively
+  // This effect runs after xterm is created and re-runs when terminalId changes,
+  // ensuring the subscription always uses the latest xterm instance
+  useEffect(() => {
+    const xterm = xtermRef.current;
+    if (!xterm) return;
+
+    // Update terminal options when font settings change
+    const updateTerminalOptions = (settings: ReturnType<typeof useTerminalFontSettingsStore.getState>) => {
+      xterm.options.cursorBlink = settings.cursorBlink;
+      xterm.options.cursorStyle = settings.cursorStyle;
+      xterm.options.fontSize = settings.fontSize;
+      xterm.options.fontWeight = settings.fontWeight;
+      xterm.options.fontFamily = settings.fontFamily.join(', ');
+      xterm.options.lineHeight = settings.lineHeight;
+      xterm.options.letterSpacing = settings.letterSpacing;
+      xterm.options.theme = {
+        ...xterm.options.theme,
+        cursorAccent: settings.cursorAccentColor,
+      };
+      xterm.options.scrollback = settings.scrollback;
+
+      // Refresh terminal to apply visual changes
+      xterm.refresh(0, xterm.rows - 1);
+    };
+
+    // Subscribe to store changes - when terminalId changes, this effect re-runs,
+    // cleaning up the old subscription and creating a new one for the new xterm instance
+    const unsubscribe = useTerminalFontSettingsStore.subscribe(
+      () => {
+        // Get latest settings from store
+        const latestSettings = useTerminalFontSettingsStore.getState();
+
+        // Update terminal options with latest settings
+        updateTerminalOptions(latestSettings);
+      }
+    );
+
+    return unsubscribe;
+  }, [terminalId]); // Only terminalId needed - re-subscribe when terminal changes
 
   // Register xterm write callback with terminal-store for global output listener
   // This allows the global listener to write directly to xterm when terminal is visible

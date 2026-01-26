@@ -10,6 +10,7 @@ import {
   isValidCursorStyle,
   isValidHexColor,
   isValidFontFamily,
+  type CursorStyle,
 } from '../lib/terminal-font-constants';
 
 /**

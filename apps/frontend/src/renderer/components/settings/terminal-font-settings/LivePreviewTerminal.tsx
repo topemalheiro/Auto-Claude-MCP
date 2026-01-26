@@ -136,7 +136,7 @@ export function LivePreviewTerminal({ settings }: LivePreviewTerminalProps) {
       }
       isInitializedRef.current = false;
     };
-  }, [settings.cursorAccentColor, settings.cursorBlink, settings.cursorStyle, settings.fontFamily.join, settings.fontSize, settings.fontWeight, settings.letterSpacing, settings.lineHeight]); // Empty deps - only run on mount
+  }, []); // Empty deps - only run on mount
 
   /**
    * Initialize the debounced update function once
@@ -193,7 +193,7 @@ export function LivePreviewTerminal({ settings }: LivePreviewTerminalProps) {
     if (xtermRef.current && debouncedUpdateRef.current) {
       debouncedUpdateRef.current.fn();
     }
-  }, []); // Re-run when settings change
+  }, [settings]); // Re-run when settings change
 
   /**
    * Handle window resize
