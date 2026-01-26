@@ -76,26 +76,6 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(function Termi
   // Track last sent PTY dimensions to prevent redundant resize calls
   // This ensures terminal.resize() stays in sync with PTY dimensions
   const lastPtyDimensionsRef = useRef<{ cols: number; rows: number } | null>(null);
-  // Track if auto-resume has been attempted to prevent duplicate resume calls
-  // This fixes the race condition where isActive and pendingClaudeResume update timing can miss the effect trigger
-  const hasAttemptedAutoResumeRef = useRef(false);
-  // Track when the last resize was sent to PTY for grace period logic
-  // This prevents false positive mismatch warnings during async resize acknowledgment
-  const lastResizeTimeRef = useRef<number>(0);
-  // Track previous isExpanded state to detect actual expansion changes
-  // This prevents forcing PTY resize on initial mount (only on actual state changes)
-  const prevIsExpandedRef = useRef<boolean | undefined>(undefined);
-  // Track when last auto-correction was performed to implement cooldown
-  const lastAutoCorrectionTimeRef = useRef<number>(0);
-  // Track auto-correction frequency to detect potential deeper issues
-  // If corrections exceed threshold, it may indicate a persistent sync problem
-  const autoCorrectionCountRef = useRef<number>(0);
-  const autoCorrectionWindowStartRef = useRef<number>(Date.now());
-  // Sequence number for resize operations to prevent race conditions
-  // When concurrent resize calls complete out-of-order, only the latest result is applied
-  const resizeSequenceRef = useRef<number>(0);
-  // Track post-creation dimension check timeout for cleanup
-  const postCreationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Worktree dialog state
   const [showWorktreeDialog, setShowWorktreeDialog] = useState(false);
@@ -302,8 +282,9 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(function Termi
         return;
       }
 
-      // Use helper to resize PTY with proper tracking and race condition prevention
-      resizePtyWithTracking(cols, rows, 'onResize');
+      // Update tracked dimensions and send resize to PTY
+      lastPtyDimensionsRef.current = { cols, rows };
+      window.electronAPI.resizeTerminal(id, cols, rows);
     },
     onDimensionsReady: handleDimensionsReady,
   });
@@ -340,33 +321,10 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(function Termi
     isRecreatingRef,
     onCreated: () => {
       isCreatedRef.current = true;
-      // ALWAYS force PTY resize on creation/remount
-      // This ensures PTY matches xterm even if PTY existed before remount (expand/minimize)
-      // The root cause of text alignment issues is that when terminal remounts:
-      // 1. PTY persists with old dimensions (e.g., 80x20)
-      // 2. New xterm measures new container (e.g., 160x40)
-      // 3. Without this force resize, PTY never gets updated
-      // Read current dimensions from xterm ref to avoid stale closure values
-      const currentCols = xtermRef.current?.cols;
-      const currentRows = xtermRef.current?.rows;
-      if (currentCols !== undefined && currentRows !== undefined && currentCols >= MIN_COLS && currentRows >= MIN_ROWS) {
-        debugLog(`[Terminal ${id}] PTY created - forcing PTY resize to match xterm: cols=${currentCols}, rows=${currentRows}`);
-        // Use helper to resize PTY with proper tracking and race condition prevention
-        resizePtyWithTracking(currentCols, currentRows, 'PTY creation');
-
-        // Schedule initial dimension mismatch check after PTY creation
-        // This helps detect if xterm dimensions drifted during PTY setup
-        // Read fresh dimensions inside the timeout to avoid stale closure
-        // Store timeout ID for cleanup on unmount
-        postCreationTimeoutRef.current = setTimeout(() => {
-          const freshCols = xtermRef.current?.cols;
-          const freshRows = xtermRef.current?.rows;
-          if (freshCols !== undefined && freshRows !== undefined) {
-            checkDimensionMismatch(freshCols, freshRows, 'post-PTY creation');
-          }
-        }, DIMENSION_MISMATCH_GRACE_PERIOD_MS + 100);
-      } else {
-        debugLog(`[Terminal ${id}] PTY created - no valid dimensions available for tracking (cols=${currentCols}, rows=${currentRows})`);
+      // Initialize PTY dimension tracking with creation dimensions
+      // This ensures the first resize check has a baseline to compare against
+      if (ptyDimensions) {
+        lastPtyDimensionsRef.current = { cols: ptyDimensions.cols, rows: ptyDimensions.rows };
       }
       // If there's a pending worktree config from a recreation attempt,
       // sync it to main process now that the terminal exists.
