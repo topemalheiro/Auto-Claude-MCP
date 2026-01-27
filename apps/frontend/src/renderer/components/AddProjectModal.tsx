@@ -103,7 +103,7 @@ export function AddProjectModal({ open, onOpenChange, onProjectAdded }: AddProje
             const listResult = await window.electronAPI.listDirectory(path);
             if (listResult.success && listResult.data) {
               const hasAutoClaudeFolder = listResult.data.some(
-                (item) => item.name === '.auto-claude' && item.type === 'directory'
+                (item) => item.name === '.auto-claude' && item.isDirectory
               );
               setExistingHasAutoClaude(hasAutoClaudeFolder);
             } else {
