@@ -21,6 +21,7 @@ export interface HuggingFaceAPI {
   installHuggingFaceCli: () => Promise<IPCResult<{ command: string }>>;
   checkHuggingFaceAuth: () => Promise<IPCResult<{ authenticated: boolean; username?: string }>>;
   huggingFaceLogin: () => Promise<IPCResult<{ success: boolean; message?: string }>>;
+  huggingFaceLoginWithToken: (token: string) => Promise<IPCResult<{ success: boolean }>>;
   getHuggingFaceToken: () => Promise<IPCResult<{ token: string }>>;
   getHuggingFaceUser: () => Promise<IPCResult<{ username: string; fullname?: string }>>;
 
@@ -51,6 +52,9 @@ export const createHuggingFaceAPI = (): HuggingFaceAPI => ({
 
   huggingFaceLogin: (): Promise<IPCResult<{ success: boolean; message?: string }>> =>
     invokeIpc(IPC_CHANNELS.HUGGINGFACE_LOGIN),
+
+  huggingFaceLoginWithToken: (token: string): Promise<IPCResult<{ success: boolean }>> =>
+    invokeIpc(IPC_CHANNELS.HUGGINGFACE_LOGIN_WITH_TOKEN, token),
 
   getHuggingFaceToken: (): Promise<IPCResult<{ token: string }>> =>
     invokeIpc(IPC_CHANNELS.HUGGINGFACE_GET_TOKEN),

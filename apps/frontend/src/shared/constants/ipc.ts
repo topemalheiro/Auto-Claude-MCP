@@ -358,6 +358,7 @@ export const IPC_CHANNELS = {
   HUGGINGFACE_INSTALL_CLI: 'huggingface:installCli',
   HUGGINGFACE_CHECK_AUTH: 'huggingface:checkAuth',
   HUGGINGFACE_LOGIN: 'huggingface:login',
+  HUGGINGFACE_LOGIN_WITH_TOKEN: 'huggingface:loginWithToken',
   HUGGINGFACE_GET_TOKEN: 'huggingface:getToken',
   HUGGINGFACE_GET_USER: 'huggingface:getUser',
   HUGGINGFACE_LIST_MODELS: 'huggingface:listModels',

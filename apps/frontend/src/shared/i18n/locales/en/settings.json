@@ -367,8 +367,9 @@
       "refreshStatus": "Refresh",
       "repoIdLabel": "Model Repository",
       "repoIdDescription": "Enter your Hugging Face model repository ID (e.g., username/model-name)",
-      "autoSyncLabel": "Auto-sync",
-      "autoSyncDescription": "Automatically sync changes with Hugging Face"
+      "tokenInstructions": "Paste your Hugging Face access token below. You can create one at huggingface.co/settings/tokens",
+      "tokenPlaceholder": "hf_...",
+      "submitToken": "Submit"
     },
     "memory": {
       "title": "Memory",

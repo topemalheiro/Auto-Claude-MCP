@@ -13,7 +13,8 @@ import {
   debugLog,
   findHuggingFaceCli,
   getHuggingFaceToken,
-  execHuggingFaceCli
+  execHuggingFaceCli,
+  parseCliOutput
 } from './utils';
 
 /**
@@ -119,7 +120,7 @@ export function registerCheckHuggingFaceAuth(): void {
         // Verify token by running whoami
         try {
           const whoamiOutput = execHuggingFaceCli(['whoami']);
-          const username = whoamiOutput.trim().split('\n')[0];
+          const username = parseCliOutput(whoamiOutput);
 
           if (username && !username.includes('Not logged in')) {
             debugLog('Authenticated as:', username);
@@ -255,6 +256,45 @@ export function registerHuggingFaceLogin(): void {
 }
 
 /**
+ * Login to Hugging Face with a token (non-interactive)
+ * This is the recommended approach since huggingface-cli login is interactive
+ */
+export function registerHuggingFaceLoginWithToken(): void {
+  ipcMain.handle(
+    IPC_CHANNELS.HUGGINGFACE_LOGIN_WITH_TOKEN,
+    async (_, token: string): Promise<IPCResult<{ success: boolean }>> => {
+      debugLog('huggingFaceLoginWithToken handler called');
+
+      if (!token || token.trim().length === 0) {
+        return {
+          success: false,
+          error: 'Token is required'
+        };
+      }
+
+      try {
+        // Use login command (the deprecation warning suggests 'hf auth login' but it doesn't exist)
+        // --add-to-git-credential stores the token for git operations
+        execHuggingFaceCli(['login', '--token', token.trim(), '--add-to-git-credential']);
+        debugLog('Login with token successful');
+
+        return {
+          success: true,
+          data: { success: true }
+        };
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : 'Login failed';
+        debugLog('Login with token failed:', errorMsg);
+        return {
+          success: false,
+          error: errorMsg
+        };
+      }
+    }
+  );
+}
+
+/**
  * Get the current Hugging Face token
  */
 export function registerGetHuggingFaceToken(): void {
@@ -299,8 +339,7 @@ export function registerGetHuggingFaceUser(): void {
 
       try {
         const whoamiOutput = execHuggingFaceCli(['whoami']);
-        const lines = whoamiOutput.trim().split('\n');
-        const username = lines[0];
+        const username = parseCliOutput(whoamiOutput);
 
         if (!username || username.includes('Not logged in')) {
           return {
@@ -335,6 +374,7 @@ export function registerHuggingFaceOAuthHandlers(): void {
   registerInstallHuggingFaceCli();
   registerCheckHuggingFaceAuth();
   registerHuggingFaceLogin();
+  registerHuggingFaceLoginWithToken();
   registerGetHuggingFaceToken();
   registerGetHuggingFaceUser();
   debugLog('Hugging Face OAuth handlers registered');

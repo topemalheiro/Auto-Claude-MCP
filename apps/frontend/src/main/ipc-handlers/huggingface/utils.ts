@@ -8,6 +8,36 @@ import { homedir } from 'os';
 import { join } from 'path';
 import { getAugmentedEnv, findExecutable } from '../../env-utils';
 
+/**
+ * Strip ANSI escape codes from a string
+ */
+export function stripAnsiCodes(str: string): string {
+  // eslint-disable-next-line no-control-regex
+  return str.replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '');
+}
+
+/**
+ * Parse CLI output, filtering out warning/deprecation lines and ANSI codes
+ * Returns the first non-warning, non-empty line (typically the actual data)
+ */
+export function parseCliOutput(output: string): string {
+  const lines = output.trim().split('\n');
+  for (const line of lines) {
+    const cleaned = stripAnsiCodes(line).trim();
+    // Skip warning lines
+    if (cleaned.startsWith('Warning:') || cleaned.includes('is deprecated')) {
+      continue;
+    }
+    // Skip empty lines
+    if (!cleaned) {
+      continue;
+    }
+    return cleaned;
+  }
+  // Fallback: return the whole output stripped of ANSI
+  return stripAnsiCodes(output.trim());
+}
+
 // Debug logging helper
 const DEBUG = process.env.NODE_ENV === 'development' && process.env.DEBUG === 'true';
 
@@ -159,7 +189,11 @@ export function findHuggingFaceCli(): string | null {
  * Execute huggingface-cli command
  */
 export function execHuggingFaceCli(args: string[]): string {
-  const env = getAugmentedEnv();
+  const env = {
+    ...getAugmentedEnv(),
+    // Fix Windows encoding issues with emoji in CLI output
+    PYTHONIOENCODING: 'utf-8'
+  };
 
   // Use findHuggingFaceCli to get the correct path
   const cliPath = findHuggingFaceCli();

@@ -367,8 +367,9 @@
       "refreshStatus": "Actualiser",
       "repoIdLabel": "Dépôt de modèle",
       "repoIdDescription": "Entrez l'ID de votre dépôt de modèle Hugging Face (ex: username/model-name)",
-      "autoSyncLabel": "Sync automatique",
-      "autoSyncDescription": "Synchroniser automatiquement les modifications avec Hugging Face"
+      "tokenInstructions": "Collez votre jeton d'accès Hugging Face ci-dessous. Vous pouvez en créer un sur huggingface.co/settings/tokens",
+      "tokenPlaceholder": "hf_...",
+      "submitToken": "Soumettre"
     },
     "memory": {
       "title": "Mémoire",

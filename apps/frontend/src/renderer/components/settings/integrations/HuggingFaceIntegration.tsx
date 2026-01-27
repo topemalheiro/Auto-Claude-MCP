@@ -49,6 +49,10 @@ export function HuggingFaceIntegration({
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
 
+  // Token input state
+  const [showTokenInput, setShowTokenInput] = useState(false);
+  const [tokenValue, setTokenValue] = useState('');
+
   debugLog('Render - projectPath:', projectPath);
   debugLog('Render - envConfig:', envConfig ? { huggingfaceEnabled: envConfig.huggingfaceEnabled, repoId: envConfig.huggingfaceRepoId } : null);
 
@@ -104,24 +108,45 @@ export function HuggingFaceIntegration({
     }
   };
 
-  const handleLogin = async () => {
+  const handleLogin = () => {
+    // Open HF tokens page in browser and show token input form
+    setAuthError(null);
+    window.open('https://huggingface.co/settings/tokens', '_blank');
+    setShowTokenInput(true);
+  };
+
+  const handleTokenSubmit = async () => {
+    if (!tokenValue.trim()) {
+      setAuthError('Please enter a token');
+      return;
+    }
+
     setIsLoggingIn(true);
     setAuthError(null);
     try {
-      const result = await window.electronAPI.huggingFaceLogin();
-      debugLog('huggingFaceLogin result:', result);
+      const result = await window.electronAPI.huggingFaceLoginWithToken(tokenValue.trim());
+      debugLog('huggingFaceLoginWithToken result:', result);
       if (result.success) {
+        // Clear token input and hide form
+        setTokenValue('');
+        setShowTokenInput(false);
         // Re-check auth status after login
         await checkAuth();
       } else {
         setAuthError(result.error || 'Login failed');
       }
     } catch (error) {
-      debugLog('Error during login:', error);
+      debugLog('Error during token login:', error);
       setAuthError('Login failed. Please try again.');
     } finally {
       setIsLoggingIn(false);
     }
+  };
+
+  const handleCancelTokenInput = () => {
+    setShowTokenInput(false);
+    setTokenValue('');
+    setAuthError(null);
   };
 
   const handleInstallCli = async () => {
@@ -195,20 +220,60 @@ export function HuggingFaceIntegration({
                 <div className="flex items-center gap-2">
                   <AlertCircle className="h-4 w-4 text-warning" />
                   <span className="text-sm text-warning">{t('projectSections.huggingface.notLoggedIn')}</span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleLogin}
+                  {!showTokenInput && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleLogin}
+                    >
+                      <ExternalLink className="h-3 w-3 mr-1" />
+                      {t('projectSections.huggingface.login')}
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
+            {/* Token Input Form */}
+            {showTokenInput && !isAuthenticated && (
+              <div className="space-y-3 p-3 rounded-md border bg-muted/50">
+                <p className="text-sm text-muted-foreground">
+                  {t('projectSections.huggingface.tokenInstructions')}
+                </p>
+                <div className="flex gap-2">
+                  <Input
+                    type="password"
+                    placeholder={t('projectSections.huggingface.tokenPlaceholder')}
+                    value={tokenValue}
+                    onChange={(e) => setTokenValue(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        handleTokenSubmit();
+                      }
+                    }}
                     disabled={isLoggingIn}
+                  />
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={handleTokenSubmit}
+                    disabled={isLoggingIn || !tokenValue.trim()}
                   >
                     {isLoggingIn ? (
                       <Loader2 className="h-3 w-3 mr-1 animate-spin" />
                     ) : null}
-                    {t('projectSections.huggingface.login')}
+                    {t('projectSections.huggingface.submitToken')}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleCancelTokenInput}
+                    disabled={isLoggingIn}
+                  >
+                    {t('common:cancel')}
                   </Button>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
             {authError && (
               <p className="text-sm text-destructive">{authError}</p>
             )}
@@ -239,19 +304,6 @@ export function HuggingFaceIntegration({
               placeholder="username/model-name"
               value={envConfig?.huggingfaceRepoId || ''}
               onChange={(e) => updateEnvConfig({ huggingfaceRepoId: e.target.value })}
-            />
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label className="text-sm font-medium">{t('projectSections.huggingface.autoSyncLabel')}</Label>
-              <p className="text-sm text-muted-foreground">
-                {t('projectSections.huggingface.autoSyncDescription')}
-              </p>
-            </div>
-            <Switch
-              checked={envConfig?.huggingfaceAutoSync ?? false}
-              onCheckedChange={(checked) => updateEnvConfig({ huggingfaceAutoSync: checked })}
             />
           </div>
         </>
