@@ -18,6 +18,7 @@ import { createChangelogAPI, ChangelogAPI } from './modules/changelog-api';
 import { createLinearAPI, LinearAPI } from './modules/linear-api';
 import { createGitHubAPI, GitHubAPI } from './modules/github-api';
 import { createGitLabAPI, GitLabAPI } from './modules/gitlab-api';
+import { createHuggingFaceAPI, HuggingFaceAPI } from './modules/huggingface-api';
 import { createShellAPI, ShellAPI } from './modules/shell-api';
 
 /**
@@ -32,6 +33,7 @@ export interface AgentAPI extends
   LinearAPI,
   GitHubAPI,
   GitLabAPI,
+  HuggingFaceAPI,
   ShellAPI {}
 
 /**
@@ -47,6 +49,7 @@ export const createAgentAPI = (): AgentAPI => {
   const linearAPI = createLinearAPI();
   const githubAPI = createGitHubAPI();
   const gitlabAPI = createGitLabAPI();
+  const huggingfaceAPI = createHuggingFaceAPI();
   const shellAPI = createShellAPI();
 
   return {
@@ -71,6 +74,9 @@ export const createAgentAPI = (): AgentAPI => {
     // GitLab Integration API
     ...gitlabAPI,
 
+    // Hugging Face Integration API
+    ...huggingfaceAPI,
+
     // Shell Operations API
     ...shellAPI
   };
@@ -85,5 +91,6 @@ export type {
   LinearAPI,
   GitHubAPI,
   GitLabAPI,
+  HuggingFaceAPI,
   ShellAPI
 };

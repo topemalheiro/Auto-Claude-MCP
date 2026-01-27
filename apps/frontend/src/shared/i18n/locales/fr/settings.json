@@ -348,6 +348,28 @@
       "integrationDescription": "Se connecter à GitLab pour le suivi des issues",
       "syncDescription": "Synchroniser avec GitLab Issues"
     },
+    "huggingface": {
+      "title": "Hugging Face",
+      "description": "Sync modèle HF",
+      "integrationTitle": "Intégration Hugging Face",
+      "integrationDescription": "Se connecter à Hugging Face pour la synchronisation des dépôts de modèles",
+      "syncDescription": "Synchroniser avec Hugging Face Hub",
+      "enableLabel": "Activer Hugging Face",
+      "enableDescription": "Synchroniser le projet avec un dépôt de modèles Hugging Face",
+      "cliStatus": "Statut CLI",
+      "cliInstalled": "Installé",
+      "cliNotInstalled": "Non installé",
+      "installCli": "Installer",
+      "authStatus": "Authentification",
+      "loggedInAs": "Connecté en tant que",
+      "notLoggedIn": "Non connecté",
+      "login": "Connexion",
+      "refreshStatus": "Actualiser",
+      "repoIdLabel": "Dépôt de modèle",
+      "repoIdDescription": "Entrez l'ID de votre dépôt de modèle Hugging Face (ex: username/model-name)",
+      "autoSyncLabel": "Sync automatique",
+      "autoSyncDescription": "Synchroniser automatiquement les modifications avec Hugging Face"
+    },
     "memory": {
       "title": "Mémoire",
       "description": "Backend mémoire Graphiti",

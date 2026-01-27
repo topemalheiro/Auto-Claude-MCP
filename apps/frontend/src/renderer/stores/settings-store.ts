@@ -41,6 +41,9 @@ interface SettingsState {
   setActiveProfile: (profileId: string | null) => Promise<boolean>;
   testConnection: (baseUrl: string, apiKey: string, signal?: AbortSignal) => Promise<TestConnectionResult | null>;
   discoverModels: (baseUrl: string, apiKey: string, signal?: AbortSignal) => Promise<ModelInfo[] | null>;
+
+  // Onboarding actions
+  resetOnboarding: () => Promise<boolean>;
 }
 
 export const useSettingsStore = create<SettingsState>((set) => ({
@@ -291,6 +294,37 @@ export const useSettingsStore = create<SettingsState>((set) => ({
         modelsLoading: false
       });
       return null;
+    }
+  },
+
+  resetOnboarding: async (): Promise<boolean> => {
+    try {
+      const result = await window.electronAPI.saveSettings({
+        onboardingCompleted: false
+      });
+      if (result.success) {
+        set((state) => ({
+          settings: { ...state.settings, onboardingCompleted: false }
+        }));
+        toast({
+          title: 'Onboarding reset',
+          description: 'The setup wizard will appear when you add a new project.'
+        });
+        return true;
+      }
+      toast({
+        variant: 'destructive',
+        title: 'Failed to reset onboarding',
+        description: result.error || 'Unknown error'
+      });
+      return false;
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Failed to reset onboarding',
+        description: error instanceof Error ? error.message : 'Unknown error'
+      });
+      return false;
     }
   }
 }));

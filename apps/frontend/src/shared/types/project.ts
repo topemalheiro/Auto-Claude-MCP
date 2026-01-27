@@ -26,6 +26,8 @@ export interface ProjectSettings {
   mainBranch?: string;
   /** Include CLAUDE.md instructions in agent system prompt (default: true) */
   useClaudeMd?: boolean;
+  /** Maximum parallel tasks allowed (default: 3) */
+  maxParallelTasks?: number;
 }
 
 export interface NotificationSettings {
@@ -317,6 +319,12 @@ export interface ProjectEnvConfig {
   gitlabToken?: string;
   gitlabProject?: string; // Format: group/project or numeric ID
   gitlabAutoSync?: boolean; // Auto-sync issues on project load
+
+  // Hugging Face Integration
+  huggingfaceEnabled: boolean;
+  huggingfaceToken?: string;
+  huggingfaceRepoId?: string; // Format: username/model-name
+  huggingfaceAutoSync?: boolean; // Auto-sync on project load
 
   // Git/Worktree Settings
   defaultBranch?: string; // Base branch for worktree creation (e.g., 'main', 'develop')

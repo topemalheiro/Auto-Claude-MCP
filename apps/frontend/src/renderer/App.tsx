@@ -975,13 +975,15 @@ export function App() {
           }}
           initialSection={settingsInitialSection}
           initialProjectSection={settingsInitialProjectSection}
-          onRerunWizard={() => {
-            // Reset onboarding state to trigger wizard
-            useSettingsStore.getState().updateSettings({ onboardingCompleted: false });
-            // Close settings dialog
-            setIsSettingsDialogOpen(false);
-            // Open onboarding wizard
-            setIsOnboardingWizardOpen(true);
+          onRerunWizard={async () => {
+            // Reset onboarding state (persisted to backend) and trigger wizard
+            const success = await useSettingsStore.getState().resetOnboarding();
+            if (success) {
+              // Close settings dialog
+              setIsSettingsDialogOpen(false);
+              // Open onboarding wizard
+              setIsOnboardingWizardOpen(true);
+            }
           }}
         />
 
@@ -1118,7 +1120,7 @@ export function App() {
 
         {/* Auth Failure Modal - shows when Claude CLI encounters 401/auth errors */}
         <AuthFailureModal onOpenSettings={() => {
-          setSettingsInitialSection('integrations');
+          setSettingsInitialSection('accounts');
           setIsSettingsDialogOpen(true);
         }} />
 
@@ -1128,7 +1130,7 @@ export function App() {
           onClose={handleVersionWarningClose}
           onOpenSettings={() => {
             handleVersionWarningClose();
-            setSettingsInitialSection('integrations');
+            setSettingsInitialSection('accounts');
             setIsSettingsDialogOpen(true);
           }}
         />
