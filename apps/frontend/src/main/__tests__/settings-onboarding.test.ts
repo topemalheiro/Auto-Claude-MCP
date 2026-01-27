@@ -243,31 +243,24 @@ describe('SETTINGS_CLAUDE_CODE_GET_ONBOARDING_STATUS handler', () => {
       // Get the mocked functions (vitest stores the implementation)
       const { existsSync, readFileSync } = await import('fs');
 
-      // Cast to vi.Mock for accessing mock methods
-      type MockFn = ReturnType<typeof vi.fn>;
-      const existsSyncMock = existsSync as unknown as MockFn;
-      const readFileSyncMock = readFileSync as unknown as MockFn;
-
       // Save original mock implementations to restore after test
-      type ExistsSyncFn = (path: string) => boolean;
-      type ReadFileSyncFn = (path: string) => string;
-      const originalExistsSync: ExistsSyncFn = (existsSyncMock.getMockImplementation() as ExistsSyncFn | undefined) ?? (() => false);
-      const originalReadFileSync: ReadFileSyncFn = (readFileSyncMock.getMockImplementation() as ReadFileSyncFn | undefined) ?? (() => '');
+      const originalExistsSync = (existsSync as any).getMockImplementation();
+      const originalReadFileSync = (readFileSync as any).getMockImplementation();
 
       // Override existsSync to make file appear to exist
-      existsSyncMock.mockImplementation((path: string) => {
+      (existsSync as any).mockImplementation((path: string) => {
         if (path === claudeJsonPath) {
           return true; // File appears to exist
         }
-        return originalExistsSync(path);
+        return originalExistsSync ? originalExistsSync(path) : false;
       });
 
       // Override readFileSync to throw error for our specific file
-      readFileSyncMock.mockImplementation((path: string) => {
+      (readFileSync as any).mockImplementation((path: string) => {
         if (path === claudeJsonPath) {
           throw new Error('EACCES: permission denied, open \'' + path + '\'');
         }
-        return originalReadFileSync(path);
+        return originalReadFileSync ? originalReadFileSync(path) : '';
       });
 
       const result = await onboardingStatusHandler({}, null) as {
@@ -279,8 +272,8 @@ describe('SETTINGS_CLAUDE_CODE_GET_ONBOARDING_STATUS handler', () => {
       expect(result.data?.hasCompletedOnboarding).toBe(false);
 
       // Restore original mocks
-      existsSyncMock.mockImplementation(originalExistsSync);
-      readFileSyncMock.mockImplementation(originalReadFileSync);
+      (existsSync as any).mockImplementation(originalExistsSync);
+      (readFileSync as any).mockImplementation(originalReadFileSync);
     });
   });
 });
