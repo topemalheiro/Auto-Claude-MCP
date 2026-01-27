@@ -152,6 +152,12 @@ export async function createSpecForIssue(
   const safeGithubUrl = sanitizeUrl(githubUrl);
   const safeLabels = sanitizeStringArray(labels, 50, 200);
 
+  // Sanitize network-sourced data before writing to disk
+  const safeTitle = sanitizeText(issueTitle, 500);
+  const safeDescription = sanitizeText(taskDescription, 50000, true);
+  const safeGithubUrl = sanitizeUrl(githubUrl);
+  const safeLabels = sanitizeStringArray(labels, 50, 200);
+
   // Use coordinated spec numbering with lock to prevent collisions
   return await withSpecNumberLock(project.path, async (lock) => {
     // Get next spec number from global scan (main + all worktrees)

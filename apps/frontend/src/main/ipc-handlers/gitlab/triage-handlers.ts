@@ -427,7 +427,7 @@ export function registerTriageHandlers(
               continue;
             }
             fs.writeFileSync(
-              path.join(triageDir, filename),
+              path.join(triageDir, `triage_${sanitizedResult.issue_iid}.json`),
               JSON.stringify(sanitizedResult, null, 2),
               'utf-8'
             );

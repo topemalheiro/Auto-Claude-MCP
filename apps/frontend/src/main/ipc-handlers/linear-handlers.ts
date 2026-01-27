@@ -8,22 +8,6 @@ import { projectStore } from '../project-store';
 import { parseEnvFile } from './utils';
 import { sanitizeText, sanitizeUrl } from './shared/sanitize';
 
-/**
- * Validate that a spec ID is safe for file system operations.
- * Prevents path traversal attacks by ensuring the spec ID:
- * - Does not contain path separators (/, \)
- * - Does not contain parent directory references (..)
- * - Contains only alphanumeric characters, dashes, and underscores
- */
-function isValidSpecId(specId: string): boolean {
-  if (!specId || specId.length === 0) return false;
-  if (specId.includes('..') || specId.includes('/') || specId.includes('\\')) {
-    return false;
-  }
-  const validPattern = /^[a-zA-Z0-9._-]+$/;
-  return validPattern.test(specId);
-}
-
 
 import { AgentManager } from '../agent';
 

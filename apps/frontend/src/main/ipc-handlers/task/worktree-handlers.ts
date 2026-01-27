@@ -2079,6 +2079,7 @@ export function registerWorktreeHandlers(
 
           mergeProcess.stdout.on('data', (data: Buffer) => {
             const chunk = data.toString('utf-8');
+            stdout += chunk;
             debug('STDOUT:', chunk);
 
             // Prepend any buffered partial line from previous chunk

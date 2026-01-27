@@ -355,10 +355,11 @@ export function ensureDataDirectories(projectPath: string): InitializationResult
   try {
     for (const dataDir of DATA_DIRECTORIES) {
       const dirPath = path.join(dotAutoBuildPath, dataDir);
-      debug('Ensuring data directory exists', { dataDir, dirPath });
-      // mkdirSync with recursive: true doesn't error if directory exists
-      mkdirSync(dirPath, { recursive: true });
-      writeFileSync(path.join(dirPath, '.gitkeep'), '', 'utf-8');
+      if (!existsSync(dirPath)) {
+        debug('Creating missing data directory', { dataDir, dirPath });
+        mkdirSync(dirPath, { recursive: true });
+        writeFileSync(path.join(dirPath, '.gitkeep'), '', 'utf-8');
+      }
     }
     return { success: true };
   } catch (error) {

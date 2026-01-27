@@ -403,17 +403,16 @@ export function registerRoadmapHandlers(
       );
 
       try {
-        return await withFileLock(roadmapPath, async () => {
-          let content: string;
-          try {
-            content = await readFileWithRetry(roadmapPath, { encoding: "utf-8" }) as string;
-          } catch (readErr: unknown) {
-            if ((readErr as NodeJS.ErrnoException).code === 'ENOENT') {
-              return { success: false, error: "Roadmap not found" };
-            }
-            throw readErr;
+        let content: string;
+        try {
+          content = readFileSync(roadmapPath, "utf-8");
+        } catch (readErr: unknown) {
+          if ((readErr as NodeJS.ErrnoException).code === 'ENOENT') {
+            return { success: false, error: "Roadmap not found" };
           }
-          const existingRoadmap = JSON.parse(content);
+          throw readErr;
+        }
+        const existingRoadmap = JSON.parse(content);
 
           // Transform camelCase features back to snake_case for JSON file
           existingRoadmap.features = roadmapData.features.map((feature) => ({
@@ -437,7 +436,7 @@ export function registerRoadmapHandlers(
           existingRoadmap.metadata = existingRoadmap.metadata || {};
           existingRoadmap.metadata.updated_at = new Date().toISOString();
 
-          await writeFileWithRetry(roadmapPath, JSON.stringify(existingRoadmap, null, 2), { encoding: 'utf-8' });
+        writeFileSync(roadmapPath, JSON.stringify(existingRoadmap, null, 2), 'utf-8');
 
           return { success: true };
         });
@@ -470,17 +469,16 @@ export function registerRoadmapHandlers(
       );
 
       try {
-        return await withFileLock(roadmapPath, async () => {
-          let content: string;
-          try {
-            content = await readFileWithRetry(roadmapPath, { encoding: "utf-8" }) as string;
-          } catch (readErr: unknown) {
-            if ((readErr as NodeJS.ErrnoException).code === 'ENOENT') {
-              return { success: false, error: "Roadmap not found" };
-            }
-            throw readErr;
+        let content: string;
+        try {
+          content = readFileSync(roadmapPath, "utf-8");
+        } catch (readErr: unknown) {
+          if ((readErr as NodeJS.ErrnoException).code === 'ENOENT') {
+            return { success: false, error: "Roadmap not found" };
           }
-          const roadmap = JSON.parse(content);
+          throw readErr;
+        }
+        const roadmap = JSON.parse(content);
 
           // Find and update the feature
           const feature = roadmap.features?.find((f: { id: string }) => f.id === featureId);
@@ -492,7 +490,7 @@ export function registerRoadmapHandlers(
           roadmap.metadata = roadmap.metadata || {};
           roadmap.metadata.updated_at = new Date().toISOString();
 
-          await writeFileWithRetry(roadmapPath, JSON.stringify(roadmap, null, 2), { encoding: 'utf-8' });
+        writeFileSync(roadmapPath, JSON.stringify(roadmap, null, 2), 'utf-8');
 
           return { success: true };
         });
@@ -520,10 +518,9 @@ export function registerRoadmapHandlers(
       );
 
       try {
-        return await withFileLock(roadmapPath, async () => {
         let content: string;
         try {
-          content = await readFileWithRetry(roadmapPath, { encoding: "utf-8" }) as string;
+          content = readFileSync(roadmapPath, "utf-8");
         } catch (readErr: unknown) {
           if ((readErr as NodeJS.ErrnoException).code === 'ENOENT') {
             return { success: false, error: "Roadmap not found" };
@@ -605,7 +602,7 @@ ${(feature.acceptance_criteria || []).map((c: string) => `- [ ] ${c}`).join("\n"
         await writeFileWithRetry(
           path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN),
           JSON.stringify(implementationPlan, null, 2),
-          { encoding: 'utf-8' }
+          'utf-8'
         );
 
         // Create requirements.json
@@ -616,11 +613,11 @@ ${(feature.acceptance_criteria || []).map((c: string) => `- [ ] ${c}`).join("\n"
         await writeFileWithRetry(
           path.join(specDir, AUTO_BUILD_PATHS.REQUIREMENTS),
           JSON.stringify(requirements, null, 2),
-          { encoding: 'utf-8' }
+          'utf-8'
         );
 
         // Create spec.md (required by backend spec creation process)
-        await writeFileWithRetry(path.join(specDir, AUTO_BUILD_PATHS.SPEC_FILE), taskDescription, { encoding: 'utf-8' });
+        writeFileSync(path.join(specDir, AUTO_BUILD_PATHS.SPEC_FILE), taskDescription, 'utf-8');
 
         // Build metadata
         const metadata: TaskMetadata = {
@@ -628,7 +625,7 @@ ${(feature.acceptance_criteria || []).map((c: string) => `- [ ] ${c}`).join("\n"
           featureId: feature.id,
           category: "feature",
         };
-        await writeFileWithRetry(path.join(specDir, "task_metadata.json"), JSON.stringify(metadata, null, 2), { encoding: 'utf-8' });
+        writeFileSync(path.join(specDir, "task_metadata.json"), JSON.stringify(metadata, null, 2), 'utf-8');
 
         // NOTE: We do NOT auto-start spec creation here - user should explicitly start the task
         // from the kanban board when they're ready
@@ -638,7 +635,7 @@ ${(feature.acceptance_criteria || []).map((c: string) => `- [ ] ${c}`).join("\n"
         feature.linked_spec_id = specId;
         roadmap.metadata = roadmap.metadata || {};
         roadmap.metadata.updated_at = new Date().toISOString();
-        await writeFileWithRetry(roadmapPath, JSON.stringify(roadmap, null, 2), { encoding: 'utf-8' });
+        writeFileSync(roadmapPath, JSON.stringify(roadmap, null, 2), 'utf-8');
 
         // Create task object
         const task: Task = {
@@ -708,7 +705,7 @@ ${(feature.acceptance_criteria || []).map((c: string) => `- [ ] ${c}`).join("\n"
           is_running: isRunning,
         };
 
-        writeFileSync(progressPath, JSON.stringify(fileData, null, 2));
+        writeFileSync(progressPath, JSON.stringify(fileData, null, 2), 'utf-8');
         debugLog("[Roadmap Handler] Saved progress checkpoint:", { projectId, phase: progressData.phase });
 
         return { success: true };
