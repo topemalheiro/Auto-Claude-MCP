@@ -14,8 +14,6 @@ import { DebugAPI, createDebugAPI } from './modules/debug-api';
 import { ClaudeCodeAPI, createClaudeCodeAPI } from './modules/claude-code-api';
 import { McpAPI, createMcpAPI } from './modules/mcp-api';
 import { ProfileAPI, createProfileAPI } from './profile-api';
-import { ScreenshotAPI, createScreenshotAPI } from './screenshot-api';
-import { QueueAPI, createQueueAPI } from './queue-api';
 
 export interface ElectronAPI extends
   ProjectAPI,
@@ -32,11 +30,8 @@ export interface ElectronAPI extends
   DebugAPI,
   ClaudeCodeAPI,
   McpAPI,
-  ProfileAPI,
-  ScreenshotAPI {
+  ProfileAPI {
   github: GitHubAPI;
-  /** Queue routing API for rate limit recovery */
-  queue: QueueAPI;
 }
 
 export const createElectronAPI = (): ElectronAPI => ({
@@ -45,19 +40,17 @@ export const createElectronAPI = (): ElectronAPI => ({
   ...createTaskAPI(),
   ...createSettingsAPI(),
   ...createFileAPI(),
-  ...createAgentAPI(),  // Includes: Roadmap, Ideation, Insights, Changelog, Linear, GitHub, GitLab, Shell
+  ...createAgentAPI(),  // Includes: Roadmap, Ideation, Insights, Changelog, Linear, GitHub, GitLab, HuggingFace, Shell
   ...createAppUpdateAPI(),
   ...createDebugAPI(),
   ...createClaudeCodeAPI(),
   ...createMcpAPI(),
   ...createProfileAPI(),
-  ...createScreenshotAPI(),
-  github: createGitHubAPI(),
-  queue: createQueueAPI()  // Queue routing for rate limit recovery
+  github: createGitHubAPI()
 });
 
 // Export individual API creators for potential use in tests or specialized contexts
-// Note: IdeationAPI, InsightsAPI, and GitLabAPI are included in AgentAPI
+// Note: IdeationAPI, InsightsAPI, GitLabAPI, and HuggingFaceAPI are included in AgentAPI
 export {
   createProjectAPI,
   createTerminalAPI,
@@ -70,9 +63,7 @@ export {
   createGitHubAPI,
   createDebugAPI,
   createClaudeCodeAPI,
-  createMcpAPI,
-  createScreenshotAPI,
-  createQueueAPI
+  createMcpAPI
 };
 
 export type {
@@ -91,7 +82,5 @@ export type {
   HuggingFaceAPI,
   DebugAPI,
   ClaudeCodeAPI,
-  McpAPI,
-  ScreenshotAPI,
-  QueueAPI
+  McpAPI
 };
