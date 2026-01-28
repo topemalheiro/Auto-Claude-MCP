@@ -23,6 +23,7 @@ import {
 } from '../../worktree-paths';
 import { getIsolatedGitEnv } from '../../utils/git-isolation';
 import { getToolPath } from '../../cli-tool-manager';
+import { normalizePathForGit } from '../../platform';
 
 // Promisify execFile for async operations
 const execFileAsync = promisify(execFile);
@@ -709,7 +710,9 @@ async function removeTerminalWorktree(
 
   try {
     if (existsSync(worktreePath)) {
-      execFileSync(getToolPath('git'), ['worktree', 'remove', '--force', worktreePath], {
+      // Normalize path for git (fixes Windows path separator mismatch)
+      const gitPath = normalizePathForGit(worktreePath);
+      execFileSync(getToolPath('git'), ['worktree', 'remove', '--force', gitPath], {
         cwd: projectPath,
         encoding: 'utf-8',
         stdio: ['pipe', 'pipe', 'pipe'],

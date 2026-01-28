@@ -19,7 +19,7 @@ import {
 } from '../../worktree-paths';
 import { persistPlanStatus, updateTaskMetadataPrUrl } from './plan-file-utils';
 import { getIsolatedGitEnv } from '../../utils/git-isolation';
-import { killProcessGracefully } from '../../platform';
+import { killProcessGracefully, normalizePathForGit } from '../../platform';
 
 // Regex pattern for validating git branch names
 const GIT_BRANCH_REGEX = /^[a-zA-Z0-9][a-zA-Z0-9._/-]*[a-zA-Z0-9]$|^[a-zA-Z0-9]$/;
@@ -2163,7 +2163,9 @@ export function registerWorktreeHandlers(
                 // This allows drag-to-Done workflow since TASK_UPDATE_STATUS blocks 'done' when worktree exists
                 try {
                   if (worktreePath && existsSync(worktreePath)) {
-                    execFileSync(getToolPath('git'), ['worktree', 'remove', '--force', worktreePath], {
+                    // Normalize path for git (fixes Windows path separator mismatch)
+                    const gitPath = normalizePathForGit(worktreePath);
+                    execFileSync(getToolPath('git'), ['worktree', 'remove', '--force', gitPath], {
                       cwd: project.path,
                       encoding: 'utf-8'
                     });
@@ -2587,8 +2589,9 @@ export function registerWorktreeHandlers(
             encoding: 'utf-8'
           }).trim();
 
-          // Remove the worktree
-          execFileSync(getToolPath('git'), ['worktree', 'remove', '--force', worktreePath], {
+          // Remove the worktree (normalize path for git on Windows)
+          const gitPath = normalizePathForGit(worktreePath);
+          execFileSync(getToolPath('git'), ['worktree', 'remove', '--force', gitPath], {
             cwd: project.path,
             encoding: 'utf-8'
           });

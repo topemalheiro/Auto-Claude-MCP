@@ -18,6 +18,7 @@ import {
 import { findTaskWorktree } from '../../worktree-paths';
 import { projectStore } from '../../project-store';
 import { getIsolatedGitEnv } from '../../utils/git-isolation';
+import { normalizePathForGit } from '../../platform';
 
 /**
  * Atomic file write to prevent TOCTOU race conditions.
@@ -613,8 +614,9 @@ export function registerTaskExecutionHandlers(
                 console.warn(`[TASK_UPDATE_STATUS] Could not get branch name, using fallback pattern: ${branch}`, branchError);
               }
 
-              // Remove the worktree
-              execFileSync(getToolPath('git'), ['worktree', 'remove', '--force', worktreePath], {
+              // Remove the worktree (normalize path for git on Windows)
+              const gitPath = normalizePathForGit(worktreePath);
+              execFileSync(getToolPath('git'), ['worktree', 'remove', '--force', gitPath], {
                 cwd: project.path,
                 encoding: 'utf-8',
                 timeout: 30000,
