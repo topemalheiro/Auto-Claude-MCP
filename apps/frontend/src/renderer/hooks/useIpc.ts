@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { unstable_batchedUpdates } from 'react-dom';
-import { useTaskStore } from '../stores/task-store';
+import { useTaskStore, loadTasks } from '../stores/task-store';
 import { useRoadmapStore } from '../stores/roadmap-store';
 import { useRateLimitStore } from '../stores/rate-limit-store';
 import { useAuthFailureStore } from '../stores/auth-failure-store';
@@ -349,7 +349,7 @@ export function useIpcListeners(): void {
     );
 
     // Task list refresh listener (for MCP-created tasks)
-    const loadTasks = useTaskStore.getState().loadTasks;
+    // Note: loadTasks is imported directly from task-store.ts (it's a standalone function, not a store method)
     const cleanupTaskListRefresh = window.electronAPI.onTaskListRefresh(
       (projectId: string) => {
         // Only refresh if this is for the currently selected project
