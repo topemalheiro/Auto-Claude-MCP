@@ -243,6 +243,15 @@ export function registerProjectHandlers(
 
       const projects = projectStore.getProjects();
       console.warn('[IPC] PROJECT_LIST returning', projects.length, 'projects');
+
+      // Ensure specs watchers are started for all projects (fallback for race condition)
+      // This catches cases where registerAgenteventsHandlers ran before projects were loaded
+      for (const project of projects) {
+        if (project.autoBuildPath) {
+          startWatchingProjectSpecs(project.id, project.path, project.autoBuildPath);
+        }
+      }
+
       return { success: true, data: projects };
     }
   );

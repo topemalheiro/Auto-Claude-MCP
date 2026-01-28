@@ -138,18 +138,21 @@ export class FileWatcher extends EventEmitter {
     this.unwatchSpecsDirectory(projectId);
 
     const specsPath = path.join(projectPath, specsDir);
+    console.log(`[FileWatcher] Setting up specs watcher for project ${projectId}`);
+    console.log(`[FileWatcher] Specs path: ${specsPath}`);
 
     // Check if specs directory exists
     if (!existsSync(specsPath)) {
-      // Don't emit error - specs dir may not exist yet
+      console.log(`[FileWatcher] Specs directory does not exist yet: ${specsPath}`);
       return;
     }
 
     // Create watcher for the specs directory
+    // depth: 2 to watch specs/*/implementation_plan.json
     const watcher = chokidar.watch(specsPath, {
       persistent: true,
       ignoreInitial: true,
-      depth: 1, // Only watch immediate subdirectories
+      depth: 2,
       awaitWriteFinish: {
         stabilityThreshold: 500,
         pollInterval: 100
@@ -163,11 +166,18 @@ export class FileWatcher extends EventEmitter {
       watcher
     });
 
+    // Log when watcher is ready
+    watcher.on('ready', () => {
+      console.log(`[FileWatcher] Specs watcher READY for project ${projectId} at ${specsPath}`);
+    });
+
     // Handle new directory creation (new spec)
     watcher.on('addDir', (dirPath: string) => {
       // Only emit for direct children of specs directory
       const relativePath = path.relative(specsPath, dirPath);
+      console.log(`[FileWatcher] addDir event: ${dirPath} (relative: ${relativePath})`);
       if (relativePath && !relativePath.includes(path.sep)) {
+        console.log(`[FileWatcher] New spec folder detected: ${relativePath} - emitting specs-changed`);
         this.emit('specs-changed', {
           projectId,
           projectPath,
@@ -179,9 +189,11 @@ export class FileWatcher extends EventEmitter {
 
     // Handle new file creation (implementation_plan.json)
     watcher.on('add', (filePath: string) => {
+      console.log(`[FileWatcher] add event: ${filePath}`);
       // Emit when implementation_plan.json is created
       if (path.basename(filePath) === 'implementation_plan.json') {
         const specDir = path.dirname(filePath);
+        console.log(`[FileWatcher] implementation_plan.json detected in ${specDir} - emitting specs-changed`);
         this.emit('specs-changed', {
           projectId,
           projectPath,
@@ -194,6 +206,7 @@ export class FileWatcher extends EventEmitter {
     // Handle errors
     watcher.on('error', (error: unknown) => {
       const message = error instanceof Error ? error.message : String(error);
+      console.error(`[FileWatcher] Error for project ${projectId}:`, message);
       this.emit('specs-error', projectId, message);
     });
   }

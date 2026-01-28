@@ -391,12 +391,17 @@ export function registerAgenteventsHandlers(
   // ============================================
 
   fileWatcher.on("specs-changed", (data: { projectId: string; projectPath: string; specDir: string; specId: string }) => {
-    console.log(`[FileWatcher] New spec detected: ${data.specId} in project ${data.projectId}`);
+    console.log(`[AgentEvents] specs-changed event received!`);
+    console.log(`[AgentEvents] - specId: ${data.specId}`);
+    console.log(`[AgentEvents] - projectId: ${data.projectId}`);
+    console.log(`[AgentEvents] - specDir: ${data.specDir}`);
 
     // Invalidate the project's task cache
     projectStore.invalidateTasksCache(data.projectId);
+    console.log(`[AgentEvents] Task cache invalidated for project ${data.projectId}`);
 
     // Notify renderer to refresh task list
+    console.log(`[AgentEvents] Sending TASK_LIST_REFRESH to renderer for project ${data.projectId}`);
     safeSendToRenderer(getMainWindow, IPC_CHANNELS.TASK_LIST_REFRESH, data.projectId);
   });
 
@@ -410,7 +415,9 @@ export function registerAgenteventsHandlers(
  */
 export function startWatchingAllProjectSpecs(): void {
   const projects = projectStore.getProjects();
+  console.log(`[AgentEvents] startWatchingAllProjectSpecs called - found ${projects.length} projects`);
   for (const project of projects) {
+    console.log(`[AgentEvents] Project: ${project.name || project.id}, autoBuildPath: ${project.autoBuildPath || 'NOT SET'}`);
     if (project.autoBuildPath) {
       startWatchingProjectSpecs(project.id, project.path, project.autoBuildPath);
     }
@@ -422,8 +429,19 @@ export function startWatchingAllProjectSpecs(): void {
  */
 export function startWatchingProjectSpecs(projectId: string, projectPath: string, autoBuildPath: string): void {
   const specsDir = getSpecsDir(autoBuildPath);
+  const fullPath = path.join(projectPath, specsDir);
+  console.log(`[AgentEvents] startWatchingProjectSpecs called:`);
+  console.log(`[AgentEvents] - projectId: ${projectId}`);
+  console.log(`[AgentEvents] - projectPath: ${projectPath}`);
+  console.log(`[AgentEvents] - autoBuildPath: ${autoBuildPath}`);
+  console.log(`[AgentEvents] - specsDir: ${specsDir}`);
+  console.log(`[AgentEvents] - fullPath: ${fullPath}`);
+  console.log(`[AgentEvents] - isWatchingSpecs: ${fileWatcher.isWatchingSpecs(projectId)}`);
+
   if (!fileWatcher.isWatchingSpecs(projectId)) {
-    console.log(`[FileWatcher] Starting specs watcher for project ${projectId} at ${path.join(projectPath, specsDir)}`);
+    console.log(`[AgentEvents] Starting specs watcher for project ${projectId} at ${fullPath}`);
     fileWatcher.watchSpecsDirectory(projectId, projectPath, specsDir);
+  } else {
+    console.log(`[AgentEvents] Already watching specs for project ${projectId}`);
   }
 }
