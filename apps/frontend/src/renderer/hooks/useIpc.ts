@@ -360,6 +360,21 @@ export function useIpcListeners(): void {
       }
     );
 
+    // Task auto-start listener (for MCP start_task requests)
+    const cleanupTaskAutoStart = window.electronAPI.onTaskAutoStart(
+      (projectId: string, taskId: string) => {
+        // Only auto-start if this is for the currently selected project
+        if (isTaskForCurrentProject(projectId)) {
+          console.log('[IPC] Task auto-start requested for task:', taskId);
+          // Refresh tasks first to get the latest status
+          loadTasks(projectId, { forceRefresh: true }).then(() => {
+            // Then trigger the task start
+            window.electronAPI.startTask(taskId);
+          });
+        }
+      }
+    );
+
     // Cleanup on unmount
     return () => {
       // Flush any pending batched updates before cleanup
@@ -381,6 +396,7 @@ export function useIpcListeners(): void {
       cleanupSDKRateLimit();
       cleanupAuthFailure();
       cleanupTaskListRefresh();
+      cleanupTaskAutoStart();
     };
   }, [updateTaskFromPlan, updateTaskStatus, updateExecutionProgress, appendLog, batchAppendLogs, setError]);
 }

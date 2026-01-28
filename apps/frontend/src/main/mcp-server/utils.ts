@@ -315,6 +315,69 @@ export function executeCommand(
 }
 
 /**
+ * Request a task to start execution
+ *
+ * This writes a special 'start_requested' status to the implementation_plan.json file.
+ * The Electron file watcher detects this change and triggers actual task execution.
+ */
+export function startTask(
+  projectId: string,
+  taskId: string
+): MCPResult<{ message: string }> {
+  try {
+    const project = projectStore.getProject(projectId);
+    if (!project) {
+      return { success: false, error: `Project not found: ${projectId}` };
+    }
+
+    // Find the task's spec directory
+    const specsBaseDir = getSpecsDir(project.autoBuildPath);
+    const specDir = path.join(project.path, specsBaseDir, taskId);
+
+    if (!existsSync(specDir)) {
+      return { success: false, error: `Task not found: ${taskId}` };
+    }
+
+    const planPath = path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
+    if (!existsSync(planPath)) {
+      return { success: false, error: `Implementation plan not found for task: ${taskId}` };
+    }
+
+    // Read current plan
+    const planContent = readFileSync(planPath, 'utf-8');
+    const plan = JSON.parse(planContent);
+
+    // Check current status
+    const currentStatus = plan.status || 'pending';
+    if (currentStatus !== 'pending') {
+      return {
+        success: false,
+        error: `Task cannot be started. Current status: ${currentStatus}. Only tasks with 'pending' status can be started.`
+      };
+    }
+
+    // Update status to 'start_requested' - file watcher will detect this and trigger execution
+    plan.status = 'start_requested';
+    plan.updated_at = new Date().toISOString();
+    plan.start_requested_at = new Date().toISOString();
+
+    writeFileSync(planPath, JSON.stringify(plan, null, 2));
+
+    console.warn(`[MCP] Task start requested: ${taskId}`);
+
+    return {
+      success: true,
+      data: {
+        message: `Task ${taskId} start requested. The Electron app will begin execution shortly.`
+      }
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return { success: false, error: `Failed to start task: ${message}` };
+  }
+}
+
+/**
  * Poll for task status changes
  */
 export async function pollTaskStatuses(

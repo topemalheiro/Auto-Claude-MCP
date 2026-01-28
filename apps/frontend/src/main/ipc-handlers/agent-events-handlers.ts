@@ -405,6 +405,21 @@ export function registerAgenteventsHandlers(
     safeSendToRenderer(getMainWindow, IPC_CHANNELS.TASK_LIST_REFRESH, data.projectId);
   });
 
+  // Handle MCP-requested task starts (task-start-requested event from file watcher)
+  fileWatcher.on("task-start-requested", (data: { projectId: string; projectPath: string; specDir: string; specId: string }) => {
+    console.log(`[AgentEvents] task-start-requested event received!`);
+    console.log(`[AgentEvents] - specId: ${data.specId}`);
+    console.log(`[AgentEvents] - projectId: ${data.projectId}`);
+
+    // Invalidate the project's task cache
+    projectStore.invalidateTasksCache(data.projectId);
+
+    // Notify renderer to auto-start the task
+    // The renderer will call TASK_START IPC to begin execution
+    console.log(`[AgentEvents] Sending TASK_AUTO_START to renderer for task ${data.specId}`);
+    safeSendToRenderer(getMainWindow, IPC_CHANNELS.TASK_AUTO_START, data.projectId, data.specId);
+  });
+
   // Start watching specs directories for all existing projects
   startWatchingAllProjectSpecs();
 }

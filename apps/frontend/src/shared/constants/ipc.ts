@@ -52,6 +52,7 @@ export const IPC_CHANNELS = {
   TASK_STATUS_CHANGE: 'task:statusChange',
   TASK_EXECUTION_PROGRESS: 'task:executionProgress',
   TASK_LIST_REFRESH: 'task:listRefresh',  // External task created (MCP), UI should refresh
+  TASK_AUTO_START: 'task:autoStart',      // MCP requested task start, UI should trigger execution
 
   // Task phase logs (persistent, collapsible logs by phase)
   TASK_LOGS_GET: 'task:logsGet',           // Load logs from spec dir

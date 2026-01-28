@@ -203,6 +203,32 @@ export class FileWatcher extends EventEmitter {
       }
     });
 
+    // Handle file changes (for start_requested status from MCP)
+    watcher.on('change', (filePath: string) => {
+      if (path.basename(filePath) === 'implementation_plan.json') {
+        try {
+          const content = readFileSync(filePath, 'utf-8');
+          const plan = JSON.parse(content);
+
+          // Check if status is 'start_requested' (set by MCP start_task)
+          if (plan.status === 'start_requested') {
+            const specDir = path.dirname(filePath);
+            const specId = path.basename(specDir);
+            console.log(`[FileWatcher] start_requested status detected for ${specId} - emitting task-start-requested`);
+            this.emit('task-start-requested', {
+              projectId,
+              projectPath,
+              specDir,
+              specId
+            });
+          }
+        } catch (err) {
+          // Ignore parse errors - file might be mid-write
+          console.warn(`[FileWatcher] Could not parse ${filePath}:`, err);
+        }
+      }
+    });
+
     // Handle errors
     watcher.on('error', (error: unknown) => {
       const message = error instanceof Error ? error.message : String(error);

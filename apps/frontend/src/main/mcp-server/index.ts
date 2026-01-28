@@ -22,6 +22,7 @@ import {
   createTask,
   listTasks,
   getTaskStatus,
+  startTask,
   executeCommand,
   pollTaskStatuses
 } from './utils.js';
@@ -219,26 +220,32 @@ server.tool(
 
 server.tool(
   'start_task',
-  'Start execution of a task. This begins the autonomous coding workflow.',
+  'Start execution of a task. This writes a start_requested status that the Electron app detects and begins execution.',
   {
     projectId: z.string().describe('The project ID (UUID)'),
-    taskId: z.string().describe('The task ID (spec folder name) to start'),
-    options: z.object({
-      model: ModelTypeSchema.optional(),
-      baseBranch: z.string().optional()
-    }).optional().describe('Optional overrides for model or base branch')
+    taskId: z.string().describe('The task ID (spec folder name) to start')
   },
   async ({ projectId, taskId }) => {
-    // Note: Starting a task requires IPC communication with the Electron main process
-    // For now, we return instructions since IPC is not available in standalone mode
+    const result = startTask(projectId, taskId);
+
+    if (!result.success) {
+      return {
+        content: [{
+          type: 'text' as const,
+          text: JSON.stringify({ error: result.error }, null, 2)
+        }],
+        isError: true
+      };
+    }
+
     return {
       content: [{
         type: 'text' as const,
         text: JSON.stringify({
-          message: 'Task start requested',
+          success: true,
           taskId,
           projectId,
-          note: 'Use the Auto-Claude UI to start tasks, or ensure the MCP server is running within the Electron app context'
+          message: result.data?.message
         }, null, 2)
       }]
     };
