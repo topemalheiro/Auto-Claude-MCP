@@ -384,4 +384,46 @@ export function registerAgenteventsHandlers(
     const { project } = findTaskAndProject(taskId);
     safeSendToRenderer(getMainWindow, IPC_CHANNELS.TASK_ERROR, taskId, error, project?.id);
   });
+
+  // ============================================
+  // Specs Directory Watcher Events → Renderer
+  // (For MCP-created tasks to trigger auto-refresh)
+  // ============================================
+
+  fileWatcher.on("specs-changed", (data: { projectId: string; projectPath: string; specDir: string; specId: string }) => {
+    console.log(`[FileWatcher] New spec detected: ${data.specId} in project ${data.projectId}`);
+
+    // Invalidate the project's task cache
+    projectStore.invalidateTasksCache(data.projectId);
+
+    // Notify renderer to refresh task list
+    safeSendToRenderer(getMainWindow, IPC_CHANNELS.TASK_LIST_REFRESH, data.projectId);
+  });
+
+  // Start watching specs directories for all existing projects
+  startWatchingAllProjectSpecs();
+}
+
+/**
+ * Start watching specs directory for all projects.
+ * Called on app startup and when projects are added.
+ */
+export function startWatchingAllProjectSpecs(): void {
+  const projects = projectStore.getProjects();
+  for (const project of projects) {
+    if (project.autoBuildPath) {
+      startWatchingProjectSpecs(project.id, project.path, project.autoBuildPath);
+    }
+  }
+}
+
+/**
+ * Start watching specs directory for a single project.
+ */
+export function startWatchingProjectSpecs(projectId: string, projectPath: string, autoBuildPath: string): void {
+  const specsDir = getSpecsDir(autoBuildPath);
+  if (!fileWatcher.isWatchingSpecs(projectId)) {
+    console.log(`[FileWatcher] Starting specs watcher for project ${projectId} at ${path.join(projectPath, specsDir)}`);
+    fileWatcher.watchSpecsDirectory(projectId, projectPath, specsDir);
+  }
 }

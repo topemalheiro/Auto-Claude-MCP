@@ -348,6 +348,18 @@ export function useIpcListeners(): void {
       }
     );
 
+    // Task list refresh listener (for MCP-created tasks)
+    const loadTasks = useTaskStore.getState().loadTasks;
+    const cleanupTaskListRefresh = window.electronAPI.onTaskListRefresh(
+      (projectId: string) => {
+        // Only refresh if this is for the currently selected project
+        if (isTaskForCurrentProject(projectId)) {
+          console.log('[IPC] Task list refresh requested for project:', projectId);
+          loadTasks(projectId, { forceRefresh: true });
+        }
+      }
+    );
+
     // Cleanup on unmount
     return () => {
       // Flush any pending batched updates before cleanup
@@ -368,6 +380,7 @@ export function useIpcListeners(): void {
       cleanupRateLimit();
       cleanupSDKRateLimit();
       cleanupAuthFailure();
+      cleanupTaskListRefresh();
     };
   }, [updateTaskFromPlan, updateTaskStatus, updateExecutionProgress, appendLog, batchAppendLogs, setError]);
 }

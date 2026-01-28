@@ -10,11 +10,18 @@ interface WatcherInfo {
   planPath: string;
 }
 
+interface SpecsWatcherInfo {
+  projectId: string;
+  projectPath: string;
+  watcher: FSWatcher;
+}
+
 /**
  * Watches implementation_plan.json files for real-time progress updates
  */
 export class FileWatcher extends EventEmitter {
   private watchers: Map<string, WatcherInfo> = new Map();
+  private specsWatchers: Map<string, SpecsWatcherInfo> = new Map();
 
   /**
    * Start watching a task's implementation plan
@@ -120,6 +127,106 @@ export class FileWatcher extends EventEmitter {
     } catch {
       return null;
     }
+  }
+
+  /**
+   * Watch a project's specs directory for new task folders
+   * Emits 'specs-changed' when new spec directories are created
+   */
+  watchSpecsDirectory(projectId: string, projectPath: string, specsDir: string): void {
+    // Stop any existing watcher for this project
+    this.unwatchSpecsDirectory(projectId);
+
+    const specsPath = path.join(projectPath, specsDir);
+
+    // Check if specs directory exists
+    if (!existsSync(specsPath)) {
+      // Don't emit error - specs dir may not exist yet
+      return;
+    }
+
+    // Create watcher for the specs directory
+    const watcher = chokidar.watch(specsPath, {
+      persistent: true,
+      ignoreInitial: true,
+      depth: 1, // Only watch immediate subdirectories
+      awaitWriteFinish: {
+        stabilityThreshold: 500,
+        pollInterval: 100
+      }
+    });
+
+    // Store watcher info
+    this.specsWatchers.set(projectId, {
+      projectId,
+      projectPath,
+      watcher
+    });
+
+    // Handle new directory creation (new spec)
+    watcher.on('addDir', (dirPath: string) => {
+      // Only emit for direct children of specs directory
+      const relativePath = path.relative(specsPath, dirPath);
+      if (relativePath && !relativePath.includes(path.sep)) {
+        this.emit('specs-changed', {
+          projectId,
+          projectPath,
+          specDir: dirPath,
+          specId: path.basename(dirPath)
+        });
+      }
+    });
+
+    // Handle new file creation (implementation_plan.json)
+    watcher.on('add', (filePath: string) => {
+      // Emit when implementation_plan.json is created
+      if (path.basename(filePath) === 'implementation_plan.json') {
+        const specDir = path.dirname(filePath);
+        this.emit('specs-changed', {
+          projectId,
+          projectPath,
+          specDir,
+          specId: path.basename(specDir)
+        });
+      }
+    });
+
+    // Handle errors
+    watcher.on('error', (error: unknown) => {
+      const message = error instanceof Error ? error.message : String(error);
+      this.emit('specs-error', projectId, message);
+    });
+  }
+
+  /**
+   * Stop watching a project's specs directory
+   */
+  async unwatchSpecsDirectory(projectId: string): Promise<void> {
+    const watcherInfo = this.specsWatchers.get(projectId);
+    if (watcherInfo) {
+      await watcherInfo.watcher.close();
+      this.specsWatchers.delete(projectId);
+    }
+  }
+
+  /**
+   * Stop all specs watchers
+   */
+  async unwatchAllSpecs(): Promise<void> {
+    const closePromises = Array.from(this.specsWatchers.values()).map(
+      async (info) => {
+        await info.watcher.close();
+      }
+    );
+    await Promise.all(closePromises);
+    this.specsWatchers.clear();
+  }
+
+  /**
+   * Check if a project's specs directory is being watched
+   */
+  isWatchingSpecs(projectId: string): boolean {
+    return this.specsWatchers.has(projectId);
   }
 }
 

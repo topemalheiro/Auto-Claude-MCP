@@ -28,6 +28,7 @@ import { insightsService } from '../insights-service';
 import { titleGenerator } from '../title-generator';
 import type { BrowserWindow } from 'electron';
 import { getEffectiveSourcePath } from '../updater/path-resolver';
+import { startWatchingProjectSpecs } from './agent-events-handlers';
 
 // ============================================
 // Git Helper Functions
@@ -349,6 +350,9 @@ export function registerProjectHandlers(
         if (result.success) {
           // Update project's autoBuildPath
           projectStore.updateAutoBuildPath(projectId, '.auto-claude');
+
+          // Start watching the specs directory for MCP-created tasks
+          startWatchingProjectSpecs(projectId, project.path, '.auto-claude');
         }
 
         return { success: result.success, data: result, error: result.error };
