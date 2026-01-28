@@ -134,6 +134,13 @@ export function registerEnvHandlers(
     if (config.gitlabAutoSync !== undefined) {
       existingVars[GITLAB_ENV_KEYS.AUTO_SYNC] = config.gitlabAutoSync ? 'true' : 'false';
     }
+    // Hugging Face Integration
+    if (config.huggingfaceEnabled !== undefined) {
+      existingVars['HUGGINGFACE_ENABLED'] = config.huggingfaceEnabled ? 'true' : 'false';
+    }
+    if (config.huggingfaceRepoId !== undefined) {
+      existingVars['HUGGINGFACE_REPO_ID'] = config.huggingfaceRepoId;
+    }
     // Git/Worktree Settings
     if (config.defaultBranch !== undefined) {
       existingVars['DEFAULT_BRANCH'] = config.defaultBranch;
@@ -262,6 +269,12 @@ ${envLine(existingVars, GITLAB_ENV_KEYS.PROJECT, 'group/project')}
 ${envLine(existingVars, GITLAB_ENV_KEYS.AUTO_SYNC, 'false')}
 
 # =============================================================================
+# HUGGING FACE INTEGRATION (OPTIONAL)
+# =============================================================================
+${existingVars['HUGGINGFACE_ENABLED'] !== undefined ? `HUGGINGFACE_ENABLED=${existingVars['HUGGINGFACE_ENABLED']}` : '# HUGGINGFACE_ENABLED=false'}
+${existingVars['HUGGINGFACE_REPO_ID'] ? `HUGGINGFACE_REPO_ID=${existingVars['HUGGINGFACE_REPO_ID']}` : '# HUGGINGFACE_REPO_ID=username/model-name'}
+
+# =============================================================================
 # GIT/WORKTREE SETTINGS (OPTIONAL)
 # =============================================================================
 # Default base branch for worktree creation
@@ -373,6 +386,7 @@ ${existingVars['GRAPHITI_DB_PATH'] ? `GRAPHITI_DB_PATH=${existingVars['GRAPHITI_
         linearEnabled: false,
         githubEnabled: false,
         gitlabEnabled: false,
+        huggingfaceEnabled: false,
         graphitiEnabled: false,
         enableFancyUi: true,
         claudeTokenIsGlobal: false,
@@ -445,6 +459,14 @@ ${existingVars['GRAPHITI_DB_PATH'] ? `GRAPHITI_DB_PATH=${existingVars['GRAPHITI_
       }
       if (vars[GITLAB_ENV_KEYS.AUTO_SYNC]?.toLowerCase() === 'true') {
         config.gitlabAutoSync = true;
+      }
+
+      // Hugging Face config
+      if (vars['HUGGINGFACE_ENABLED']?.toLowerCase() === 'true') {
+        config.huggingfaceEnabled = true;
+      }
+      if (vars['HUGGINGFACE_REPO_ID']) {
+        config.huggingfaceRepoId = vars['HUGGINGFACE_REPO_ID'];
       }
 
       // Git/Worktree config

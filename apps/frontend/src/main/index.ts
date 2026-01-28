@@ -202,6 +202,13 @@ function createWindow(): void {
   // Show window when ready to avoid visual flash
   mainWindow.on('ready-to-show', () => {
     mainWindow?.show();
+
+    // Pre-warm CLI cache AFTER window shows (hides any cmd.exe flashes on Windows)
+    setImmediate(() => {
+      preWarmToolCache(['claude', 'git', 'gh', 'python']).catch((error) => {
+        console.warn('[main] Failed to pre-warm CLI cache:', error);
+      });
+    });
   });
 
   // Handle external links with URL scheme allowlist for security
@@ -380,14 +387,8 @@ app.whenReady().then(() => {
   // Create window
   createWindow();
 
-  // Pre-warm CLI tool cache in background (non-blocking)
-  // This ensures CLI detection is done before user needs it
-  // Include all commonly used tools to prevent sync blocking on first use
-  setImmediate(() => {
-    preWarmToolCache(['claude', 'git', 'gh', 'python']).catch((error) => {
-      console.warn('[main] Failed to pre-warm CLI cache:', error);
-    });
-  });
+  // NOTE: preWarmToolCache() is now called inside createWindow()'s ready-to-show handler
+  // to ensure CLI detection runs AFTER window is visible (hides cmd.exe flashes on Windows)
 
   // Initialize Claude profile manager, then start usage monitor
   // We do this sequentially to ensure profile data (including auto-switch settings)
