@@ -641,3 +641,124 @@ npm run dev      # Run in development mode (includes --remote-debugging-port=922
 
 **Project data storage:**
 - `.auto-claude/specs/` - Per-project data (specs, plans, QA reports, memory) - gitignored
+
+## Auto-Claude MCP Integration (For Claude Code)
+
+**IMPORTANT: When the user asks to create tasks for Auto-Claude, ALWAYS use the MCP server tools automatically.**
+
+**AUTO-REFRESH IS AUTOMATIC**: When tasks are created via MCP or direct file creation, the Electron UI auto-refreshes within 2-3 seconds. No manual refresh needed.
+
+### How to Create Tasks (For Claude Code)
+
+**ALWAYS create tasks using this exact method:**
+
+```bash
+# 1. Create spec directory
+mkdir -p ".auto-claude/specs/XXX-task-name"
+
+# 2. Create implementation_plan.json with status "pending"
+cat > ".auto-claude/specs/XXX-task-name/implementation_plan.json" << 'EOF'
+{
+  "feature": "Task Title",
+  "description": "Task description",
+  "created_at": "2026-01-28T00:00:00Z",
+  "updated_at": "2026-01-28T00:00:00Z",
+  "status": "pending",
+  "phases": []
+}
+EOF
+```
+
+**Critical requirements:**
+- `status` MUST be `"pending"` (maps to Planning/backlog column)
+- The target project MUST be selected in the Auto-Claude UI
+- File watcher triggers refresh within 2-3 seconds
+
+**Status mapping:**
+- `"pending"` → Planning (backlog)
+- `"in_progress"` → In Progress
+- `"ai_review"` → AI Review
+- `"human_review"` → Human Review
+- `"done"` → Done
+
+### When to Use Auto-Claude MCP
+
+Use the Auto-Claude MCP tools when the user says things like:
+- "Create a task for Auto-Claude"
+- "Queue this for Auto-Claude"
+- "Run this overnight in Auto-Claude"
+- "Add this to Auto-Claude"
+- "Batch these tasks"
+- Any request involving autonomous task execution
+
+### Automatic Workflow
+
+When creating Auto-Claude tasks, follow this workflow automatically:
+
+1. **Get the project ID** from the Auto-Claude UI or use `list_tasks` to find it
+
+2. **Create the task(s)** using `create_task` or `start_batch`:
+   ```json
+   {
+     "projectId": "<project-uuid>",
+     "description": "User's task description",
+     "options": {
+       "profile": "auto",
+       "requireReviewBeforeCoding": false
+     }
+   }
+   ```
+
+3. **Set up shutdown monitoring** (if user wants overnight/batch runs):
+   ```json
+   {
+     "projectId": "<project-uuid>",
+     "taskIds": ["task-id-1", "task-id-2"],
+     "onComplete": {
+       "command": "shutdown",
+       "args": ["/s", "/t", "120"],
+       "delaySeconds": 60
+     }
+   }
+   ```
+
+### Profile Selection
+
+| User Says | Profile | Reason |
+|-----------|---------|--------|
+| "simple", "quick", "fast" | `quick` | Low thinking, fast iterations |
+| "complex", "deep", "architectural" | `complex` | Maximum reasoning |
+| "overnight", "batch" | `balanced` | Cost-efficient for multiple tasks |
+| Nothing specific | `auto` | Smart defaults |
+
+### Shutdown Feature
+
+When the user mentions "shutdown when done", "overnight run", or similar:
+
+1. Create tasks with `start_batch` or multiple `create_task` calls
+2. Call `wait_for_human_review` with the `onComplete` parameter:
+   - Windows: `"command": "shutdown", "args": ["/s", "/t", "120"]`
+   - macOS/Linux: `"command": "shutdown", "args": ["-h", "+2"]`
+   - The `delaySeconds` gives a grace period before executing
+
+### Example Conversation
+
+```
+User: "Create 3 tasks for Auto-Claude and shutdown when all reach human review"
+
+Claude Code should automatically:
+1. Call start_batch with the 3 tasks
+2. Call wait_for_human_review with taskIds and shutdown onComplete
+3. Report back that tasks are queued and monitoring is active
+```
+
+### MCP Tools Reference
+
+| Tool | Purpose |
+|------|---------|
+| `create_task` | Create single task with full configuration |
+| `list_tasks` | List tasks for a project |
+| `get_task_status` | Check task status |
+| `start_task` | Start task execution |
+| `start_batch` | Create and start multiple tasks |
+| `wait_for_human_review` | Monitor tasks and run callback when all reach Human Review |
