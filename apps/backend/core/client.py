@@ -507,6 +507,26 @@ def create_client(
     # CLAUDE_CONFIG_DIR enables per-profile Keychain entries with SHA256-hashed service names
     config_dir = sdk_env.get("CLAUDE_CONFIG_DIR")
 
+    # Get OAuth token - uses profile-specific Keychain lookup when config_dir is set
+    # This correctly reads from "Claude Code-credentials-{hash}" for non-default profiles
+    oauth_token = require_auth_token(config_dir)
+
+    # Validate token is not encrypted before passing to SDK
+    # Encrypted tokens (enc:...) should have been decrypted by require_auth_token()
+    # If we still have an encrypted token here, it means decryption failed or was skipped
+    validate_token_not_encrypted(oauth_token)
+
+    # Ensure SDK can access it via its expected env var
+    # This is required because the SDK doesn't know about per-profile Keychain naming
+    os.environ["CLAUDE_CODE_OAUTH_TOKEN"] = oauth_token
+
+    if config_dir:
+        logger.info(f"Using CLAUDE_CONFIG_DIR for profile: {config_dir}")
+
+    # Get the config dir for profile-specific credential lookup
+    # CLAUDE_CONFIG_DIR enables per-profile Keychain entries with SHA256-hashed service names
+    config_dir = sdk_env.get("CLAUDE_CONFIG_DIR")
+
     # Configure SDK authentication (OAuth or API profile mode)
     configure_sdk_authentication(config_dir)
 
