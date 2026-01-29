@@ -1,4 +1,4 @@
-import { useState, useMemo, memo, useEffect, useCallback } from 'react';
+import { useState, useMemo, memo, useEffect, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useViewState } from '../contexts/ViewStateContext';
 import {
@@ -904,24 +904,41 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     }
   };
 
-  // Auto-resume on mount/reconnect if toggle is already ON
-  useEffect(() => {
-    if (autoResumeEnabled && tasks.length > 0) {
-      const incompleteTasks = tasks.filter(task => isIncompleteHumanReview(task));
-      if (incompleteTasks.length > 0) {
-        console.log(`[KanbanBoard] Auto-resume active on load - resuming ${incompleteTasks.length} incomplete tasks`);
+  // Track which tasks we've already attempted to auto-resume (to prevent loops)
+  const autoResumedTasksRef = useRef<Set<string>>(new Set());
 
-        // Start all tasks with retry logic (run in parallel)
-        Promise.all(
-          incompleteTasks.map(task => startTaskWithRetry(task.id))
-        ).then(results => {
-          const successCount = results.filter(Boolean).length;
-          const failCount = results.length - successCount;
-          console.log(`[KanbanBoard] Auto-resume on load complete: ${successCount} succeeded, ${failCount} failed`);
-        });
-      }
+  // Auto-resume on mount/reconnect if toggle is already ON
+  // Also re-runs when tasks load/change to catch tasks that weren't loaded initially
+  useEffect(() => {
+    if (!autoResumeEnabled || tasks.length === 0) return;
+
+    const incompleteTasks = tasks.filter(task =>
+      isIncompleteHumanReview(task) && !autoResumedTasksRef.current.has(task.id)
+    );
+
+    if (incompleteTasks.length > 0) {
+      console.log(`[KanbanBoard] Auto-resume active - resuming ${incompleteTasks.length} incomplete tasks`);
+
+      // Mark these tasks as attempted (to prevent re-resuming)
+      incompleteTasks.forEach(task => autoResumedTasksRef.current.add(task.id));
+
+      // Start all tasks with retry logic (run in parallel)
+      Promise.all(
+        incompleteTasks.map(task => startTaskWithRetry(task.id))
+      ).then(results => {
+        const successCount = results.filter(Boolean).length;
+        const failCount = results.length - successCount;
+        console.log(`[KanbanBoard] Auto-resume complete: ${successCount} succeeded, ${failCount} failed`);
+      });
     }
-  }, [autoResumeEnabled, startTaskWithRetry]); // Only run when toggle state changes or on initial mount
+  }, [autoResumeEnabled, tasks, startTaskWithRetry]); // Re-run when toggle changes OR tasks load
+
+  // Clear the auto-resumed set when toggle is turned OFF (so tasks can be resumed again when turned ON)
+  useEffect(() => {
+    if (!autoResumeEnabled) {
+      autoResumedTasksRef.current.clear();
+    }
+  }, [autoResumeEnabled]);
 
   return (
     <div className="flex h-full flex-col">
