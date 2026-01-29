@@ -332,7 +332,7 @@ server.tool(
 
 server.tool(
   'wait_for_human_review',
-  'Wait for tasks to reach Human Review status, then optionally execute a command (like shutdown)',
+  'Wait for tasks to reach Human Review status, then optionally execute a command (like shutdown). IMPORTANT: Will NOT execute command if any tasks crashed due to rate limit - those tasks will auto-resume when limit resets.',
   {
     projectId: z.string().describe('The project ID (UUID)'),
     taskIds: z.array(z.string()).describe('Array of task IDs to monitor'),
@@ -357,9 +357,30 @@ server.tool(
       timedOut: pollResult.timedOut
     };
 
-    // Execute on-complete command if provided and all tasks completed
+    // Bug #5: Check for rate limit crashes before executing command
+    // If any tasks crashed due to rate limit, DON'T execute the command (like shutdown)
+    // Those tasks will auto-resume when the rate limit resets
+    const rateLimitCrashes = pollResult.rateLimitCrashes || [];
+    if (rateLimitCrashes.length > 0) {
+      console.warn(`[MCP] ${rateLimitCrashes.length} tasks crashed due to rate limit - blocking command execution`);
+      console.warn(`[MCP] Rate-limited tasks: ${rateLimitCrashes.join(', ')}`);
+
+      return {
+        content: [{
+          type: 'text' as const,
+          text: JSON.stringify({
+            ...result,
+            shutdownBlocked: true,
+            rateLimitCrashes,
+            message: `${rateLimitCrashes.length} task(s) crashed due to rate limit and are waiting to auto-resume. Command (${onComplete?.command || 'none'}) was NOT executed. Tasks will auto-resume when rate limit resets.`
+          }, null, 2)
+        }]
+      };
+    }
+
+    // Execute on-complete command if provided and all tasks completed (without rate limit crashes)
     if (pollResult.completed && onComplete?.command) {
-      console.warn(`[MCP] All tasks reached Human Review, scheduling command: ${onComplete.command}`);
+      console.warn(`[MCP] All tasks reached Human Review (no rate limit crashes), scheduling command: ${onComplete.command}`);
 
       const delaySeconds = onComplete.delaySeconds ?? 60;
       const cmdResult = await executeCommand(

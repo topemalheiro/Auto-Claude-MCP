@@ -275,3 +275,65 @@ export function getAllActiveWaits(): Array<{
 
   return result;
 }
+
+/**
+ * Start a rate limit wait specifically for a task that crashed.
+ * This is called from the exit handler when a task crashes due to rate limit.
+ * When the wait completes, emits RATE_LIMIT_AUTO_RESUME to trigger task restart.
+ *
+ * @param taskId - The task that crashed
+ * @param info - Rate limit info with reset time
+ * @param mainWindow - Electron main window for IPC events
+ * @param onResume - Optional callback when wait completes
+ * @returns Wait ID or null if wait cannot be started
+ */
+export function startRateLimitWaitForTask(
+  taskId: string,
+  info: SDKRateLimitInfo,
+  mainWindow: BrowserWindow | null,
+  onResume?: () => void
+): string | null {
+  // Create a task-specific rate limit info
+  const taskInfo: SDKRateLimitInfo = {
+    ...info,
+    taskId,
+    source: 'task'
+  };
+
+  console.log(`[RateLimitWaiter] Starting auto-wait for crashed task ${taskId}`);
+
+  return startRateLimitWait(taskInfo, mainWindow, (completedInfo) => {
+    console.log(`[RateLimitWaiter] Rate limit reset for task ${taskId} - emitting auto-resume`);
+
+    // Emit auto-resume event for the renderer to handle
+    if (mainWindow) {
+      mainWindow.webContents.send(IPC_CHANNELS.RATE_LIMIT_AUTO_RESUME, {
+        waitId: `task:${taskId}`,
+        taskId,
+        projectId: completedInfo.projectId,
+        source: 'task_crash'
+      });
+    }
+
+    // Call optional callback
+    if (onResume) {
+      onResume();
+    }
+  });
+}
+
+/**
+ * Get all active task waits (tasks waiting for rate limit reset).
+ * Used by wait_for_human_review to check if tasks are waiting.
+ */
+export function getTasksWaitingForRateLimit(): string[] {
+  const waitingTasks: string[] = [];
+
+  for (const [waitId, state] of activeWaits.entries()) {
+    if (!state.cancelled && state.rateLimitInfo.taskId) {
+      waitingTasks.push(state.rateLimitInfo.taskId);
+    }
+  }
+
+  return waitingTasks;
+}

@@ -261,8 +261,22 @@ export interface Task {
   stagedAt?: string;  // ISO timestamp when changes were staged
   location?: 'main' | 'worktree';  // Where task was loaded from (main project or worktree)
   specsPath?: string;  // Full path to specs directory for this task
+  exitReason?: TaskExitReason;  // Why task went to human_review (success, rate_limit_crash, error, auth_failure)
+  rateLimitInfo?: TaskRateLimitInfo;  // Rate limit details if exitReason is 'rate_limit_crash'
   createdAt: Date;
   updatedAt: Date;
+}
+
+// Exit reason for tasks that go to human_review
+// Helps distinguish between successful completion vs crash
+export type TaskExitReason = 'success' | 'rate_limit_crash' | 'auth_failure' | 'error';
+
+// Rate limit info stored in plan when task crashes due to rate limit
+export interface TaskRateLimitInfo {
+  resetAt?: string;  // ISO date string when rate limit resets
+  limitType?: 'session' | 'weekly';  // Type of rate limit hit
+  profileId?: string;  // Profile that hit the limit
+  detectedAt?: string;  // When the rate limit was detected
 }
 
 // Implementation Plan (from auto-claude)
@@ -281,6 +295,9 @@ export interface ImplementationPlan {
   planStatus?: string;
   recoveryNote?: string;
   description?: string;
+  // Rate limit crash detection (Bug #5)
+  exitReason?: TaskExitReason;  // Why task went to human_review
+  rateLimitInfo?: TaskRateLimitInfo;  // Rate limit details if exitReason is 'rate_limit_crash'
 }
 
 export interface Phase {

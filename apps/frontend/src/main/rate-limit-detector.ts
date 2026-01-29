@@ -322,6 +322,44 @@ export function getActiveProfileId(): string {
 }
 
 /**
+ * Track rate limit events by task ID.
+ * This allows the exit handler to check if a task crashed due to rate limit.
+ */
+const rateLimitByTask = new Map<string, SDKRateLimitInfo>();
+
+/**
+ * Store rate limit info for a specific task.
+ * Called when rate limit is detected during task execution.
+ */
+export function setRateLimitForTask(taskId: string, info: SDKRateLimitInfo): void {
+  console.log(`[RateLimitDetector] Storing rate limit for task ${taskId}`);
+  rateLimitByTask.set(taskId, info);
+}
+
+/**
+ * Get rate limit info for a task (if it hit a rate limit).
+ * Used by exit handler to determine if crash was due to rate limit.
+ */
+export function getRateLimitForTask(taskId: string): SDKRateLimitInfo | undefined {
+  return rateLimitByTask.get(taskId);
+}
+
+/**
+ * Clear rate limit info for a task.
+ * Called when task completes successfully or is reset.
+ */
+export function clearRateLimitForTask(taskId: string): boolean {
+  return rateLimitByTask.delete(taskId);
+}
+
+/**
+ * Check if a task has a stored rate limit event.
+ */
+export function hasRateLimitForTask(taskId: string): boolean {
+  return rateLimitByTask.has(taskId);
+}
+
+/**
  * Information about a rate limit event for the UI
  */
 export interface SDKRateLimitInfo {

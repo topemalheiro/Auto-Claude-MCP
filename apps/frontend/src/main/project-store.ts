@@ -523,6 +523,8 @@ export class ProjectStore {
           stagedAt,
           location, // Add location metadata (main vs worktree)
           specsPath: specPath, // Add full path to specs directory
+          exitReason: plan?.exitReason,  // Rate limit crash detection (Bug #5)
+          rateLimitInfo: plan?.rateLimitInfo,  // Rate limit details
           createdAt: new Date(plan?.created_at || Date.now()),
           updatedAt: new Date(plan?.updated_at || Date.now())
         });

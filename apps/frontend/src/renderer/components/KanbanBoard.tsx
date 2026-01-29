@@ -19,16 +19,18 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy
 } from '@dnd-kit/sortable';
-import { Plus, Inbox, Loader2, Eye, CheckCircle2, Archive, RefreshCw, GitPullRequest, X } from 'lucide-react';
+import { Plus, Inbox, Loader2, Eye, CheckCircle2, Archive, RefreshCw, GitPullRequest, X, Timer } from 'lucide-react';
 import { Checkbox } from './ui/checkbox';
 import { ScrollArea } from './ui/scroll-area';
 import { Button } from './ui/button';
+import { Switch } from './ui/switch';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
+import { useSettingsStore } from '../stores/settings-store';
 import { TaskCard } from './TaskCard';
 import { SortableTaskCard } from './SortableTaskCard';
 import { TASK_STATUS_COLUMNS, TASK_STATUS_LABELS } from '../../shared/constants';
 import { cn } from '../lib/utils';
-import { persistTaskStatus, forceCompleteTask, archiveTasks, useTaskStore } from '../stores/task-store';
+import { persistTaskStatus, forceCompleteTask, archiveTasks, useTaskStore, startTask, isIncompleteHumanReview } from '../stores/task-store';
 import { useToast } from '../hooks/use-toast';
 import { WorktreeCleanupDialog } from './WorktreeCleanupDialog';
 import { BulkPRDialog } from './BulkPRDialog';
@@ -852,11 +854,80 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     }
   };
 
+  // Get settings store for auto-resume toggle
+  const { settings, updateSetting } = useSettingsStore();
+  const autoResumeEnabled = settings.autoResumeAfterRateLimit ?? false;
+
+  // Handle auto-resume toggle - when enabled, immediately resume all incomplete tasks
+  const handleAutoResumeToggle = (checked: boolean) => {
+    // Update the setting
+    updateSetting('autoResumeAfterRateLimit', checked);
+
+    // When turning ON, resume all incomplete tasks in human_review (those showing "Needs Resume")
+    if (checked) {
+      const incompleteTasks = tasks.filter(task => isIncompleteHumanReview(task));
+
+      if (incompleteTasks.length > 0) {
+        console.log(`[KanbanBoard] Auto-resume enabled - resuming ${incompleteTasks.length} incomplete tasks`);
+
+        for (const task of incompleteTasks) {
+          try {
+            startTask(task.id);
+            console.log(`[KanbanBoard] Started task ${task.id}`);
+          } catch (error) {
+            console.error(`[KanbanBoard] Failed to resume task ${task.id}:`, error);
+          }
+        }
+      } else {
+        console.log('[KanbanBoard] Auto-resume enabled - no incomplete tasks to resume');
+      }
+    }
+  };
+
+  // Auto-resume on mount/reconnect if toggle is already ON
+  useEffect(() => {
+    if (autoResumeEnabled && tasks.length > 0) {
+      const incompleteTasks = tasks.filter(task => isIncompleteHumanReview(task));
+      if (incompleteTasks.length > 0) {
+        console.log(`[KanbanBoard] Auto-resume active on load - resuming ${incompleteTasks.length} incomplete tasks`);
+        for (const task of incompleteTasks) {
+          try {
+            startTask(task.id);
+            console.log(`[KanbanBoard] Auto-started task ${task.id}`);
+          } catch (error) {
+            console.error(`[KanbanBoard] Failed to auto-resume task ${task.id}:`, error);
+          }
+        }
+      }
+    }
+  }, [autoResumeEnabled]); // Only run when toggle state changes or on initial mount
+
   return (
     <div className="flex h-full flex-col">
-      {/* Kanban header with refresh button */}
-      {onRefresh && (
-        <div className="flex items-center justify-end px-6 pt-4 pb-2">
+      {/* Kanban header with auto-resume toggle and refresh button */}
+      <div className="flex items-center justify-end gap-4 px-6 pt-4 pb-2">
+        {/* Auto-Resume Toggle */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="flex items-center gap-2">
+              <Timer className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm text-muted-foreground">
+                {t('kanban.autoResume')}
+              </span>
+              <Switch
+                id="kanban-auto-resume"
+                checked={autoResumeEnabled}
+                onCheckedChange={handleAutoResumeToggle}
+              />
+            </div>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="max-w-xs">
+            <p>{t('kanban.autoResumeTooltip')}</p>
+          </TooltipContent>
+        </Tooltip>
+
+        {/* Refresh Button */}
+        {onRefresh && (
           <Button
             variant="ghost"
             size="sm"
@@ -867,8 +938,8 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
             <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
             {isRefreshing ? t('common:buttons.refreshing') : t('tasks:refreshTasks')}
           </Button>
-        </div>
-      )}
+        )}
+      </div>
       {/* Kanban columns */}
       <DndContext
         sensors={sensors}

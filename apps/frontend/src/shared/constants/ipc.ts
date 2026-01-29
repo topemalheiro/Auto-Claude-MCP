@@ -585,5 +585,9 @@ export const IPC_CHANNELS = {
   RATE_LIMIT_WAIT_PROGRESS: 'rateLimit:waitProgress',     // Countdown update
   RATE_LIMIT_WAIT_COMPLETE: 'rateLimit:waitComplete',     // Wait finished, ready to resume
   RATE_LIMIT_WAIT_CANCEL: 'rateLimit:waitCancel',         // User cancelled waiting
-  RATE_LIMIT_AUTO_RESUME: 'rateLimit:autoResume'          // Trigger task auto-resume after wait
+  RATE_LIMIT_AUTO_RESUME: 'rateLimit:autoResume',         // Trigger task auto-resume after wait
+
+  // Task rate limit crash detection (Bug #5 - smart shutdown)
+  TASK_RATE_LIMIT_CRASH: 'task:rateLimitCrash',           // Task crashed due to rate limit
+  TASK_RATE_LIMIT_WAITING: 'task:rateLimitWaiting'        // Task is waiting for rate limit reset
 } as const;

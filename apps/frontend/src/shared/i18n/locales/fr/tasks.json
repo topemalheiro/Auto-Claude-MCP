@@ -94,7 +94,9 @@
     "selectedCountOne": "{{count}} tâche sélectionnée",
     "selectedCountOther": "{{count}} tâches sélectionnées",
     "createPRs": "Créer les PRs",
-    "clearSelection": "Effacer la sélection"
+    "clearSelection": "Effacer la sélection",
+    "autoResume": "Reprise auto",
+    "autoResumeTooltip": "Si activé, les tâches mises en pause à cause des limites de taux reprendront automatiquement quand la limite sera réinitialisée. Si désactivé, elles restent en Révision Humaine jusqu'à reprise manuelle."
   },
   "execution": {
     "phases": {

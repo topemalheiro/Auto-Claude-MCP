@@ -231,4 +231,10 @@ export interface WaitResult {
   commandExecuted?: boolean;
   commandOutput?: string;
   timedOut?: boolean;
+  /** Whether shutdown was blocked due to rate-limit-crashed tasks */
+  shutdownBlocked?: boolean;
+  /** Task IDs that crashed due to rate limit (not genuinely complete) */
+  rateLimitCrashes?: string[];
+  /** Human-readable message about the wait result */
+  message?: string;
 }

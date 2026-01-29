@@ -287,6 +287,10 @@ export interface AppSettings {
   autoNameClaudeTerminals?: boolean;
   // Track which version warnings have been shown (e.g., ["2.7.5"])
   seenVersionWarnings?: string[];
+  // Auto-resume tasks after rate limit reset (when task crashes due to rate limit)
+  // When enabled, a countdown timer starts and the task auto-resumes when limit resets
+  // When disabled, tasks go to Human Review and require manual restart
+  autoResumeAfterRateLimit?: boolean;
 }
 
 // Auto-Claude Source Environment Configuration (for auto-claude repo .env)

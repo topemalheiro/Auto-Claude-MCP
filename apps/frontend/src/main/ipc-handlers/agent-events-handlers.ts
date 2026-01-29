@@ -1,6 +1,6 @@
 import type { BrowserWindow } from "electron";
 import path from "path";
-import { existsSync } from "fs";
+import { existsSync, readFileSync, writeFileSync } from "fs";
 import { IPC_CHANNELS, AUTO_BUILD_PATHS, getSpecsDir } from "../../shared/constants";
 import {
   wouldPhaseRegress,
@@ -16,6 +16,8 @@ import type {
   TaskStatus,
   Project,
   ImplementationPlan,
+  TaskExitReason,
+  TaskRateLimitInfo,
 } from "../../shared/types";
 import { AgentManager } from "../agent";
 import type { ProcessType, ExecutionProgressData } from "../agent";
@@ -28,6 +30,13 @@ import { findTaskWorktree } from "../worktree-paths";
 import { findTaskAndProject } from "./task/shared";
 import { safeSendToRenderer } from "./utils";
 import { getClaudeProfileManager } from "../claude-profile-manager";
+import {
+  getRateLimitForTask,
+  clearRateLimitForTask,
+  setRateLimitForTask,
+} from "../rate-limit-detector";
+import { startRateLimitWaitForTask } from "../rate-limit-waiter";
+import { readSettingsFile } from "../settings-utils";
 
 /**
  * Validates status transitions to prevent invalid state changes.
@@ -127,6 +136,11 @@ export function registerAgenteventsHandlers(
 
   // Handle SDK rate limit events from agent manager
   agentManager.on("sdk-rate-limit", (rateLimitInfo: SDKRateLimitInfo) => {
+    // Store rate limit for task so exit handler can detect rate limit crash
+    if (rateLimitInfo.taskId) {
+      console.warn(`[AgentEvents] Storing rate limit for task ${rateLimitInfo.taskId}`);
+      setRateLimitForTask(rateLimitInfo.taskId, rateLimitInfo);
+    }
     safeSendToRenderer(getMainWindow, IPC_CHANNELS.CLAUDE_SDK_RATE_LIMIT, rateLimitInfo);
   });
 
@@ -281,7 +295,80 @@ export function registerAgenteventsHandlers(
             );
           }
         } else {
-          notificationService.notifyTaskFailed(taskTitle, project.id, taskId);
+          // Non-zero exit code - check if this was a rate limit crash
+          const rateLimitInfo = getRateLimitForTask(taskId);
+          let exitReason: TaskExitReason = 'error';
+
+          if (rateLimitInfo) {
+            exitReason = 'rate_limit_crash';
+            console.warn(`[Task ${taskId}] Task crashed due to rate limit - will auto-resume when limit resets`);
+
+            // Persist rate limit info to plan
+            try {
+              const planContent = readFileSync(mainPlanPath, 'utf-8');
+              const plan = JSON.parse(planContent);
+              plan.exitReason = exitReason;
+              plan.rateLimitInfo = {
+                resetAt: rateLimitInfo.resetAtDate?.toISOString(),
+                limitType: rateLimitInfo.limitType,
+                profileId: rateLimitInfo.profileId,
+                detectedAt: rateLimitInfo.detectedAt.toISOString(),
+              } as TaskRateLimitInfo;
+              writeFileSync(mainPlanPath, JSON.stringify(plan, null, 2));
+              console.warn(`[Task ${taskId}] Persisted rate limit crash info to plan`);
+            } catch (err) {
+              console.error(`[Task ${taskId}] Failed to persist rate limit info:`, err);
+            }
+
+            // Check if auto-resume is enabled in settings
+            const currentSettings = readSettingsFile();
+            const autoResumeEnabled = currentSettings?.autoResumeAfterRateLimit === true;
+
+            // Start auto-wait for rate limit reset (only if enabled)
+            if (autoResumeEnabled) {
+              const mainWindow = getMainWindow();
+              startRateLimitWaitForTask(taskId, rateLimitInfo, mainWindow, () => {
+                console.warn(`[Task ${taskId}] Rate limit reset - task can now be resumed`);
+                clearRateLimitForTask(taskId);
+              });
+              console.warn(`[Task ${taskId}] Auto-resume enabled - waiting for rate limit reset`);
+            } else {
+              console.warn(`[Task ${taskId}] Auto-resume disabled - task will stay in Human Review until manually resumed`);
+              // Clear the stored rate limit info since we're not auto-waiting
+              clearRateLimitForTask(taskId);
+            }
+
+            // Notify renderer that task crashed due to rate limit
+            safeSendToRenderer(
+              getMainWindow,
+              IPC_CHANNELS.TASK_RATE_LIMIT_CRASH,
+              taskId,
+              projectId,
+              { ...rateLimitInfo, autoResumeEnabled }
+            );
+
+            notificationService.notify(
+              'Task Paused - Rate Limit',
+              autoResumeEnabled
+                ? `${taskTitle} paused due to rate limit. Will auto-resume when limit resets.`
+                : `${taskTitle} paused due to rate limit. Manual restart required (auto-resume disabled).`,
+              { type: 'info' }
+            );
+          } else {
+            // Regular error - not rate limit
+            notificationService.notifyTaskFailed(taskTitle, project.id, taskId);
+
+            // Persist exit reason to plan
+            try {
+              const planContent = readFileSync(mainPlanPath, 'utf-8');
+              const plan = JSON.parse(planContent);
+              plan.exitReason = exitReason;
+              writeFileSync(mainPlanPath, JSON.stringify(plan, null, 2));
+            } catch (err) {
+              console.error(`[Task ${taskId}] Failed to persist exit reason:`, err);
+            }
+          }
+
           persistStatus("human_review");
           // Include projectId for multi-project filtering (issue #723)
           safeSendToRenderer(

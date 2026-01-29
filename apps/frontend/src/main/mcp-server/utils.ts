@@ -383,7 +383,39 @@ export function startTask(
 }
 
 /**
+ * Read exitReason from a task's implementation plan
+ */
+function getTaskExitReason(projectId: string, taskId: string): string | undefined {
+  try {
+    const project = projectStore.getProject(projectId);
+    if (!project) return undefined;
+
+    const specsBaseDir = getSpecsDir(project.autoBuildPath);
+    const planPath = path.join(project.path, specsBaseDir, taskId, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
+
+    if (!existsSync(planPath)) return undefined;
+
+    const content = readFileSync(planPath, 'utf-8');
+    const plan = JSON.parse(content);
+    return plan.exitReason;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Poll result with rate limit crash information
+ */
+export interface PollResult {
+  completed: boolean;
+  statuses: Record<string, TaskStatus>;
+  timedOut?: boolean;
+  rateLimitCrashes?: string[];  // Task IDs that crashed due to rate limit
+}
+
+/**
  * Poll for task status changes
+ * Returns additional info about tasks that crashed due to rate limit (Bug #5)
  */
 export async function pollTaskStatuses(
   projectId: string,
@@ -391,7 +423,7 @@ export async function pollTaskStatuses(
   targetStatus: TaskStatus,
   intervalMs: number = 30000,
   timeoutMs?: number
-): Promise<{ completed: boolean; statuses: Record<string, TaskStatus>; timedOut?: boolean }> {
+): Promise<PollResult> {
   const startTime = Date.now();
 
   return new Promise((resolve) => {
@@ -399,22 +431,42 @@ export async function pollTaskStatuses(
       // Check timeout
       if (timeoutMs && (Date.now() - startTime) > timeoutMs) {
         const statuses: Record<string, TaskStatus> = {};
+        const rateLimitCrashes: string[] = [];
+
         for (const taskId of taskIds) {
           const result = getTaskStatus(projectId, taskId);
           statuses[taskId] = result.data?.status || 'error';
+
+          // Check for rate limit crash
+          const exitReason = getTaskExitReason(projectId, taskId);
+          if (exitReason === 'rate_limit_crash') {
+            rateLimitCrashes.push(taskId);
+          }
         }
-        resolve({ completed: false, statuses, timedOut: true });
+
+        resolve({ completed: false, statuses, timedOut: true, rateLimitCrashes });
         return;
       }
 
       // Check all task statuses
       let allReachedTarget = true;
       const statuses: Record<string, TaskStatus> = {};
+      const rateLimitCrashes: string[] = [];
 
       for (const taskId of taskIds) {
         const result = getTaskStatus(projectId, taskId);
         const status = result.data?.status || 'error';
         statuses[taskId] = status;
+
+        // Check for rate limit crash (Bug #5)
+        // Tasks that crashed due to rate limit should not count as "completed"
+        const exitReason = getTaskExitReason(projectId, taskId);
+        if (exitReason === 'rate_limit_crash') {
+          rateLimitCrashes.push(taskId);
+          console.warn(`[MCP] Task ${taskId} is in human_review due to rate limit crash - not counting as complete`);
+          allReachedTarget = false;
+          continue;
+        }
 
         if (status !== targetStatus) {
           allReachedTarget = false;
@@ -427,7 +479,7 @@ export async function pollTaskStatuses(
       }
 
       if (allReachedTarget) {
-        resolve({ completed: true, statuses });
+        resolve({ completed: true, statuses, rateLimitCrashes });
       } else {
         // Schedule next check
         setTimeout(checkStatuses, intervalMs);
