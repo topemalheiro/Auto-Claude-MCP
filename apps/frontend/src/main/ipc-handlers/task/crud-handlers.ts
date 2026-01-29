@@ -114,9 +114,12 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
       mkdirSync(specDir, { recursive: true });
 
       // Build metadata with source type
+      // IMPORTANT: Clear archivedAt to prevent tasks from being "born archived"
+      // when recreating tasks in existing spec directories
       const taskMetadata: TaskMetadata = {
         sourceType: 'manual',
-        ...metadata
+        ...metadata,
+        archivedAt: undefined
       };
 
       // Process and save attached images

@@ -1,5 +1,5 @@
 @echo off
-cd /d "c:\Users\topem\source\repos\Auto-Claude Mod\apps\frontend"
+cd /d "c:\Users\topem\source\repos\Auto-Claude Mod"
 call npm run start
 if %errorlevel% neq 0 (
     echo.

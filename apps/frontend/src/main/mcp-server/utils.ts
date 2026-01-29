@@ -145,7 +145,12 @@ export async function createTask(
     mkdirSync(specDir, { recursive: true });
 
     // Build task metadata
-    const taskMetadata = toTaskMetadata(options);
+    // IMPORTANT: Clear archivedAt to prevent tasks from being "born archived"
+    // when recreating tasks in existing spec directories
+    const taskMetadata = {
+      ...toTaskMetadata(options),
+      archivedAt: undefined
+    };
 
     // Create initial implementation_plan.json
     const now = new Date().toISOString();
