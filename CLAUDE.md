@@ -762,3 +762,50 @@ Claude Code should automatically:
 | `start_task` | Start task execution |
 | `start_batch` | Create and start multiple tasks |
 | `wait_for_human_review` | Monitor tasks and run callback when all reach Human Review |
+
+### Direct File Triggering (Without MCP)
+
+Tasks can be triggered by writing files directly with `status: "start_requested"`:
+
+```bash
+mkdir -p ".auto-claude/specs/065-my-task"
+echo '{}' > ".auto-claude/specs/065-my-task/task_metadata.json"
+cat > ".auto-claude/specs/065-my-task/implementation_plan.json" << 'EOF'
+{
+  "feature": "My Task",
+  "description": "Task description",
+  "status": "start_requested",
+  "phases": [{"name": "Phase 1", "status": "pending"}]
+}
+EOF
+```
+
+The file watcher auto-starts the task within 2-3 seconds.
+
+### Task Chaining (Auto-Start on Completion)
+
+Add a `chain` field to auto-start the next task when the current one completes:
+
+```json
+{
+  "feature": "Task A",
+  "status": "pending",
+  "chain": {
+    "next_task_id": "066-task-b",
+    "on_completion": "auto_start",
+    "require_approval": false
+  }
+}
+```
+
+**Chain fields:**
+- `next_task_id` - Spec ID of the next task
+- `on_completion` - Set to `"auto_start"` for automatic triggering
+- `require_approval` - If `true`, waits for human approval
+
+**Example: A → B → C chain**
+```
+065-task-a (chains to 066) → completes → auto-triggers
+066-task-b (chains to 067) → completes → auto-triggers
+067-task-c (no chain) → completes → done
+```
