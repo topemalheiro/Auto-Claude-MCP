@@ -44,6 +44,11 @@ class ImplementationPlan:
     recoveryNote: str | None = None
     qa_signoff: dict | None = None
 
+    # Task chaining configuration
+    # chain: { next_task_id, on_completion: auto_start|notify|manual, require_approval }
+    chain: dict | None = None
+    chainedFrom: str | None = None  # Task ID that triggered this one
+
     def to_dict(self) -> dict:
         """Convert to dictionary representation."""
         result = {
@@ -65,6 +70,11 @@ class ImplementationPlan:
             result["recoveryNote"] = self.recoveryNote
         if self.qa_signoff:
             result["qa_signoff"] = self.qa_signoff
+        # Include task chaining fields
+        if self.chain:
+            result["chain"] = self.chain
+        if self.chainedFrom:
+            result["chainedFrom"] = self.chainedFrom
         return result
 
     @classmethod
@@ -100,6 +110,8 @@ class ImplementationPlan:
             planStatus=data.get("planStatus"),
             recoveryNote=data.get("recoveryNote"),
             qa_signoff=data.get("qa_signoff"),
+            chain=data.get("chain"),
+            chainedFrom=data.get("chainedFrom"),
         )
 
     def _update_timestamps_and_status(self) -> None:

@@ -3,7 +3,7 @@ import { IPC_CHANNELS, AUTO_BUILD_PATHS, DEFAULT_APP_SETTINGS, DEFAULT_FEATURE_M
 import type { IPCResult, WorktreeStatus, WorktreeDiff, WorktreeDiffFile, WorktreeMergeResult, WorktreeDiscardResult, WorktreeListResult, WorktreeListItem, WorktreeCreatePROptions, WorktreeCreatePRResult, SupportedIDE, SupportedTerminal, AppSettings } from '../../../shared/types';
 import path from 'path';
 import { minimatch } from 'minimatch';
-import { existsSync, readdirSync, statSync, readFileSync } from 'fs';
+import { existsSync, readdirSync, statSync, readFileSync, rmSync } from 'fs';
 import { execSync, execFileSync, spawn, spawnSync, exec, execFile } from 'child_process';
 import { projectStore } from '../../project-store';
 import { getConfiguredPythonPath, PythonEnvManager, pythonEnvManager as pythonEnvManagerSingleton } from '../../python-env-manager';
@@ -32,6 +32,63 @@ const PRINTABLE_CHARS_REGEX = /^[\x20-\x7E\u00A0-\uFFFF]*$/;
 
 // Timeout for PR creation operations (2 minutes for network operations)
 const PR_CREATION_TIMEOUT_MS = 120000;
+
+/**
+ * Remove worktree with fallback to direct directory removal.
+ * Matches Python backend robustness (worktree.py lines 576-584).
+ *
+ * This handles "orphaned" worktrees where the directory exists but
+ * git doesn't recognize it as a working tree.
+ */
+function removeWorktreeWithFallback(
+  projectPath: string,
+  worktreePath: string
+): { success: boolean; method: 'git' | 'fallback' | 'none'; error?: string } {
+  if (!existsSync(worktreePath)) {
+    return { success: true, method: 'none' };
+  }
+
+  const gitPath = normalizePathForGit(worktreePath);
+
+  try {
+    execFileSync(getToolPath('git'), ['worktree', 'remove', '--force', gitPath], {
+      cwd: projectPath,
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+      env: getIsolatedGitEnv()
+    });
+    return { success: true, method: 'git' };
+  } catch (gitError) {
+    // Fallback to direct directory removal (matches Python backend)
+    console.warn('[Worktree] Git worktree remove failed, falling back to direct removal:', worktreePath);
+    try {
+      rmSync(worktreePath, { recursive: true, force: true });
+      return { success: true, method: 'fallback' };
+    } catch (rmError) {
+      return {
+        success: false,
+        method: 'fallback',
+        error: rmError instanceof Error ? rmError.message : String(rmError)
+      };
+    }
+  }
+}
+
+/**
+ * Prune stale worktree references from git (non-critical operation)
+ */
+function pruneWorktrees(projectPath: string): void {
+  try {
+    execFileSync(getToolPath('git'), ['worktree', 'prune'], {
+      cwd: projectPath,
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+      env: getIsolatedGitEnv()
+    });
+  } catch {
+    // Non-critical - ignore prune errors
+  }
+}
 
 /**
  * Read utility feature settings (for commit message, merge resolver) from settings file
@@ -2161,15 +2218,11 @@ export function registerWorktreeHandlers(
 
                 // Clean up worktree after successful full merge (fixes #243)
                 // This allows drag-to-Done workflow since TASK_UPDATE_STATUS blocks 'done' when worktree exists
-                try {
-                  if (worktreePath && existsSync(worktreePath)) {
-                    // Normalize path for git (fixes Windows path separator mismatch)
-                    const gitPath = normalizePathForGit(worktreePath);
-                    execFileSync(getToolPath('git'), ['worktree', 'remove', '--force', gitPath], {
-                      cwd: project.path,
-                      encoding: 'utf-8'
-                    });
-                    debug('Worktree cleaned up after full merge:', worktreePath);
+                if (worktreePath && existsSync(worktreePath)) {
+                  const removalResult = removeWorktreeWithFallback(project.path, worktreePath);
+                  if (removalResult.success) {
+                    debug('Worktree cleaned up after full merge:', worktreePath, 'method:', removalResult.method);
+                    pruneWorktrees(project.path);
 
                     // Also delete the task branch since we merged successfully
                     const taskBranch = `auto-claude/${task.specId}`;
@@ -2182,10 +2235,10 @@ export function registerWorktreeHandlers(
                     } catch {
                       // Branch might not exist or already deleted
                     }
+                  } else {
+                    debug('Worktree cleanup failed (non-fatal):', removalResult.error);
+                    // Non-fatal - merge succeeded, cleanup can be done manually
                   }
-                } catch (cleanupErr) {
-                  debug('Worktree cleanup failed (non-fatal):', cleanupErr);
-                  // Non-fatal - merge succeeded, cleanup can be done manually
                 }
               }
 
@@ -2589,12 +2642,17 @@ export function registerWorktreeHandlers(
             encoding: 'utf-8'
           }).trim();
 
-          // Remove the worktree (normalize path for git on Windows)
-          const gitPath = normalizePathForGit(worktreePath);
-          execFileSync(getToolPath('git'), ['worktree', 'remove', '--force', gitPath], {
-            cwd: project.path,
-            encoding: 'utf-8'
-          });
+          // Remove the worktree with fallback for orphaned worktrees
+          const removalResult = removeWorktreeWithFallback(project.path, worktreePath);
+          if (!removalResult.success) {
+            return {
+              success: false,
+              error: `Failed to remove worktree: ${removalResult.error}`
+            };
+          }
+
+          // Prune stale worktree references
+          pruneWorktrees(project.path);
 
           // Delete the branch
           try {

@@ -45,6 +45,60 @@ const GIT_PORCELAIN = {
 } as const;
 
 /**
+ * Remove worktree with fallback to direct directory removal.
+ * Handles orphaned worktrees where directory exists but git doesn't recognize it.
+ */
+function removeWorktreeWithFallback(
+  projectPath: string,
+  worktreePath: string
+): { success: boolean; method: 'git' | 'fallback' | 'none'; error?: string } {
+  if (!existsSync(worktreePath)) {
+    return { success: true, method: 'none' };
+  }
+
+  const gitPath = normalizePathForGit(worktreePath);
+
+  try {
+    execFileSync(getToolPath('git'), ['worktree', 'remove', '--force', gitPath], {
+      cwd: projectPath,
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+      env: getIsolatedGitEnv()
+    });
+    return { success: true, method: 'git' };
+  } catch {
+    // Fallback to direct directory removal for orphaned worktrees
+    debugLog('[TerminalWorktree] Git worktree remove failed, falling back to direct removal');
+    try {
+      rmSync(worktreePath, { recursive: true, force: true });
+      return { success: true, method: 'fallback' };
+    } catch (rmError) {
+      return {
+        success: false,
+        method: 'fallback',
+        error: rmError instanceof Error ? rmError.message : String(rmError)
+      };
+    }
+  }
+}
+
+/**
+ * Prune stale worktree references from git (non-critical operation)
+ */
+function pruneWorktrees(projectPath: string): void {
+  try {
+    execFileSync(getToolPath('git'), ['worktree', 'prune'], {
+      cwd: projectPath,
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+      env: getIsolatedGitEnv()
+    });
+  } catch {
+    // Non-critical - ignore prune errors
+  }
+}
+
+/**
  * Fix repositories that are incorrectly marked with core.bare=true.
  * This can happen when git worktree operations incorrectly set bare=true
  * on a working repository that has source files.
@@ -709,16 +763,17 @@ async function removeTerminalWorktree(
   }
 
   try {
-    if (existsSync(worktreePath)) {
-      // Normalize path for git (fixes Windows path separator mismatch)
-      const gitPath = normalizePathForGit(worktreePath);
-      execFileSync(getToolPath('git'), ['worktree', 'remove', '--force', gitPath], {
-        cwd: projectPath,
-        encoding: 'utf-8',
-        stdio: ['pipe', 'pipe', 'pipe'],
-        env: getIsolatedGitEnv(),
-      });
-      debugLog('[TerminalWorktree] Removed git worktree');
+    // Remove worktree with fallback for orphaned worktrees
+    const removalResult = removeWorktreeWithFallback(projectPath, worktreePath);
+    if (!removalResult.success) {
+      return {
+        success: false,
+        error: `Failed to remove worktree: ${removalResult.error}`,
+      };
+    }
+    if (removalResult.method !== 'none') {
+      debugLog('[TerminalWorktree] Removed worktree, method:', removalResult.method);
+      pruneWorktrees(projectPath);
     }
 
     if (deleteBranch && config.hasGitBranch && config.branchName) {
