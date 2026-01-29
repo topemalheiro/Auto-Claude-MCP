@@ -34,6 +34,7 @@ import { registerClaudeCodeHandlers } from './claude-code-handlers';
 import { registerMcpHandlers } from './mcp-handlers';
 import { registerProfileHandlers } from './profile-handlers';
 import { registerTerminalWorktreeIpcHandlers } from './terminal';
+import { registerRateLimitHandlers } from './rate-limit-handlers';
 import { notificationService } from '../notification-service';
 
 /**
@@ -122,6 +123,9 @@ export function setupIpcHandlers(
   // API Profile handlers (custom Anthropic-compatible endpoints)
   registerProfileHandlers();
 
+  // Rate limit wait-and-resume handlers (single account scenario)
+  registerRateLimitHandlers(agentManager, getMainWindow);
+
   console.warn('[IPC] All handler modules registered successfully');
 }
 
@@ -149,5 +153,6 @@ export {
   registerDebugHandlers,
   registerClaudeCodeHandlers,
   registerMcpHandlers,
-  registerProfileHandlers
+  registerProfileHandlers,
+  registerRateLimitHandlers
 };

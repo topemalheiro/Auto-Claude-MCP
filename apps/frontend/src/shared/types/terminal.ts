@@ -133,6 +133,18 @@ export interface SDKRateLimitInfo {
   };
   /** Why the swap occurred: 'proactive' (before limit) or 'reactive' (after limit hit) */
   swapReason?: 'proactive' | 'reactive';
+
+  // Wait-and-resume fields (for single account scenario)
+  /** Parsed reset time as Date object */
+  resetAtDate?: Date;
+  /** Time to wait until reset (milliseconds) */
+  waitDurationMs?: number;
+  /** Whether user enabled auto-wait for this rate limit */
+  isWaiting?: boolean;
+  /** Progress: seconds remaining until reset */
+  secondsRemaining?: number;
+  /** Whether task was auto-resumed after waiting */
+  wasAutoResumed?: boolean;
 }
 
 /**

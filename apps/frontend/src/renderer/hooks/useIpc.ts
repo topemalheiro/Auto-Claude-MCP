@@ -375,6 +375,21 @@ export function useIpcListeners(): void {
       }
     );
 
+    // Rate limit auto-resume listener (after waiting for rate limit reset)
+    const cleanupRateLimitAutoResume = window.electronAPI.onRateLimitAutoResume(
+      (data: { taskId: string; projectId: string; source: string; profileId: string }) => {
+        // Only auto-resume if this is for the currently selected project
+        if (isTaskForCurrentProject(data.projectId)) {
+          console.log('[IPC] Rate limit auto-resume requested for task:', data.taskId);
+          // Refresh tasks first to get the latest status
+          loadTasks(data.projectId, { forceRefresh: true }).then(() => {
+            // Then trigger the task start
+            window.electronAPI.startTask(data.taskId);
+          });
+        }
+      }
+    );
+
     // Cleanup on unmount
     return () => {
       // Flush any pending batched updates before cleanup
@@ -397,6 +412,7 @@ export function useIpcListeners(): void {
       cleanupAuthFailure();
       cleanupTaskListRefresh();
       cleanupTaskAutoStart();
+      cleanupRateLimitAutoResume();
     };
   }, [updateTaskFromPlan, updateTaskStatus, updateExecutionProgress, appendLog, batchAppendLogs, setError]);
 }

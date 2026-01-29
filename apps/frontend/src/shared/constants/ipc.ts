@@ -578,5 +578,12 @@ export const IPC_CHANNELS = {
   // Queue routing events (main -> renderer)
   QUEUE_PROFILE_SWAPPED: 'queue:profileSwapped',      // Task switched to different profile
   QUEUE_SESSION_CAPTURED: 'queue:sessionCaptured',    // Session ID captured from running task
-  QUEUE_BLOCKED_NO_PROFILES: 'queue:blockedNoProfiles' // All profiles unavailable
+  QUEUE_BLOCKED_NO_PROFILES: 'queue:blockedNoProfiles', // All profiles unavailable
+
+  // Rate limit wait-and-resume (single account scenario)
+  RATE_LIMIT_WAIT_START: 'rateLimit:waitStart',           // Started waiting for rate limit reset
+  RATE_LIMIT_WAIT_PROGRESS: 'rateLimit:waitProgress',     // Countdown update
+  RATE_LIMIT_WAIT_COMPLETE: 'rateLimit:waitComplete',     // Wait finished, ready to resume
+  RATE_LIMIT_WAIT_CANCEL: 'rateLimit:waitCancel',         // User cancelled waiting
+  RATE_LIMIT_AUTO_RESUME: 'rateLimit:autoResume'          // Trigger task auto-resume after wait
 } as const;

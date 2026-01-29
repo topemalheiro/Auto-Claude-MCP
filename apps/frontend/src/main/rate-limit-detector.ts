@@ -4,6 +4,7 @@
  */
 
 import { getClaudeProfileManager } from './claude-profile-manager';
+import { parseResetTime } from './claude-profile/usage-parser';
 
 /**
  * Regex pattern to detect Claude Code rate limit messages
@@ -358,6 +359,18 @@ export interface SDKRateLimitInfo {
   };
   /** Why the swap occurred: 'proactive' (before limit) or 'reactive' (after limit hit) */
   swapReason?: 'proactive' | 'reactive';
+
+  // Wait-and-resume fields (for single account scenario)
+  /** Parsed reset time as Date object */
+  resetAtDate?: Date;
+  /** Time to wait until reset (milliseconds) */
+  waitDurationMs?: number;
+  /** Whether user enabled auto-wait for this rate limit */
+  isWaiting?: boolean;
+  /** Progress: seconds remaining until reset */
+  secondsRemaining?: number;
+  /** Whether task was auto-resumed after waiting */
+  wasAutoResumed?: boolean;
 }
 
 /**
@@ -376,6 +389,22 @@ export function createSDKRateLimitInfo(
     ? profileManager.getProfile(detection.profileId)
     : profileManager.getActiveProfile();
 
+  // Calculate wait duration if reset time is available
+  let resetAtDate: Date | undefined;
+  let waitDurationMs: number | undefined;
+  let secondsRemaining: number | undefined;
+
+  if (detection.resetTime) {
+    try {
+      resetAtDate = parseResetTime(detection.resetTime);
+      const now = Date.now();
+      waitDurationMs = Math.max(0, resetAtDate.getTime() - now);
+      secondsRemaining = Math.ceil(waitDurationMs / 1000);
+    } catch (err) {
+      console.error('[createSDKRateLimitInfo] Failed to parse reset time:', err);
+    }
+  }
+
   return {
     source,
     projectId: options?.projectId,
@@ -386,6 +415,10 @@ export function createSDKRateLimitInfo(
     profileName: profile?.name,
     suggestedProfile: detection.suggestedProfile,
     detectedAt: new Date(),
-    originalError: detection.originalError
+    originalError: detection.originalError,
+    // Wait-and-resume fields
+    resetAtDate,
+    waitDurationMs,
+    secondsRemaining
   };
 }

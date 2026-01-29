@@ -116,6 +116,41 @@ export interface TerminalAPI {
   onAuthFailure: (callback: (info: import('../../shared/types').AuthFailureInfo) => void) => () => void;
   retryWithProfile: (request: import('../../shared/types').RetryWithProfileRequest) => Promise<IPCResult>;
 
+  // Rate Limit Wait-and-Resume (single account scenario)
+  startRateLimitWait: (info: import('../../shared/types').SDKRateLimitInfo) => Promise<IPCResult<{ waitId: string }>>;
+  cancelRateLimitWait: (waitId: string) => Promise<IPCResult>;
+  onRateLimitWaitStart: (callback: (data: {
+    waitId: string;
+    taskId?: string;
+    projectId?: string;
+    source: string;
+    profileId: string;
+    resetTime?: string;
+    secondsRemaining: number;
+    startedAt: string;
+    completesAt: string;
+  }) => void) => () => void;
+  onRateLimitWaitProgress: (callback: (data: {
+    waitId: string;
+    taskId?: string;
+    secondsRemaining: number;
+    minutesRemaining: number;
+    progress: number;
+  }) => void) => () => void;
+  onRateLimitWaitComplete: (callback: (data: {
+    waitId: string;
+    taskId?: string;
+    projectId?: string;
+    source: string;
+    profileId: string;
+  }) => void) => () => void;
+  onRateLimitAutoResume: (callback: (data: {
+    taskId: string;
+    projectId: string;
+    source: string;
+    profileId: string;
+  }) => void) => () => void;
+
   // Usage Monitoring (Proactive Account Switching)
   requestUsageUpdate: () => Promise<IPCResult<import('../../shared/types').ClaudeUsageSnapshot | null>>;
   onUsageUpdated: (callback: (usage: import('../../shared/types').ClaudeUsageSnapshot) => void) => () => void;
@@ -503,6 +538,127 @@ export const createTerminalAPI = (): TerminalAPI => ({
 
   retryWithProfile: (request: import('../../shared/types').RetryWithProfileRequest): Promise<IPCResult> =>
     ipcRenderer.invoke(IPC_CHANNELS.CLAUDE_RETRY_WITH_PROFILE, request),
+
+  // Rate Limit Wait-and-Resume (single account scenario)
+  startRateLimitWait: (info: import('../../shared/types').SDKRateLimitInfo): Promise<IPCResult<{ waitId: string }>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.RATE_LIMIT_WAIT_START, info),
+
+  cancelRateLimitWait: (waitId: string): Promise<IPCResult> =>
+    ipcRenderer.invoke(IPC_CHANNELS.RATE_LIMIT_WAIT_CANCEL, waitId),
+
+  onRateLimitWaitStart: (
+    callback: (data: {
+      waitId: string;
+      taskId?: string;
+      projectId?: string;
+      source: string;
+      profileId: string;
+      resetTime?: string;
+      secondsRemaining: number;
+      startedAt: string;
+      completesAt: string;
+    }) => void
+  ): (() => void) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      data: {
+        waitId: string;
+        taskId?: string;
+        projectId?: string;
+        source: string;
+        profileId: string;
+        resetTime?: string;
+        secondsRemaining: number;
+        startedAt: string;
+        completesAt: string;
+      }
+    ): void => {
+      callback(data);
+    };
+    ipcRenderer.on(IPC_CHANNELS.RATE_LIMIT_WAIT_START, handler);
+    return () => {
+      ipcRenderer.removeListener(IPC_CHANNELS.RATE_LIMIT_WAIT_START, handler);
+    };
+  },
+
+  onRateLimitWaitProgress: (
+    callback: (data: {
+      waitId: string;
+      taskId?: string;
+      secondsRemaining: number;
+      minutesRemaining: number;
+      progress: number;
+    }) => void
+  ): (() => void) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      data: {
+        waitId: string;
+        taskId?: string;
+        secondsRemaining: number;
+        minutesRemaining: number;
+        progress: number;
+      }
+    ): void => {
+      callback(data);
+    };
+    ipcRenderer.on(IPC_CHANNELS.RATE_LIMIT_WAIT_PROGRESS, handler);
+    return () => {
+      ipcRenderer.removeListener(IPC_CHANNELS.RATE_LIMIT_WAIT_PROGRESS, handler);
+    };
+  },
+
+  onRateLimitWaitComplete: (
+    callback: (data: {
+      waitId: string;
+      taskId?: string;
+      projectId?: string;
+      source: string;
+      profileId: string;
+    }) => void
+  ): (() => void) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      data: {
+        waitId: string;
+        taskId?: string;
+        projectId?: string;
+        source: string;
+        profileId: string;
+      }
+    ): void => {
+      callback(data);
+    };
+    ipcRenderer.on(IPC_CHANNELS.RATE_LIMIT_WAIT_COMPLETE, handler);
+    return () => {
+      ipcRenderer.removeListener(IPC_CHANNELS.RATE_LIMIT_WAIT_COMPLETE, handler);
+    };
+  },
+
+  onRateLimitAutoResume: (
+    callback: (data: {
+      taskId: string;
+      projectId: string;
+      source: string;
+      profileId: string;
+    }) => void
+  ): (() => void) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      data: {
+        taskId: string;
+        projectId: string;
+        source: string;
+        profileId: string;
+      }
+    ): void => {
+      callback(data);
+    };
+    ipcRenderer.on(IPC_CHANNELS.RATE_LIMIT_AUTO_RESUME, handler);
+    return () => {
+      ipcRenderer.removeListener(IPC_CHANNELS.RATE_LIMIT_AUTO_RESUME, handler);
+    };
+  },
 
   // Usage Monitoring (Proactive Account Switching)
   requestUsageUpdate: (): Promise<IPCResult<import('../../shared/types').ClaudeUsageSnapshot | null>> =>
