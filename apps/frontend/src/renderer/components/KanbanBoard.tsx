@@ -31,6 +31,7 @@ import { SortableTaskCard } from './SortableTaskCard';
 import { TASK_STATUS_COLUMNS, TASK_STATUS_LABELS } from '../../shared/constants';
 import { cn } from '../lib/utils';
 import { persistTaskStatus, forceCompleteTask, archiveTasks, useTaskStore, startTask, isIncompleteHumanReview } from '../stores/task-store';
+import { saveSettings } from '../stores/settings-store';
 import { useToast } from '../hooks/use-toast';
 import { WorktreeCleanupDialog } from './WorktreeCleanupDialog';
 import { BulkPRDialog } from './BulkPRDialog';
@@ -855,13 +856,13 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   };
 
   // Get settings store for auto-resume toggle
-  const { settings, updateSetting } = useSettingsStore();
+  const { settings } = useSettingsStore();
   const autoResumeEnabled = settings.autoResumeAfterRateLimit ?? false;
 
   // Handle auto-resume toggle - when enabled, immediately resume all incomplete tasks
-  const handleAutoResumeToggle = (checked: boolean) => {
-    // Update the setting
-    updateSetting('autoResumeAfterRateLimit', checked);
+  const handleAutoResumeToggle = async (checked: boolean) => {
+    // Update and persist the setting
+    await saveSettings({ autoResumeAfterRateLimit: checked });
 
     // When turning ON, resume all incomplete tasks in human_review (those showing "Needs Resume")
     if (checked) {
