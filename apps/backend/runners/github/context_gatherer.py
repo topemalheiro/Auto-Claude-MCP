@@ -1050,8 +1050,102 @@ class PRContextGatherer:
         Returns:
             Empty set - LLM agents will discover dependents via Grep tool.
         """
-        # Return empty set - LLM agents will use Grep to find importers when needed
-        return set()
+        dependents: set[str] = set()
+        path_obj = Path(file_path)
+        stem = path_obj.stem  # e.g., 'helpers' from 'utils/helpers.ts'
+
+        # NOTE: We no longer skip generic filenames like "utils", "types", "index".
+        # The LLM-driven exploration system decides what's relevant based on the PR context.
+        # Widely-used utilities are often the MOST important files to track dependents for.
+
+        # Build regex patterns and file extensions based on file type
+        pattern = None
+        file_extensions = []
+
+        if path_obj.suffix in [".ts", ".tsx", ".js", ".jsx"]:
+            # Match various import styles for JS/TS
+            # from './helpers', from '../utils/helpers', from '@/utils/helpers'
+            # Escape stem for regex safety
+            escaped_stem = re.escape(stem)
+            pattern = re.compile(rf"['\"].*{escaped_stem}['\"]")
+            file_extensions = [".ts", ".tsx", ".js", ".jsx"]
+        elif path_obj.suffix == ".py":
+            # Match Python imports: from .helpers import, import helpers
+            escaped_stem = re.escape(stem)
+            pattern = re.compile(rf"(from.*{escaped_stem}|import.*{escaped_stem})")
+            file_extensions = [".py"]
+        else:
+            return dependents
+
+        # Directories to exclude
+        exclude_dirs = {
+            "node_modules",
+            ".git",
+            "dist",
+            "build",
+            "__pycache__",
+            ".venv",
+            "venv",
+        }
+
+        # Walk the project directory
+        project_path = Path(self.project_dir)
+        files_checked = 0
+        max_files_to_check = 2000  # Prevent infinite scanning on large codebases
+
+        try:
+            for root, dirs, files in os.walk(project_path):
+                # Modify dirs in-place to exclude certain directories
+                dirs[:] = [d for d in dirs if d not in exclude_dirs]
+
+                for filename in files:
+                    # Check if we've hit the file limit
+                    if files_checked >= max_files_to_check:
+                        safe_print(
+                            f"[Context] File scan limit ({max_files_to_check}) reached for {file_path}. "
+                            f"Found {len(dependents)} dependents. "
+                            f"LLM agents can explore additional callers if needed via Read/Grep tools."
+                        )
+                        return dependents
+
+                    # Check if file has the right extension
+                    if not any(filename.endswith(ext) for ext in file_extensions):
+                        continue
+
+                    file_full_path = Path(root) / filename
+                    files_checked += 1
+
+                    # Get relative path from project root
+                    try:
+                        relative_path = file_full_path.relative_to(project_path)
+                        relative_path_str = str(relative_path).replace("\\", "/")
+
+                        # Don't include the file itself
+                        if relative_path_str == file_path:
+                            continue
+
+                        # Search for the pattern in the file
+                        try:
+                            with open(
+                                file_full_path, encoding="utf-8", errors="ignore"
+                            ) as f:
+                                content = f.read()
+                                if pattern.search(content):
+                                    dependents.add(relative_path_str)
+                                    if len(dependents) >= max_results:
+                                        return dependents
+                        except (OSError, UnicodeDecodeError):
+                            # Skip files that can't be read
+                            continue
+
+                    except ValueError:
+                        # File is not relative to project_path, skip it
+                        continue
+
+        except Exception as e:
+            safe_print(f"[Context] Error finding dependents: {e}")
+
+        return dependents
 
     def _prioritize_related_files(self, files: set[str], limit: int = 50) -> list[str]:
         """

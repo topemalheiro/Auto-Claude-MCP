@@ -66,11 +66,7 @@ except (ImportError, ValueError, SystemError):
         PRReviewResult,
         ReviewSeverity,
     )
-    from phase_config import (
-        get_model_betas,
-        get_thinking_kwargs_for_model,
-        resolve_model_id,
-    )
+    from phase_config import get_thinking_budget, resolve_model_id
     from services.agent_utils import create_working_dir_injector
     from services.category_utils import map_category
     from services.io_utils import safe_print
@@ -540,8 +536,7 @@ The SDK will run invoked agents in parallel automatically.
                 spec_dir=self.github_dir,
                 model=model,
                 agent_type="pr_followup_parallel",
-                betas=betas,
-                fast_mode=self.config.fast_mode,
+                max_thinking_tokens=thinking_budget,
                 agents=self._define_specialist_agents(project_root),
                 output_format={
                     "type": "json_schema",

@@ -32,22 +32,7 @@ const RATE_LIMIT_INDICATORS = [
  * The patterns should only match actual API error messages.
  */
 const AUTH_FAILURE_PATTERNS = [
-  /authentication\s*(is\s*)?required/i,
-  /not\s*(yet\s*)?authenticated/i,
-  /login\s*(is\s*)?required/i,
-  /oauth\s*token\s*(is\s*)?(invalid|expired|missing)/i,
-  /unauthorized/i,
-  /please\s*(log\s*in|login|authenticate)/i,
-  /invalid\s*(credentials|token|api\s*key)/i,
-  /auth(entication)?\s+(failed|error|failure)/i,
-  /session\s*(expired|invalid)/i,
-  /access\s*denied/i,
-  /permission\s*denied/i,
-  /401\s*unauthorized/i,
-  /credentials\s*(are\s*)?(missing|invalid|expired)/i,
-  // Match "OAuth token has expired" format from Claude API
-  /oauth\s*token\s+has\s+expired/i,
-  // Match Claude API authentication_error type in JSON responses
+  // Match Claude API authentication_error type in JSON responses (most reliable)
   /["']?type["']?\s*:\s*["']?authentication_error["']?/i,
   // Match plain "API Error: 401" - this is a structured error format
   /API\s*Error:\s*401/i,

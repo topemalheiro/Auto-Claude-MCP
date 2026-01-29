@@ -22,7 +22,6 @@ import hashlib
 import logging
 import os
 from collections import defaultdict
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -58,7 +57,6 @@ try:
         AgentAgreement,
         FindingValidationResponse,
         ParallelOrchestratorResponse,
-        SpecialistResponse,
     )
     from .sdk_utils import process_sdk_stream
 except (ImportError, ValueError, SystemError):
@@ -74,12 +72,7 @@ except (ImportError, ValueError, SystemError):
         PRReviewResult,
         ReviewSeverity,
     )
-    from phase_config import (
-        get_model_betas,
-        get_thinking_budget,
-        get_thinking_kwargs_for_model,
-        resolve_model_id,
-    )
+    from phase_config import get_thinking_budget, resolve_model_id
     from services.agent_utils import create_working_dir_injector
     from services.category_utils import map_category
     from services.io_utils import safe_print
@@ -88,7 +81,6 @@ except (ImportError, ValueError, SystemError):
         AgentAgreement,
         FindingValidationResponse,
         ParallelOrchestratorResponse,
-        SpecialistResponse,
     )
     from services.sdk_utils import process_sdk_stream
 
@@ -317,8 +309,9 @@ class ParallelOrchestratorReviewer:
                     "Security specialist. Use for OWASP Top 10, authentication, "
                     "injection, cryptographic issues, and sensitive data exposure. "
                     "Invoke when PR touches auth, API endpoints, user input, database queries, "
-                    "or file operations. Use Read, Grep, and Glob tools to explore related files, "
-                    "callers, and tests as needed."
+                    "or file operations. IMPORTANT: Also check related files listed in the "
+                    "PR context - callers may be affected by security changes, and tests "
+                    "should verify security behavior."
                 ),
                 prompt=with_working_dir(
                     security_prompt, "You are a security expert. Find vulnerabilities."
@@ -330,8 +323,9 @@ class ParallelOrchestratorReviewer:
                 description=(
                     "Code quality expert. Use for complexity, duplication, error handling, "
                     "maintainability, and pattern adherence. Invoke when PR has complex logic, "
-                    "large functions, or significant business logic changes. Use Grep to search "
-                    "for similar patterns across the codebase for consistency checks."
+                    "large functions, or significant business logic changes. IMPORTANT: Check "
+                    "related files for pattern consistency - if a pattern is changed, similar "
+                    "code elsewhere should be updated too."
                 ),
                 prompt=with_working_dir(
                     quality_prompt,
@@ -345,7 +339,8 @@ class ParallelOrchestratorReviewer:
                     "Logic and correctness specialist. Use for algorithm verification, "
                     "edge cases, state management, and race conditions. Invoke when PR has "
                     "algorithmic changes, data transformations, concurrent operations, or bug fixes. "
-                    "Use Grep to find callers and dependents that may be affected by logic changes."
+                    "IMPORTANT: Check callers and dependents in related files - logic changes "
+                    "may break assumptions made by code that uses this file."
                 ),
                 prompt=with_working_dir(
                     logic_prompt, "You are a logic expert. Find correctness issues."
@@ -358,7 +353,8 @@ class ParallelOrchestratorReviewer:
                     "Codebase consistency expert. Use for naming conventions, ecosystem fit, "
                     "architectural alignment, and avoiding reinvention. Invoke when PR introduces "
                     "new patterns, large additions, or code that might duplicate existing functionality. "
-                    "Use Grep and Glob to explore existing patterns and conventions in the codebase."
+                    "IMPORTANT: Use related files to understand existing patterns - new code "
+                    "should match established conventions in the codebase."
                 ),
                 prompt=with_working_dir(
                     codebase_fit_prompt,
@@ -387,7 +383,7 @@ class ParallelOrchestratorReviewer:
                     "Reads the ACTUAL CODE at the finding location with fresh eyes. "
                     "CRITICAL: Invoke for ALL findings after specialist agents complete. "
                     "Can confirm findings as valid OR dismiss them as false positives. "
-                    "Use Read, Grep, and Glob to check for mitigations the original agent missed."
+                    "Check related files for mitigations the original agent missed."
                 ),
                 prompt=with_working_dir(
                     validator_prompt, "You validate whether findings are real issues."
@@ -760,10 +756,80 @@ Found {len(context.ai_bot_comments)} comments from AI tools.
 {chr(10).join(commits_list)}
 """
 
-        # Removed: Related files and import graph sections
-        # LLM agents now discover relevant files themselves via Read, Grep, Glob tools
+        # Build related files section (CONTEXT-02)
         related_files_section = ""
+        if context.related_files:
+            # Categorize by type
+            tests = [
+                f
+                for f in context.related_files
+                if ".test." in f
+                or "_test." in f
+                or f.startswith("test")
+                or "/tests/" in f
+                or "\\tests\\" in f
+            ]
+            deps = [f for f in context.related_files if f not in tests]
+
+            # Limit to avoid context overflow
+            tests = tests[:15]
+            deps = deps[:15]
+
+            tests_str = ", ".join(f"`{t}`" for t in tests) if tests else "None found"
+            deps_str = ", ".join(f"`{d}`" for d in deps) if deps else "None found"
+
+            related_files_section = f"""
+### Related Files to Investigate
+These files are related to the changes (imports, tests, dependents). **Pass relevant files to specialists when delegating.**
+
+**Tests** ({len(tests)} files): {tests_str}
+**Dependencies/Callers** ({len(deps)} files): {deps_str}
+
+**When delegating to specialists, include relevant files:**
+- **security-reviewer**: Mention files that handle the same data flow
+- **logic-reviewer**: Mention callers that depend on changed function signatures
+- **quality-reviewer**: Mention files with similar patterns for consistency check
+- **codebase-fit-reviewer**: Mention existing implementations of similar features
+
+Example delegation: "Review the auth changes in login.ts. Also check auth_middleware.ts and auth.test.ts which use this module."
+"""
+
+        # Build import graph summary (CONTEXT-03)
         import_graph_section = ""
+        import_entries = []
+        changed_paths = {f.path for f in context.changed_files}
+
+        for file in context.changed_files[:10]:  # Limit to 10 files
+            # Find what this file imports (look for related files it references)
+            imports_this = [
+                r
+                for r in context.related_files
+                if r in (file.content or "") and r not in changed_paths
+            ][:5]
+            # Find what imports this file (reverse deps in related_files)
+            # Match by filename stem to catch imports without extension
+            file_stem = file.path.split("/")[-1].split(".")[0]
+            imported_by = [
+                r
+                for r in context.related_files
+                if file_stem in r and r not in changed_paths
+            ][:5]
+
+            if imports_this or imported_by:
+                entry = f"**{file.path}**"
+                if imports_this:
+                    entry += f"\n  - Imports: {', '.join(imports_this)}"
+                if imported_by:
+                    entry += f"\n  - Imported by: {', '.join(imported_by)}"
+                import_entries.append(entry)
+
+        if import_entries:
+            import_graph_section = f"""
+### Import Relationships
+How the changed files connect to the codebase:
+
+{chr(10).join(import_entries[:20])}
+"""
 
         pr_context = f"""
 ---
@@ -820,8 +886,7 @@ The SDK will run invoked agents in parallel automatically.
             spec_dir=self.github_dir,
             model=model,
             agent_type="pr_orchestrator_parallel",
-            betas=betas,
-            fast_mode=self.config.fast_mode,
+            max_thinking_tokens=thinking_budget,
             agents=self._define_specialist_agents(project_root),
             output_format={
                 "type": "json_schema",
@@ -1090,9 +1155,30 @@ The SDK will run invoked agents in parallel automatically.
                         else self.project_dir
                     )
 
-            # Removed: Related files rescanning
-            # LLM agents now discover relevant files themselves via Read, Grep, Glob tools
-            # No need to pre-scan the codebase programmatically
+            # Rescan for related files using the worktree/project root
+            # This fixes the issue where related files were 0 because context gathering
+            # happened BEFORE the worktree was created (PR files didn't exist locally)
+            if context.changed_files:
+                new_related_files = PRContextGatherer.find_related_files_for_root(
+                    context.changed_files,
+                    project_root,
+                )
+                # Always log rescan result (not gated by DEBUG_MODE)
+                if new_related_files:
+                    context.related_files = new_related_files
+                    safe_print(
+                        f"[PRReview] Rescanned in worktree: found {len(new_related_files)} related files"
+                    )
+                else:
+                    safe_print(
+                        f"[PRReview] Rescanned in worktree: found 0 related files "
+                        f"(initial scan found {len(context.related_files)})"
+                    )
+
+            # Build orchestrator prompt AFTER worktree creation and related files rescan
+            prompt = self._build_orchestrator_prompt(context)
+            # Capture agent definitions for debug logging (with worktree path)
+            agent_defs = self._define_specialist_agents(project_root)
 
             # Use model and thinking level from config (user settings)
             # Resolve model shorthand via environment variable override if configured
@@ -1134,11 +1220,28 @@ The SDK will run invoked agents in parallel automatically.
                 thinking_budget=thinking_budget,
             )
 
-            # Log results
-            logger.info(
-                f"[ParallelOrchestrator] Parallel specialists complete: "
-                f"{len(findings)} findings from {len(agents_invoked)} agents"
-            )
+                # Process SDK stream with shared utility
+                stream_result = await process_sdk_stream(
+                    client=client,
+                    context_name="ParallelOrchestrator",
+                    model=model,
+                    system_prompt=prompt,
+                    agent_definitions=agent_defs,
+                )
+
+                # Check for stream processing errors
+                if stream_result.get("error"):
+                    logger.error(
+                        f"[ParallelOrchestrator] SDK stream failed: {stream_result['error']}"
+                    )
+                    raise RuntimeError(
+                        f"SDK stream processing failed: {stream_result['error']}"
+                    )
+
+                result_text = stream_result["result_text"]
+                structured_output = stream_result["structured_output"]
+                agents_invoked = stream_result["agents_invoked"]
+                msg_count = stream_result["msg_count"]
 
             self._report_progress(
                 "finalizing",
@@ -1686,10 +1789,6 @@ The SDK will run invoked agents in parallel automatically.
         if not findings:
             return []
 
-        # Retry configuration for API errors
-        MAX_VALIDATION_RETRIES = 2
-        VALIDATOR_MAX_MESSAGES = 200  # Lower limit for validator (simpler task)
-
         # Build validation prompt with all findings
         findings_json = []
         for f in findings:
@@ -1729,100 +1828,55 @@ For EACH finding above:
         model_shorthand = self.config.model or "sonnet"
         model = resolve_model_id(model_shorthand)
 
-        # Retry loop for transient API errors
-        last_error = None
-        structured_output = None
-        validation_succeeded = False
-        for attempt in range(MAX_VALIDATION_RETRIES + 1):
-            if attempt > 0:
-                logger.info(
-                    f"[PRReview] Validation retry {attempt}/{MAX_VALIDATION_RETRIES}"
-                )
-                safe_print(
-                    f"[FindingValidator] Retry attempt {attempt}/{MAX_VALIDATION_RETRIES}"
-                )
+        # Create validator client (inherits worktree filesystem access)
+        try:
+            validator_client = create_client(
+                project_dir=worktree_path,
+                spec_dir=self.github_dir,
+                model=model,
+                agent_type="pr_finding_validator",
+                max_thinking_tokens=get_thinking_budget("medium"),
+                output_format={
+                    "type": "json_schema",
+                    "schema": FindingValidationResponse.model_json_schema(),
+                },
+            )
+        except Exception as e:
+            logger.error(f"[PRReview] Failed to create validator client: {e}")
+            # Fail-safe: return original findings
+            return findings
 
-            # Create validator client (inherits worktree filesystem access)
-            try:
-                # Get betas from model shorthand (before resolution to full ID)
-                betas = get_model_betas(self.config.model or "sonnet")
-                thinking_kwargs = get_thinking_kwargs_for_model(model, "medium")
-                validator_client = create_client(
-                    project_dir=worktree_path,
-                    spec_dir=self.github_dir,
+        # Run validation
+        try:
+            async with validator_client:
+                await validator_client.query(prompt)
+
+                stream_result = await process_sdk_stream(
+                    client=validator_client,
+                    context_name="FindingValidator",
                     model=model,
-                    agent_type="pr_finding_validator",
-                    betas=betas,
-                    fast_mode=self.config.fast_mode,
-                    output_format={
-                        "type": "json_schema",
-                        "schema": FindingValidationResponse.model_json_schema(),
-                    },
-                    **thinking_kwargs,
+                    system_prompt=prompt,
                 )
-            except Exception as e:
-                logger.error(f"[PRReview] Failed to create validator client: {e}")
-                last_error = e
-                continue  # Try again
 
-            # Run validation
-            try:
-                async with validator_client:
-                    await validator_client.query(prompt)
-
-                    stream_result = await process_sdk_stream(
-                        client=validator_client,
-                        context_name="FindingValidator",
-                        model=model,
-                        system_prompt=prompt,
-                        max_messages=VALIDATOR_MAX_MESSAGES,
+                if stream_result.get("error"):
+                    logger.error(
+                        f"[PRReview] Validation failed: {stream_result['error']}"
                     )
+                    # Fail-safe: return original findings
+                    return findings
 
-                    error = stream_result.get("error")
-                    if error:
-                        # Check for specific error types that warrant retry
-                        error_str = str(error).lower()
-                        is_retryable = (
-                            "400" in error_str
-                            or "concurrency" in error_str
-                            or "circuit breaker" in error_str
-                            or "tool_use" in error_str
-                        )
+                structured_output = stream_result.get("structured_output")
 
-                        if is_retryable and attempt < MAX_VALIDATION_RETRIES:
-                            logger.warning(
-                                f"[PRReview] Retryable validation error: {error}"
-                            )
-                            last_error = Exception(error)
-                            continue  # Retry
+        except Exception as e:
+            logger.error(f"[PRReview] Validation stream error: {e}")
+            # Fail-safe: return original findings
+            return findings
 
-                        logger.error(f"[PRReview] Validation failed: {error}")
-                        # Fail-safe: return original findings
-                        return findings
-
-                    structured_output = stream_result.get("structured_output")
-
-                    # Success - mark as succeeded and exit retry loop
-                    if structured_output:
-                        validation_succeeded = True
-                        break
-
-            except Exception as e:
-                error_str = str(e).lower()
-                is_retryable = (
-                    "400" in error_str
-                    or "concurrency" in error_str
-                    or "rate" in error_str
-                )
-
-                if is_retryable and attempt < MAX_VALIDATION_RETRIES:
-                    logger.warning(f"[PRReview] Retryable stream error: {e}")
-                    last_error = e
-                    continue  # Retry
-
-                logger.error(f"[PRReview] Validation stream error: {e}")
-                # Fail-safe: return original findings
-                return findings
+        if not structured_output:
+            logger.warning(
+                "[PRReview] No structured validation output, keeping original findings"
+            )
+            return findings
 
         # Parse validation results
         try:
