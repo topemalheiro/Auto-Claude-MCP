@@ -193,13 +193,31 @@ export class FileWatcher extends EventEmitter {
       // Emit when implementation_plan.json is created
       if (path.basename(filePath) === 'implementation_plan.json') {
         const specDir = path.dirname(filePath);
+        const specId = path.basename(specDir);
         console.log(`[FileWatcher] implementation_plan.json detected in ${specDir} - emitting specs-changed`);
         this.emit('specs-changed', {
           projectId,
           projectPath,
           specDir,
-          specId: path.basename(specDir)
+          specId
         });
+
+        // Check for start_requested status on new file creation (Bug #2 fix)
+        try {
+          const content = readFileSync(filePath, 'utf-8');
+          const plan = JSON.parse(content);
+          if (plan.status === 'start_requested') {
+            console.log(`[FileWatcher] start_requested status detected in NEW file for ${specId} - emitting task-start-requested`);
+            this.emit('task-start-requested', {
+              projectId,
+              projectPath,
+              specDir,
+              specId
+            });
+          }
+        } catch (err) {
+          // Ignore parse errors - file might not be fully written yet
+        }
       }
     });
 
