@@ -859,6 +859,25 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   const { settings } = useSettingsStore();
   const autoResumeEnabled = settings.autoResumeAfterRateLimit ?? false;
 
+  // Helper function to start a task with retry logic
+  const startTaskWithRetry = useCallback(async (taskId: string, maxRetries = 3, delayMs = 2000) => {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        await startTask(taskId);
+        console.log(`[KanbanBoard] Started task ${taskId} (attempt ${attempt})`);
+        return true; // Success
+      } catch (error) {
+        console.error(`[KanbanBoard] Failed to start task ${taskId} (attempt ${attempt}/${maxRetries}):`, error);
+        if (attempt < maxRetries) {
+          console.log(`[KanbanBoard] Retrying task ${taskId} in ${delayMs}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delayMs));
+        }
+      }
+    }
+    console.error(`[KanbanBoard] All ${maxRetries} attempts failed for task ${taskId}`);
+    return false; // All retries failed
+  }, []);
+
   // Handle auto-resume toggle - when enabled, immediately resume all incomplete tasks
   const handleAutoResumeToggle = async (checked: boolean) => {
     // Update and persist the setting
@@ -871,14 +890,14 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       if (incompleteTasks.length > 0) {
         console.log(`[KanbanBoard] Auto-resume enabled - resuming ${incompleteTasks.length} incomplete tasks`);
 
-        for (const task of incompleteTasks) {
-          try {
-            startTask(task.id);
-            console.log(`[KanbanBoard] Started task ${task.id}`);
-          } catch (error) {
-            console.error(`[KanbanBoard] Failed to resume task ${task.id}:`, error);
-          }
-        }
+        // Start all tasks with retry logic (run in parallel)
+        const results = await Promise.all(
+          incompleteTasks.map(task => startTaskWithRetry(task.id))
+        );
+
+        const successCount = results.filter(Boolean).length;
+        const failCount = results.length - successCount;
+        console.log(`[KanbanBoard] Auto-resume complete: ${successCount} succeeded, ${failCount} failed`);
       } else {
         console.log('[KanbanBoard] Auto-resume enabled - no incomplete tasks to resume');
       }
@@ -891,17 +910,18 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       const incompleteTasks = tasks.filter(task => isIncompleteHumanReview(task));
       if (incompleteTasks.length > 0) {
         console.log(`[KanbanBoard] Auto-resume active on load - resuming ${incompleteTasks.length} incomplete tasks`);
-        for (const task of incompleteTasks) {
-          try {
-            startTask(task.id);
-            console.log(`[KanbanBoard] Auto-started task ${task.id}`);
-          } catch (error) {
-            console.error(`[KanbanBoard] Failed to auto-resume task ${task.id}:`, error);
-          }
-        }
+
+        // Start all tasks with retry logic (run in parallel)
+        Promise.all(
+          incompleteTasks.map(task => startTaskWithRetry(task.id))
+        ).then(results => {
+          const successCount = results.filter(Boolean).length;
+          const failCount = results.length - successCount;
+          console.log(`[KanbanBoard] Auto-resume on load complete: ${successCount} succeeded, ${failCount} failed`);
+        });
       }
     }
-  }, [autoResumeEnabled]); // Only run when toggle state changes or on initial mount
+  }, [autoResumeEnabled, startTaskWithRetry]); // Only run when toggle state changes or on initial mount
 
   return (
     <div className="flex h-full flex-col">
