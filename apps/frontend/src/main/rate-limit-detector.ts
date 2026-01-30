@@ -93,25 +93,6 @@ const BILLING_FAILURE_PATTERNS = [
 ];
 
 /**
- * Maximum length for error messages sent to renderer.
- * Truncates to prevent exposing excessive internal details.
- */
-const MAX_ERROR_LENGTH = 500;
-
-/**
- * Sanitize error output before sending to renderer.
- * Truncates long output to prevent exposing excessive internal details
- * like full paths, API responses, or stack traces.
- */
-function sanitizeErrorOutput(output: string): string {
-  // Truncate long output to limit exposure of internal details
-  if (output.length > MAX_ERROR_LENGTH) {
-    return output.substring(0, MAX_ERROR_LENGTH) + '... (truncated)';
-  }
-  return output;
-}
-
-/**
  * Result of rate limit detection
  */
 export interface RateLimitDetectionResult {
@@ -321,6 +302,7 @@ function getBillingFailureMessage(failureType: 'insufficient_credits' | 'payment
       return 'A billing error occurred with your Claude API account. Please check your payment method or switch to another profile in Settings > Claude Profiles.';
     case 'subscription_inactive':
       return 'Your Claude API subscription is inactive or expired. Please renew your subscription or switch to another profile in Settings > Claude Profiles.';
+    case 'unknown':
     default:
       return 'A billing issue was detected with your Claude API account. Please check your account status or switch to another profile in Settings > Claude Profiles.';
   }
@@ -363,6 +345,48 @@ export function detectAuthFailure(
  */
 export function isAuthFailureError(output: string): boolean {
   return detectAuthFailure(output).isAuthFailure;
+}
+
+/**
+ * Detect billing failure from output (stdout + stderr combined)
+ */
+export function detectBillingFailure(
+  output: string,
+  profileId?: string
+): BillingFailureDetectionResult {
+  // First, make sure this isn't a rate limit or auth error (those should be handled separately)
+  if (detectRateLimit(output).isRateLimited) {
+    return { isBillingFailure: false };
+  }
+  if (detectAuthFailure(output).isAuthFailure) {
+    return { isBillingFailure: false };
+  }
+
+  // Check for billing failure patterns
+  for (const pattern of BILLING_FAILURE_PATTERNS) {
+    if (pattern.test(output)) {
+      const profileManager = getClaudeProfileManager();
+      const effectiveProfileId = profileId || profileManager.getActiveProfile().id;
+      const failureType = classifyBillingFailureType(output);
+
+      return {
+        isBillingFailure: true,
+        profileId: effectiveProfileId,
+        failureType,
+        message: getBillingFailureMessage(failureType),
+        originalError: output
+      };
+    }
+  }
+
+  return { isBillingFailure: false };
+}
+
+/**
+ * Check if output contains billing failure error
+ */
+export function isBillingFailureError(output: string): boolean {
+  return detectBillingFailure(output).isBillingFailure;
 }
 
 /**
