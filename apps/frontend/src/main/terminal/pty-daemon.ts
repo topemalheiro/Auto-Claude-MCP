@@ -261,7 +261,7 @@ class PtyDaemon {
       throw new Error('Cannot create PTY: daemon is shutting down');
     }
 
-    const id = `pty-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+    const id = `pty-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
     try {
       const ptyProcess = pty.spawn(config.shell, config.shellArgs, {
@@ -357,12 +357,7 @@ class PtyDaemon {
       managed.process.write(data);
     } catch (error) {
       // PTY process may have been destroyed during teardown
-      const safeMsg = error instanceof Error ? error.message : String(error);
-      const sanitized = safeMsg
-        // biome-ignore lint/suspicious/noControlCharactersInRegex: Intentionally matching control chars for sanitization
-        .replace(/[\x00-\x1F\x7F]/g, ' ')
-        .slice(0, 200);
-      console.error('[PTY Daemon] Error writing to PTY:', sanitizeIdForLog(id), sanitized);
+      console.error('[PTY Daemon] Error writing to PTY:', sanitizeIdForLog(id), error);
       managed.isDead = true;
     }
   }
@@ -385,12 +380,7 @@ class PtyDaemon {
       managed.config.rows = rows;
     } catch (error) {
       // PTY process may have been destroyed during teardown
-      const safeMsg = error instanceof Error ? error.message : String(error);
-      const sanitized = safeMsg
-        // biome-ignore lint/suspicious/noControlCharactersInRegex: Intentionally matching control chars for sanitization
-        .replace(/[\x00-\x1F\x7F]/g, ' ')
-        .slice(0, 200);
-      console.error('[PTY Daemon] Error resizing PTY:', sanitizeIdForLog(id), sanitized);
+      console.error('[PTY Daemon] Error resizing PTY:', sanitizeIdForLog(id), error);
       managed.isDead = true;
     }
   }
@@ -409,12 +399,7 @@ class PtyDaemon {
       try {
         managed.process.kill();
       } catch (error) {
-        const safeMsg = error instanceof Error ? error.message : String(error);
-        const sanitized = safeMsg
-          // biome-ignore lint/suspicious/noControlCharactersInRegex: Intentionally matching control chars for sanitization
-          .replace(/[\x00-\x1F\x7F]/g, ' ')
-          .slice(0, 200);
-        console.error('[PTY Daemon] Error killing PTY:', sanitizeIdForLog(id), sanitized);
+        console.error('[PTY Daemon] Error killing PTY:', sanitizeIdForLog(id), error);
       }
     }
 
@@ -515,12 +500,7 @@ class PtyDaemon {
           try {
             managed.process.kill();
           } catch (error) {
-            const safeMsg = error instanceof Error ? error.message : String(error);
-            const sanitized = safeMsg
-              // biome-ignore lint/suspicious/noControlCharactersInRegex: Intentionally matching control chars for sanitization
-              .replace(/[\x00-\x1F\x7F]/g, ' ')
-              .slice(0, 200);
-            console.error('[PTY Daemon] Error killing PTY:', sanitizeIdForLog(managed.id), sanitized);
+            console.error('[PTY Daemon] Error killing PTY:', sanitizeIdForLog(managed.id), error);
           }
         }
       });
