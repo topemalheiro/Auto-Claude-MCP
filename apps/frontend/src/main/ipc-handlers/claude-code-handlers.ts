@@ -23,7 +23,7 @@ import { isSecurePath } from '../utils/windows-paths';
 import { isWindows, isMacOS, isLinux } from '../platform';
 import { getClaudeProfileManager } from '../claude-profile-manager';
 import { isValidConfigDir } from '../utils/config-path-validator';
-import { clearKeychainCache } from '../claude-profile/credential-utils';
+import { clearKeychainCache, getCredentialsFromKeychain } from '../claude-profile/credential-utils';
 import { getUsageMonitor } from '../claude-profile/usage-monitor';
 import semver from 'semver';
 
@@ -890,8 +890,8 @@ function checkProfileAuthentication(configDir: string): AuthCheckResult {
       }
     }
 
-    // On Linux, also check .credentials.json (Claude CLI may store tokens here)
-    if (isLinux() && existsSync(credentialsJsonPath)) {
+    // On Linux and Windows, also check .credentials.json (Claude CLI stores tokens here)
+    if ((isLinux() || isWindows()) && existsSync(credentialsJsonPath)) {
       const content = readFileSync(credentialsJsonPath, 'utf-8');
       const data = JSON.parse(content);
 
