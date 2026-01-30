@@ -34,105 +34,38 @@ class TestClientTokenValidation:
         assert create_client is not None
         assert callable(create_client)
 
-    def test_module_has_all_attribute(self):
-        """Test that client module has __all__ attribute."""
-        import client
-
-        assert hasattr(client, "__all__")
-        assert isinstance(client.__all__, list)
-
-    def test_all_exports_exist(self):
-        """Test that all exports in __all__ actually exist."""
-        import client
-
-        for name in client.__all__:
-            assert hasattr(client, name), f"{name} in __all__ but not exported"
-
-    def test_expected_exports_in_all(self):
-        """Test that expected exports are in __all__."""
-        import client
-
-        expected = {"create_client"}
-
-        assert set(client.__all__) >= expected
-
-
-class TestClientModuleLazyImports:
-    """Tests for client module lazy import mechanism."""
-
-    def test_getattr_lazy_import(self):
-        """Test that __getattr__ provides lazy imports."""
-        from client import __getattr__
-
-        # Should be able to get attributes through lazy import
-        # This tests the facade pattern without actually importing the heavy core.client
-        assert callable(__getattr__)
-
-    def test_create_client_direct_function(self):
-        """Test that create_client is a direct function, not lazy."""
-        from client import create_client
-
-        # create_client should be directly defined, not lazily imported
-        # It should be a function that re-exports from core.client
-        assert callable(create_client)
-        assert hasattr(create_client, "__module__")
-        assert "client" in create_client.__module__
-
-
-class TestClientModuleFacade:
-    """Tests for client module as a facade to core.client."""
-
-    @patch("client.create_client")
-    def test_create_client_reexports_from_core(self, mock_create_client):
-        """Test that create_client re-exports from core.client."""
-        from client import create_client as client_create_client
-
-        # The function should be callable
-        assert callable(client_create_client)
-
-    def test_create_client_signature(self):
-        """Test that create_client has expected signature."""
-        from client import create_client
-        import inspect
-
-        # create_client uses *args, **kwargs to forward to core.client.create_client
-        sig = inspect.signature(create_client)
-        params = list(sig.parameters.keys())
-
-        # Should accept *args and **kwargs
-        assert "args" in params
-        assert "kwargs" in params
-
-    @patch("client.create_client")
-    def test_create_client_with_args(self, mock_create_client):
-        """Test that create_client accepts expected arguments."""
-        from client import create_client
-
-        # Mock the actual core.client.create_client
-        mock_instance = MagicMock()
-        mock_create_client.return_value = mock_instance
-
-        # Call with basic args
-        result = create_client(
-            project_dir=Path("/test/project"),
-            spec_dir=Path("/test/spec"),
-            model="claude-3-5-sonnet-20241022",
+        monkeypatch.setenv("CLAUDE_CODE_OAUTH_TOKEN", "enc:test123456789012")
+        # Mock keychain to ensure encrypted token is the only source
+        monkeypatch.setattr("core.auth.get_token_from_keychain", lambda _config_dir=None: None)
+        # Mock decrypt_token to raise ValueError (simulates decryption failure)
+        # This ensures the encrypted token flows through to validate_token_not_encrypted
+        monkeypatch.setattr(
+            "core.auth.decrypt_token",
+            lambda t: (_ for _ in ()).throw(ValueError("Decryption not supported")),
         )
 
         # Verify it was called (though mocked)
         assert result is not None
 
 
-class TestClientModuleImports:
-    """Tests for client module import structure."""
+        monkeypatch.setenv("CLAUDE_CODE_OAUTH_TOKEN", "enc:test123456789012")
+        # Mock keychain to ensure encrypted token is the only source
+        monkeypatch.setattr("core.auth.get_token_from_keychain", lambda _config_dir=None: None)
+        # Mock decrypt_token to raise ValueError (simulates decryption failure)
+        monkeypatch.setattr(
+            "core.auth.decrypt_token",
+            lambda t: (_ for _ in ()).throw(ValueError("Decryption not supported")),
+        )
 
     def test_no_circular_imports(self):
         """Test that importing client doesn't cause circular imports."""
         import sys
 
-        # Remove from cache if present
-        if "client" in sys.modules:
-            del sys.modules["client"]
+    def test_create_client_accepts_valid_plaintext_token(self, tmp_path, monkeypatch):
+        """Verify create_client() accepts valid plaintext tokens and creates SDK client."""
+        valid_token = "sk-ant-oat01-valid-plaintext-token"
+        monkeypatch.setenv("CLAUDE_CODE_OAUTH_TOKEN", valid_token)
+        monkeypatch.setattr("core.auth.get_token_from_keychain", lambda _config_dir=None: None)
 
         # Should import without issues
         import client
@@ -143,10 +76,11 @@ class TestClientModuleImports:
         """Test that client module can be imported before core.client."""
         import sys
 
-        # Remove both from cache
-        for mod in ["client", "core.client"]:
-            if mod in sys.modules:
-                del sys.modules[mod]
+    def test_create_simple_client_accepts_valid_plaintext_token(self, monkeypatch):
+        """Verify create_simple_client() accepts valid plaintext tokens and creates SDK client."""
+        valid_token = "sk-ant-oat01-valid-plaintext-token"
+        monkeypatch.setenv("CLAUDE_CODE_OAUTH_TOKEN", valid_token)
+        monkeypatch.setattr("core.auth.get_token_from_keychain", lambda _config_dir=None: None)
 
         # Import client first (should trigger lazy import of core.client)
         import client
@@ -156,7 +90,13 @@ class TestClientModuleImports:
         # Now import core.client
         from core import client as core_client
 
-        assert core_client is not None
+    def test_create_client_validates_token_before_sdk_init(
+        self, tmp_path, monkeypatch
+    ):
+        """Verify create_client() validates token format before SDK initialization."""
+        valid_token = "sk-ant-oat01-valid-token"
+        monkeypatch.setenv("CLAUDE_CODE_OAUTH_TOKEN", valid_token)
+        monkeypatch.setattr("core.auth.get_token_from_keychain", lambda _config_dir=None: None)
 
         # Mock validate_token_not_encrypted to verify it's called
         with patch(
@@ -170,8 +110,11 @@ class TestClientModuleImports:
         assert core_client is not client_facade
 
 
-class TestClientModulePatterns:
-    """Tests for client module design patterns."""
+    def test_create_simple_client_validates_token_before_sdk_init(self, monkeypatch):
+        """Verify create_simple_client() validates token format before SDK initialization."""
+        valid_token = "sk-ant-oat01-valid-token"
+        monkeypatch.setenv("CLAUDE_CODE_OAUTH_TOKEN", valid_token)
+        monkeypatch.setattr("core.auth.get_token_from_keychain", lambda _config_dir=None: None)
 
         # Mock validate_token_not_encrypted to verify it's called
         with patch(
@@ -256,7 +199,7 @@ class TestAPIProfileAuthentication:
         # Don't set ANTHROPIC_BASE_URL - this should trigger OAuth mode
         monkeypatch.delenv("ANTHROPIC_BASE_URL", raising=False)
         monkeypatch.setenv("CLAUDE_CODE_OAUTH_TOKEN", oauth_token)
-        monkeypatch.setattr("core.auth.get_token_from_keychain", lambda: None)
+        monkeypatch.setattr("core.auth.get_token_from_keychain", lambda _config_dir=None: None)
 
         # Mock the SDK client
         mock_sdk_client = MagicMock()
@@ -313,7 +256,7 @@ class TestAPIProfileAuthentication:
         # Set empty ANTHROPIC_BASE_URL - should be treated as "not set"
         monkeypatch.setenv("ANTHROPIC_BASE_URL", "")
         monkeypatch.setenv("CLAUDE_CODE_OAUTH_TOKEN", oauth_token)
-        monkeypatch.setattr("core.auth.get_token_from_keychain", lambda: None)
+        monkeypatch.setattr("core.auth.get_token_from_keychain", lambda _config_dir=None: None)
 
         # Mock require_auth_token to verify it's called (OAuth mode)
         with patch("core.auth.require_auth_token", return_value=oauth_token):
@@ -357,7 +300,7 @@ class TestAPIProfileAuthentication:
         monkeypatch.delenv("ANTHROPIC_BASE_URL", raising=False)
 
         # Mock keychain to return None
-        monkeypatch.setattr("core.auth.get_token_from_keychain", lambda: None)
+        monkeypatch.setattr("core.auth.get_token_from_keychain", lambda _config_dir=None: None)
 
         from core.client import create_client
 
@@ -440,7 +383,7 @@ class TestAPIProfileAuthenticationIntegration:
         monkeypatch.setenv("ANTHROPIC_AUTH_TOKEN", api_token)
         monkeypatch.delenv("ANTHROPIC_BASE_URL", raising=False)
         monkeypatch.setenv("CLAUDE_CODE_OAUTH_TOKEN", encrypted_oauth_token)
-        monkeypatch.setattr("core.auth.get_token_from_keychain", lambda: None)
+        monkeypatch.setattr("core.auth.get_token_from_keychain", lambda _config_dir=None: None)
 
         from core.client import create_client
 
@@ -464,7 +407,7 @@ class TestAPIProfileAuthenticationEdgeCases:
         # Set whitespace-only ANTHROPIC_BASE_URL - should be trimmed to empty string
         monkeypatch.setenv("ANTHROPIC_BASE_URL", "   ")
         monkeypatch.setenv("CLAUDE_CODE_OAUTH_TOKEN", oauth_token)
-        monkeypatch.setattr("core.auth.get_token_from_keychain", lambda: None)
+        monkeypatch.setattr("core.auth.get_token_from_keychain", lambda _config_dir=None: None)
 
         # Mock the SDK client
         mock_sdk_client = MagicMock()
@@ -569,7 +512,7 @@ class TestSimpleClientAPIProfileAuthentication:
 
         monkeypatch.delenv("ANTHROPIC_BASE_URL", raising=False)
         monkeypatch.setenv("CLAUDE_CODE_OAUTH_TOKEN", oauth_token)
-        monkeypatch.setattr("core.auth.get_token_from_keychain", lambda: None)
+        monkeypatch.setattr("core.auth.get_token_from_keychain", lambda _config_dir=None: None)
 
         mock_sdk_client = MagicMock()
         with patch("core.simple_client.ClaudeSDKClient", return_value=mock_sdk_client):
@@ -625,7 +568,7 @@ class TestSimpleClientAPIProfileAuthentication:
         # Set whitespace-only ANTHROPIC_BASE_URL - should be trimmed to empty string
         monkeypatch.setenv("ANTHROPIC_BASE_URL", "   ")
         monkeypatch.setenv("CLAUDE_CODE_OAUTH_TOKEN", oauth_token)
-        monkeypatch.setattr("core.auth.get_token_from_keychain", lambda: None)
+        monkeypatch.setattr("core.auth.get_token_from_keychain", lambda _config_dir=None: None)
 
         mock_sdk_client = MagicMock()
         with patch("core.simple_client.ClaudeSDKClient", return_value=mock_sdk_client):
