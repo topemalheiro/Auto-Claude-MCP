@@ -95,18 +95,6 @@
     "linux": "Linux",
     "unknown": "your OS"
   },
-  "actions": {
-    "save": "Save",
-    "apply": "Apply",
-    "delete": "Delete",
-    "settings": "Settings"
-  },
-  "os": {
-    "windows": "Windows",
-    "macos": "macOS",
-    "linux": "Linux",
-    "unknown": "your OS"
-  },
   "labels": {
     "loading": "Loading...",
     "error": "Error",
@@ -118,7 +106,8 @@
     "optional": "Optional",
     "required": "Required",
     "dismiss": "Dismiss",
-    "important": "Important"
+    "important": "Important",
+    "orphaned": "(orphaned)"
   },
   "selection": {
     "select": "Select",

@@ -9,7 +9,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { GIT_BRANCH_REGEX, validateWorktreeBranch } from '../worktree-branch-utils';
+import { GIT_BRANCH_REGEX, validateWorktreeBranch } from '../worktree-handlers';
 
 describe('GIT_BRANCH_REGEX', () => {
   it('should accept valid auto-claude branch names', () => {

@@ -95,18 +95,6 @@
     "linux": "Linux",
     "unknown": "Inconnu"
   },
-  "actions": {
-    "save": "Enregistrer",
-    "apply": "Appliquer",
-    "delete": "Supprimer",
-    "settings": "Paramètres"
-  },
-  "os": {
-    "windows": "Windows",
-    "macos": "macOS",
-    "linux": "Linux",
-    "unknown": "Inconnu"
-  },
   "labels": {
     "loading": "Chargement...",
     "error": "Erreur",
@@ -118,7 +106,8 @@
     "optional": "Optionnel",
     "required": "Requis",
     "dismiss": "Ignorer",
-    "important": "Important"
+    "important": "Important",
+    "orphaned": "(orphelin)"
   },
   "selection": {
     "select": "Sélectionner",

@@ -8,7 +8,8 @@ import { titleGenerator } from '../../title-generator';
 import { AgentManager } from '../../agent';
 import { findTaskAndProject } from './shared';
 import { findAllSpecPaths, isValidTaskId } from '../../utils/spec-path-helpers';
-import { isPathWithinBase } from '../../worktree-paths';
+import { isPathWithinBase, findTaskWorktree } from '../../worktree-paths';
+import { cleanupWorktree } from '../../utils/worktree-cleanup';
 
 /**
  * Register task CRUD (Create, Read, Update, Delete) handlers
