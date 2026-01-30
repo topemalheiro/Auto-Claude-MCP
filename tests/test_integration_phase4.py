@@ -84,11 +84,10 @@ if _pydantic_was_mocked:
 
 # Load agent_utils (shared utility for working directory injection)
 agent_utils_spec = importlib.util.spec_from_file_location(
-    "agent_utils",
-    backend_path / "runners" / "github" / "services" / "agent_utils.py"
+    "agent_utils", backend_path / "runners" / "github" / "services" / "agent_utils.py"
 )
 agent_utils_module = importlib.util.module_from_spec(agent_utils_spec)
-sys.modules['services.agent_utils'] = agent_utils_module
+sys.modules["services.agent_utils"] = agent_utils_module
 agent_utils_spec.loader.exec_module(agent_utils_module)
 
 # Load parallel_orchestrator_reviewer (contains _is_finding_in_scope and _cross_validate_findings)
@@ -137,6 +136,7 @@ _is_finding_in_scope = orchestrator_module._is_finding_in_scope
 # Phase 5+ Tests: Scope Filtering (Updated)
 # =============================================================================
 
+
 class TestScopeFiltering:
     """Test scope filtering logic (updated for Phase 5 - uses is_impact_finding schema field)."""
 
@@ -149,11 +149,12 @@ class TestScopeFiltering:
         ParallelOrchestratorFinding Pydantic model. The actual code uses
         getattr(finding, 'is_impact_finding', False) to access it.
         """
+
         def _make_finding(
             file: str = "src/test.py",
             line: int = 10,
             is_impact_finding: bool = False,
-            **kwargs
+            **kwargs,
         ):
             defaults = {
                 "id": "TEST001",
@@ -169,6 +170,7 @@ class TestScopeFiltering:
             # Set is_impact_finding as attribute (accessed via getattr in _is_finding_in_scope)
             finding.is_impact_finding = is_impact_finding
             return finding
+
         return _make_finding
 
     def test_finding_in_changed_files_passes(self, make_finding):
@@ -214,7 +216,7 @@ class TestScopeFiltering:
             file="src/utils.py",
             line=10,
             is_impact_finding=True,  # Schema field replaces keyword detection
-            description="This change breaks the helper function in utils.py"
+            description="This change breaks the helper function in utils.py",
         )
         is_valid, _ = _is_finding_in_scope(finding, changed_files)
         assert is_valid
@@ -228,7 +230,7 @@ class TestScopeFiltering:
             file="src/database.py",
             line=20,
             is_impact_finding=False,
-            description="database.py depends on modified auth module"
+            description="database.py depends on modified auth module",
         )
         is_valid, reason = _is_finding_in_scope(finding, changed_files)
         assert not is_valid
@@ -451,8 +453,12 @@ class TestReverseDepDetection:
         # Method now intentionally returns empty set
         assert dependents == set()
 
-    def test_generic_names_not_skipped(self, tmp_path):
-        """Generic names (index, main, utils) are no longer skipped - LLM decides relevance."""
+    def test_find_dependents_empty_for_any_file(self, tmp_path):
+        """Verify _find_dependents() returns empty for any input.
+
+        The LLM-driven architecture means agents decide what's relevant,
+        not programmatic scanning.
+        """
         src_dir = tmp_path / "src"
         src_dir.mkdir()
 
@@ -462,15 +468,11 @@ class TestReverseDepDetection:
         gatherer = PRContextGathererIsolated(tmp_path, pr_number=1)
         dependents = gatherer._find_dependents("src/index.ts")
 
-        # Generic names should NOT be skipped anymore (behavior changed in Phase 4)
-        # The LLM-driven system decides what's relevant based on PR context
-        dependents_index = gatherer._find_dependents("src/index.ts")
+        # Returns empty - LLM agents handle file discovery
+        assert dependents == set()
 
-        # main.ts imports index, so it should be found as a dependent
-        assert "src/main.ts" in dependents_index
-
-    def test_respects_file_limit(self, tmp_path):
-        """Large repo search should stop after reaching file limit."""
+    def test_find_dependents_returns_set_type(self, tmp_path):
+        """Verify _find_dependents() returns correct type (set)."""
         src_dir = tmp_path / "src"
         src_dir.mkdir()
         (src_dir / "file.ts").write_text("export const x = 1;")

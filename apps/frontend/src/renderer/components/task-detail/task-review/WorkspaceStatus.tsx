@@ -136,33 +136,20 @@ export function WorkspaceStatus({
   }, [isMerging]);
 
   // Minimum display time: keep overlay visible for at least 500ms after merge ends
-  // Also wait for terminal progress event (complete/error) to avoid hiding before final message
   useEffect(() => {
     if (!isMerging && showOverlay && mergeStartTimeRef.current !== null) {
-      // Check if we received a terminal progress event (complete or error)
-      const hasTerminalEvent = mergeProgress?.stage === 'complete' || mergeProgress?.stage === 'error';
+      const elapsed = Date.now() - mergeStartTimeRef.current;
+      const MIN_DISPLAY_MS = 500;
+      const remaining = Math.max(0, MIN_DISPLAY_MS - elapsed);
 
-      // Only hide if we have a terminal event OR if a fallback timeout expires
-      if (hasTerminalEvent) {
-        const elapsed = Date.now() - mergeStartTimeRef.current;
-        const MIN_DISPLAY_MS = 500;
-        const remaining = Math.max(0, MIN_DISPLAY_MS - elapsed);
-
-        if (remaining > 0) {
-          minDisplayTimerRef.current = setTimeout(() => {
-            setShowOverlay(false);
-            mergeStartTimeRef.current = null;
-          }, remaining);
-        } else {
-          setShowOverlay(false);
-          mergeStartTimeRef.current = null;
-        }
-      } else {
-        // Fallback: hide after 2s if no terminal event received (defensive)
+      if (remaining > 0) {
         minDisplayTimerRef.current = setTimeout(() => {
           setShowOverlay(false);
           mergeStartTimeRef.current = null;
-        }, 2000);
+        }, remaining);
+      } else {
+        setShowOverlay(false);
+        mergeStartTimeRef.current = null;
       }
     }
 
@@ -172,7 +159,7 @@ export function WorkspaceStatus({
         minDisplayTimerRef.current = null;
       }
     };
-  }, [isMerging, showOverlay, mergeProgress?.stage]);
+  }, [isMerging, showOverlay]);
 
   // Subscribe to merge progress IPC events
   useEffect(() => {
@@ -187,32 +174,24 @@ export function WorkspaceStatus({
       }
     };
 
-    const cleanup = window.electronAPI.onMergeProgress((eventTaskId: string, progress: MergeProgress) => {
-      // Filter by task ID to prevent cross-task event leakage
-      if (eventTaskId !== taskId) return;
-
+    const cleanup = window.electronAPI.onMergeProgress((_taskId: string, progress: MergeProgress) => {
       setMergeProgress(progress);
-      setLogEntries(prev => {
-        const newEntry = {
+      setLogEntries(prev => [
+        ...prev,
+        {
           timestamp: new Date().toISOString(),
           type: stageToLogType(progress.stage),
           message: progress.message,
           details: progress.details?.current_file,
-        };
-        // Limit log entries to prevent unbounded growth during long merges
-        const updated = [...prev, newEntry];
-        if (updated.length > MAX_LOG_ENTRIES) {
-          return updated.slice(-MAX_LOG_ENTRIES);
         }
-        return updated;
-      });
+      ]);
     });
 
     // Store cleanup ref so we can call it on unmount even if isMerging changes
     ipcCleanupRef.current = cleanup;
 
     return cleanup;
-  }, [isMerging, taskId]);
+  }, [isMerging]);
 
   // Ensure IPC listener cleanup on unmount during active merge
   useEffect(() => {

@@ -134,13 +134,13 @@ async def bash_security_hook(
                 cmd_segment = command
 
             validator = VALIDATORS[cmd]
-            validator_allowed, validator_reason = validator(cmd_segment)
-            if not validator_allowed:
+            allowed, reason = validator(cmd_segment)
+            if not allowed:
                 return {
                     "hookSpecificOutput": {
                         "hookEventName": "PreToolUse",
                         "permissionDecision": "deny",
-                        "permissionDecisionReason": validator_reason,
+                        "permissionDecisionReason": reason,
                     }
                 }
 

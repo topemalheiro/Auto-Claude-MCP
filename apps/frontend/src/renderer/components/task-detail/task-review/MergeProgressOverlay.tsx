@@ -82,7 +82,7 @@ export function MergeProgressOverlay({ mergeProgress, logEntries }: MergeProgres
     if (logsExpanded && logContainerRef.current) {
       logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight;
     }
-  }, [logsExpanded]);
+  }, [logEntries, logsExpanded]);
 
   if (!mergeProgress) {
     return null;

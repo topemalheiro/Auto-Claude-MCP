@@ -46,7 +46,6 @@ import type {
   TaskLogs,
   TaskLogStreamChunk,
   ImageAttachment,
-  ReviewReason,
   MergeProgress
 } from './task';
 import type {
@@ -139,7 +138,6 @@ import type {
   GitLabNewCommitsCheck
 } from './integrations';
 import type { APIProfile, ProfilesFile, TestConnectionResult, DiscoverModelsResult } from './profile';
-import type { KanbanPreferences } from './kanban';
 
 // ============================================
 // Branch Types
@@ -190,7 +188,7 @@ export interface ElectronAPI {
   getTabState: () => Promise<IPCResult<TabState>>;
   saveTabState: (tabState: TabState) => Promise<IPCResult>;
 
-  // Kanban Preferences (persisted in main process per project)
+  // Kanban preferences (per-project column collapse state)
   getKanbanPreferences: (projectId: string) => Promise<IPCResult<KanbanPreferences | null>>;
   saveKanbanPreferences: (projectId: string, preferences: KanbanPreferences) => Promise<IPCResult>;
 
