@@ -19,7 +19,7 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy
 } from '@dnd-kit/sortable';
-import { Plus, Inbox, Loader2, Eye, CheckCircle2, Archive, RefreshCw, GitPullRequest, X, Timer } from 'lucide-react';
+import { Plus, Inbox, Loader2, Eye, CheckCircle2, Archive, RefreshCw, GitPullRequest, X } from 'lucide-react';
 import { Checkbox } from './ui/checkbox';
 import { ScrollArea } from './ui/scroll-area';
 import { Button } from './ui/button';
@@ -944,25 +944,48 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     <div className="flex h-full flex-col">
       {/* Kanban header with auto-resume toggle and refresh button */}
       <div className="flex items-center justify-end gap-4 px-6 pt-4 pb-2">
-        {/* Auto-Resume Toggle */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <div className="flex items-center gap-2">
-              <Timer className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm text-muted-foreground">
-                {t('kanban.autoResume')}
-              </span>
-              <Switch
-                id="kanban-auto-resume"
-                checked={autoResumeEnabled}
-                onCheckedChange={handleAutoResumeToggle}
-              />
-            </div>
-          </TooltipTrigger>
-          <TooltipContent side="bottom" className="max-w-xs">
-            <p>{t('kanban.autoResumeTooltip')}</p>
-          </TooltipContent>
-        </Tooltip>
+        {/* Auto-Resume Section */}
+        <div className="flex flex-col items-end gap-0.5">
+          {/* Section Header */}
+          <span className="text-[10px] uppercase tracking-wider text-muted-foreground/70">
+            {t('kanban.autoResumeHeader')}
+          </span>
+
+          {/* Toggles Row */}
+          <div className="flex items-center gap-3">
+            {/* Toggle 1: AR on Limit Reset */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex items-center gap-1.5">
+                  <Switch
+                    id="kanban-auto-resume-limit"
+                    checked={autoResumeEnabled}
+                    onCheckedChange={handleAutoResumeToggle}
+                    className="scale-90"
+                  />
+                  <span className="text-xs text-muted-foreground">
+                    {t('kanban.arLimitReset')}
+                  </span>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-xs">
+                <p>{t('kanban.autoResumeTooltip')}</p>
+              </TooltipContent>
+            </Tooltip>
+
+            {/* Toggle 2: Placeholder for future toggle */}
+            {/* <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex items-center gap-1.5">
+                  <Switch id="kanban-auto-resume-2" className="scale-90" />
+                  <span className="text-xs text-muted-foreground">
+                    {t('kanban.arManual')}
+                  </span>
+                </div>
+              </TooltipTrigger>
+            </Tooltip> */}
+          </div>
+        </div>
 
         {/* Refresh Button */}
         {onRefresh && (

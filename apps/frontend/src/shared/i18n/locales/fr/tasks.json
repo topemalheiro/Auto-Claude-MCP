@@ -96,7 +96,9 @@
     "createPRs": "Créer les PRs",
     "clearSelection": "Effacer la sélection",
     "autoResume": "Reprise auto",
-    "autoResumeTooltip": "Si activé, les tâches mises en pause à cause des limites de taux reprendront automatiquement quand la limite sera réinitialisée. Si désactivé, elles restent en Révision Humaine jusqu'à reprise manuelle."
+    "autoResumeHeader": "Reprise Auto",
+    "arLimitReset": "RA sur Réinit. Limite",
+    "autoResumeTooltip": "Si activé, les tâches pausées par limites de taux reprendront automatiquement."
   },
   "execution": {
     "phases": {

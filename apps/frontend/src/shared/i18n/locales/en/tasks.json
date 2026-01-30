@@ -96,7 +96,9 @@
     "createPRs": "Create PRs",
     "clearSelection": "Clear Selection",
     "autoResume": "Auto-Resume",
-    "autoResumeTooltip": "When enabled, tasks that pause due to rate limits will automatically resume when the limit resets. When disabled, they stay in Human Review until manually resumed."
+    "autoResumeHeader": "Auto Resume",
+    "arLimitReset": "AR on Limit Reset",
+    "autoResumeTooltip": "When enabled, tasks paused due to rate limits will automatically resume when the limit resets."
   },
   "execution": {
     "phases": {
