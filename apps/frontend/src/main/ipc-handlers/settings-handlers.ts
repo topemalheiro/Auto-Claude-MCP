@@ -859,7 +859,7 @@ export function registerSettingsHandlers(
           data: { success: true }
         };
       } catch (error) {
-        console.error('[SPELLCHECK_SET_LANGUAGES] Error:', error instanceof Error ? error.message : String(error));
+        console.error('[SPELLCHECK_SET_LANGUAGES] Error:', error);
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Failed to set spell check languages'
