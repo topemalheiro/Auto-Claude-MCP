@@ -25,7 +25,6 @@ from pathlib import Path
 from typing import Any
 
 from claude_agent_sdk import AgentDefinition
-
 from core.client import create_client
 from phase_config import get_thinking_budget, resolve_model_id
 from runners.github.context_gatherer import PRContext, _validate_git_ref
@@ -49,7 +48,6 @@ from runners.github.services.pydantic_models import (
     ParallelOrchestratorResponse,
 )
 from runners.github.services.sdk_utils import process_sdk_stream
-
 
 logger = logging.getLogger(__name__)
 

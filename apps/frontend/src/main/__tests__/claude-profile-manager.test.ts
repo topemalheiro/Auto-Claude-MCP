@@ -709,17 +709,19 @@ describe('ClaudeProfileManager', () => {
       expect(ids).toBeInstanceOf(Array);
     });
 
-    it('should clear migrated profile after re-authentication', () => {
-      // Add profile to migrated list first
-      const settings = manager.getSettings();
-      vi.mocked(profileStorage.loadProfileStore).mockReturnValue({
+    it('should clear migrated profile after re-authentication', async () => {
+      // Set up manager with migrated profile - must mock async loader
+      vi.mocked(profileStorage.loadProfileStoreAsync).mockResolvedValue({
         ...mockProfileData,
         migratedProfileIds: ['primary']
       });
 
-      // Create new manager with migrated profile
+      // Create new manager and initialize to load data
       const mgr = new ClaudeProfileManager();
-      vi.clearAllMocks();
+      await mgr.initialize();
+
+      // Clear only the call history, not the mock implementations
+      vi.mocked(profileStorage.saveProfileStore).mockClear();
 
       mgr.clearMigratedProfile('primary');
 

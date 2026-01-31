@@ -21,7 +21,6 @@ from pathlib import Path
 from typing import Any
 
 from core.gh_executable import get_gh_executable
-
 from runners.github.rate_limiter import RateLimiter, RateLimitExceeded
 
 # Configure logger

@@ -42,6 +42,7 @@ if env_file.exists():
     load_dotenv(env_file)
 
 from core.io_utils import safe_print
+
 from .models import GitLabRunnerConfig
 from .orchestrator import GitLabOrchestrator, ProgressCallback
 

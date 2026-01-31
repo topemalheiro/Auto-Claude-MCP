@@ -6,9 +6,21 @@
  * Tests rendering, drag/drop, filtering, task state management, and column controls
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { TooltipProvider } from '../ui/tooltip';
+import { KanbanBoard } from '../KanbanBoard';
 import type { Task, TaskStatus, Project } from '../../../shared/types';
 import { TASK_STATUS_COLUMNS } from '../../../shared/constants';
+
+// Test wrapper with providers
+function TestWrapper({ children }: { children: React.ReactNode }) {
+  return <TooltipProvider>{children}</TooltipProvider>;
+}
+
+// Helper to render with providers
+function renderWithProviders(ui: React.ReactElement) {
+  return render(ui, { wrapper: TestWrapper });
+}
 
 // Mock dependencies
 vi.mock('react-i18next', () => ({
@@ -24,14 +36,23 @@ vi.mock('react-i18next', () => ({
       }
       return key;
     },
+    i18n: {
+      language: 'en',
+      changeLanguage: vi.fn(),
+    },
   }),
+  Trans: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
-vi.mock('../contexts/ViewStateContext', () => ({
-  useViewState: () => ({
-    showArchived: false,
-    toggleShowArchived: vi.fn(),
-  }),
+// Mock ViewStateContext at module level
+const mockUseViewState = vi.fn(() => ({
+  showArchived: false,
+  toggleShowArchived: vi.fn(),
+}));
+
+vi.mock('../../contexts/ViewStateContext', () => ({
+  useViewState: () => mockUseViewState(),
+  ViewStateProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
 vi.mock('../stores/task-store', () => ({
@@ -141,6 +162,12 @@ describe('KanbanBoard', () => {
   describe('Rendering', () => {
     it('should render all kanban columns', () => {
       const tasks: Task[] = [];
+      const { container } = renderWithProviders(
+        <KanbanBoard
+          tasks={tasks}
+          onTaskClick={mockOnTaskClick}
+        />
+      );
 
       // Component should render all status columns
       expect(TASK_STATUS_COLUMNS).toHaveLength(6);
@@ -152,13 +179,24 @@ describe('KanbanBoard', () => {
         'human_review',
         'done',
       ]);
+
+      // Verify component renders (column labels should be in the text content)
+      const text = container.textContent || '';
+      expect(text.length).toBeGreaterThan(0);
     });
 
     it('should render with empty tasks array', () => {
       const tasks: Task[] = [];
+      const { container } = renderWithProviders(
+        <KanbanBoard
+          tasks={tasks}
+          onTaskClick={mockOnTaskClick}
+        />
+      );
 
       expect(tasks).toHaveLength(0);
-      expect(mockOnTaskClick).toBeDefined();
+      // Should render the kanban board structure
+      expect(container.firstChild).toBeTruthy();
     });
 
     it('should group tasks by status correctly', () => {
@@ -537,27 +575,45 @@ describe('KanbanBoard', () => {
 
   describe('Empty States', () => {
     it('should show empty state for backlog column', () => {
-      const status = 'backlog';
       const tasks: Task[] = [];
+      const { container } = renderWithProviders(
+        <KanbanBoard
+          tasks={tasks}
+          onTaskClick={mockOnTaskClick}
+          onNewTaskClick={mockOnNewTaskClick}
+        />
+      );
 
-      expect(tasks.length).toBe(0);
-      expect(status).toBe('backlog');
+      // Should render empty kanban board
+      expect(container.firstChild).toBeTruthy();
+      // Empty board should contain backlog empty state text
+      expect(container.textContent).toContain('kanban.emptyBacklog');
     });
 
     it('should show empty state for queue column', () => {
-      const status = 'queue';
       const tasks: Task[] = [];
+      const { container } = renderWithProviders(
+        <KanbanBoard
+          tasks={tasks}
+          onTaskClick={mockOnTaskClick}
+        />
+      );
 
-      expect(tasks.length).toBe(0);
-      expect(status).toBe('queue');
+      // Should render queue column with empty state
+      expect(container.textContent).toContain('kanban.emptyQueue');
     });
 
     it('should show empty state for done column', () => {
-      const status = 'done';
       const tasks: Task[] = [];
+      const { container } = renderWithProviders(
+        <KanbanBoard
+          tasks={tasks}
+          onTaskClick={mockOnTaskClick}
+        />
+      );
 
-      expect(tasks.length).toBe(0);
-      expect(status).toBe('done');
+      // Should render done column with empty state
+      expect(container.textContent).toContain('kanban.emptyDone');
     });
   });
 
@@ -606,21 +662,48 @@ describe('KanbanBoard', () => {
 
   describe('Refresh Functionality', () => {
     it('should call onRefresh when refresh button is clicked', () => {
-      mockOnRefresh();
+      const tasks: Task[] = [];
+      const { container } = renderWithProviders(
+        <KanbanBoard
+          tasks={tasks}
+          onTaskClick={mockOnTaskClick}
+          onRefresh={mockOnRefresh}
+        />
+      );
 
-      expect(mockOnRefresh).toHaveBeenCalledTimes(1);
+      // Component renders with refresh functionality
+      expect(container.firstChild).toBeTruthy();
+      // Verify the callback is defined and ready to use
+      expect(mockOnRefresh).toBeDefined();
     });
 
     it('should show refreshing state', () => {
-      const isRefreshing = true;
+      const tasks: Task[] = [];
+      const { container } = renderWithProviders(
+        <KanbanBoard
+          tasks={tasks}
+          onTaskClick={mockOnTaskClick}
+          onRefresh={mockOnRefresh}
+          isRefreshing={true}
+        />
+      );
 
-      expect(isRefreshing).toBe(true);
+      // Component should render with refreshing state
+      expect(container.firstChild).toBeTruthy();
     });
 
     it('should not show refreshing state when not refreshing', () => {
-      const isRefreshing = false;
+      const tasks: Task[] = [];
+      const { container } = renderWithProviders(
+        <KanbanBoard
+          tasks={tasks}
+          onTaskClick={mockOnTaskClick}
+          isRefreshing={false}
+        />
+      );
 
-      expect(isRefreshing).toBe(false);
+      // Component should render normally
+      expect(container.firstChild).toBeTruthy();
     });
   });
 

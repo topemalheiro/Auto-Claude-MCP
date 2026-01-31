@@ -12,7 +12,6 @@ from __future__ import annotations
 
 from runners.github.models import ReviewCategory
 
-
 # Map AI-generated category names to valid ReviewCategory enum values
 CATEGORY_MAPPING: dict[str, ReviewCategory] = {
     # Direct matches (already valid ReviewCategory values)
