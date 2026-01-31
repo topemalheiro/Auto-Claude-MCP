@@ -495,7 +495,8 @@ server.tool(
 
     // Filter tasks that need intervention
     const tasksNeedingHelp = result.data.filter(task => {
-      if (task.status !== 'human_review') return false;
+      // Check both human_review AND in_progress tasks (stuck tasks can be in either state)
+      if (task.status !== 'human_review' && task.status !== 'in_progress') return false;
 
       // JSON error tasks
       if (task.description?.startsWith('__JSON_ERROR__:')) return true;
@@ -505,6 +506,18 @@ server.tool(
 
       // Incomplete tasks (subtasks not all completed)
       if (task.subtasks && task.subtasks.some((s: { status: string }) => s.status !== 'completed')) return true;
+
+      // For in_progress tasks, also check for stale timestamp (no activity in 5+ minutes)
+      if (task.status === 'in_progress' && task.updatedAt) {
+        const lastUpdate = new Date(task.updatedAt).getTime();
+        const now = Date.now();
+        const fiveMinutesAgo = now - (5 * 60 * 1000);
+
+        // If task is in_progress but hasn't been updated in 5+ minutes AND has incomplete subtasks, flag it
+        if (lastUpdate < fiveMinutesAgo && task.subtasks && task.subtasks.some((s: { status: string }) => s.status !== 'completed')) {
+          return true;
+        }
+      }
 
       return false;
     });
