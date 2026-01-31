@@ -594,5 +594,8 @@ export const IPC_CHANNELS = {
   // RDR (Recover Debug Resend) - Auto-recover stuck/errored tasks
   TRIGGER_RDR_PROCESSING: 'rdr:triggerProcessing',        // Trigger RDR processing for tasks
   RDR_TASK_PROCESSED: 'rdr:taskProcessed',                // Single task processed by RDR
-  RDR_PROCESSING_COMPLETE: 'rdr:processingComplete'       // All RDR processing complete
+  RDR_PROCESSING_COMPLETE: 'rdr:processingComplete',      // All RDR processing complete
+  RDR_BATCH_READY: 'rdr:batchReady',                      // Batch ready for MCP/Claude Code processing
+  RDR_BATCH_PROCESSED: 'rdr:batchProcessed',              // Batch processing complete
+  RDR_ITERATION_COMPLETE: 'rdr:iterationComplete'         // One iteration of batch processing done
 } as const;

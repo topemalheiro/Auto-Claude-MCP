@@ -3,6 +3,11 @@
  *
  * Handles automatic recovery, debugging, and resending of stuck/errored tasks.
  * Works in conjunction with MCP tools for Claude Manager to analyze and fix tasks.
+ *
+ * Processing modes:
+ * - Batch 1: JSON Errors → Auto-fix JSON structure
+ * - Batch 2: Incomplete Tasks → Auto-submit "Request Changes" to resume
+ * - Batch 3: QA Rejected / Other Errors → Queue for MCP/Claude Code analysis
  */
 
 import { ipcMain, BrowserWindow } from 'electron';
@@ -26,7 +31,22 @@ interface TaskInfo {
   status: string;
   reviewReason?: string;
   description?: string;
-  subtasks?: Array<{ status: string }>;
+  subtasks?: Array<{ status: string; name?: string }>;
+}
+
+interface RdrBatch {
+  type: 'json_error' | 'incomplete' | 'qa_rejected' | 'errors';
+  taskIds: string[];
+  tasks: TaskInfo[];
+}
+
+interface RdrProcessingSummary {
+  processed: number;
+  jsonFixed: number;
+  fixSubmitted: number;
+  queuedForMcp: number;
+  results: RdrProcessResult[];
+  batches: Array<{ type: string; count: number }>;
 }
 
 /**
@@ -68,27 +88,24 @@ function attemptJsonFix(rawContent: string): string | null {
 }
 
 /**
- * Get task info from project store
+ * Get all task info for multiple tasks from project store
  */
-async function getTaskInfo(projectId: string, taskId: string): Promise<TaskInfo | null> {
-  const tasks = await projectStore.getTasks(projectId);
+async function getAllTaskInfo(projectId: string, taskIds: string[]): Promise<TaskInfo[]> {
+  const tasksResult = await projectStore.getTasks(projectId);
 
-  if (!tasks.success || !tasks.data) {
-    return null;
+  if (!tasksResult.success || !tasksResult.data) {
+    return [];
   }
 
-  const task = tasks.data.find(t => t.specId === taskId || t.id === taskId);
-  if (!task) {
-    return null;
-  }
-
-  return {
-    specId: task.specId,
-    status: task.status,
-    reviewReason: task.reviewReason,
-    description: task.description,
-    subtasks: task.subtasks
-  };
+  return tasksResult.data
+    .filter(t => taskIds.includes(t.specId) || taskIds.includes(t.id))
+    .map(task => ({
+      specId: task.specId,
+      status: task.status,
+      reviewReason: task.reviewReason,
+      description: task.description,
+      subtasks: task.subtasks
+    }));
 }
 
 /**
@@ -99,89 +116,224 @@ function getPlanPath(projectPath: string, specId: string): string {
 }
 
 /**
- * Process a single task for RDR intervention
+ * Categorize tasks into batches by problem type
  */
-async function processTaskForRdr(
-  projectId: string,
+function categorizeTasks(tasks: TaskInfo[]): RdrBatch[] {
+  const batches: RdrBatch[] = [];
+
+  // Batch 1: JSON Errors (tasks with JSON parse error in description)
+  const jsonErrors = tasks.filter(t => t.description?.startsWith(JSON_ERROR_PREFIX));
+  if (jsonErrors.length > 0) {
+    batches.push({ type: 'json_error', taskIds: jsonErrors.map(t => t.specId), tasks: jsonErrors });
+    console.log(`[RDR] Batch 1 - JSON Errors: ${jsonErrors.length} tasks`);
+  }
+
+  // Batch 2: Incomplete Tasks (has subtasks but not all completed, NOT an error state)
+  const incomplete = tasks.filter(t =>
+    t.status === 'human_review' &&
+    t.reviewReason !== 'errors' &&
+    !t.description?.startsWith(JSON_ERROR_PREFIX) &&
+    t.subtasks &&
+    t.subtasks.length > 0 &&
+    t.subtasks.some(s => s.status !== 'completed')
+  );
+  if (incomplete.length > 0) {
+    batches.push({ type: 'incomplete', taskIds: incomplete.map(t => t.specId), tasks: incomplete });
+    console.log(`[RDR] Batch 2 - Incomplete Tasks: ${incomplete.length} tasks`);
+  }
+
+  // Batch 3: QA Rejected
+  const qaRejected = tasks.filter(t =>
+    t.reviewReason === 'qa_rejected' &&
+    !t.description?.startsWith(JSON_ERROR_PREFIX)
+  );
+  if (qaRejected.length > 0) {
+    batches.push({ type: 'qa_rejected', taskIds: qaRejected.map(t => t.specId), tasks: qaRejected });
+    console.log(`[RDR] Batch 3 - QA Rejected: ${qaRejected.length} tasks`);
+  }
+
+  // Batch 4: Other Errors (not JSON errors)
+  const errors = tasks.filter(t =>
+    t.reviewReason === 'errors' &&
+    !t.description?.startsWith(JSON_ERROR_PREFIX)
+  );
+  if (errors.length > 0) {
+    batches.push({ type: 'errors', taskIds: errors.map(t => t.specId), tasks: errors });
+    console.log(`[RDR] Batch 4 - Other Errors: ${errors.length} tasks`);
+  }
+
+  return batches;
+}
+
+/**
+ * Submit "Request Changes" for a task (auto-resume with feedback)
+ * This writes QA_FIX_REQUEST.md and sets status to start_requested
+ */
+async function submitRequestChanges(
   projectPath: string,
   taskId: string,
-  mainWindow: BrowserWindow | null
+  feedback: string
 ): Promise<RdrProcessResult> {
   try {
-    const taskInfo = await getTaskInfo(projectId, taskId);
+    const specDir = path.join(projectPath, '.auto-claude', 'specs', taskId);
+    const fixRequestPath = path.join(specDir, 'QA_FIX_REQUEST.md');
+    const planPath = path.join(specDir, 'implementation_plan.json');
 
-    if (!taskInfo) {
-      return { taskId, action: 'error', error: 'Task not found' };
+    if (!existsSync(specDir)) {
+      return { taskId, action: 'error', error: 'Spec directory not found' };
     }
 
-    // Check for JSON parse error
-    if (taskInfo.description?.startsWith(JSON_ERROR_PREFIX)) {
-      const planPath = getPlanPath(projectPath, taskInfo.specId);
+    // Write fix request file
+    const content = `# Fix Request (RDR Auto-Generated)
 
-      if (existsSync(planPath)) {
-        const rawContent = readFileSync(planPath, 'utf-8');
-        const fixedContent = attemptJsonFix(rawContent);
+${feedback}
 
-        if (fixedContent && fixedContent !== rawContent) {
-          writeFileSync(planPath, fixedContent);
-          console.log(`[RDR] Fixed JSON for task ${taskId}`);
+---
+Generated at: ${new Date().toISOString()}
+Source: RDR Auto-Recovery System
+`;
+    writeFileSync(fixRequestPath, content);
+    console.log(`[RDR] Wrote fix request to ${fixRequestPath}`);
 
-          // Notify renderer to refresh task list
-          if (mainWindow) {
-            mainWindow.webContents.send(IPC_CHANNELS.TASK_LIST_REFRESH, projectId);
-          }
-
-          return { taskId, action: 'json_fixed' };
-        } else if (!fixedContent) {
-          return { taskId, action: 'json_unfixable', reason: 'Could not auto-fix JSON structure' };
-        }
-      }
-
-      return { taskId, action: 'json_unfixable', reason: 'Plan file not found' };
+    // Update implementation_plan.json to trigger restart
+    if (existsSync(planPath)) {
+      const plan = JSON.parse(readFileSync(planPath, 'utf-8'));
+      plan.status = 'start_requested';
+      plan.start_requested_at = new Date().toISOString();
+      plan.rdr_feedback = feedback;
+      plan.rdr_iteration = (plan.rdr_iteration || 0) + 1;
+      writeFileSync(planPath, JSON.stringify(plan, null, 2));
+      console.log(`[RDR] Set status=start_requested for task ${taskId}`);
     }
 
-    // Check for incomplete task (subtasks not all completed)
-    const hasIncompleteSubtasks = taskInfo.subtasks?.some(s => s.status !== 'completed');
-    if (hasIncompleteSubtasks && taskInfo.status === 'human_review') {
-      // For now, log that this task needs MCP intervention
-      // The actual fix request will be submitted via MCP tools
-      console.log(`[RDR] Task ${taskId} has incomplete subtasks - needs MCP intervention`);
-      return {
-        taskId,
-        action: 'no_action',
-        reason: 'Task has incomplete subtasks - use MCP tools to analyze and submit fix request'
-      };
-    }
-
-    // Check for QA rejected
-    if (taskInfo.reviewReason === 'qa_rejected') {
-      console.log(`[RDR] Task ${taskId} was QA rejected - needs MCP intervention`);
-      return {
-        taskId,
-        action: 'no_action',
-        reason: 'Task was QA rejected - use MCP tools to analyze and submit fix request'
-      };
-    }
-
-    // Check for error state
-    if (taskInfo.reviewReason === 'errors') {
-      console.log(`[RDR] Task ${taskId} has errors - needs MCP intervention`);
-      return {
-        taskId,
-        action: 'no_action',
-        reason: 'Task has errors - use MCP tools to analyze and submit fix request'
-      };
-    }
-
-    return { taskId, action: 'no_action', reason: 'Task does not need intervention' };
+    return { taskId, action: 'fix_submitted', reason: feedback };
   } catch (error) {
-    console.error(`[RDR] Error processing task ${taskId}:`, error);
-    return {
-      taskId,
-      action: 'error',
-      error: error instanceof Error ? error.message : String(error)
-    };
+    console.error(`[RDR] Failed to submit fix request for ${taskId}:`, error);
+    return { taskId, action: 'error', error: error instanceof Error ? error.message : String(error) };
   }
+}
+
+/**
+ * Process JSON error batch - auto-fix JSON files
+ */
+async function processJsonErrorBatch(
+  batch: RdrBatch,
+  projectPath: string,
+  mainWindow: BrowserWindow | null,
+  projectId: string
+): Promise<RdrProcessResult[]> {
+  const results: RdrProcessResult[] = [];
+
+  for (const task of batch.tasks) {
+    const planPath = getPlanPath(projectPath, task.specId);
+
+    if (existsSync(planPath)) {
+      const rawContent = readFileSync(planPath, 'utf-8');
+      const fixedContent = attemptJsonFix(rawContent);
+
+      if (fixedContent && fixedContent !== rawContent) {
+        writeFileSync(planPath, fixedContent);
+        console.log(`[RDR] Fixed JSON for task ${task.specId}`);
+
+        // Notify renderer to refresh task list
+        if (mainWindow) {
+          mainWindow.webContents.send(IPC_CHANNELS.TASK_LIST_REFRESH, projectId);
+        }
+
+        results.push({ taskId: task.specId, action: 'json_fixed' });
+      } else if (!fixedContent) {
+        results.push({ taskId: task.specId, action: 'json_unfixable', reason: 'Could not auto-fix JSON structure' });
+      } else {
+        results.push({ taskId: task.specId, action: 'json_fixed', reason: 'JSON was already valid' });
+      }
+    } else {
+      results.push({ taskId: task.specId, action: 'json_unfixable', reason: 'Plan file not found' });
+    }
+  }
+
+  return results;
+}
+
+/**
+ * Process incomplete tasks batch - auto-submit Request Changes to resume
+ */
+async function processIncompleteBatch(
+  batch: RdrBatch,
+  projectPath: string,
+  mainWindow: BrowserWindow | null,
+  projectId: string
+): Promise<RdrProcessResult[]> {
+  const results: RdrProcessResult[] = [];
+
+  for (const task of batch.tasks) {
+    const completedCount = task.subtasks?.filter(s => s.status === 'completed').length || 0;
+    const totalCount = task.subtasks?.length || 0;
+    const percentage = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+
+    const feedback = `## Resume Task (RDR Auto-Recovery)
+
+**Progress:** ${completedCount}/${totalCount} subtasks completed (${percentage}%)
+
+**Action Required:** Continue implementation from where it stopped. Complete the remaining ${totalCount - completedCount} subtasks.
+
+**Note:** This task was automatically resumed by the RDR system because it had incomplete subtasks.`;
+
+    const result = await submitRequestChanges(projectPath, task.specId, feedback);
+    results.push(result);
+
+    // Notify renderer
+    if (mainWindow) {
+      mainWindow.webContents.send(IPC_CHANNELS.RDR_TASK_PROCESSED, {
+        projectId,
+        taskId: task.specId,
+        result
+      });
+    }
+  }
+
+  return results;
+}
+
+/**
+ * Process QA rejected / error batches - queue for MCP/Claude Code analysis
+ */
+async function processMcpBatch(
+  batch: RdrBatch,
+  projectPath: string,
+  mainWindow: BrowserWindow | null,
+  projectId: string
+): Promise<RdrProcessResult[]> {
+  const results: RdrProcessResult[] = [];
+
+  // These batches need intelligent analysis - emit event for MCP/Claude Code
+  console.log(`[RDR] Batch type=${batch.type} queued for MCP/Claude Code analysis: ${batch.taskIds.length} tasks`);
+
+  // Emit event for MCP consumers to pick up
+  if (mainWindow) {
+    mainWindow.webContents.send(IPC_CHANNELS.RDR_BATCH_READY, {
+      projectId,
+      batchType: batch.type,
+      taskIds: batch.taskIds,
+      taskCount: batch.tasks.length,
+      tasks: batch.tasks.map(t => ({
+        specId: t.specId,
+        reviewReason: t.reviewReason,
+        description: t.description?.substring(0, 200), // Truncate for event
+        subtasksTotal: t.subtasks?.length || 0,
+        subtasksCompleted: t.subtasks?.filter(s => s.status === 'completed').length || 0
+      }))
+    });
+  }
+
+  for (const task of batch.tasks) {
+    results.push({
+      taskId: task.specId,
+      action: 'no_action',
+      reason: `Queued for Claude Code analysis via MCP (batch: ${batch.type})`
+    });
+  }
+
+  return results;
 }
 
 /**
@@ -192,7 +344,7 @@ export function registerRdrHandlers(): void {
 
   ipcMain.handle(
     IPC_CHANNELS.TRIGGER_RDR_PROCESSING,
-    async (event, projectId: string, taskIds: string[]): Promise<IPCResult<{ processed: number; results: RdrProcessResult[] }>> => {
+    async (event, projectId: string, taskIds: string[]): Promise<IPCResult<RdrProcessingSummary>> => {
       console.log(`[RDR] Processing ${taskIds.length} tasks for project ${projectId}`);
 
       // Get project path
@@ -205,27 +357,62 @@ export function registerRdrHandlers(): void {
         };
       }
 
-      // Get main window for sending refresh events
+      // Get main window for sending events
       const mainWindow = BrowserWindow.getAllWindows()[0] || null;
 
-      // Process each task
-      const results: RdrProcessResult[] = [];
+      // Get all task info
+      const tasks = await getAllTaskInfo(projectId, taskIds);
+      if (tasks.length === 0) {
+        return {
+          success: false,
+          error: 'No tasks found'
+        };
+      }
+
+      // Categorize tasks into batches
+      const batches = categorizeTasks(tasks);
+      console.log(`[RDR] Categorized into ${batches.length} batches`);
+
+      // Process each batch
+      const allResults: RdrProcessResult[] = [];
       let jsonFixedCount = 0;
+      let fixSubmittedCount = 0;
+      let queuedForMcpCount = 0;
+      const batchSummaries: Array<{ type: string; count: number }> = [];
 
-      for (const taskId of taskIds) {
-        const result = await processTaskForRdr(projectId, project.path, taskId, mainWindow);
-        results.push(result);
+      for (const batch of batches) {
+        let results: RdrProcessResult[] = [];
 
-        if (result.action === 'json_fixed') {
-          jsonFixedCount++;
+        switch (batch.type) {
+          case 'json_error':
+            // Auto-fix JSON errors
+            results = await processJsonErrorBatch(batch, project.path, mainWindow, projectId);
+            jsonFixedCount += results.filter(r => r.action === 'json_fixed').length;
+            break;
+
+          case 'incomplete':
+            // Auto-submit Request Changes for incomplete tasks
+            results = await processIncompleteBatch(batch, project.path, mainWindow, projectId);
+            fixSubmittedCount += results.filter(r => r.action === 'fix_submitted').length;
+            break;
+
+          case 'qa_rejected':
+          case 'errors':
+            // Queue for MCP/Claude Code analysis
+            results = await processMcpBatch(batch, project.path, mainWindow, projectId);
+            queuedForMcpCount += results.length;
+            break;
         }
 
-        // Emit progress event
+        allResults.push(...results);
+        batchSummaries.push({ type: batch.type, count: results.length });
+
+        // Emit batch processed event
         if (mainWindow) {
-          mainWindow.webContents.send(IPC_CHANNELS.RDR_TASK_PROCESSED, {
+          mainWindow.webContents.send(IPC_CHANNELS.RDR_BATCH_PROCESSED, {
             projectId,
-            taskId,
-            result
+            batchType: batch.type,
+            results
           });
         }
       }
@@ -236,17 +423,27 @@ export function registerRdrHandlers(): void {
           projectId,
           processed: taskIds.length,
           jsonFixed: jsonFixedCount,
-          results
+          fixSubmitted: fixSubmittedCount,
+          queuedForMcp: queuedForMcpCount,
+          batches: batchSummaries,
+          results: allResults
         });
       }
 
-      console.log(`[RDR] Processing complete: ${taskIds.length} tasks, ${jsonFixedCount} JSON fixed`);
+      console.log(`[RDR] Processing complete: ${taskIds.length} tasks`);
+      console.log(`[RDR]   - JSON fixed: ${jsonFixedCount}`);
+      console.log(`[RDR]   - Fix submitted (incomplete): ${fixSubmittedCount}`);
+      console.log(`[RDR]   - Queued for MCP: ${queuedForMcpCount}`);
 
       return {
         success: true,
         data: {
           processed: taskIds.length,
-          results
+          jsonFixed: jsonFixedCount,
+          fixSubmitted: fixSubmittedCount,
+          queuedForMcp: queuedForMcpCount,
+          results: allResults,
+          batches: batchSummaries
         }
       };
     }

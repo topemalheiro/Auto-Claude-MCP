@@ -583,31 +583,99 @@ server.tool(
 
 server.tool(
   'submit_task_fix_request',
-  'Submit a fix request for a task (equivalent to Request Changes)',
+  'Submit a fix request for a task (equivalent to Request Changes). This writes QA_FIX_REQUEST.md and sets status to start_requested to trigger task restart.',
   {
     projectId: z.string().describe('The project ID (UUID)'),
     taskId: z.string().describe('The task/spec ID'),
     feedback: z.string().describe('Description of what needs to be fixed')
   },
   async ({ projectId, taskId, feedback }) => {
-    // Note: Submitting fix requests requires IPC access which is only available within Electron context
-    // When running as standalone MCP server, we can only provide guidance
-    return {
-      content: [{
-        type: 'text' as const,
-        text: JSON.stringify({
-          success: false,
-          note: 'Submitting fix requests requires the MCP server to run within the Electron app context. ' +
-                'To submit this fix request: ' +
-                '1. Open the Auto-Claude UI ' +
-                '2. Find task ' + taskId + ' in Human Review ' +
-                '3. Enter the following in the Request Changes field: ' +
-                feedback,
-          taskId,
-          feedback
-        }, null, 2)
-      }]
-    };
+    // Import fs functions
+    const { existsSync, writeFileSync, readFileSync } = await import('fs');
+    const path = await import('path');
+
+    // Get project from cached data
+    const statusResult = await getTaskStatus(projectId, taskId);
+    if (!statusResult.success || !statusResult.data) {
+      return {
+        content: [{
+          type: 'text' as const,
+          text: JSON.stringify({ success: false, error: statusResult.error || 'Task not found' })
+        }]
+      };
+    }
+
+    // Determine project path from tasks list
+    const tasksResult = await listTasks(projectId);
+    if (!tasksResult.success || !tasksResult.data?.projectPath) {
+      return {
+        content: [{
+          type: 'text' as const,
+          text: JSON.stringify({ success: false, error: 'Could not determine project path' })
+        }]
+      };
+    }
+
+    const projectPath = tasksResult.data.projectPath;
+    const specDir = path.join(projectPath, '.auto-claude', 'specs', taskId);
+    const fixRequestPath = path.join(specDir, 'QA_FIX_REQUEST.md');
+    const planPath = path.join(specDir, 'implementation_plan.json');
+
+    if (!existsSync(specDir)) {
+      return {
+        content: [{
+          type: 'text' as const,
+          text: JSON.stringify({ success: false, error: 'Spec directory not found: ' + specDir })
+        }]
+      };
+    }
+
+    try {
+      // Write fix request file
+      const content = `# Fix Request (Claude Code via MCP)
+
+${feedback}
+
+---
+Generated at: ${new Date().toISOString()}
+Source: Claude Code MCP Tool
+`;
+      writeFileSync(fixRequestPath, content);
+
+      // Update implementation_plan.json to trigger restart
+      if (existsSync(planPath)) {
+        const plan = JSON.parse(readFileSync(planPath, 'utf-8'));
+        plan.status = 'start_requested';
+        plan.start_requested_at = new Date().toISOString();
+        plan.mcp_feedback = feedback;
+        plan.mcp_iteration = (plan.mcp_iteration || 0) + 1;
+        writeFileSync(planPath, JSON.stringify(plan, null, 2));
+      }
+
+      return {
+        content: [{
+          type: 'text' as const,
+          text: JSON.stringify({
+            success: true,
+            message: `Fix request submitted for task ${taskId}. Task will auto-restart.`,
+            taskId,
+            feedback,
+            fixRequestPath
+          }, null, 2)
+        }]
+      };
+    } catch (error) {
+      return {
+        content: [{
+          type: 'text' as const,
+          text: JSON.stringify({
+            success: false,
+            error: error instanceof Error ? error.message : String(error),
+            taskId
+          })
+        }]
+      };
+    }
   }
 );
 
@@ -655,6 +723,254 @@ server.tool(
             title: s.title,
             status: s.status
           }))
+        }, null, 2)
+      }]
+    };
+  }
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Tool: get_rdr_batches
+// ─────────────────────────────────────────────────────────────────────────────
+
+server.tool(
+  'get_rdr_batches',
+  'Get all pending RDR (Recover Debug Resend) batches categorized by problem type. Returns tasks grouped into: json_error, incomplete, qa_rejected, errors.',
+  {
+    projectId: z.string().describe('The project ID (UUID)')
+  },
+  async ({ projectId }) => {
+    const tasksResult = await listTasks(projectId);
+
+    if (!tasksResult.success || !tasksResult.data) {
+      return {
+        content: [{
+          type: 'text' as const,
+          text: JSON.stringify({ success: false, error: tasksResult.error || 'Failed to list tasks' })
+        }]
+      };
+    }
+
+    const tasks = tasksResult.data.tasks || [];
+    const humanReviewTasks = tasks.filter((t: { status: string }) => t.status === 'human_review');
+
+    // Categorize into batches
+    const batches: Array<{
+      type: string;
+      taskIds: string[];
+      tasks: Array<{
+        taskId: string;
+        title: string;
+        description: string;
+        reviewReason: string;
+        progress: { completed: number; total: number; percentage: number };
+      }>;
+    }> = [];
+
+    // Batch 1: JSON Errors
+    const jsonErrors = humanReviewTasks.filter((t: { description?: string }) =>
+      t.description?.startsWith('__JSON_ERROR__:')
+    );
+    if (jsonErrors.length > 0) {
+      batches.push({
+        type: 'json_error',
+        taskIds: jsonErrors.map((t: { specId: string }) => t.specId),
+        tasks: jsonErrors.map((t: { specId: string; title: string; description?: string; reviewReason?: string; subtasks?: Array<{ status: string }> }) => ({
+          taskId: t.specId,
+          title: t.title,
+          description: t.description?.substring(0, 200) || '',
+          reviewReason: t.reviewReason || 'errors',
+          progress: {
+            completed: t.subtasks?.filter((s: { status: string }) => s.status === 'completed').length || 0,
+            total: t.subtasks?.length || 0,
+            percentage: t.subtasks?.length ? Math.round((t.subtasks.filter((s: { status: string }) => s.status === 'completed').length / t.subtasks.length) * 100) : 0
+          }
+        }))
+      });
+    }
+
+    // Batch 2: Incomplete Tasks (subtasks not all completed, NOT an error)
+    const incomplete = humanReviewTasks.filter((t: { reviewReason?: string; description?: string; subtasks?: Array<{ status: string }> }) =>
+      t.reviewReason !== 'errors' &&
+      !t.description?.startsWith('__JSON_ERROR__:') &&
+      t.subtasks &&
+      t.subtasks.length > 0 &&
+      t.subtasks.some((s: { status: string }) => s.status !== 'completed')
+    );
+    if (incomplete.length > 0) {
+      batches.push({
+        type: 'incomplete',
+        taskIds: incomplete.map((t: { specId: string }) => t.specId),
+        tasks: incomplete.map((t: { specId: string; title: string; description?: string; reviewReason?: string; subtasks?: Array<{ status: string }> }) => ({
+          taskId: t.specId,
+          title: t.title,
+          description: t.description?.substring(0, 200) || '',
+          reviewReason: t.reviewReason || 'incomplete',
+          progress: {
+            completed: t.subtasks?.filter((s: { status: string }) => s.status === 'completed').length || 0,
+            total: t.subtasks?.length || 0,
+            percentage: t.subtasks?.length ? Math.round((t.subtasks.filter((s: { status: string }) => s.status === 'completed').length / t.subtasks.length) * 100) : 0
+          }
+        }))
+      });
+    }
+
+    // Batch 3: QA Rejected
+    const qaRejected = humanReviewTasks.filter((t: { reviewReason?: string; description?: string }) =>
+      t.reviewReason === 'qa_rejected' &&
+      !t.description?.startsWith('__JSON_ERROR__:')
+    );
+    if (qaRejected.length > 0) {
+      batches.push({
+        type: 'qa_rejected',
+        taskIds: qaRejected.map((t: { specId: string }) => t.specId),
+        tasks: qaRejected.map((t: { specId: string; title: string; description?: string; reviewReason?: string; subtasks?: Array<{ status: string }> }) => ({
+          taskId: t.specId,
+          title: t.title,
+          description: t.description?.substring(0, 200) || '',
+          reviewReason: t.reviewReason || 'qa_rejected',
+          progress: {
+            completed: t.subtasks?.filter((s: { status: string }) => s.status === 'completed').length || 0,
+            total: t.subtasks?.length || 0,
+            percentage: t.subtasks?.length ? Math.round((t.subtasks.filter((s: { status: string }) => s.status === 'completed').length / t.subtasks.length) * 100) : 0
+          }
+        }))
+      });
+    }
+
+    // Batch 4: Other Errors (not JSON)
+    const errors = humanReviewTasks.filter((t: { reviewReason?: string; description?: string }) =>
+      t.reviewReason === 'errors' &&
+      !t.description?.startsWith('__JSON_ERROR__:')
+    );
+    if (errors.length > 0) {
+      batches.push({
+        type: 'errors',
+        taskIds: errors.map((t: { specId: string }) => t.specId),
+        tasks: errors.map((t: { specId: string; title: string; description?: string; reviewReason?: string; subtasks?: Array<{ status: string }> }) => ({
+          taskId: t.specId,
+          title: t.title,
+          description: t.description?.substring(0, 200) || '',
+          reviewReason: t.reviewReason || 'errors',
+          progress: {
+            completed: t.subtasks?.filter((s: { status: string }) => s.status === 'completed').length || 0,
+            total: t.subtasks?.length || 0,
+            percentage: t.subtasks?.length ? Math.round((t.subtasks.filter((s: { status: string }) => s.status === 'completed').length / t.subtasks.length) * 100) : 0
+          }
+        }))
+      });
+    }
+
+    return {
+      content: [{
+        type: 'text' as const,
+        text: JSON.stringify({
+          success: true,
+          totalTasksInHumanReview: humanReviewTasks.length,
+          batchCount: batches.length,
+          batches,
+          instructions: batches.length > 0 ?
+            'Use process_rdr_batch tool to process each batch. For json_error batch, RDR auto-fixes are applied. For incomplete batch, submit_task_fix_request auto-resumes. For qa_rejected/errors, analyze and submit fixes.' :
+            'No tasks need intervention.'
+        }, null, 2)
+      }]
+    };
+  }
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Tool: process_rdr_batch
+// ─────────────────────────────────────────────────────────────────────────────
+
+server.tool(
+  'process_rdr_batch',
+  'Process a batch of tasks with the same problem type. For each task, submit a fix request that will trigger the task to restart and continue.',
+  {
+    projectId: z.string().describe('The project ID (UUID)'),
+    batchType: z.enum(['json_error', 'incomplete', 'qa_rejected', 'errors']).describe('The type of batch to process'),
+    fixes: z.array(z.object({
+      taskId: z.string().describe('The task/spec ID'),
+      feedback: z.string().describe('Fix description for this task')
+    })).describe('Array of task fixes to submit')
+  },
+  async ({ projectId, batchType, fixes }) => {
+    // Import fs functions
+    const { existsSync, writeFileSync, readFileSync } = await import('fs');
+    const path = await import('path');
+
+    // Get project path
+    const tasksResult = await listTasks(projectId);
+    if (!tasksResult.success || !tasksResult.data?.projectPath) {
+      return {
+        content: [{
+          type: 'text' as const,
+          text: JSON.stringify({ success: false, error: 'Could not determine project path' })
+        }]
+      };
+    }
+
+    const projectPath = tasksResult.data.projectPath;
+    const results: Array<{ taskId: string; success: boolean; action: string; error?: string }> = [];
+
+    for (const fix of fixes) {
+      const specDir = path.join(projectPath, '.auto-claude', 'specs', fix.taskId);
+      const fixRequestPath = path.join(specDir, 'QA_FIX_REQUEST.md');
+      const planPath = path.join(specDir, 'implementation_plan.json');
+
+      if (!existsSync(specDir)) {
+        results.push({ taskId: fix.taskId, success: false, action: 'error', error: 'Spec directory not found' });
+        continue;
+      }
+
+      try {
+        // Write fix request file
+        const content = `# Fix Request (Claude Code RDR Batch - ${batchType})
+
+${fix.feedback}
+
+---
+Generated at: ${new Date().toISOString()}
+Source: Claude Code MCP - RDR Batch Processing
+Batch Type: ${batchType}
+`;
+        writeFileSync(fixRequestPath, content);
+
+        // Update implementation_plan.json to trigger restart
+        if (existsSync(planPath)) {
+          const plan = JSON.parse(readFileSync(planPath, 'utf-8'));
+          plan.status = 'start_requested';
+          plan.start_requested_at = new Date().toISOString();
+          plan.rdr_batch_type = batchType;
+          plan.rdr_feedback = fix.feedback;
+          plan.rdr_iteration = (plan.rdr_iteration || 0) + 1;
+          writeFileSync(planPath, JSON.stringify(plan, null, 2));
+        }
+
+        results.push({ taskId: fix.taskId, success: true, action: 'fix_submitted' });
+      } catch (error) {
+        results.push({
+          taskId: fix.taskId,
+          success: false,
+          action: 'error',
+          error: error instanceof Error ? error.message : String(error)
+        });
+      }
+    }
+
+    const successCount = results.filter(r => r.success).length;
+    const failCount = results.filter(r => !r.success).length;
+
+    return {
+      content: [{
+        type: 'text' as const,
+        text: JSON.stringify({
+          success: failCount === 0,
+          batchType,
+          processed: fixes.length,
+          succeeded: successCount,
+          failed: failCount,
+          results,
+          message: `Processed ${fixes.length} tasks in batch '${batchType}': ${successCount} succeeded, ${failCount} failed.`
         }, null, 2)
       }]
     };
