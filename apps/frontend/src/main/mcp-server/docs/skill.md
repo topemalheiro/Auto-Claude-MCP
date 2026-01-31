@@ -173,6 +173,154 @@ backlog → in_progress → ai_review → human_review → pr_created → done
 - **done** - Merged and complete
 - **error** - Something went wrong
 
+## RDR (Recover, Debug, Resend) Troubleshooting
+
+**CRITICAL: Auto-Claude must automatically recover from errors and resume stuck tasks.**
+
+### RDR 5-Tier Priority System
+
+**Priority 1 (95%): Task Recovery - Auto-Resume**
+- Tasks with incomplete subtasks stuck in `plan_review` or `human_review`
+- **Action**: Change status to `"start_requested"` in implementation_plan.json
+- File watcher auto-detects within 2-3 seconds
+- **No MCP tools needed** - just file writes to trigger resume
+
+**Priority 2 (4%): Debug & Fix**
+- Tasks showing errors with logs available
+- **Action**: Analyze error logs, fix root cause, trigger resume
+
+**Priority 3 (<1%): Auto-fix JSON Errors**
+- Empty or malformed `implementation_plan.json` files
+- **Action**: Create minimal valid JSON:
+  ```json
+  {
+    "feature": "Auto-recovery task",
+    "description": "Task recovered by RDR system",
+    "created_at": "2026-01-31T00:00:00Z",
+    "updated_at": "2026-01-31T00:00:00Z",
+    "status": "start_requested",
+    "phases": []
+  }
+  ```
+
+**Priority 4 (RARE): Manual Edits**
+- Only when auto-fix fails repeatedly
+
+**Priority 5 (LAST RESORT): Delete & Recreate**
+- Only for completely corrupted worktrees
+
+### Common RDR Scenarios
+
+**Scenario 1: Tasks stuck in "plan_review" with incomplete subtasks**
+```bash
+# Main project
+sed -i 's/"status": "plan_review"/"status": "start_requested"/' \
+  "/path/to/project/.auto-claude/specs/TASK-ID/implementation_plan.json"
+
+# Worktree (CRITICAL: Auto-Claude prefers worktree versions!)
+sed -i 's/"status": "plan_review"/"status": "start_requested"/' \
+  "/path/to/project/.auto-claude/worktrees/tasks/TASK-ID/.auto-claude/specs/TASK-ID/implementation_plan.json"
+```
+
+**Scenario 2: JSON Parse Errors (empty/malformed files)**
+```bash
+# Fix main version
+cat > "/path/to/project/.auto-claude/specs/TASK-ID/implementation_plan.json" << 'EOF'
+{
+  "feature": "Auto-recovery task",
+  "description": "Task recovered by RDR system",
+  "created_at": "2026-01-31T00:00:00Z",
+  "updated_at": "2026-01-31T00:00:00Z",
+  "status": "start_requested",
+  "phases": []
+}
+EOF
+
+# Fix worktree version (if exists)
+if [ -d "/path/to/project/.auto-claude/worktrees/tasks/TASK-ID" ]; then
+  cat > "/path/to/project/.auto-claude/worktrees/tasks/TASK-ID/.auto-claude/specs/TASK-ID/implementation_plan.json" << 'EOF'
+{
+  "feature": "Auto-recovery task",
+  "description": "Task recovered by RDR system",
+  "created_at": "2026-01-31T00:00:00Z",
+  "updated_at": "2026-01-31T00:00:00Z",
+  "status": "start_requested",
+  "phases": []
+}
+EOF
+fi
+```
+
+**Scenario 3: Tasks showing "Needs Recovery" button**
+- These tasks are stuck and need status change to resume
+- UI shows yellow "Recover" button
+- **Action**: Same as Scenario 1 - change status to `"start_requested"`
+
+**Scenario 4: Tasks showing "Stuck" status**
+- Agent interrupted mid-execution
+- **Action**: Change status from current state to `"start_requested"`
+
+### RDR Troubleshooting Checklist
+
+**RDR not sending auto-prompts:**
+1. Check startup logs for module resolution errors
+2. Verify OutputMonitor is working: `[OutputMonitor] AT_PROMPT` in logs
+3. Verify MCP monitor loaded: `[RDR] MCP monitor check...` in logs
+4. Check if Claude Code is busy: `[RDR] BUSY: Claude Code is processing...`
+
+**Tasks not resuming after status change:**
+1. Verify BOTH main AND worktree JSON files updated
+2. Check file watcher is active: `[FileWatcher] Specs watcher READY`
+3. Verify status changed to `"start_requested"` (not `"backlog"` or `"in_progress"`)
+4. Check ProjectStore logs for cache invalidation
+
+**Auto-Claude UI not updating:**
+1. Auto-refresh triggers within 2-3 seconds of file changes
+2. Check browser console for errors
+3. Verify file watcher detected changes in logs
+4. Manually refresh if needed (rarely required)
+
+### Recovery Decision Tree
+
+```
+Task needs recovery?
+├─ JSON Parse Error → Priority 3: Create minimal JSON with status="start_requested"
+├─ Stuck in plan_review → Priority 1: Change status to "start_requested"
+├─ Stuck in human_review → Priority 1: Change status to "start_requested"
+├─ Shows "Needs Recovery" → Priority 1: Change status to "start_requested"
+├─ Error with logs → Priority 2: Debug logs, fix issue, set status="start_requested"
+└─ Completely corrupted → Priority 5: Delete worktree, recreate task
+```
+
+### Critical Recovery Rules
+
+1. **ALWAYS fix BOTH main and worktree versions**
+   - Auto-Claude ProjectStore prefers worktree over main
+   - Fixing only main will NOT work if worktree exists
+
+2. **Use `"start_requested"` status to trigger**
+   - NOT `"backlog"` (won't start)
+   - NOT `"in_progress"` (won't trigger planning)
+   - `"start_requested"` tells Auto-Claude to begin/resume
+
+3. **File watcher triggers automatically**
+   - No need to manually refresh UI
+   - Changes detected within 2-3 seconds
+   - Task cards update automatically
+
+4. **Check worktree location**
+   ```
+   .auto-claude/
+   ├── specs/           # Main project specs
+   └── worktrees/
+       └── tasks/
+           └── TASK-ID/  # Worktree for this task
+               └── .auto-claude/
+                   └── specs/
+                       └── TASK-ID/
+                           └── implementation_plan.json  # THIS ONE takes precedence!
+   ```
+
 ## Overnight Workflow Example
 
 User: "Queue these tasks and shutdown when all done"
