@@ -611,5 +611,9 @@ export const IPC_CHANNELS = {
   // Auto Shutdown
   GET_AUTO_SHUTDOWN_STATUS: 'autoShutdown:getStatus',       // Get auto-shutdown status for a project
   SET_AUTO_SHUTDOWN: 'autoShutdown:set',                    // Enable/disable auto-shutdown for a project
-  CANCEL_AUTO_SHUTDOWN: 'autoShutdown:cancel'               // Cancel pending shutdown
+  CANCEL_AUTO_SHUTDOWN: 'autoShutdown:cancel',              // Cancel pending shutdown
+
+  // Auto-Restart on Loop/Crash
+  RESTART_TRIGGER_AUTO_RESTART: 'restart:triggerAutoRestart',  // Trigger build and restart
+  RESTART_CHECK_COOLDOWN: 'restart:checkCooldown'              // Check if restart is allowed
 } as const;

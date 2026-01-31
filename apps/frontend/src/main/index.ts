@@ -78,6 +78,7 @@ import { DEFAULT_APP_SETTINGS } from '../shared/constants';
 import { readSettingsFile } from './settings-utils';
 import { setupErrorLogging } from './app-logger';
 import { initSentryMain } from './sentry';
+import { checkAndHandleRestart, resumeTasksAfterRestart } from './ipc-handlers/restart-handlers';
 import { preWarmToolCache } from './cli-tool-manager';
 import { initializeClaudeProfileManager } from './claude-profile-manager';
 import type { AppSettings } from '../shared/types';
@@ -411,6 +412,13 @@ app.whenReady().then(() => {
 
   // Setup IPC handlers (pass pythonEnvManager for Python path management)
   setupIpcHandlers(agentManager, terminalManager, () => mainWindow, pythonEnvManager);
+
+  // Check for auto-restart request from hook
+  const settings = readSettingsFile();
+  checkAndHandleRestart(settings);
+
+  // Resume tasks that were running before restart
+  resumeTasksAfterRestart();
 
   // Create window
   createWindow();

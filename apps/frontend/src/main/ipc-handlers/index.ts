@@ -36,6 +36,7 @@ import { registerProfileHandlers } from './profile-handlers';
 import { registerTerminalWorktreeIpcHandlers } from './terminal';
 import { registerRateLimitHandlers } from './rate-limit-handlers';
 import { registerRdrHandlers } from './rdr-handlers';
+import { registerRestartHandlers } from './restart-handlers';
 import { notificationService } from '../notification-service';
 
 // Auto-shutdown handlers (self-registering on import)
@@ -133,6 +134,9 @@ export function setupIpcHandlers(
   // RDR (Recover Debug Resend) handlers - auto-recovery for stuck/errored tasks
   registerRdrHandlers();
 
+  // Auto-restart on loop/crash handlers - rebuild and restart on failure
+  registerRestartHandlers();
+
   console.warn('[IPC] All handler modules registered successfully');
 }
 
@@ -162,5 +166,6 @@ export {
   registerMcpHandlers,
   registerProfileHandlers,
   registerRateLimitHandlers,
-  registerRdrHandlers
+  registerRdrHandlers,
+  registerRestartHandlers
 };
