@@ -11,7 +11,7 @@ import * as path from 'path';
 import { IPC_CHANNELS } from '../../shared/constants/ipc';
 import type { IPCResult } from '../../shared/types';
 import { JSON_ERROR_PREFIX } from '../../shared/constants/task';
-import { getProjectStore } from '../project-store';
+import { projectStore } from '../project-store';
 
 // Types for RDR processing
 interface RdrProcessResult {
@@ -71,8 +71,7 @@ function attemptJsonFix(rawContent: string): string | null {
  * Get task info from project store
  */
 async function getTaskInfo(projectId: string, taskId: string): Promise<TaskInfo | null> {
-  const store = getProjectStore();
-  const tasks = await store.getTasks(projectId);
+  const tasks = await projectStore.getTasks(projectId);
 
   if (!tasks.success || !tasks.data) {
     return null;
@@ -197,8 +196,7 @@ export function registerRdrHandlers(): void {
       console.log(`[RDR] Processing ${taskIds.length} tasks for project ${projectId}`);
 
       // Get project path
-      const store = getProjectStore();
-      const project = store.getProject(projectId);
+      const project = projectStore.getProject(projectId);
 
       if (!project) {
         return {
