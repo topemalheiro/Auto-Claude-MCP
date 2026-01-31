@@ -240,27 +240,42 @@ class ClaudeOutputMonitor {
       }
 
       if (lastMessage.stop_reason === null || lastMessage.stop_reason === undefined) {
-        console.log('[OutputMonitor] stop_reason=null - still streaming');
-        return 'PROCESSING';
+        // stop_reason is null/undefined - could mean:
+        // 1. Message is still streaming (recent message)
+        // 2. JSONL format doesn't include stop_reason for completed messages (old message)
+
+        const messageAge = this.getMessageAge(lastMessage);
+
+        // If message is very recent (< 10 seconds), assume still streaming
+        if (messageAge < 10000) {
+          console.log('[OutputMonitor] stop_reason=null/undefined, recent message (< 10s) - still streaming');
+          return 'PROCESSING';
+        }
+
+        // Message is old but no stop_reason - treat as completed, check content
+        console.log(`[OutputMonitor] stop_reason=null/undefined, old message (${Math.floor(messageAge / 1000)}s) - treating as completed`);
+        // Fall through to check content for prompts/questions
       }
 
+      // Message complete (stop_reason='end_turn' OR old message with no stop_reason)
+      // Check what the message contains
+      const lastContent = this.getLastTextContent(lastMessage);
+
+      // Does it end with a question to the user?
+      if (this.endsWithQuestion(lastContent)) {
+        console.log('[OutputMonitor] Message ends with question - waiting for user answer');
+        return 'AT_PROMPT';
+      }
+
+      // Does it contain the ">" prompt pattern?
+      if (this.matchesAnyPattern(lastContent, PATTERNS.AT_PROMPT)) {
+        console.log('[OutputMonitor] Prompt pattern detected - at command prompt');
+        return 'AT_PROMPT';
+      }
+
+      // Message complete, no question, no prompt
+      // Only applies if stop_reason='end_turn' (not for old messages with undefined stop_reason)
       if (lastMessage.stop_reason === 'end_turn') {
-        // Message complete - check what it contains
-        const lastContent = this.getLastTextContent(lastMessage);
-
-        // Does it end with a question to the user?
-        if (this.endsWithQuestion(lastContent)) {
-          console.log('[OutputMonitor] Message ends with question - waiting for user answer');
-          return 'AT_PROMPT';
-        }
-
-        // Does it contain the ">" prompt pattern?
-        if (this.matchesAnyPattern(lastContent, PATTERNS.AT_PROMPT)) {
-          console.log('[OutputMonitor] Prompt pattern detected - at command prompt');
-          return 'AT_PROMPT';
-        }
-
-        // Message complete, no question, no prompt
         // Grace period: 2 minutes after completion before allowing RDR
         const messageAge = this.getMessageAge(lastMessage);
         if (messageAge < 120000) {
@@ -268,10 +283,10 @@ class ClaudeOutputMonitor {
           console.log(`[OutputMonitor] Recent completion (${ageSeconds}s ago) - grace period active`);
           return 'PROCESSING';
         }
-
-        console.log('[OutputMonitor] Message complete, grace period expired - session idle');
-        return 'IDLE';
       }
+
+      console.log('[OutputMonitor] Message complete, no prompt/question - session idle');
+      return 'IDLE';
     }
 
     console.log('[OutputMonitor] Unknown state - defaulting to IDLE');
