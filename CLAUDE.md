@@ -266,6 +266,133 @@ main (user's branch)
 git log --oneline upstream/develop..HEAD
 ```
 
+## RDR (Recover, Debug, Resend) System
+
+**CRITICAL: Claude Code must automatically recover from JSON errors and resume stuck tasks without manual intervention.**
+
+### What RDR Does
+
+RDR is Auto-Claude's automatic recovery system that:
+1. **Monitors tasks** for JSON errors, incomplete work, and failures
+2. **Auto-fixes JSON** errors in `implementation_plan.json` files
+3. **Auto-resumes** stuck tasks by updating their status
+4. **Sends recovery prompts** to Claude Code when needed
+
+### RDR Recovery Priority System
+
+**Priority 1 (95%): Task Recovery - Auto-Resume**
+- Tasks with incomplete subtasks → Set `status: "start_requested"` to resume
+- File watcher auto-detects changes within 2-3 seconds
+- **No MCP tools needed** - just file writes
+
+**Priority 2 (4%): Debug & Fix**
+- Tasks with errors → Analyze logs, fix root cause, resume
+
+**Priority 3 (<1%): Auto-fix JSON Errors**
+- Empty/malformed JSON files → Create minimal valid JSON:
+  ```json
+  {
+    "feature": "Auto-recovery task",
+    "description": "Task recovered by RDR system",
+    "created_at": "2026-01-31T00:00:00Z",
+    "updated_at": "2026-01-31T00:00:00Z",
+    "status": "start_requested",
+    "phases": []
+  }
+  ```
+
+**Priority 4 (RARE): Manual Edits**
+- Only when auto-fix fails
+
+**Priority 5 (LAST RESORT): Delete & Recreate**
+- Only for corrupted worktrees
+
+### How to Recover Tasks
+
+**For JSON Errors (empty/malformed `implementation_plan.json`):**
+
+```bash
+# Main project
+cd "/path/to/project/.auto-claude/specs"
+for task in 071-marko 079-alpine-htmx-knockout 080-svelte-aurelia; do
+  cat > "$task/implementation_plan.json" << 'EOF'
+{
+  "feature": "Auto-recovery task",
+  "description": "Task recovered by RDR system",
+  "created_at": "2026-01-31T00:00:00Z",
+  "updated_at": "2026-01-31T00:00:00Z",
+  "status": "start_requested",
+  "phases": []
+}
+EOF
+done
+
+# Worktrees (IMPORTANT: Auto-Claude prefers worktree versions!)
+cd "/path/to/project/.auto-claude/worktrees/tasks"
+for task in 071-marko 079-alpine-htmx-knockout 080-svelte-aurelia; do
+  if [ -d "$task" ]; then
+    cat > "$task/.auto-claude/specs/$task/implementation_plan.json" << 'EOF'
+{
+  "feature": "Auto-recovery task",
+  "description": "Task recovered by RDR system",
+  "created_at": "2026-01-31T00:00:00Z",
+  "updated_at": "2026-01-31T00:00:00Z",
+  "status": "start_requested",
+  "phases": []
+}
+EOF
+  fi
+done
+```
+
+**For Stuck Tasks (plan_review, human_review status):**
+
+```bash
+# Resume incomplete tasks by changing status to start_requested
+cd "/path/to/project/.auto-claude/specs"
+for task in 073-qwik 077-shadow-component-libs 081-ats-major; do
+  sed -i 's/"status": "plan_review"/"status": "start_requested"/' "$task/implementation_plan.json"
+done
+
+# Do the same for worktrees
+cd "/path/to/project/.auto-claude/worktrees/tasks"
+for task in 073-qwik 077-shadow-component-libs 081-ats-major; do
+  if [ -d "$task" ]; then
+    sed -i 's/"status": "plan_review"/"status": "start_requested"/' "$task/.auto-claude/specs/$task/implementation_plan.json"
+  fi
+done
+```
+
+### RDR Troubleshooting
+
+**RDR not sending messages:**
+- Check startup logs for module resolution errors:
+  ```
+  [RDR] Failed to load window-manager (Windows-specific)
+  [RDR] Failed to load MCP monitor
+  ```
+- If you see these errors, the RDR module imports are broken (fixed in commit 524f5b5c)
+
+**Tasks still showing errors after recovery:**
+- Verify BOTH main and worktree JSON files are fixed
+- Auto-Claude prefers worktree versions over main project versions
+- Check file watcher is running: `[FileWatcher] Specs watcher READY`
+
+**RDR sending messages but not processing:**
+- Check if Claude Code is busy: `[RDR] BUSY: Claude Code is processing...`
+- RDR waits for idle state before sending messages
+- Verify MCP monitor is loaded: `[RDR] BUSY: Claude Code is busy (MCP connection active)`
+
+### When to Use RDR
+
+**ALWAYS use RDR for:**
+- JSON parse errors in `implementation_plan.json`
+- Tasks stuck in `plan_review` or `human_review`
+- Tasks showing `errors` status with no progress
+- Tasks with 0 phases or incomplete subtasks
+
+**NEVER manually edit tasks** unless RDR auto-fix fails multiple times.
+
 ## Dependabot Pull Requests
 
 Auto-Claude uses Dependabot to keep dependencies up-to-date. **NEVER blindly merge Dependabot PRs** - always review them first.
