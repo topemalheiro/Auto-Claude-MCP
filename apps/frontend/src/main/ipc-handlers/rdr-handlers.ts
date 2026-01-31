@@ -23,8 +23,6 @@ import { outputMonitor } from '../claude-code/output-monitor';
 // Conditionally import Electron-specific modules
 let ipcMain: any = null;
 let BrowserWindow: any = null;
-let isClaudeCodeBusy: any = null;
-let mcpMonitor: any = null;
 
 if (isElectron) {
   // Load each module independently so one failure doesn't break everything
@@ -36,17 +34,8 @@ if (isElectron) {
     console.warn('[RDR] Failed to load Electron modules:', error);
   }
 
-  try {
-    isClaudeCodeBusy = require('../platform/windows/window-manager').isClaudeCodeBusy;
-  } catch (error) {
-    console.warn('[RDR] Failed to load window-manager (Windows-specific):', error);
-  }
-
-  try {
-    mcpMonitor = require('../mcp-server').mcpMonitor;
-  } catch (error) {
-    console.warn('[RDR] Failed to load MCP monitor:', error);
-  }
+  // Note: window-manager and mcp-server are loaded dynamically when needed
+  // to avoid module resolution issues after compilation
 }
 
 // ============================================================================
@@ -634,15 +623,23 @@ async function checkClaudeCodeBusy(): Promise<boolean> {
       }
     }
 
-    // SECONDARY: Check MCP connection activity (active processing)
-    if (mcpMonitor && mcpMonitor.isBusy()) {
-      console.log('[RDR] BUSY: Claude Code is busy (MCP connection active)');
-      const status = mcpMonitor.getStatus();
-      console.log('[RDR]    Details:', {
-        activeToolName: status.activeToolName,
-        timeSinceLastRequest: `${status.timeSinceLastRequest}ms`
-      });
-      return true;
+    // SECONDARY: Check MCP connection activity (dynamically load if on Windows)
+    if (process.platform === 'win32') {
+      try {
+        const { mcpMonitor } = await import('../mcp-server');
+        if (mcpMonitor && mcpMonitor.isBusy()) {
+          console.log('[RDR] BUSY: Claude Code is busy (MCP connection active)');
+          const status = mcpMonitor.getStatus();
+          console.log('[RDR]    Details:', {
+            activeToolName: status.activeToolName,
+            timeSinceLastRequest: `${status.timeSinceLastRequest}ms`
+          });
+          return true;
+        }
+      } catch (error) {
+        console.warn('[RDR] MCP monitor check skipped:', error);
+        // Continue - don't fail the whole check
+      }
     }
 
     // All checks passed - Claude is truly idle
