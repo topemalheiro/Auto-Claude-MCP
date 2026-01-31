@@ -606,6 +606,56 @@ export function queueTaskForRdr(projectId: string, task: TaskInfo): void {
 }
 
 /**
+ * Check if Claude Code is currently busy
+ * Returns true if Claude is at prompt, processing, or session is active
+ */
+async function checkClaudeCodeBusy(): Promise<boolean> {
+  try {
+    // PRIMARY: Check if Claude is at prompt (waiting for input)
+    if (outputMonitor) {
+      const atPrompt = await outputMonitor.isAtPrompt();
+      if (atPrompt) {
+        console.log('[RDR] BUSY: Claude Code is at prompt (waiting for input)');
+        const diagnostics = await outputMonitor.getDiagnostics();
+        console.log('[RDR]    Details:', {
+          state: diagnostics.state,
+          timeSinceStateChange: `${diagnostics.timeSinceStateChange}ms`,
+          recentOutputFiles: diagnostics.recentOutputFiles
+        });
+        return true; // BUSY - don't send!
+      }
+    }
+
+    // SECONDARY: Check MCP connection activity (active processing)
+    if (mcpMonitor && mcpMonitor.isBusy()) {
+      console.log('[RDR] BUSY: Claude Code is busy (MCP connection active)');
+      const status = mcpMonitor.getStatus();
+      console.log('[RDR]    Details:', {
+        activeToolName: status.activeToolName,
+        timeSinceLastRequest: `${status.timeSinceLastRequest}ms`
+      });
+      return true;
+    }
+
+    // FALLBACK: Session file activity check
+    const sessionBusy = await isClaudeSessionActive();
+    if (sessionBusy) {
+      console.log('[RDR] BUSY: Claude Code is busy (session file active)');
+      return true;
+    }
+
+    // All checks passed - Claude is truly idle
+    console.log('[RDR] IDLE: Claude Code is idle (safe to send)');
+    return false;
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('[RDR] WARNING: Failed to check busy state:', errorMessage);
+    // Assume idle on error (graceful degradation)
+    return false;
+  }
+}
+
+/**
  * Process all collected pending tasks after timer expires
  */
 async function processPendingTasks(): Promise<void> {
@@ -615,6 +665,20 @@ async function processPendingTasks(): Promise<void> {
   }
 
   console.log(`[RDR] Timer expired - processing ${pendingTasks.length} pending tasks`);
+
+  // CRITICAL: Check if Claude Code is busy before processing
+  const isBusy = await checkClaudeCodeBusy();
+  if (isBusy) {
+    console.log(`[RDR] ⏸️  Claude Code is busy - rescheduling ${pendingTasks.length} tasks for later`);
+    // Reschedule for later (retry in 60 seconds)
+    if (batchTimer) {
+      clearTimeout(batchTimer);
+    }
+    batchTimer = setTimeout(async () => {
+      await processPendingTasks();
+    }, 60000); // Retry in 60 seconds
+    return;
+  }
 
   // Group tasks by project
   const tasksByProject = new Map<string, TaskInfo[]>();
@@ -1123,50 +1187,8 @@ export function registerRdrHandlers(): void {
   ipcMain.handle(
     IPC_CHANNELS.IS_CLAUDE_CODE_BUSY,
     async (event, handle: number): Promise<IPCResult<boolean>> => {
-      try {
-        // PRIMARY: Check if Claude is at prompt (waiting for input)
-        // This is the most important check to prevent prompt loops
-        if (outputMonitor) {
-          const atPrompt = await outputMonitor.isAtPrompt();
-          if (atPrompt) {
-            console.log('[RDR] BUSY: Claude Code is at prompt (waiting for input)');
-            const diagnostics = await outputMonitor.getDiagnostics();
-            console.log('[RDR]    Details:', {
-              state: diagnostics.state,
-              timeSinceStateChange: `${diagnostics.timeSinceStateChange}ms`,
-              recentOutputFiles: diagnostics.recentOutputFiles
-            });
-            return { success: true, data: true }; // BUSY - don't send!
-          }
-        }
-
-        // SECONDARY: Check MCP connection activity (active processing)
-        if (mcpMonitor && mcpMonitor.isBusy()) {
-          console.log('[RDR] BUSY: Claude Code is busy (MCP connection active)');
-          const status = mcpMonitor.getStatus();
-          console.log('[RDR]    Details:', {
-            activeToolName: status.activeToolName,
-            timeSinceLastRequest: `${status.timeSinceLastRequest}ms`
-          });
-          return { success: true, data: true };
-        }
-
-        // FALLBACK: Session file activity check
-        const sessionBusy = await isClaudeSessionActive();
-        if (sessionBusy) {
-          console.log('[RDR] BUSY: Claude Code is busy (session file active)');
-          return { success: true, data: true };
-        }
-
-        // All checks passed - Claude is truly idle
-        console.log('[RDR] IDLE: Claude Code is idle (safe to send)');
-        return { success: true, data: false };
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        console.error('[RDR] WARNING: Failed to check busy state:', errorMessage);
-        // Assume idle on error (graceful degradation)
-        return { success: true, data: false };
-      }
+      const busy = await checkClaudeCodeBusy();
+      return { success: true, data: busy };
     }
   );
 }
