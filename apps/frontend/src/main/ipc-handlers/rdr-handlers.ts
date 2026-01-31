@@ -778,7 +778,17 @@ export function registerRdrHandlers(): void {
   ipcMain.handle(
     IPC_CHANNELS.TRIGGER_RDR_PROCESSING,
     async (event, projectId: string, taskIds: string[]): Promise<IPCResult<RdrProcessingSummary>> => {
-      console.log(`[RDR] Processing ${taskIds.length} tasks for project ${projectId}`);
+      console.log(`[RDR] Manual trigger - processing ${taskIds.length} tasks for project ${projectId}`);
+
+      // CRITICAL: Check if Claude Code is busy before processing
+      const isBusy = await checkClaudeCodeBusy();
+      if (isBusy) {
+        console.log(`[RDR] ⏸️  Skipping manual trigger - Claude Code is busy`);
+        return {
+          success: false,
+          error: 'Claude Code is currently busy (at prompt or processing). Please wait and try again.'
+        };
+      }
 
       // Get project path
       const project = projectStore.getProject(projectId);
