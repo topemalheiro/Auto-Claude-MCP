@@ -107,60 +107,17 @@ class ClaudeOutputMonitor {
 
     console.log('[OutputMonitor] Found latest transcript:', latestTranscript);
 
-    // Read last 50 lines of JSONL file (each line is a JSON object)
+    // Read and parse JSONL file
     const content = await fs.readFile(latestTranscript, 'utf-8');
     const lines = content.trim().split('\n');
-    const recentLines = lines.slice(-50);
 
-    console.log('[OutputMonitor] Reading last', recentLines.length, 'lines from transcript');
-
-    // Check file age first - if very old, session is IDLE not AT_PROMPT
-    const stats = await fs.stat(latestTranscript);
-    const timeSinceLastWrite = Date.now() - stats.mtimeMs;
-    const ageMinutes = Math.floor(timeSinceLastWrite / 60000);
-
-    // If file hasn't been touched in 2+ minutes, session is IDLE
-    if (timeSinceLastWrite > 120000) {
-      console.log(`[OutputMonitor] Session idle for ${ageMinutes} minutes - setting IDLE`);
-      this.setState('IDLE');
-      return;
-    }
-
-    // NEW: Detect when LLM is actively thinking/generating a response
-    // If last entry is a USER message and file was updated < 90s ago, LLM is processing
-    // (90s window covers RDR's 60s interval + thinking time)
-    if (lines.length > 0 && timeSinceLastWrite < 90000) {
-      try {
-        const lastLine = lines[lines.length - 1];
-        const lastEntry = JSON.parse(lastLine);
-
-        if (lastEntry.type === 'user') {
-          // User just sent message < 90s ago, LLM is likely thinking/generating
-          const ageSeconds = Math.floor(timeSinceLastWrite / 1000);
-          console.log(
-            `[OutputMonitor] Recent user message (${ageSeconds}s ago), LLM likely processing - setting PROCESSING`
-          );
-          this.setState('PROCESSING');
-          return;
-        }
-      } catch {
-        // If we can't parse the last line, continue with normal detection
-        console.log('[OutputMonitor] Could not parse last JSONL line, continuing with pattern detection');
-      }
-    }
-
-    // Parse JSONL and extract text content
-    let recentText = '';
-    for (const line of recentLines) {
+    // Parse all messages (we need full context for conversation state)
+    const messages: any[] = [];
+    for (const line of lines) {
       try {
         const entry = JSON.parse(line);
-        // Extract text from message.content array (user/assistant messages)
-        if ((entry.type === 'user' || entry.type === 'assistant') && entry.message?.content) {
-          for (const block of entry.message.content) {
-            if (block.type === 'text' && block.text) {
-              recentText += block.text + '\n';
-            }
-          }
+        if (entry.type === 'user' || entry.type === 'assistant') {
+          messages.push(entry);
         }
       } catch {
         // Skip malformed JSON lines
@@ -168,26 +125,11 @@ class ClaudeOutputMonitor {
       }
     }
 
-    const textPreview = recentText.slice(-200).replace(/\n/g, '\\n');
-    console.log('[OutputMonitor] Extracted text (last 200 chars):', textPreview);
+    console.log('[OutputMonitor] Parsed', messages.length, 'messages from transcript');
 
-    // Check for prompt pattern (PRIMARY detection method)
-    if (this.matchesAnyPattern(recentText, PATTERNS.AT_PROMPT)) {
-      console.log('[OutputMonitor] PROMPT DETECTED - Setting AT_PROMPT');
-      this.setState('AT_PROMPT');
-      return;
-    }
-
-    // Check for processing pattern
-    if (this.matchesAnyPattern(recentText, PATTERNS.PROCESSING)) {
-      console.log('[OutputMonitor] PROCESSING DETECTED - Setting PROCESSING');
-      this.setState('PROCESSING');
-      return;
-    }
-
-    // Default to idle if no patterns match
-    console.log('[OutputMonitor] No patterns matched - setting IDLE');
-    this.setState('IDLE');
+    // Parse conversation state (not time-based guess)
+    const state = this.parseConversationState(messages);
+    this.setState(state);
   }
 
   /**
@@ -262,6 +204,118 @@ class ClaudeOutputMonitor {
    */
   private matchesAnyPattern(text: string, patterns: RegExp[]): boolean {
     return patterns.some((pattern) => pattern.test(text));
+  }
+
+  /**
+   * Parse the actual conversation state from JSONL messages
+   * Returns the true state based on conversation flow, not time guesses
+   */
+  private parseConversationState(messages: any[]): ClaudeState {
+    if (messages.length === 0) {
+      console.log('[OutputMonitor] No messages - returning IDLE');
+      return 'IDLE';
+    }
+
+    // Get last message
+    const lastMessage = messages[messages.length - 1];
+    console.log('[OutputMonitor] Last message type:', lastMessage.type, 'stop_reason:', lastMessage.stop_reason);
+
+    // CASE 1: Last message is user message → Claude should be thinking
+    if (lastMessage.type === 'user') {
+      // Check if session is abandoned (>5 minutes old)
+      if (this.isMessageVeryOld(lastMessage)) {
+        console.log('[OutputMonitor] User message is very old (>5min) - session abandoned');
+        return 'IDLE';
+      }
+      console.log('[OutputMonitor] User message detected - Claude should be responding');
+      return 'PROCESSING';
+    }
+
+    // CASE 2: Last message is assistant message
+    if (lastMessage.type === 'assistant') {
+      // Check stop_reason (ACTUAL STATE, not time guess)
+      if (lastMessage.stop_reason === 'tool_use') {
+        console.log('[OutputMonitor] stop_reason=tool_use - waiting for tool results');
+        return 'PROCESSING';
+      }
+
+      if (lastMessage.stop_reason === null || lastMessage.stop_reason === undefined) {
+        console.log('[OutputMonitor] stop_reason=null - still streaming');
+        return 'PROCESSING';
+      }
+
+      if (lastMessage.stop_reason === 'end_turn') {
+        // Message complete - check what it contains
+        const lastContent = this.getLastTextContent(lastMessage);
+
+        // Does it end with a question to the user?
+        if (this.endsWithQuestion(lastContent)) {
+          console.log('[OutputMonitor] Message ends with question - waiting for user answer');
+          return 'AT_PROMPT';
+        }
+
+        // Does it contain the ">" prompt pattern?
+        if (this.matchesAnyPattern(lastContent, PATTERNS.AT_PROMPT)) {
+          console.log('[OutputMonitor] Prompt pattern detected - at command prompt');
+          return 'AT_PROMPT';
+        }
+
+        // Message complete, no question, no prompt
+        // Grace period: 2 minutes after completion before allowing RDR
+        const messageAge = this.getMessageAge(lastMessage);
+        if (messageAge < 120000) {
+          const ageSeconds = Math.floor(messageAge / 1000);
+          console.log(`[OutputMonitor] Recent completion (${ageSeconds}s ago) - grace period active`);
+          return 'PROCESSING';
+        }
+
+        console.log('[OutputMonitor] Message complete, grace period expired - session idle');
+        return 'IDLE';
+      }
+    }
+
+    console.log('[OutputMonitor] Unknown state - defaulting to IDLE');
+    return 'IDLE';
+  }
+
+  /**
+   * Helper: Extract last text content from message
+   */
+  private getLastTextContent(message: any): string {
+    if (!message.message?.content) return '';
+
+    const textBlocks = message.message.content
+      .filter((block: any) => block.type === 'text')
+      .map((block: any) => block.text);
+
+    return textBlocks[textBlocks.length - 1] || '';
+  }
+
+  /**
+   * Helper: Check if text ends with a question
+   */
+  private endsWithQuestion(text: string): boolean {
+    const trimmed = text.trim();
+    return trimmed.endsWith('?') || /\?\s*$/m.test(trimmed);
+  }
+
+  /**
+   * Helper: Check if message is very old (>5 minutes) - session abandoned
+   */
+  private isMessageVeryOld(message: any): boolean {
+    if (!message.timestamp) return false;
+    const messageTime = new Date(message.timestamp).getTime();
+    const ageMs = Date.now() - messageTime;
+    return ageMs > 300000; // 5 minutes
+  }
+
+  /**
+   * Helper: Get message age from timestamp
+   */
+  private getMessageAge(message: any): number {
+    if (!message.timestamp) return Infinity;
+    const messageTime = new Date(message.timestamp).getTime();
+    return Date.now() - messageTime;
   }
 
   /**
