@@ -11,13 +11,15 @@
  */
 
 import { ipcMain, BrowserWindow } from 'electron';
-import { readFileSync, writeFileSync, existsSync, unlinkSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, unlinkSync, readdirSync, statSync } from 'fs';
 import * as path from 'path';
+import * as os from 'os';
 import { IPC_CHANNELS } from '../../shared/constants/ipc';
 import type { IPCResult } from '../../shared/types';
 import { JSON_ERROR_PREFIX } from '../../shared/constants/task';
 import { projectStore } from '../project-store';
 import { isClaudeCodeBusy } from '../platform/windows/window-manager';
+import { mcpMonitor } from '../mcp-server';
 
 // ============================================================================
 // Timer-Based Batching State
@@ -823,16 +825,17 @@ export function registerRdrHandlers(): void {
   ipcMain.handle(
     IPC_CHANNELS.SEND_RDR_TO_WINDOW,
     async (event, handle: number, message: string): Promise<IPCResult<{ success: boolean; error?: string }>> => {
-      console.log(`[RDR] Sending message to window handle ${handle}`);
+      console.log(`[RDR] 📤 Preparing to send message to window handle ${handle}`);
+      console.log(`[RDR]    Message length: ${message.length} characters`);
 
       try {
         const { sendMessageToWindow } = await import('../platform/windows/window-manager');
         const result = await sendMessageToWindow(handle, message);
 
         if (result.success) {
-          console.log('[RDR] Message sent successfully');
+          console.log('[RDR] ✅ Message sent successfully');
         } else {
-          console.error('[RDR] Failed to send message:', result.error);
+          console.error('[RDR] ❌ Failed to send message:', result.error);
         }
 
         return {
@@ -840,7 +843,7 @@ export function registerRdrHandlers(): void {
           data: result
         };
       } catch (error) {
-        console.error('[RDR] Exception sending message:', error);
+        console.error('[RDR] 💥 Exception sending message:', error);
         return {
           success: false,
           error: error instanceof Error ? error.message : String(error)
@@ -950,17 +953,67 @@ export function registerRdrHandlers(): void {
     }
   );
 
+  // Fallback: Check for recent session file modifications
+  async function isClaudeSessionActive(): Promise<boolean> {
+    const claudeDir = path.join(os.homedir(), '.claude');
+    const sessionsDir = path.join(claudeDir, '.sessions');
+
+    if (!existsSync(sessionsDir)) {
+      return false;
+    }
+
+    const recentThreshold = Date.now() - 5000; // 5 seconds
+    const files = readdirSync(sessionsDir);
+
+    for (const file of files) {
+      const filePath = path.join(sessionsDir, file);
+      try {
+        const stats = statSync(filePath);
+
+        // If session file modified in last 5 seconds, Claude is active
+        if (stats.mtimeMs > recentThreshold) {
+          return true;
+        }
+      } catch (err) {
+        // Ignore files we can't stat
+        continue;
+      }
+    }
+
+    return false;
+  }
+
   // Check if Claude Code is currently busy (in a prompt loop)
   ipcMain.handle(
     IPC_CHANNELS.IS_CLAUDE_CODE_BUSY,
     async (event, handle: number): Promise<IPCResult<boolean>> => {
       try {
-        const isBusy = await isClaudeCodeBusy(handle);
-        return { success: true, data: isBusy };
+        // Primary check: MCP connection activity (most accurate)
+        if (mcpMonitor.isBusy()) {
+          console.log('[RDR] 🔴 Claude Code is busy (MCP connection active)');
+          const status = mcpMonitor.getStatus();
+          console.log('[RDR]    Details:', {
+            activeToolName: status.activeToolName,
+            timeSinceLastRequest: `${status.timeSinceLastRequest}ms`
+          });
+          return { success: true, data: true };
+        }
+
+        // Fallback: Session file activity check
+        const sessionBusy = await isClaudeSessionActive();
+        if (sessionBusy) {
+          console.log('[RDR] 🟡 Claude Code is busy (session file active)');
+          return { success: true, data: true };
+        }
+
+        // All checks passed - Claude is idle
+        console.log('[RDR] ✅ Claude Code is idle');
+        return { success: true, data: false };
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
-        console.error('[RDR] Failed to check busy state:', errorMessage);
-        return { success: false, error: errorMessage };
+        console.error('[RDR] ⚠️  Failed to check busy state:', errorMessage);
+        // Assume idle on error (graceful degradation)
+        return { success: true, data: false };
       }
     }
   );

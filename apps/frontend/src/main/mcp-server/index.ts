@@ -105,6 +105,65 @@ const OnCompleteSchema = z.object({
 }).optional();
 
 // ─────────────────────────────────────────────────────────────────────────────
+// MCP Connection Monitor - Track Activity for Busy Detection
+// ─────────────────────────────────────────────────────────────────────────────
+
+class MCPConnectionMonitor {
+  private lastRequestTime: number = 0;
+  private isProcessing: boolean = false;
+  private activeToolName: string | null = null;
+
+  onRequestStart(toolName: string): void {
+    this.isProcessing = true;
+    this.lastRequestTime = Date.now();
+    this.activeToolName = toolName;
+    console.log(`[MCP] 📨 Request started: ${toolName}`);
+  }
+
+  onRequestEnd(toolName: string): void {
+    this.isProcessing = false;
+    this.lastRequestTime = Date.now();
+    this.activeToolName = null;
+    console.log(`[MCP] ✅ Request completed: ${toolName}`);
+  }
+
+  isBusy(): boolean {
+    const recentThreshold = Date.now() - 3000; // 3 seconds
+
+    // If actively processing OR had activity in last 3 seconds
+    return this.isProcessing || (this.lastRequestTime > recentThreshold);
+  }
+
+  getStatus() {
+    return {
+      isBusy: this.isBusy(),
+      isProcessing: this.isProcessing,
+      activeToolName: this.activeToolName,
+      lastRequestTime: this.lastRequestTime,
+      timeSinceLastRequest: Date.now() - this.lastRequestTime
+    };
+  }
+}
+
+export const mcpMonitor = new MCPConnectionMonitor();
+
+// Helper to wrap tool handlers with monitoring
+function withMonitoring<T extends (...args: any[]) => Promise<any>>(
+  toolName: string,
+  handler: T
+): T {
+  return (async (...args: any[]) => {
+    mcpMonitor.onRequestStart(toolName);
+    try {
+      const result = await handler(...args);
+      return result;
+    } finally {
+      mcpMonitor.onRequestEnd(toolName);
+    }
+  }) as T;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // MCP Server Setup
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -132,7 +191,7 @@ server.tool(
     title: z.string().optional().describe('Optional title for the task (auto-generated if empty)'),
     options: TaskOptionsSchema.describe('Optional configuration for models, thinking, review, and classification')
   },
-  async ({ projectId, description, title, options }) => {
+  withMonitoring('create_task', async ({ projectId, description, title, options }) => {
     const result = await createTask(projectId, description, title, options as TaskOptions);
 
     if (!result.success) {
@@ -480,7 +539,7 @@ server.tool(
     projectId: z.string().describe('The project ID (UUID)'),
     taskId: z.string().describe('The task/spec ID')
   },
-  async ({ projectId, taskId }) => {
+  withMonitoring('get_task_error_details', async ({ projectId, taskId }) => {
     const statusResult = await getTaskStatus(projectId, taskId);
 
     if (!statusResult.success || !statusResult.data) {
@@ -591,7 +650,7 @@ server.tool(
     taskId: z.string().describe('The task/spec ID'),
     feedback: z.string().describe('Description of what needs to be fixed')
   },
-  async ({ projectId, taskId, feedback }) => {
+  withMonitoring('submit_task_fix_request', async ({ projectId, taskId, feedback }) => {
     // Import fs functions
     const { existsSync, writeFileSync, readFileSync } = await import('fs');
     const path = await import('path');
@@ -741,7 +800,7 @@ server.tool(
   {
     projectId: z.string().describe('The project ID (UUID)')
   },
-  async ({ projectId }) => {
+  withMonitoring('get_rdr_batches', async ({ projectId }) => {
     // Get project to check for signal file
     const project = projectStore.getProject(projectId);
     let signalData = null;
@@ -918,7 +977,7 @@ server.tool(
       feedback: z.string().describe('Fix description for this task')
     })).describe('Array of task fixes to submit')
   },
-  async ({ projectId, batchType, fixes }) => {
+  withMonitoring('process_rdr_batch', async ({ projectId, batchType, fixes }) => {
     // Import fs functions
     const { existsSync, writeFileSync, readFileSync } = await import('fs');
     const path = await import('path');

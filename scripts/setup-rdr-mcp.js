@@ -93,38 +93,46 @@ console.log('   ✓ MCP server configured with auto-approve enabled');
 // === STEP 2: Configure Bypass Permissions ===
 console.log('\n📋 Step 2: Enabling bypass permissions...');
 
-// Read existing VS Code user settings if they exist
-let existingUserSettings = {};
-if (fs.existsSync(userSettingsPath)) {
+// Option A: Modify project-level .claude_settings.json (recommended for Auto-Claude project)
+const projectSettingsPath = path.join(__dirname, '..', '.claude_settings.json');
+
+if (fs.existsSync(projectSettingsPath)) {
   try {
-    const content = fs.readFileSync(userSettingsPath, 'utf-8');
-    existingUserSettings = JSON.parse(content);
-    console.log('   ✓ Found existing VS Code user settings');
+    const projectSettings = JSON.parse(fs.readFileSync(projectSettingsPath, 'utf-8'));
+
+    // Change from "acceptEdits" to "bypassPermissions"
+    projectSettings.permissions = {
+      ...projectSettings.permissions,
+      defaultMode: 'bypassPermissions'
+    };
+
+    fs.writeFileSync(projectSettingsPath, JSON.stringify(projectSettings, null, 2));
+    console.log('   ✓ Bypass permissions enabled in .claude_settings.json');
+    console.log('   ℹ️  Mode changed from "acceptEdits" to "bypassPermissions"');
   } catch (err) {
-    console.warn('   ⚠️  Warning: Could not parse VS Code settings');
+    console.error('   ⚠️  Failed to update .claude_settings.json:', err.message);
   }
+} else {
+  console.warn('   ⚠️  .claude_settings.json not found in project root');
 }
 
-// Add bypass permissions setting (common setting names for Cline extension)
-const updatedUserSettings = {
-  ...existingUserSettings,
-  "cline.alwaysAllowReadOnly": true,
-  "cline.alwaysAllowWriteOnly": false,  // Keep write operations visible for safety
-  "claude-dev.autoApproveTools": true   // Alternative setting name
-};
+// Option B: Global settings (applies to all projects)
+const globalSettingsPath = path.join(os.homedir(), '.claude', 'settings.json');
 
-// Write updated VS Code user settings
-try {
-  const userSettingsDir = path.dirname(userSettingsPath);
-  if (!fs.existsSync(userSettingsDir)) {
-    fs.mkdirSync(userSettingsDir, { recursive: true });
+if (fs.existsSync(globalSettingsPath)) {
+  try {
+    const globalSettings = JSON.parse(fs.readFileSync(globalSettingsPath, 'utf-8'));
+
+    globalSettings.permissions = {
+      ...globalSettings.permissions,
+      defaultMode: 'bypassPermissions'
+    };
+
+    fs.writeFileSync(globalSettingsPath, JSON.stringify(globalSettings, null, 2));
+    console.log('   ✓ Bypass permissions also set globally in ~/.claude/settings.json');
+  } catch (err) {
+    console.warn('   ⚠️  Could not update global settings:', err.message);
   }
-  fs.writeFileSync(userSettingsPath, JSON.stringify(updatedUserSettings, null, 2), 'utf-8');
-  console.log('   ✓ Bypass permissions enabled for read-only operations');
-  console.log('   ℹ️  Write operations will still require approval (for safety)');
-} catch (err) {
-  console.warn('   ⚠️  Could not update VS Code settings:', err.message);
-  console.log('   ℹ️  You can manually enable "Bypass permissions" in Claude Code UI');
 }
 
 console.log('\n✅ Auto-Claude MCP server configured successfully!');
