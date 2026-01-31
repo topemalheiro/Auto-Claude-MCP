@@ -152,6 +152,41 @@ function getPlanPath(projectPath: string, specId: string): string {
 }
 
 /**
+ * Increment RDR attempt counter for tasks
+ * Updates task_metadata.json with attempt count and timestamp
+ */
+function incrementRdrAttempts(projectPath: string, taskIds: string[]): void {
+  const now = new Date().toISOString();
+
+  for (const specId of taskIds) {
+    try {
+      const metadataPath = path.join(projectPath, '.auto-claude', 'specs', specId, 'task_metadata.json');
+      let metadata: any = {};
+
+      // Read existing metadata if it exists
+      if (existsSync(metadataPath)) {
+        try {
+          metadata = JSON.parse(readFileSync(metadataPath, 'utf-8'));
+        } catch (readErr) {
+          console.warn(`[RDR] Failed to read metadata for ${specId}, starting fresh:`, readErr);
+        }
+      }
+
+      // Increment attempts counter
+      metadata.rdrAttempts = (metadata.rdrAttempts || 0) + 1;
+      metadata.rdrLastAttempt = now;
+
+      // Write back updated metadata
+      writeFileSync(metadataPath, JSON.stringify(metadata, null, 2));
+      console.log(`[RDR] Incremented RDR attempts for ${specId} to ${metadata.rdrAttempts}`);
+    } catch (error) {
+      console.error(`[RDR] Failed to increment RDR attempts for ${specId}:`, error);
+      // Continue with other tasks even if one fails
+    }
+  }
+}
+
+/**
  * Categorize tasks into batches by problem type
  */
 function categorizeTasks(tasks: TaskInfo[]): RdrBatch[] {
@@ -595,6 +630,12 @@ async function processPendingTasks(): Promise<void> {
     const batches = categorizeTasks(tasks);
     console.log(`[RDR] Categorized ${tasks.length} tasks into ${batches.length} batches for project ${projectId}`);
 
+    // Increment RDR attempt counter for all tasks being processed
+    const allTaskIds = batches.flatMap(b => b.taskIds);
+    if (allTaskIds.length > 0) {
+      incrementRdrAttempts(project.path, allTaskIds);
+    }
+
     // Process auto-fixable batches immediately
     for (const batch of batches) {
       if (batch.type === 'json_error') {
@@ -688,6 +729,12 @@ export function registerRdrHandlers(): void {
       // Categorize tasks into batches
       const batches = categorizeTasks(tasks);
       console.log(`[RDR] Categorized into ${batches.length} batches`);
+
+      // Increment RDR attempt counter for all tasks being processed
+      const allTaskIds = batches.flatMap(b => b.taskIds);
+      if (allTaskIds.length > 0) {
+        incrementRdrAttempts(project.path, allTaskIds);
+      }
 
       // Process each batch
       const allResults: RdrProcessResult[] = [];
@@ -805,6 +852,12 @@ export function registerRdrHandlers(): void {
       console.log(`[RDR] Categorized ${tasks.length} tasks into ${batches.length} batches:`);
       for (const batch of batches) {
         console.log(`[RDR]   - ${batch.type}: ${batch.taskIds.length} tasks`);
+      }
+
+      // Increment RDR attempt counter for all tasks being processed
+      const allTaskIds = batches.flatMap(b => b.taskIds);
+      if (allTaskIds.length > 0) {
+        incrementRdrAttempts(project.path, allTaskIds);
       }
 
       // Write signal file IMMEDIATELY (no timer)

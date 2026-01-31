@@ -43,6 +43,7 @@ export const IPC_CHANNELS = {
   TASK_LIST_WORKTREES: 'task:listWorktrees',
   TASK_ARCHIVE: 'task:archive',
   TASK_UNARCHIVE: 'task:unarchive',
+  TASK_TOGGLE_RDR: 'task:toggleRdr',  // Toggle RDR auto-recovery for a task
   TASK_CLEAR_STAGED_STATE: 'task:clearStagedState',
 
   // Task events (main -> renderer)
@@ -53,6 +54,7 @@ export const IPC_CHANNELS = {
   TASK_EXECUTION_PROGRESS: 'task:executionProgress',
   TASK_LIST_REFRESH: 'task:listRefresh',  // External task created (MCP), UI should refresh
   TASK_AUTO_START: 'task:autoStart',      // MCP requested task start, UI should trigger execution
+  TASK_STATUS_CHANGED: 'task:statusChanged',  // Task status changed (for RDR auto-recovery board movement)
 
   // Task phase logs (persistent, collapsible logs by phase)
   TASK_LOGS_GET: 'task:logsGet',           // Load logs from spec dir

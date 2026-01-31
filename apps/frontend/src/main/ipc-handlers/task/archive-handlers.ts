@@ -51,4 +51,24 @@ export function registerTaskArchiveHandlers(): void {
       }
     }
   );
+
+  /**
+   * Toggle RDR auto-recovery for a task
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.TASK_TOGGLE_RDR,
+    async (_, taskId: string, disabled: boolean): Promise<IPCResult<boolean>> => {
+      console.log('[IPC] TASK_TOGGLE_RDR called for task:', taskId, 'disabled:', disabled);
+
+      const result = projectStore.toggleTaskRdr(taskId, disabled);
+
+      if (result) {
+        console.log('[IPC] TASK_TOGGLE_RDR success');
+        return { success: true, data: true };
+      } else {
+        console.error('[IPC] TASK_TOGGLE_RDR failed');
+        return { success: false, error: 'Failed to toggle RDR state' };
+      }
+    }
+  );
 }

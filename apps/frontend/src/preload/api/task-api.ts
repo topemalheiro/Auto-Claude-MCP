@@ -85,6 +85,7 @@ export interface TaskAPI {
   worktreeDetectTools: () => Promise<IPCResult<{ ides: Array<{ id: string; name: string; path: string; installed: boolean }>; terminals: Array<{ id: string; name: string; path: string; installed: boolean }> }>>;
   archiveTasks: (projectId: string, taskIds: string[], version?: string) => Promise<IPCResult<boolean>>;
   unarchiveTasks: (projectId: string, taskIds: string[]) => Promise<IPCResult<boolean>>;
+  toggleTaskRdr: (taskId: string, disabled: boolean) => Promise<IPCResult<boolean>>;
   createWorktreePR: (taskId: string, options?: WorktreeCreatePROptions) => Promise<IPCResult<WorktreeCreatePRResult>>;
 
   // Task Event Listeners
@@ -98,6 +99,13 @@ export interface TaskAPI {
   ) => () => void;
   onTaskListRefresh: (callback: (projectId: string) => void) => () => void;
   onTaskAutoStart: (callback: (projectId: string, taskId: string) => void) => () => void;
+  onTaskStatusChanged: (callback: (data: {
+    projectId: string;
+    taskId: string;
+    specId: string;
+    oldStatus: TaskStatus;
+    newStatus: TaskStatus;
+  }) => void) => () => void;
 
   // Task Phase Logs
   getTaskLogs: (projectId: string, specId: string) => Promise<IPCResult<TaskLogs | null>>;
@@ -213,6 +221,9 @@ export const createTaskAPI = (): TaskAPI => ({
   unarchiveTasks: (projectId: string, taskIds: string[]): Promise<IPCResult<boolean>> =>
     ipcRenderer.invoke(IPC_CHANNELS.TASK_UNARCHIVE, projectId, taskIds),
 
+  toggleTaskRdr: (taskId: string, disabled: boolean): Promise<IPCResult<boolean>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.TASK_TOGGLE_RDR, taskId, disabled),
+
   createWorktreePR: (taskId: string, options?: WorktreeCreatePROptions): Promise<IPCResult<WorktreeCreatePRResult>> =>
     ipcRenderer.invoke(IPC_CHANNELS.TASK_WORKTREE_CREATE_PR, taskId, options),
 
@@ -326,6 +337,31 @@ export const createTaskAPI = (): TaskAPI => ({
     ipcRenderer.on(IPC_CHANNELS.TASK_AUTO_START, handler);
     return () => {
       ipcRenderer.removeListener(IPC_CHANNELS.TASK_AUTO_START, handler);
+    };
+  },
+
+  onTaskStatusChanged: (callback: (data: {
+    projectId: string;
+    taskId: string;
+    specId: string;
+    oldStatus: TaskStatus;
+    newStatus: TaskStatus;
+  }) => void): (() => void) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      data: {
+        projectId: string;
+        taskId: string;
+        specId: string;
+        oldStatus: TaskStatus;
+        newStatus: TaskStatus;
+      }
+    ): void => {
+      callback(data);
+    };
+    ipcRenderer.on(IPC_CHANNELS.TASK_STATUS_CHANGED, handler);
+    return () => {
+      ipcRenderer.removeListener(IPC_CHANNELS.TASK_STATUS_CHANGED, handler);
     };
   },
 

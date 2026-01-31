@@ -136,6 +136,7 @@ export const TaskCard = memo(function TaskCard({
   const { t } = useTranslation(['tasks', 'errors']);
   const [isStuck, setIsStuck] = useState(false);
   const [isRecovering, setIsRecovering] = useState(false);
+  const [rdrDisabled, setRdrDisabled] = useState(task.metadata?.rdrDisabled ?? false);
   const stuckCheckRef = useRef<{ timeout: NodeJS.Timeout | null; interval: NodeJS.Timeout | null }>({
     timeout: null,
     interval: null
@@ -291,6 +292,20 @@ export const TaskCard = memo(function TaskCard({
       setIsStuck(false);
     }
     setIsRecovering(false);
+  };
+
+  const handleToggleRdr = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const newRdrState = !rdrDisabled;
+    setRdrDisabled(newRdrState);
+
+    // Call IPC to update task metadata
+    const result = await window.electronAPI.toggleTaskRdr(task.id, newRdrState);
+    if (!result.success) {
+      console.error('[TaskCard] Failed to toggle RDR:', result.error);
+      // Revert on failure
+      setRdrDisabled(!newRdrState);
+    }
   };
 
   const handleArchive = async (e: React.MouseEvent) => {
@@ -642,7 +657,7 @@ export const TaskCard = memo(function TaskCard({
             )}
 
             {/* Move to menu for keyboard accessibility */}
-            {statusMenuItems && (
+            {(statusMenuItems || task.status === 'human_review') && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
@@ -656,9 +671,39 @@ export const TaskCard = memo(function TaskCard({
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-                  <DropdownMenuLabel>{t('actions.moveTo')}</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  {statusMenuItems}
+                  {statusMenuItems && (
+                    <>
+                      <DropdownMenuLabel>{t('actions.moveTo')}</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      {statusMenuItems}
+                    </>
+                  )}
+                  {task.status === 'human_review' && (
+                    <>
+                      {statusMenuItems && <DropdownMenuSeparator />}
+                      <DropdownMenuLabel>RDR Auto-Recovery</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={handleToggleRdr}>
+                        {rdrDisabled ? (
+                          <>
+                            <RotateCcw className="mr-2 h-4 w-4" />
+                            Enable Auto-Recovery
+                          </>
+                        ) : (
+                          <>
+                            <Square className="mr-2 h-4 w-4" />
+                            Disable Auto-Recovery
+                          </>
+                        )}
+                      </DropdownMenuItem>
+                      {task.metadata?.rdrAttempts && task.metadata.rdrAttempts > 0 && (
+                        <DropdownMenuItem disabled>
+                          <AlertTriangle className="mr-2 h-4 w-4" />
+                          {task.metadata.rdrAttempts} recovery attempt{task.metadata.rdrAttempts > 1 ? 's' : ''}
+                        </DropdownMenuItem>
+                      )}
+                    </>
+                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
             )}

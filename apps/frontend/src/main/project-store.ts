@@ -1,4 +1,4 @@
-import { app } from 'electron';
+import { app } from './electron-compat';
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, Dirent } from 'fs';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
@@ -335,6 +335,73 @@ export class ProjectStore {
     this.tasksCache.set(projectId, { tasks, timestamp: now });
 
     return tasks;
+  }
+
+  /**
+   * Get a task by its spec ID
+   */
+  getTaskBySpecId(projectId: string, specId: string): Task | null {
+    const tasks = this.getTasks(projectId);
+    return tasks.find(t => t.specId === specId) || null;
+  }
+
+  /**
+   * Update task status and persist to implementation_plan.json
+   * @returns true if update succeeded, false otherwise
+   */
+  updateTaskStatus(projectId: string, taskId: string, newStatus: TaskStatus): boolean {
+    const project = this.getProject(projectId);
+    if (!project) {
+      console.error('[ProjectStore] updateTaskStatus: Project not found:', projectId);
+      return false;
+    }
+
+    const task = this.getTaskBySpecId(projectId, taskId);
+    if (!task) {
+      console.error('[ProjectStore] updateTaskStatus: Task not found:', taskId);
+      return false;
+    }
+
+    try {
+      // Update implementation_plan.json in task's spec directory
+      const planPath = path.join(task.specsPath, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
+      if (!existsSync(planPath)) {
+        console.error('[ProjectStore] updateTaskStatus: implementation_plan.json not found:', planPath);
+        return false;
+      }
+
+      // Read current plan
+      const content = readFileSync(planPath, 'utf-8');
+      const plan = JSON.parse(content);
+
+      // Map TaskStatus to plan status values
+      const statusMapping: Record<TaskStatus, string> = {
+        'backlog': 'pending',
+        'in_progress': 'in_progress',
+        'ai_review': 'ai_review',
+        'human_review': 'human_review',
+        'done': 'done',
+        'pr_created': 'pr_created',
+        'error': 'error'
+      };
+
+      // Update status
+      plan.status = statusMapping[newStatus] || newStatus;
+      plan.updated_at = new Date().toISOString();
+
+      // Write updated plan
+      writeFileSync(planPath, JSON.stringify(plan, null, 2));
+
+      console.log(`[ProjectStore] updateTaskStatus: Updated ${taskId} status to ${newStatus}`);
+
+      // Invalidate cache to force refresh
+      this.invalidateTasksCache(projectId);
+
+      return true;
+    } catch (error) {
+      console.error('[ProjectStore] updateTaskStatus: Error updating task status:', error);
+      return false;
+    }
   }
 
   /**
@@ -858,6 +925,74 @@ export class ProjectStore {
 
     // Invalidate cache since task metadata changed
     this.invalidateTasksCache(projectId);
+
+    return !hasErrors;
+  }
+
+  /**
+   * Toggle RDR (Recover Debug Resend) auto-recovery for a task
+   * @param taskId - ID of task to toggle RDR for
+   * @param disabled - If true, RDR will skip auto-recovery for this task
+   */
+  toggleTaskRdr(taskId: string, disabled: boolean): boolean {
+    // Find the project that contains this task
+    let targetProject: Project | null = null;
+    for (const project of this.projects.values()) {
+      const task = project.tasks.find((t) => t.id === taskId);
+      if (task) {
+        targetProject = project;
+        break;
+      }
+    }
+
+    if (!targetProject) {
+      console.error('[ProjectStore] toggleTaskRdr: Task not found:', taskId);
+      return false;
+    }
+
+    const specsBaseDir = getSpecsDir(targetProject.autoBuildPath);
+    let hasErrors = false;
+
+    // Find ALL locations where this task exists (main + worktrees)
+    const specPaths = findAllSpecPaths(targetProject.path, specsBaseDir, taskId);
+
+    if (specPaths.length === 0) {
+      console.warn(`[ProjectStore] toggleTaskRdr: Spec directory not found for task ${taskId}`);
+      return false;
+    }
+
+    // Update RDR state in ALL locations
+    for (const specPath of specPaths) {
+      try {
+        const metadataPath = path.join(specPath, 'task_metadata.json');
+        let metadata: TaskMetadata = {};
+
+        // Read existing metadata, handling missing file without TOCTOU race
+        try {
+          metadata = JSON.parse(readFileSync(metadataPath, 'utf-8'));
+        } catch (readErr: unknown) {
+          // File doesn't exist yet - start with empty metadata
+          if ((readErr as NodeJS.ErrnoException).code !== 'ENOENT') {
+            throw readErr;
+          }
+        }
+
+        // Update RDR state
+        metadata.rdrDisabled = disabled;
+
+        writeFileSync(metadataPath, JSON.stringify(metadata, null, 2));
+        console.log(
+          `[ProjectStore] toggleTaskRdr: Successfully ${disabled ? 'disabled' : 'enabled'} RDR for task ${taskId} at ${specPath}`
+        );
+      } catch (error) {
+        console.error(`[ProjectStore] toggleTaskRdr: Failed to toggle RDR for task ${taskId} at ${specPath}:`, error);
+        hasErrors = true;
+        // Continue with other locations even if one fails
+      }
+    }
+
+    // Invalidate cache since task metadata changed
+    this.invalidateTasksCache(targetProject.id);
 
     return !hasErrors;
   }
