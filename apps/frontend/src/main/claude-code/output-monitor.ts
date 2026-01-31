@@ -119,11 +119,9 @@ class ClaudeOutputMonitor {
     for (const line of recentLines) {
       try {
         const entry = JSON.parse(line);
-        // Extract text from "text" field or "content" array
-        if (entry.text) {
-          recentText += entry.text + '\n';
-        } else if (entry.content && Array.isArray(entry.content)) {
-          for (const block of entry.content) {
+        // Extract text from message.content array (user/assistant messages)
+        if ((entry.type === 'user' || entry.type === 'assistant') && entry.message?.content) {
+          for (const block of entry.message.content) {
             if (block.type === 'text' && block.text) {
               recentText += block.text + '\n';
             }
