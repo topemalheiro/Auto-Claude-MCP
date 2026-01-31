@@ -266,6 +266,150 @@ main (user's branch)
 git log --oneline upstream/develop..HEAD
 ```
 
+## Dependabot Pull Requests
+
+Auto-Claude uses Dependabot to keep dependencies up-to-date. **NEVER blindly merge Dependabot PRs** - always review them first.
+
+### Dependabot Configuration
+
+Located at [.github/dependabot.yml](.github/dependabot.yml):
+- Python dependencies: Weekly scans of `/apps/backend`
+- npm dependencies: Weekly scans of `/apps/frontend`
+- GitHub Actions: Weekly scans of workflows
+- Max 5 open PRs per ecosystem
+
+### Review Checklist for Dependabot PRs
+
+Before merging ANY Dependabot PR:
+
+#### 1. Verify Package Legitimacy
+```bash
+# Check package exists and matches expected maintainer
+npm view <package>@<version>
+
+# For dotenv example:
+npm view dotenv@17.2.3
+# Should show: "published by motdotla <mot@mot.la>" (official maintainer)
+```
+
+#### 2. Check for Breaking Changes
+
+**Semantic Versioning:**
+- **Patch** (16.6.1 → 16.6.2): Bug fixes only - usually safe
+- **Minor** (16.6.1 → 16.7.0): New features, backward compatible - review changes
+- **Major** (16.6.1 → 17.0.0): Breaking changes - MUST test before merging
+
+**Check changelog:**
+```bash
+npm view <package>@<version> homepage
+# Read CHANGELOG.md or release notes
+```
+
+#### 3. Run Tests Before Merging
+
+```bash
+# Frontend changes
+cd apps/frontend && npm test
+
+# Backend changes
+cd apps/backend && .venv/bin/pytest tests/ -v
+
+# Build verification
+npm run build
+```
+
+#### 4. Security Scan
+
+```bash
+# Check for known vulnerabilities
+npm audit
+
+# Or use GitHub's Security tab to see if update fixes vulnerabilities
+```
+
+### When to Accept vs Reject
+
+| Update Type | Action |
+|-------------|--------|
+| **Patch updates** (16.6.1 → 16.6.2) | ✅ Usually safe - review and merge |
+| **Minor updates** (16.6.0 → 16.7.0) | ⚠️ Review changes, test, then merge |
+| **Major updates** (16.x → 17.x) | 🛑 DO NOT auto-merge - requires thorough testing |
+| **Pre-release** (17.0.0-rc1) | 🛑 Reject unless actively testing |
+
+### Red Flags (Potential Supply Chain Attacks)
+
+🚨 **DO NOT MERGE** if you see:
+
+1. **Unknown maintainer**:
+   ```bash
+   # Check current maintainer
+   npm view <package>@<old-version>
+   # Compare to new version
+   npm view <package>@<new-version>
+   # Maintainer should be the same
+   ```
+
+2. **Suspicious package name** (typosquatting):
+   - `dottenv` instead of `dotenv`
+   - `reacct` instead of `react`
+   - Similar-looking names
+
+3. **Unusual version jump**:
+   - 16.6.1 → 99.0.0 (suspicious large jump)
+   - 16.6.1 → 16.5.0 (downgrade - very suspicious)
+
+4. **Package not on official registry**:
+   ```bash
+   npm view <package>@<version>
+   # Should return package info, not "404 Not Found"
+   ```
+
+5. **Recently published with no history**:
+   ```bash
+   npm view <package> time
+   # Check publication dates - new packages with no history are suspicious
+   ```
+
+### Example: Reviewing the dotenv 17.2.3 Update
+
+**Dependabot PR**: Bump dotenv from 16.6.1 to 17.2.3
+
+**Review process:**
+```bash
+# 1. Verify package legitimacy
+$ npm view dotenv@17.2.3
+dotenv@17.2.3 | BSD-2-Clause
+published 4 months ago by motdotla <mot@mot.la>  # ✅ Official maintainer
+
+# 2. Check for breaking changes
+$ npm view dotenv@17.2.3 homepage
+# Read https://github.com/motdotla/dotenv/blob/master/CHANGELOG.md
+# Review breaking changes in 17.0.0
+
+# 3. Decision
+Major version bump (16.x → 17.x) = Breaking changes possible
+Action: Close PR, schedule manual upgrade and testing later
+```
+
+### Configuring Dependabot to Block Major Updates
+
+Update [.github/dependabot.yml](.github/dependabot.yml) to auto-reject major version bumps:
+
+```yaml
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/apps/frontend"
+    schedule:
+      interval: "weekly"
+    # Block major version updates
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+```
+
+This allows Dependabot to update minor/patch versions while blocking major versions that require manual review.
+
 ### Security Model
 
 Three-layer defense:
