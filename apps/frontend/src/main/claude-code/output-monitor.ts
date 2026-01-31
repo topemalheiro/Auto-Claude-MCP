@@ -185,10 +185,11 @@ class ClaudeOutputMonitor {
               const filePath = path.join(projectPath, file);
               const stats = await fs.stat(filePath);
 
-              // Only consider files modified in the last 60 seconds
+              // Only consider files modified in the last 5 minutes
+              // (Claude Code sessions may not constantly write to JSONL)
               const ageMs = Date.now() - stats.mtimeMs;
 
-              if (ageMs > 60000) {
+              if (ageMs > 300000) {
                 continue; // Skip old files silently
               }
 
@@ -207,7 +208,7 @@ class ClaudeOutputMonitor {
         }
       }
 
-      console.log('[OutputMonitor] Summary: Found', totalJsonlFiles, 'total JSONL files,', recentJsonlFiles, 'recent (<60s)');
+      console.log('[OutputMonitor] Summary: Found', totalJsonlFiles, 'total JSONL files,', recentJsonlFiles, 'recent (<5min)');
 
       if (latestFile) {
         console.log('[OutputMonitor] Selected latest file:', latestFile.path);
