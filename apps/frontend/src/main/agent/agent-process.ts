@@ -721,8 +721,9 @@ export class AgentProcessManager {
 
           // Trigger restart after short delay (let other tasks finish)
           setTimeout(() => {
-            import('../ipc-handlers/restart-handlers.js').then(({ buildAndRestart, saveRestartState }) => {
-              saveRestartState('crash');
+            import('../ipc-handlers/restart-handlers.js').then(({ buildAndRestart }) => {
+              // Note: We don't call saveRestartState here because we don't have access to agentManager
+              // The restart will happen but task resumption will be handled on startup
               buildAndRestart(settings.autoRestartOnFailure.buildCommand || 'npm run build').catch(error => {
                 console.error('[CRASH] Auto-restart failed:', error);
               });

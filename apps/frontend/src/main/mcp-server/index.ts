@@ -1282,12 +1282,10 @@ server.tool(
       console.log('[MCP] Restart marker written:', restartMarkerPath);
 
       // Import and call buildAndRestart
-      const { buildAndRestart, saveRestartState } = await import('../ipc-handlers/restart-handlers.js');
+      const { buildAndRestart } = await import('../ipc-handlers/restart-handlers.js');
       const cmd = buildCommand || settings.autoRestartOnFailure.buildCommand || 'npm run build';
 
-      // Save running tasks before restart
-      saveRestartState(reason as 'prompt_loop' | 'crash' | 'manual');
-
+      // Note: Task state will be saved by checkAndHandleRestart when app restarts and detects marker file
       console.log('[MCP] Triggering build and restart with command:', cmd);
 
       // Execute build and restart

@@ -4,7 +4,7 @@ import { readFileSync, writeFileSync, existsSync, unlinkSync } from 'fs';
 import * as path from 'path';
 import { IPC_CHANNELS } from '../../shared/constants/ipc';
 import type { IPCResult } from '../../shared/types';
-import { agentManager } from '../agent/agent-manager';
+import type { AgentManager } from '../agent/agent-manager';
 import { readSettingsFile } from '../settings-utils';
 import { projectStore } from '../project-store';
 
@@ -182,7 +182,7 @@ async function buildAndRestart(buildCommand: string): Promise<IPCResult<void>> {
 /**
  * Save running tasks before restart
  */
-function saveRestartState(reason: RestartState['reason']): void {
+function saveRestartState(reason: RestartState['reason'], agentManager: AgentManager): void {
   const runningTasks = agentManager.getRunningTasks();
 
   const state: RestartState = {
@@ -271,10 +271,10 @@ export function resumeTasksAfterRestart(): void {
 /**
  * IPC Handlers
  */
-export function registerRestartHandlers() {
+export function registerRestartHandlers(agentManager: AgentManager) {
   // Trigger auto-restart (called by MCP tool or UI)
   ipcMain.handle(IPC_CHANNELS.RESTART_TRIGGER_AUTO_RESTART, async (_, buildCommand: string) => {
-    saveRestartState('manual');
+    saveRestartState('manual', agentManager);
     return buildAndRestart(buildCommand);
   });
 
@@ -289,7 +289,7 @@ export function registerRestartHandlers() {
 /**
  * Check for restart marker on startup
  */
-export function checkAndHandleRestart(settings: any): void {
+export function checkAndHandleRestart(settings: any, agentManager: AgentManager): void {
   if (!checkRestartRequested()) {
     return;
   }
@@ -302,7 +302,7 @@ export function checkAndHandleRestart(settings: any): void {
 
   console.log('[RESTART] Restart requested by hook, triggering build...');
 
-  saveRestartState('prompt_loop');
+  saveRestartState('prompt_loop', agentManager);
 
   const buildCommand = settings.autoRestartOnFailure.buildCommand || 'npm run build';
 

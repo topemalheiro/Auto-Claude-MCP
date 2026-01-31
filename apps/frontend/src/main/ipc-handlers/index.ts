@@ -135,7 +135,7 @@ export function setupIpcHandlers(
   registerRdrHandlers();
 
   // Auto-restart on loop/crash handlers - rebuild and restart on failure
-  registerRestartHandlers();
+  registerRestartHandlers(agentManager);
 
   console.warn('[IPC] All handler modules registered successfully');
 }

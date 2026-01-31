@@ -415,7 +415,7 @@ app.whenReady().then(() => {
 
   // Check for auto-restart request from hook
   const settings = readSettingsFile();
-  checkAndHandleRestart(settings);
+  checkAndHandleRestart(settings, agentManager);
 
   // Resume tasks that were running before restart
   resumeTasksAfterRestart();
