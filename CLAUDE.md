@@ -266,6 +266,12 @@ main (user's branch)
 git log --oneline upstream/develop..HEAD
 ```
 
+## Test Project for RDR Integration
+
+**CV Project Path:** `C:\Users\topem\Desktop\CV Project`
+
+This project is used for testing the RDR (Recover, Debug, Resend) system with MCP integration. When RDR detects tasks needing intervention in this project, it automatically prompts Claude Code via MCP to fix them.
+
 ## RDR (Recover, Debug, Resend) System
 
 **CRITICAL: Claude Code must automatically recover from JSON errors and resume stuck tasks without manual intervention.**
@@ -276,7 +282,8 @@ RDR is Auto-Claude's automatic recovery system that:
 1. **Monitors tasks** for JSON errors, incomplete work, and failures
 2. **Auto-fixes JSON** errors in `implementation_plan.json` files
 3. **Auto-resumes** stuck tasks by updating their status
-4. **Sends recovery prompts** to Claude Code when needed
+4. **Sends recovery prompts** to Claude Code when needed via MCP
+5. **Invokes Auto-Claude MCP tools** automatically when Claude Code receives RDR notifications
 
 ### RDR Recovery Priority System
 
@@ -392,6 +399,58 @@ done
 - Tasks with 0 phases or incomplete subtasks
 
 **NEVER manually edit tasks** unless RDR auto-fix fails multiple times.
+
+### RDR → MCP Integration (Automatic Recovery)
+
+**CRITICAL: When Claude Code receives RDR notifications, it should automatically invoke the `/auto-claude-mcp` skill to recover tasks.**
+
+**RDR Notification Format:**
+```
+[Auto-Claude RDR] Tasks needing intervention:
+
+## 071-marko: Task Name
+Status: plan_review | Exit: none
+Subtasks: 18/20 complete
+Pending: subtask details...
+
+Use MCP tools: get_task_error_details, submit_task_fix_request, process_rdr_batch
+```
+
+**Automatic Response Flow:**
+1. **Claude Code receives RDR notification** via MCP message
+2. **Invoke `/auto-claude-mcp` skill** automatically
+3. **Determine project path** from context or ask user
+4. **Apply Priority 1 recovery** (auto-resume incomplete tasks):
+   ```bash
+   cd "/path/to/project/.auto-claude/specs"
+   for task in 071-marko 073-qwik; do
+     sed -i 's/"status": "plan_review"/"status": "start_requested"/' "$task/implementation_plan.json"
+   done
+   ```
+5. **Apply Priority 3 recovery** (fix JSON errors):
+   ```bash
+   for task in 082-ats-other 083-rte-major; do
+     cat > "$task/implementation_plan.json" << 'EOF'
+   {
+     "feature": "Auto-recovery task",
+     "description": "Task recovered by RDR system",
+     "status": "start_requested",
+     "phases": []
+   }
+   EOF
+   done
+   ```
+6. **Confirm recovery** to user
+
+**Project Path Resolution:**
+- CV Project: `C:\Users\topem\Desktop\CV Project`
+- Auto-Claude Mod: `C:\Users\topem\source\repos\Auto-Claude Mod`
+- Ask user if path is unclear
+
+**MCP Tools Usage:**
+- Use file-based recovery (sed/cat) for direct task fixing
+- Use MCP tools (`get_rdr_batches`, `submit_task_fix_request`) when project UUID is available
+- Prefer Priority 1 (auto-resume) over Priority 2/3 when possible
 
 ## Dependabot Pull Requests
 
