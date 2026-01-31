@@ -447,6 +447,8 @@ async function processMcpBatch(
  */
 function generateBatchPrompt(batches: RdrBatch[]): string {
   const lines: string[] = [
+    '/auto-claude-mcp',
+    '',
     '# [AUTO-CLAUDE RDR] Recovery Manager Role',
     '',
     '**YOU ARE THE CLAUDE MANAGER** for the Auto-Claude autonomous coding system.',
