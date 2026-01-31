@@ -597,5 +597,10 @@ export const IPC_CHANNELS = {
   RDR_PROCESSING_COMPLETE: 'rdr:processingComplete',      // All RDR processing complete
   RDR_BATCH_READY: 'rdr:batchReady',                      // Batch ready for MCP/Claude Code processing
   RDR_BATCH_PROCESSED: 'rdr:batchProcessed',              // Batch processing complete
-  RDR_ITERATION_COMPLETE: 'rdr:iterationComplete'         // One iteration of batch processing done
+  RDR_ITERATION_COMPLETE: 'rdr:iterationComplete',         // One iteration of batch processing done
+  PING_RDR_IMMEDIATE: 'rdr:pingImmediate',                  // Immediate RDR ping (writes signal file now)
+
+  // VS Code Window Management (for RDR message sending)
+  GET_VSCODE_WINDOWS: 'rdr:getVSCodeWindows',               // Get list of VS Code windows
+  SEND_RDR_TO_WINDOW: 'rdr:sendToWindow'                    // Send RDR message to specific window
 } as const;

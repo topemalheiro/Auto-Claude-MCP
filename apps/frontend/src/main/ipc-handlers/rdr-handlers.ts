@@ -104,15 +104,15 @@ function attemptJsonFix(rawContent: string): string | null {
 /**
  * Get all task info for multiple tasks from project store
  */
-async function getAllTaskInfo(projectId: string, taskIds: string[]): Promise<TaskInfo[]> {
-  const tasksResult = await projectStore.getTasks(projectId);
+function getAllTaskInfo(projectId: string, taskIds: string[]): TaskInfo[] {
+  const tasks = projectStore.getTasks(projectId);
 
-  if (!tasksResult.success || !tasksResult.data) {
+  if (!tasks || tasks.length === 0) {
     return [];
   }
 
-  return tasksResult.data
-    .filter(t => taskIds.includes(t.specId) || taskIds.includes(t.id))
+  return tasks
+    .filter((t): t is typeof t & { specId: string } => taskIds.includes(t.specId) || taskIds.includes(t.id))
     .map(task => ({
       specId: task.specId,
       status: task.status,
@@ -616,7 +616,7 @@ export function registerRdrHandlers(): void {
       const mainWindow = BrowserWindow.getAllWindows()[0] || null;
 
       // Get all task info
-      const tasks = await getAllTaskInfo(projectId, taskIds);
+      const tasks = getAllTaskInfo(projectId, taskIds);
       if (tasks.length === 0) {
         return {
           success: false,
@@ -705,6 +705,146 @@ export function registerRdrHandlers(): void {
           batches: batchSummaries
         }
       };
+    }
+  );
+
+  // Immediate RDR ping - writes signal file NOW (no 30s timer)
+  // This is triggered by the manual Ping button in the UI
+  ipcMain.handle(
+    IPC_CHANNELS.PING_RDR_IMMEDIATE,
+    async (event, projectId: string, tasks: Array<{
+      id: string;
+      status: string;
+      reviewReason?: string;
+      description?: string;
+      subtasks?: Array<{ status: string; name?: string }>;
+    }>): Promise<IPCResult<{ taskCount: number; signalPath: string }>> => {
+      console.log(`[RDR] Ping immediate - ${tasks.length} tasks from project ${projectId}`);
+
+      // Get project path
+      const project = projectStore.getProject(projectId);
+      if (!project) {
+        return {
+          success: false,
+          error: 'Project not found'
+        };
+      }
+
+      // Convert renderer Task objects to TaskInfo format
+      const taskInfos: TaskInfo[] = tasks.map(t => ({
+        specId: t.id,
+        status: t.status,
+        reviewReason: t.reviewReason,
+        description: t.description,
+        subtasks: t.subtasks
+      }));
+
+      // Categorize tasks into batches
+      const batches = categorizeTasks(taskInfos);
+      console.log(`[RDR] Categorized ${tasks.length} tasks into ${batches.length} batches:`);
+      for (const batch of batches) {
+        console.log(`[RDR]   - ${batch.type}: ${batch.taskIds.length} tasks`);
+      }
+
+      // Write signal file IMMEDIATELY (no timer)
+      const signalDir = path.join(project.path, '.auto-claude');
+      const signalPath = path.join(signalDir, 'rdr-pending.json');
+
+      // Create .auto-claude dir if needed
+      if (!existsSync(signalDir)) {
+        const { mkdirSync } = await import('fs');
+        mkdirSync(signalDir, { recursive: true });
+      }
+
+      const signal = {
+        timestamp: new Date().toISOString(),
+        projectId,
+        source: 'manual_ping',
+        batches: batches.map(b => ({
+          type: b.type,
+          taskCount: b.taskIds.length,
+          taskIds: b.taskIds,
+          tasks: b.tasks.map(t => ({
+            specId: t.specId,
+            description: t.description?.substring(0, 200),
+            reviewReason: t.reviewReason,
+            subtasksCompleted: t.subtasks?.filter(s => s.status === 'completed').length || 0,
+            subtasksTotal: t.subtasks?.length || 0
+          }))
+        })),
+        prompt: generateBatchPrompt(batches)
+      };
+
+      writeFileSync(signalPath, JSON.stringify(signal, null, 2));
+      console.log(`[RDR] Wrote signal file: ${signalPath}`);
+      console.log(`[RDR] Signal contains ${batches.length} batches with ${batches.reduce((sum, b) => sum + b.taskIds.length, 0)} total tasks`);
+
+      return {
+        success: true,
+        data: {
+          taskCount: tasks.length,
+          signalPath
+        }
+      };
+    }
+  );
+
+  // VS Code Window Management handlers
+  // These use PowerShell scripts that mirror ClaudeAutoResponse logic
+
+  // Get list of VS Code windows
+  ipcMain.handle(
+    IPC_CHANNELS.GET_VSCODE_WINDOWS,
+    async (): Promise<IPCResult<Array<{ handle: number; title: string; processId: number }>>> => {
+      console.log('[RDR] Getting VS Code windows');
+
+      try {
+        // Dynamic import to avoid loading Windows-specific code on other platforms
+        const { getVSCodeWindows } = await import('../platform/windows/window-manager');
+        const windows = getVSCodeWindows();
+        console.log(`[RDR] Found ${windows.length} VS Code windows`);
+
+        return {
+          success: true,
+          data: windows
+        };
+      } catch (error) {
+        console.error('[RDR] Failed to get VS Code windows:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : String(error)
+        };
+      }
+    }
+  );
+
+  // Send RDR message to a specific VS Code window
+  ipcMain.handle(
+    IPC_CHANNELS.SEND_RDR_TO_WINDOW,
+    async (event, handle: number, message: string): Promise<IPCResult<{ success: boolean; error?: string }>> => {
+      console.log(`[RDR] Sending message to window handle ${handle}`);
+
+      try {
+        const { sendMessageToWindow } = await import('../platform/windows/window-manager');
+        const result = await sendMessageToWindow(handle, message);
+
+        if (result.success) {
+          console.log('[RDR] Message sent successfully');
+        } else {
+          console.error('[RDR] Failed to send message:', result.error);
+        }
+
+        return {
+          success: result.success,
+          data: result
+        };
+      } catch (error) {
+        console.error('[RDR] Exception sending message:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : String(error)
+        };
+      }
     }
   );
 }

@@ -19,11 +19,12 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy
 } from '@dnd-kit/sortable';
-import { Plus, Inbox, Loader2, Eye, CheckCircle2, Archive, RefreshCw, GitPullRequest, X } from 'lucide-react';
+import { Plus, Inbox, Loader2, Eye, CheckCircle2, Archive, RefreshCw, GitPullRequest, X, Zap, Monitor } from 'lucide-react';
 import { Checkbox } from './ui/checkbox';
 import { ScrollArea } from './ui/scroll-area';
 import { Button } from './ui/button';
 import { Switch } from './ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import { useSettingsStore } from '../stores/settings-store';
 import { TaskCard } from './TaskCard';
@@ -860,6 +861,35 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   const autoResumeEnabled = settings.autoResumeAfterRateLimit ?? false;
   const rdrEnabled = settings.rdrEnabled ?? false;
 
+  // VS Code window state for RDR direct sending
+  const [vsCodeWindows, setVsCodeWindows] = useState<Array<{ handle: number; title: string; processId: number }>>([]);
+  const [selectedWindowHandle, setSelectedWindowHandle] = useState<number | null>(null);
+  const [isLoadingWindows, setIsLoadingWindows] = useState(false);
+
+  // Load VS Code windows from system
+  const loadVsCodeWindows = useCallback(async () => {
+    setIsLoadingWindows(true);
+    try {
+      const result = await window.electronAPI.getVSCodeWindows();
+      if (result.success && result.data) {
+        setVsCodeWindows(result.data);
+        // Auto-select first window if none selected
+        if (result.data.length > 0 && selectedWindowHandle === null) {
+          setSelectedWindowHandle(result.data[0].handle);
+        }
+      }
+    } catch (error) {
+      console.error('[KanbanBoard] Failed to load VS Code windows:', error);
+    } finally {
+      setIsLoadingWindows(false);
+    }
+  }, [selectedWindowHandle]);
+
+  // Load windows on mount
+  useEffect(() => {
+    loadVsCodeWindows();
+  }, [loadVsCodeWindows]);
+
   // Helper function to start a task with retry logic
   const startTaskWithRetry = useCallback(async (taskId: string, maxRetries = 3, delayMs = 2000) => {
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -930,6 +960,91 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
         }
       } else {
         console.log('[KanbanBoard] RDR enabled - no tasks need intervention');
+      }
+    }
+  };
+
+  // Handle manual RDR ping - sends message directly to selected VS Code window
+  const handlePingRdr = async () => {
+    // Get ALL tasks in Human Review (less restrictive filter than toggle)
+    const humanReviewTasks = tasks.filter(task => task.status === 'human_review');
+
+    console.log(`[KanbanBoard] Ping RDR - ${humanReviewTasks.length} tasks in Human Review`);
+
+    if (humanReviewTasks.length === 0) {
+      toast({
+        title: t('kanban.rdrPingNoTasks'),
+        description: t('kanban.rdrPingNoTasksDesc'),
+        variant: 'default'
+      });
+      return;
+    }
+
+    // Check if a window is selected for direct sending
+    if (selectedWindowHandle) {
+      // Send directly to VS Code window
+      toast({
+        title: t('kanban.rdrSending'),
+        description: t('kanban.rdrSendingDesc', { count: humanReviewTasks.length })
+      });
+
+      try {
+        const message = 'Check RDR batches and fix errored tasks';
+        const result = await window.electronAPI.sendRdrToWindow(selectedWindowHandle, message);
+
+        if (result.success) {
+          toast({
+            title: t('kanban.rdrSendSuccess'),
+            description: t('kanban.rdrSendSuccessDesc'),
+            variant: 'default'
+          });
+          console.log(`[KanbanBoard] RDR message sent to window handle ${selectedWindowHandle}`);
+        } else {
+          toast({
+            title: t('kanban.rdrSendFailed'),
+            description: result.data?.error || t('kanban.rdrSendFailedDesc'),
+            variant: 'destructive'
+          });
+        }
+      } catch (error) {
+        console.error('[KanbanBoard] Send RDR error:', error);
+        toast({
+          title: t('kanban.rdrSendFailed'),
+          description: error instanceof Error ? error.message : t('kanban.rdrSendFailedDesc'),
+          variant: 'destructive'
+        });
+      }
+    } else {
+      // Fallback: write signal file for external monitoring
+      toast({
+        title: t('kanban.rdrPinging'),
+        description: t('kanban.rdrPingingDesc', { count: humanReviewTasks.length })
+      });
+
+      try {
+        const result = await window.electronAPI.pingRdrImmediate(projectId, humanReviewTasks);
+
+        if (result.success && result.data) {
+          toast({
+            title: t('kanban.rdrPingSuccess'),
+            description: t('kanban.rdrPingSuccessDesc', { count: result.data.taskCount }),
+            variant: 'default'
+          });
+          console.log(`[KanbanBoard] RDR signal file written: ${result.data.signalPath}`);
+        } else {
+          toast({
+            title: t('kanban.rdrPingFailed'),
+            description: result.error || t('kanban.rdrPingFailedDesc'),
+            variant: 'destructive'
+          });
+        }
+      } catch (error) {
+        console.error('[KanbanBoard] Ping RDR error:', error);
+        toast({
+          title: t('kanban.rdrPingFailed'),
+          description: error instanceof Error ? error.message : t('kanban.rdrPingFailedDesc'),
+          variant: 'destructive'
+        });
       }
     }
   };
@@ -1025,6 +1140,72 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
               </TooltipTrigger>
               <TooltipContent side="bottom" className="max-w-xs">
                 <p>{t('kanban.rdrTooltip')}</p>
+              </TooltipContent>
+            </Tooltip>
+
+            {/* VS Code Window Selector for RDR */}
+            <div className="flex items-center gap-1">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={loadVsCodeWindows}
+                    disabled={isLoadingWindows}
+                    className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+                  >
+                    <Monitor className={cn("h-4 w-4", isLoadingWindows && "animate-pulse")} />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  <p>{t('kanban.rdrRefreshWindows')}</p>
+                </TooltipContent>
+              </Tooltip>
+
+              <Select
+                value={selectedWindowHandle?.toString() ?? ''}
+                onValueChange={(value) => setSelectedWindowHandle(value ? parseInt(value, 10) : null)}
+              >
+                <SelectTrigger className="h-7 w-[140px] text-xs">
+                  <SelectValue placeholder={t('kanban.rdrSelectWindow')} />
+                </SelectTrigger>
+                <SelectContent>
+                  {vsCodeWindows.map((win) => (
+                    <SelectItem key={win.handle} value={win.handle.toString()}>
+                      <span className="truncate max-w-[120px]" title={win.title}>
+                        {win.title.length > 25 ? `${win.title.substring(0, 25)}...` : win.title}
+                      </span>
+                    </SelectItem>
+                  ))}
+                  {vsCodeWindows.length === 0 && (
+                    <SelectItem value="none" disabled>
+                      {t('kanban.rdrNoWindows')}
+                    </SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Manual Ping RDR Button */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handlePingRdr}
+                  disabled={!selectedWindowHandle}
+                  className={cn(
+                    "h-7 w-7 p-0",
+                    selectedWindowHandle
+                      ? "text-yellow-500 hover:text-yellow-400"
+                      : "text-muted-foreground/50"
+                  )}
+                >
+                  <Zap className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-xs">
+                <p>{selectedWindowHandle ? t('kanban.rdrPingTooltip') : t('kanban.rdrSelectWindowFirst')}</p>
               </TooltipContent>
             </Tooltip>
           </div>

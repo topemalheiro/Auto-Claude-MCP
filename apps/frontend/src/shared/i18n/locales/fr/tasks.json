@@ -99,7 +99,26 @@
     "autoResumeHeader": "Reprise Auto",
     "arLimitReset": "RA sur Réinit. Limite",
     "autoResumeTooltip": "Si activé, les tâches pausées par limites de taux reprendront automatiquement.",
-    "rdrTooltip": "Récupération, Débogage et Renvoi automatiques : corrige les tâches bloquées/erreurs via Claude Manager MCP."
+    "rdrTooltip": "Récupération, Débogage et Renvoi automatiques : corrige les tâches bloquées/erreurs via Claude Manager MCP.",
+    "rdrPingTooltip": "Envoyer le message RDR à la fenêtre VS Code sélectionnée.",
+    "rdrPingNoTasks": "Aucune tâche en révision humaine",
+    "rdrPingNoTasksDesc": "Il n'y a pas de tâches en révision humaine à envoyer.",
+    "rdrPinging": "Envoi RDR...",
+    "rdrPingingDesc": "Écriture du fichier signal avec {{count}} tâches...",
+    "rdrPingSuccess": "Signal RDR envoyé",
+    "rdrPingSuccessDesc": "Fichier signal écrit avec {{count}} tâches. Demandez à Claude Code de vérifier les lots RDR.",
+    "rdrPingFailed": "Échec du ping RDR",
+    "rdrPingFailedDesc": "Échec de l'écriture du fichier signal. Vérifiez la console.",
+    "rdrRefreshWindows": "Actualiser la liste des fenêtres VS Code",
+    "rdrSelectWindow": "Sélectionner fenêtre",
+    "rdrNoWindows": "Aucune fenêtre VS Code trouvée",
+    "rdrSelectWindowFirst": "Sélectionnez d'abord une fenêtre VS Code",
+    "rdrSending": "Envoi vers Claude Code...",
+    "rdrSendingDesc": "Envoi du message avec {{count}} tâches vers la fenêtre VS Code...",
+    "rdrSendSuccess": "Message envoyé",
+    "rdrSendSuccessDesc": "Message RDR envoyé à la fenêtre Claude Code.",
+    "rdrSendFailed": "Échec de l'envoi",
+    "rdrSendFailedDesc": "Échec de l'envoi du message vers la fenêtre VS Code."
   },
   "execution": {
     "phases": {

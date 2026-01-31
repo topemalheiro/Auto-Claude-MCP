@@ -99,7 +99,26 @@
     "autoResumeHeader": "Auto Resume",
     "arLimitReset": "AR on Limit Reset",
     "autoResumeTooltip": "When enabled, tasks paused due to rate limits will automatically resume when the limit resets.",
-    "rdrTooltip": "Auto Recover, Debug, and Resend: Automatically fix stuck/errored tasks via Claude Manager MCP."
+    "rdrTooltip": "Auto Recover, Debug, and Resend: Automatically fix stuck/errored tasks via Claude Manager MCP.",
+    "rdrPingTooltip": "Send RDR message to the selected VS Code window.",
+    "rdrPingNoTasks": "No Tasks in Human Review",
+    "rdrPingNoTasksDesc": "There are no tasks in Human Review to ping.",
+    "rdrPinging": "Pinging RDR...",
+    "rdrPingingDesc": "Writing signal file with {{count}} tasks...",
+    "rdrPingSuccess": "RDR Signal Sent",
+    "rdrPingSuccessDesc": "Signal file written with {{count}} tasks. Ask Claude Code to check RDR batches.",
+    "rdrPingFailed": "RDR Ping Failed",
+    "rdrPingFailedDesc": "Failed to write signal file. Check console for details.",
+    "rdrRefreshWindows": "Refresh VS Code windows list",
+    "rdrSelectWindow": "Select window",
+    "rdrNoWindows": "No VS Code windows found",
+    "rdrSelectWindowFirst": "Select a VS Code window first",
+    "rdrSending": "Sending to Claude Code...",
+    "rdrSendingDesc": "Sending message with {{count}} tasks to VS Code window...",
+    "rdrSendSuccess": "Message Sent",
+    "rdrSendSuccessDesc": "RDR message sent to Claude Code window.",
+    "rdrSendFailed": "Send Failed",
+    "rdrSendFailedDesc": "Failed to send message to VS Code window."
   },
   "execution": {
     "phases": {

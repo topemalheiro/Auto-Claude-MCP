@@ -1,0 +1,265 @@
+/**
+ * Windows Window Manager
+ *
+ * Provides VS Code window enumeration and message sending functionality.
+ * Uses inline PowerShell that mirrors ClaudeAutoResponse logic.
+ *
+ * Only works on Windows - functions return empty results on other platforms.
+ */
+
+import { execSync, exec } from 'child_process';
+import { isWindows } from '../index';
+
+/**
+ * Represents a VS Code window
+ */
+export interface VSCodeWindow {
+  handle: number;
+  title: string;
+  processId: number;
+}
+
+/**
+ * Result of sending a message to a window
+ */
+export interface SendMessageResult {
+  success: boolean;
+  error?: string;
+}
+
+/**
+ * Encode a PowerShell script to Base64 for use with -EncodedCommand
+ * This avoids all escaping issues with quotes, special characters, etc.
+ */
+function encodePS(script: string): string {
+  // PowerShell -EncodedCommand expects UTF-16LE Base64
+  const buffer = Buffer.from(script, 'utf16le');
+  return buffer.toString('base64');
+}
+
+/**
+ * Get all VS Code windows currently open
+ *
+ * Uses PowerShell to enumerate windows via Win32 APIs.
+ * Same logic as ClaudeAutoResponse MainViewModel.
+ *
+ * @returns Array of VS Code windows, empty array if none found or not on Windows
+ */
+export function getVSCodeWindows(): VSCodeWindow[] {
+  if (!isWindows()) {
+    console.warn('[WindowManager] getVSCodeWindows only works on Windows');
+    return [];
+  }
+
+  try {
+    // Simple PowerShell script to enumerate VS Code windows
+    // Added $ProgressPreference to suppress CLIXML progress output
+    const script = `
+$ProgressPreference = 'SilentlyContinue'
+$windows = @()
+Get-Process -Name "Code" -ErrorAction SilentlyContinue |
+Where-Object { $_.MainWindowHandle -ne 0 -and $_.MainWindowTitle } |
+ForEach-Object {
+    $windows += @{
+        handle = $_.MainWindowHandle.ToInt64()
+        title = $_.MainWindowTitle
+        processId = $_.Id
+    }
+}
+if ($windows.Count -eq 0) {
+    Write-Output "[]"
+} else {
+    $windows | ConvertTo-Json -Compress
+}
+`;
+
+    const encoded = encodePS(script);
+    const result = execSync(
+      `powershell -ExecutionPolicy Bypass -NoProfile -NonInteractive -EncodedCommand ${encoded}`,
+      {
+        encoding: 'utf-8',
+        timeout: 5000,
+        windowsHide: true
+      }
+    );
+
+    // Extract only the JSON part (filter out CLIXML and other noise)
+    const lines = result.split('\n').map(l => l.trim()).filter(l => l);
+    const jsonLine = lines.find(l => l.startsWith('[') || l.startsWith('{'));
+
+    if (!jsonLine || jsonLine === '[]') {
+      console.log('[WindowManager] No VS Code windows found');
+      return [];
+    }
+
+    const windows = JSON.parse(jsonLine);
+    console.log('[WindowManager] Found windows:', windows);
+    return Array.isArray(windows) ? windows : [windows];
+  } catch (error) {
+    console.error('[WindowManager] Failed to get VS Code windows:', error);
+    return [];
+  }
+}
+
+/**
+ * Send a message to a VS Code window
+ *
+ * Uses PowerShell to:
+ * 1. Copy message to clipboard
+ * 2. Focus the target window
+ * 3. Send Ctrl+V to paste
+ * 4. Send Enter to submit
+ * 5. Restore original foreground window
+ *
+ * Same logic as ClaudeAutoResponse PermissionMonitorService.SendMessageToClaudeCode.
+ *
+ * @param handle - Window handle (from getVSCodeWindows)
+ * @param message - Message to send
+ * @returns Promise resolving to success/error result
+ */
+export function sendMessageToWindow(
+  handle: number,
+  message: string
+): Promise<SendMessageResult> {
+  return new Promise((resolve) => {
+    if (!isWindows()) {
+      resolve({ success: false, error: 'Only works on Windows' });
+      return;
+    }
+
+    if (!handle || handle === 0) {
+      resolve({ success: false, error: 'Invalid window handle' });
+      return;
+    }
+
+    if (!message) {
+      resolve({ success: false, error: 'Message cannot be empty' });
+      return;
+    }
+
+    try {
+      // Escape message for PowerShell string literal
+      // Single quotes in PowerShell strings are escaped by doubling
+      const escapedMessage = message.replace(/'/g, "''");
+
+      // Build the PowerShell script with the message embedded
+      // Added $ProgressPreference to suppress CLIXML progress output
+      const script = `
+$ProgressPreference = 'SilentlyContinue'
+$Handle = ${handle}
+$Message = '${escapedMessage}'
+
+Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+public class Win32 {
+    [DllImport("user32.dll")]
+    public static extern bool SetForegroundWindow(IntPtr hWnd);
+    [DllImport("user32.dll")]
+    public static extern IntPtr GetForegroundWindow();
+    [DllImport("user32.dll")]
+    public static extern bool IsWindow(IntPtr hWnd);
+}
+"@
+
+# Validate window handle
+if (-not [Win32]::IsWindow([IntPtr]$Handle)) {
+    Write-Error "Invalid window handle"
+    exit 1
+}
+
+# Save original foreground window
+$original = [Win32]::GetForegroundWindow()
+
+# Copy message to clipboard
+Set-Clipboard -Value $Message
+
+# Focus target window
+[Win32]::SetForegroundWindow([IntPtr]$Handle) | Out-Null
+Start-Sleep -Milliseconds 150
+
+# Verify focus succeeded
+$current = [Win32]::GetForegroundWindow()
+if ($current -ne [IntPtr]$Handle) {
+    Write-Error "Failed to focus window"
+    exit 1
+}
+
+# Send Ctrl+V (paste)
+Add-Type -AssemblyName System.Windows.Forms
+[System.Windows.Forms.SendKeys]::SendWait("^v")
+Start-Sleep -Milliseconds 100
+
+# Send Enter (submit)
+[System.Windows.Forms.SendKeys]::SendWait("{ENTER}")
+Start-Sleep -Milliseconds 50
+
+# Restore original window (optional, don't fail if it doesn't work)
+if ($original -ne [IntPtr]::Zero -and $original -ne [IntPtr]$Handle) {
+    Start-Sleep -Milliseconds 100
+    [Win32]::SetForegroundWindow($original) | Out-Null
+}
+
+Write-Output "Message sent successfully"
+`;
+
+      const encoded = encodePS(script);
+      const command = `powershell -ExecutionPolicy Bypass -NoProfile -NonInteractive -EncodedCommand ${encoded}`;
+
+      exec(
+        command,
+        {
+          timeout: 10000,
+          windowsHide: true
+        },
+        (error, stdout, stderr) => {
+          if (error) {
+            console.error('[WindowManager] Failed to send message:', error.message);
+            resolve({
+              success: false,
+              error: stderr || error.message
+            });
+          } else {
+            console.log('[WindowManager] Message sent successfully');
+            resolve({ success: true });
+          }
+        }
+      );
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error('[WindowManager] Exception sending message:', errorMessage);
+      resolve({ success: false, error: errorMessage });
+    }
+  });
+}
+
+/**
+ * Find a VS Code window by title pattern
+ *
+ * Useful for matching a window to a project name.
+ *
+ * @param pattern - Substring to search for in window titles (case-insensitive)
+ * @returns Matching window or undefined
+ */
+export function findWindowByTitle(pattern: string): VSCodeWindow | undefined {
+  const windows = getVSCodeWindows();
+  const lowerPattern = pattern.toLowerCase();
+
+  return windows.find((w) =>
+    w.title.toLowerCase().includes(lowerPattern)
+  );
+}
+
+/**
+ * Check if a window handle is still valid
+ *
+ * Window handles can become invalid if the window is closed.
+ * This checks by trying to enumerate current windows.
+ *
+ * @param handle - Window handle to check
+ * @returns true if window still exists
+ */
+export function isWindowValid(handle: number): boolean {
+  const windows = getVSCodeWindows();
+  return windows.some((w) => w.handle === handle);
+}
