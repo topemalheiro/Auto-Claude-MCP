@@ -11,6 +11,10 @@ updates:
       - python
     commit-message:
       prefix: "chore(deps)"
+    # Block major version updates (require manual review)
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
 
   # npm dependencies
   - package-ecosystem: npm

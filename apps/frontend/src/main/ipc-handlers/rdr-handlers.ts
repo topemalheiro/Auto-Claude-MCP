@@ -650,9 +650,10 @@ async function checkClaudeCodeBusy(): Promise<boolean> {
     return false;
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error('[RDR] WARNING: Failed to check busy state:', errorMessage);
-    // Assume idle on error (graceful degradation)
-    return false;
+    console.error('[RDR] ERROR: Failed to check busy state:', errorMessage);
+    console.error('[RDR]        Failing safe - assuming BUSY to prevent interrupting active session');
+    // FAIL SAFE: Assume busy on error to prevent interrupting ongoing work
+    return true;
   }
 }
 
