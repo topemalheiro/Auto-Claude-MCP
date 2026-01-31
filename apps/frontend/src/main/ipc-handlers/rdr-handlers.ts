@@ -27,15 +27,31 @@ let mcpMonitor: any = null;
 let outputMonitor: any = null;
 
 if (isElectron) {
+  // Load each module independently so one failure doesn't break everything
   try {
     const electron = require('electron');
     ipcMain = electron.ipcMain;
     BrowserWindow = electron.BrowserWindow;
+  } catch (error) {
+    console.warn('[RDR] Failed to load Electron modules:', error);
+  }
+
+  try {
     isClaudeCodeBusy = require('../platform/windows/window-manager').isClaudeCodeBusy;
+  } catch (error) {
+    console.warn('[RDR] Failed to load window-manager (Windows-specific):', error);
+  }
+
+  try {
     mcpMonitor = require('../mcp-server').mcpMonitor;
+  } catch (error) {
+    console.warn('[RDR] Failed to load MCP monitor:', error);
+  }
+
+  try {
     outputMonitor = require('../claude-code/output-monitor').outputMonitor;
   } catch (error) {
-    console.warn('[RDR] Failed to load Electron-specific modules:', error);
+    console.warn('[RDR] Failed to load output monitor:', error);
   }
 }
 
@@ -1101,20 +1117,22 @@ export function registerRdrHandlers(): void {
       try {
         // PRIMARY: Check if Claude is at prompt (waiting for input)
         // This is the most important check to prevent prompt loops
-        const atPrompt = await outputMonitor.isAtPrompt();
-        if (atPrompt) {
-          console.log('[RDR] 🔴 Claude Code is at prompt (waiting for input)');
-          const diagnostics = await outputMonitor.getDiagnostics();
-          console.log('[RDR]    Details:', {
-            state: diagnostics.state,
-            timeSinceStateChange: `${diagnostics.timeSinceStateChange}ms`,
-            recentSessionFiles: diagnostics.recentSessionFiles
-          });
-          return { success: true, data: true }; // BUSY - don't send!
+        if (outputMonitor) {
+          const atPrompt = await outputMonitor.isAtPrompt();
+          if (atPrompt) {
+            console.log('[RDR] 🔴 Claude Code is at prompt (waiting for input)');
+            const diagnostics = await outputMonitor.getDiagnostics();
+            console.log('[RDR]    Details:', {
+              state: diagnostics.state,
+              timeSinceStateChange: `${diagnostics.timeSinceStateChange}ms`,
+              recentOutputFiles: diagnostics.recentOutputFiles
+            });
+            return { success: true, data: true }; // BUSY - don't send!
+          }
         }
 
         // SECONDARY: Check MCP connection activity (active processing)
-        if (mcpMonitor.isBusy()) {
+        if (mcpMonitor && mcpMonitor.isBusy()) {
           console.log('[RDR] 🔴 Claude Code is busy (MCP connection active)');
           const status = mcpMonitor.getStatus();
           console.log('[RDR]    Details:', {
