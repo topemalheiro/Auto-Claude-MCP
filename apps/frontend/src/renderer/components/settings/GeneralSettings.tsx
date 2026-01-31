@@ -184,6 +184,61 @@ export function GeneralSettings({ settings, onSettingsChange, section }: General
               </div>
             </div>
 
+            {/* Auto-Restart on Failure */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between max-w-md">
+                <div className="space-y-1">
+                  <Label htmlFor="autoRestartOnFailure" className="text-sm font-medium text-foreground">
+                    {t('general.autoRestartOnFailure')}
+                  </Label>
+                  <p className="text-sm text-muted-foreground">
+                    {t('general.autoRestartOnFailureDescription')}
+                  </p>
+                </div>
+                <Switch
+                  id="autoRestartOnFailure"
+                  checked={settings.autoRestartOnFailure?.enabled ?? false}
+                  onCheckedChange={(checked) =>
+                    onSettingsChange({
+                      ...settings,
+                      autoRestartOnFailure: {
+                        ...(settings.autoRestartOnFailure || {
+                          buildCommand: 'npm run build',
+                          maxRestartsPerHour: 3,
+                          cooldownMinutes: 5
+                        }),
+                        enabled: checked
+                      }
+                    })
+                  }
+                />
+              </div>
+
+              {/* Build Command Input (shown when enabled) */}
+              {settings.autoRestartOnFailure?.enabled && (
+                <div className="ml-4 space-y-2">
+                  <Label htmlFor="buildCommand" className="text-sm font-medium text-foreground">
+                    {t('general.buildCommand')}
+                  </Label>
+                  <Input
+                    id="buildCommand"
+                    value={settings.autoRestartOnFailure?.buildCommand ?? 'npm run build'}
+                    onChange={(e) =>
+                      onSettingsChange({
+                        ...settings,
+                        autoRestartOnFailure: {
+                          ...settings.autoRestartOnFailure!,
+                          buildCommand: e.target.value
+                        }
+                      })
+                    }
+                    placeholder="npm run build"
+                    className="max-w-md"
+                  />
+                </div>
+              )}
+            </div>
+
             {/* Feature Model Configuration */}
             <div className="space-y-4 pt-4 border-t border-border">
               <div className="space-y-1">

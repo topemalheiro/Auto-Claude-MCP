@@ -294,6 +294,14 @@ export interface AppSettings {
   // RDR (Recover Debug Resend) - Auto-recover stuck/errored tasks
   // When enabled, automatically recovers stuck tasks, analyzes errors, and submits fix requests
   rdrEnabled?: boolean;
+  // Auto-restart on prompt loop or crash
+  // When enabled, automatically rebuilds and restarts when a prompt loop or crash is detected
+  autoRestartOnFailure?: {
+    enabled: boolean;
+    buildCommand: string;     // Default: "npm run build"
+    maxRestartsPerHour: number; // Default: 3 (prevent infinite loops)
+    cooldownMinutes: number;   // Default: 5 (wait between restarts)
+  };
 }
 
 // Auto-Claude Source Environment Configuration (for auto-claude repo .env)

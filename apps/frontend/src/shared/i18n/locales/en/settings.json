@@ -228,7 +228,11 @@
     "autoNameTerminals": "Automatically name terminals",
     "autoNameTerminalsDescription": "Use AI to generate descriptive names for terminal tabs based on their activity",
     "autoResumeAfterRateLimit": "Auto-Resume After Rate Limit",
-    "autoResumeAfterRateLimitDescription": "When a task pauses due to rate limit, automatically resume it when the limit resets. If disabled, tasks go to Human Review and require manual restart."
+    "autoResumeAfterRateLimitDescription": "When a task pauses due to rate limit, automatically resume it when the limit resets. If disabled, tasks go to Human Review and require manual restart.",
+    "autoRestartOnFailure": "Auto-Restart on Loop/Crash",
+    "autoRestartOnFailureDescription": "Automatically rebuild and restart when a prompt loop or crash is detected. Enables unattended operation.",
+    "buildCommand": "Build Command",
+    "buildCommandPlaceholder": "npm run build"
   },
   "theme": {
     "title": "Appearance",

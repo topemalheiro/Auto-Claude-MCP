@@ -59,7 +59,14 @@ export const DEFAULT_APP_SETTINGS = {
   // Anonymous error reporting (Sentry) - enabled by default to help improve the app
   sentryEnabled: true,
   // Auto-name Claude terminals based on initial message (enabled by default)
-  autoNameClaudeTerminals: true
+  autoNameClaudeTerminals: true,
+  // Auto-restart on prompt loop or crash (disabled by default for safety)
+  autoRestartOnFailure: {
+    enabled: false,
+    buildCommand: 'npm run build',
+    maxRestartsPerHour: 3,
+    cooldownMinutes: 5
+  }
 };
 
 // ============================================
