@@ -507,6 +507,27 @@ export function registerAgenteventsHandlers(
     safeSendToRenderer(getMainWindow, IPC_CHANNELS.TASK_AUTO_START, data.projectId, data.specId);
   });
 
+  // Handle task status changes from file watcher (for RDR auto-recovery)
+  fileWatcher.on("task-status-changed", (data: {
+    projectId: string;
+    taskId: string;
+    specId: string;
+    oldStatus: TaskStatus;
+    newStatus: TaskStatus;
+  }) => {
+    console.log(`[AgentEvents] task-status-changed event received!`);
+    console.log(`[AgentEvents] - specId: ${data.specId}`);
+    console.log(`[AgentEvents] - projectId: ${data.projectId}`);
+    console.log(`[AgentEvents] - status change: ${data.oldStatus} → ${data.newStatus}`);
+
+    // Invalidate the project's task cache to trigger UI refresh
+    projectStore.invalidateTasksCache(data.projectId);
+
+    // Notify renderer to refresh task list with animation
+    console.log(`[AgentEvents] Sending TASK_STATUS_CHANGED to renderer`);
+    safeSendToRenderer(getMainWindow, IPC_CHANNELS.TASK_STATUS_CHANGED, data);
+  });
+
   // Start watching specs directories for all existing projects
   startWatchingAllProjectSpecs();
 }

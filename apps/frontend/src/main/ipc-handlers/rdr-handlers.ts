@@ -1116,7 +1116,7 @@ export function registerRdrHandlers(): void {
         if (outputMonitor) {
           const atPrompt = await outputMonitor.isAtPrompt();
           if (atPrompt) {
-            console.log('[RDR] 🔴 Claude Code is at prompt (waiting for input)');
+            console.log('[RDR] BUSY: Claude Code is at prompt (waiting for input)');
             const diagnostics = await outputMonitor.getDiagnostics();
             console.log('[RDR]    Details:', {
               state: diagnostics.state,
@@ -1129,7 +1129,7 @@ export function registerRdrHandlers(): void {
 
         // SECONDARY: Check MCP connection activity (active processing)
         if (mcpMonitor && mcpMonitor.isBusy()) {
-          console.log('[RDR] 🔴 Claude Code is busy (MCP connection active)');
+          console.log('[RDR] BUSY: Claude Code is busy (MCP connection active)');
           const status = mcpMonitor.getStatus();
           console.log('[RDR]    Details:', {
             activeToolName: status.activeToolName,
@@ -1141,16 +1141,16 @@ export function registerRdrHandlers(): void {
         // FALLBACK: Session file activity check
         const sessionBusy = await isClaudeSessionActive();
         if (sessionBusy) {
-          console.log('[RDR] 🟡 Claude Code is busy (session file active)');
+          console.log('[RDR] BUSY: Claude Code is busy (session file active)');
           return { success: true, data: true };
         }
 
         // All checks passed - Claude is truly idle
-        console.log('[RDR] ✅ Claude Code is idle (safe to send)');
+        console.log('[RDR] IDLE: Claude Code is idle (safe to send)');
         return { success: true, data: false };
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
-        console.error('[RDR] ⚠️  Failed to check busy state:', errorMessage);
+        console.error('[RDR] WARNING: Failed to check busy state:', errorMessage);
         // Assume idle on error (graceful degradation)
         return { success: true, data: false };
       }

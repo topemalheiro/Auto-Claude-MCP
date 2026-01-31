@@ -66,7 +66,9 @@ class ClaudeOutputMonitor {
    */
   async isAtPrompt(): Promise<boolean> {
     try {
+      console.log('[OutputMonitor] Checking prompt state...');
       await this.updateState();
+      console.log('[OutputMonitor] Current state after update:', this.currentState);
       return this.currentState === 'AT_PROMPT';
     } catch (error) {
       // On error, assume not at prompt (graceful degradation)
@@ -98,14 +100,19 @@ class ClaudeOutputMonitor {
 
     if (!latestTranscript) {
       // No recent transcript files - Claude is idle
+      console.log('[OutputMonitor] No recent JSONL transcript found - setting IDLE');
       this.setState('IDLE');
       return;
     }
+
+    console.log('[OutputMonitor] Found latest transcript:', latestTranscript);
 
     // Read last 50 lines of JSONL file (each line is a JSON object)
     const content = await fs.readFile(latestTranscript, 'utf-8');
     const lines = content.trim().split('\n');
     const recentLines = lines.slice(-50);
+
+    console.log('[OutputMonitor] Reading last', recentLines.length, 'lines from transcript');
 
     // Parse JSONL and extract text content
     let recentText = '';
@@ -128,19 +135,25 @@ class ClaudeOutputMonitor {
       }
     }
 
+    const textPreview = recentText.slice(-200).replace(/\n/g, '\\n');
+    console.log('[OutputMonitor] Extracted text (last 200 chars):', textPreview);
+
     // Check for prompt pattern (highest priority)
     if (this.matchesAnyPattern(recentText, PATTERNS.AT_PROMPT)) {
+      console.log('[OutputMonitor] PROMPT DETECTED - Setting AT_PROMPT');
       this.setState('AT_PROMPT');
       return;
     }
 
     // Check for processing pattern
     if (this.matchesAnyPattern(recentText, PATTERNS.PROCESSING)) {
+      console.log('[OutputMonitor] PROCESSING DETECTED - Setting PROCESSING');
       this.setState('PROCESSING');
       return;
     }
 
     // Default to idle if no patterns match
+    console.log('[OutputMonitor] No patterns matched - setting IDLE');
     this.setState('IDLE');
   }
 
@@ -149,10 +162,15 @@ class ClaudeOutputMonitor {
    */
   private async getLatestOutputFile(): Promise<string | null> {
     try {
+      console.log('[OutputMonitor] Searching for JSONL transcripts in:', this.claudeProjectsDir);
+
       // List all project directories under ~/.claude/projects/
       const projectDirs = await fs.readdir(this.claudeProjectsDir);
+      console.log('[OutputMonitor] Found', projectDirs.length, 'project directories');
 
       let latestFile: { path: string; mtime: number } | null = null;
+      let totalJsonlFiles = 0;
+      let recentJsonlFiles = 0;
 
       for (const projectDir of projectDirs) {
         const projectPath = path.join(this.claudeProjectsDir, projectDir);
@@ -163,12 +181,21 @@ class ClaudeOutputMonitor {
           for (const file of files) {
             // Find .jsonl files (but skip sessions-index.json)
             if (file.endsWith('.jsonl') && !file.startsWith('sessions-index')) {
+              totalJsonlFiles++;
               const filePath = path.join(projectPath, file);
               const stats = await fs.stat(filePath);
 
               // Only consider files modified in the last 60 seconds
               const ageMs = Date.now() - stats.mtimeMs;
-              if (ageMs > 60000) continue;
+              const ageSeconds = Math.floor(ageMs / 1000);
+
+              if (ageMs > 60000) {
+                console.log('[OutputMonitor]   Skipping old file:', file, `(${ageSeconds}s old)`);
+                continue;
+              }
+
+              recentJsonlFiles++;
+              console.log('[OutputMonitor]   Found recent file:', file, `(${ageSeconds}s old)`);
 
               if (!latestFile || stats.mtimeMs > latestFile.mtime) {
                 latestFile = { path: filePath, mtime: stats.mtimeMs };
@@ -181,9 +208,18 @@ class ClaudeOutputMonitor {
         }
       }
 
+      console.log('[OutputMonitor] Summary: Found', totalJsonlFiles, 'total JSONL files,', recentJsonlFiles, 'recent (<60s)');
+
+      if (latestFile) {
+        console.log('[OutputMonitor] Selected latest file:', latestFile.path);
+      } else {
+        console.log('[OutputMonitor] No recent JSONL files found');
+      }
+
       return latestFile?.path || null;
     } catch (error) {
       // Base directory doesn't exist or can't be accessed
+      console.warn('[OutputMonitor] Failed to access projects directory:', error);
       return null;
     }
   }
@@ -205,16 +241,16 @@ class ClaudeOutputMonitor {
       this.lastStateChange = Date.now();
 
       console.log(
-        `[OutputMonitor] State transition: ${oldState} → ${newState} (after ${this.getTimeSinceStateChange()}ms)`
+        `[OutputMonitor] State transition: ${oldState} -> ${newState} (after ${this.getTimeSinceStateChange()}ms)`
       );
 
       // Log additional context for debugging
       if (newState === 'AT_PROMPT') {
-        console.log('[OutputMonitor] ⚠️  Claude is at prompt - RDR should skip sending');
+        console.log('[OutputMonitor] WARNING: Claude is at prompt - RDR should skip sending');
       } else if (newState === 'PROCESSING') {
-        console.log('[OutputMonitor] 🔄 Claude is processing - RDR should skip sending');
+        console.log('[OutputMonitor] INFO: Claude is processing - RDR should skip sending');
       } else if (newState === 'IDLE') {
-        console.log('[OutputMonitor] ✅ Claude is idle - RDR can send');
+        console.log('[OutputMonitor] INFO: Claude is idle - RDR can send');
       }
     }
   }

@@ -375,6 +375,24 @@ export function useIpcListeners(): void {
       }
     );
 
+    // Task status changed listener (for RDR auto-recovery)
+    const cleanupTaskStatusChanged = window.electronAPI.onTaskStatusChanged(
+      (data: {
+        projectId: string;
+        taskId: string;
+        specId: string;
+        oldStatus: import('../../shared/types').TaskStatus;
+        newStatus: import('../../shared/types').TaskStatus;
+      }) => {
+        // Only refresh if this is for the currently selected project
+        if (isTaskForCurrentProject(data.projectId)) {
+          console.log(`[IPC] Task ${data.specId} status changed: ${data.oldStatus} → ${data.newStatus}`);
+          // Refresh task list to show updated board position
+          loadTasks(data.projectId, { forceRefresh: true });
+        }
+      }
+    );
+
     // Rate limit auto-resume listener (after waiting for rate limit reset)
     const cleanupRateLimitAutoResume = window.electronAPI.onRateLimitAutoResume(
       (data: { taskId: string; projectId: string; source: string; profileId: string }) => {
@@ -412,6 +430,7 @@ export function useIpcListeners(): void {
       cleanupAuthFailure();
       cleanupTaskListRefresh();
       cleanupTaskAutoStart();
+      cleanupTaskStatusChanged();
       cleanupRateLimitAutoResume();
     };
   }, [updateTaskFromPlan, updateTaskStatus, updateExecutionProgress, appendLog, batchAppendLogs, setError]);

@@ -2,7 +2,8 @@ import chokidar, { FSWatcher } from 'chokidar';
 import { readFileSync, existsSync } from 'fs';
 import path from 'path';
 import { EventEmitter } from 'events';
-import type { ImplementationPlan } from '../shared/types';
+import type { ImplementationPlan, Task, TaskStatus } from '../shared/types';
+import { projectStore } from './project-store';
 
 interface WatcherInfo {
   taskId: string;
@@ -14,6 +15,35 @@ interface SpecsWatcherInfo {
   projectId: string;
   projectPath: string;
   watcher: FSWatcher;
+}
+
+/**
+ * Determine which board (status) a task should resume to based on its progress
+ */
+function determineResumeStatus(task: Task, plan: ImplementationPlan): TaskStatus {
+  // Priority 1: Check if task has subtasks
+  if (!plan.phases || plan.phases.length === 0 || !plan.phases.some(p => p.subtasks && p.subtasks.length > 0)) {
+    // No subtasks = task never ran planner = start from beginning
+    console.log(`[FileWatcher] determineResumeStatus: No subtasks found for ${task.specId} - returning 'backlog' (start fresh)`);
+    return 'backlog';
+  }
+
+  // Count subtasks
+  const allSubtasks = plan.phases.flatMap(p => p.subtasks || []);
+  const completedSubtasks = allSubtasks.filter(s => s.status === 'completed').length;
+  const totalSubtasks = allSubtasks.length;
+
+  console.log(`[FileWatcher] determineResumeStatus: Task ${task.specId}: ${completedSubtasks}/${totalSubtasks} subtasks complete`);
+
+  // Priority 2: If task has incomplete subtasks → resume in progress
+  if (completedSubtasks < totalSubtasks) {
+    console.log(`[FileWatcher] determineResumeStatus: Incomplete subtasks - returning 'in_progress' (resume work)`);
+    return 'in_progress';
+  }
+
+  // Priority 3: All subtasks complete but in human_review → re-run QA
+  console.log(`[FileWatcher] determineResumeStatus: All subtasks complete - returning 'ai_review' (re-validate)`);
+  return 'ai_review';
 }
 
 /**
@@ -207,6 +237,29 @@ export class FileWatcher extends EventEmitter {
           const content = readFileSync(filePath, 'utf-8');
           const plan = JSON.parse(content);
           if (plan.status === 'start_requested') {
+            // NEW: Move task back to correct board based on progress BEFORE auto-starting
+            const task = projectStore.getTaskBySpecId(projectId, specId);
+            if (task && task.status === 'human_review') {
+              // Determine where to send task based on subtask progress
+              const targetStatus = determineResumeStatus(task, plan);
+
+              console.log(`[FileWatcher] Moving task ${specId} from human_review → ${targetStatus}`);
+
+              // Update task status in project store
+              const success = projectStore.updateTaskStatus(projectId, task.id, targetStatus);
+
+              if (success) {
+                // Emit event for UI refresh
+                this.emit('task-status-changed', {
+                  projectId,
+                  taskId: task.id,
+                  specId,
+                  oldStatus: 'human_review',
+                  newStatus: targetStatus
+                });
+              }
+            }
+
             console.log(`[FileWatcher] start_requested status detected in NEW file for ${specId} - emitting task-start-requested`);
             this.emit('task-start-requested', {
               projectId,
@@ -232,6 +285,31 @@ export class FileWatcher extends EventEmitter {
           if (plan.status === 'start_requested') {
             const specDir = path.dirname(filePath);
             const specId = path.basename(specDir);
+
+            // NEW: Move task back to correct board based on progress BEFORE auto-starting
+            const task = projectStore.getTaskBySpecId(projectId, specId);
+            if (task && task.status === 'human_review') {
+              // Determine where to send task based on subtask progress
+              const targetStatus = determineResumeStatus(task, plan);
+
+              console.log(`[FileWatcher] Moving task ${specId} from human_review → ${targetStatus}`);
+
+              // Update task status in project store
+              const success = projectStore.updateTaskStatus(projectId, task.id, targetStatus);
+
+              if (success) {
+                // Emit event for UI refresh
+                this.emit('task-status-changed', {
+                  projectId,
+                  taskId: task.id,
+                  specId,
+                  oldStatus: 'human_review',
+                  newStatus: targetStatus
+                });
+              }
+            }
+
+            // THEN emit task-start-requested (existing code)
             console.log(`[FileWatcher] start_requested status detected for ${specId} - emitting task-start-requested`);
             this.emit('task-start-requested', {
               projectId,

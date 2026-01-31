@@ -2,7 +2,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { existsSync, readFileSync } from 'fs';
 import { spawn } from 'child_process';
-import { app } from 'electron';
+import { app } from './electron-compat';
 
 // ESM-compatible __dirname
 const __filename = fileURLToPath(import.meta.url);
