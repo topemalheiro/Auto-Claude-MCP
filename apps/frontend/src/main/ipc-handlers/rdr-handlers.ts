@@ -20,6 +20,7 @@ import { JSON_ERROR_PREFIX } from '../../shared/constants/task';
 import { projectStore } from '../project-store';
 import { isClaudeCodeBusy } from '../platform/windows/window-manager';
 import { mcpMonitor } from '../mcp-server';
+import { outputMonitor } from '../claude-code/output-monitor';
 
 // ============================================================================
 // Timer-Based Batching State
@@ -988,7 +989,21 @@ export function registerRdrHandlers(): void {
     IPC_CHANNELS.IS_CLAUDE_CODE_BUSY,
     async (event, handle: number): Promise<IPCResult<boolean>> => {
       try {
-        // Primary check: MCP connection activity (most accurate)
+        // PRIMARY: Check if Claude is at prompt (waiting for input)
+        // This is the most important check to prevent prompt loops
+        const atPrompt = await outputMonitor.isAtPrompt();
+        if (atPrompt) {
+          console.log('[RDR] 🔴 Claude Code is at prompt (waiting for input)');
+          const diagnostics = await outputMonitor.getDiagnostics();
+          console.log('[RDR]    Details:', {
+            state: diagnostics.state,
+            timeSinceStateChange: `${diagnostics.timeSinceStateChange}ms`,
+            recentSessionFiles: diagnostics.recentSessionFiles
+          });
+          return { success: true, data: true }; // BUSY - don't send!
+        }
+
+        // SECONDARY: Check MCP connection activity (active processing)
         if (mcpMonitor.isBusy()) {
           console.log('[RDR] 🔴 Claude Code is busy (MCP connection active)');
           const status = mcpMonitor.getStatus();
@@ -999,15 +1014,15 @@ export function registerRdrHandlers(): void {
           return { success: true, data: true };
         }
 
-        // Fallback: Session file activity check
+        // FALLBACK: Session file activity check
         const sessionBusy = await isClaudeSessionActive();
         if (sessionBusy) {
           console.log('[RDR] 🟡 Claude Code is busy (session file active)');
           return { success: true, data: true };
         }
 
-        // All checks passed - Claude is idle
-        console.log('[RDR] ✅ Claude Code is idle');
+        // All checks passed - Claude is truly idle
+        console.log('[RDR] ✅ Claude Code is idle (safe to send)');
         return { success: true, data: false };
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);

@@ -128,9 +128,9 @@ class MCPConnectionMonitor {
   }
 
   isBusy(): boolean {
-    const recentThreshold = Date.now() - 3000; // 3 seconds
+    const recentThreshold = Date.now() - 30000; // 30 seconds (extended from 3s to prevent false "idle" during Claude thinking time)
 
-    // If actively processing OR had activity in last 3 seconds
+    // If actively processing OR had activity in last 30 seconds
     return this.isProcessing || (this.lastRequestTime > recentThreshold);
   }
 
@@ -666,18 +666,18 @@ server.tool(
       };
     }
 
-    // Determine project path from tasks list
+    // Determine project path from tasks list (get from any task since all have same project)
     const tasksResult = await listTasks(projectId);
-    if (!tasksResult.success || !tasksResult.data?.projectPath) {
+    if (!tasksResult.success || !tasksResult.data || tasksResult.data.length === 0) {
       return {
         content: [{
           type: 'text' as const,
-          text: JSON.stringify({ success: false, error: 'Could not determine project path' })
+          text: JSON.stringify({ success: false, error: 'Could not determine project path - no tasks found' })
         }]
       };
     }
 
-    const projectPath = tasksResult.data.projectPath;
+    const projectPath = tasksResult.data[0].projectPath;
     const specDir = path.join(projectPath, '.auto-claude', 'specs', taskId);
     const fixRequestPath = path.join(specDir, 'QA_FIX_REQUEST.md');
     const planPath = path.join(specDir, 'implementation_plan.json');
@@ -982,18 +982,18 @@ server.tool(
     const { existsSync, writeFileSync, readFileSync } = await import('fs');
     const path = await import('path');
 
-    // Get project path
+    // Get project path (from any task since all have same project)
     const tasksResult = await listTasks(projectId);
-    if (!tasksResult.success || !tasksResult.data?.projectPath) {
+    if (!tasksResult.success || !tasksResult.data || tasksResult.data.length === 0) {
       return {
         content: [{
           type: 'text' as const,
-          text: JSON.stringify({ success: false, error: 'Could not determine project path' })
+          text: JSON.stringify({ success: false, error: 'Could not determine project path - no tasks found' })
         }]
       };
     }
 
-    const projectPath = tasksResult.data.projectPath;
+    const projectPath = tasksResult.data[0].projectPath;
     const results: Array<{ taskId: string; success: boolean; action: string; error?: string }> = [];
 
     for (const fix of fixes) {

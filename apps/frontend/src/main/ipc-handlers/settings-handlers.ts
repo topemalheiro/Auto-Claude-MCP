@@ -3,7 +3,17 @@ import { existsSync, writeFileSync, mkdirSync, statSync, readFileSync } from 'fs
 import { execFileSync } from 'node:child_process';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { is } from '@electron-toolkit/utils';
+
+// Custom safe implementation to avoid module-level electron.app access
+const is = {
+  get dev() {
+    try {
+      return !app.isPackaged;
+    } catch {
+      return true; // Default to dev mode if app not ready
+    }
+  }
+};
 
 // ESM-compatible __dirname
 const __filename = fileURLToPath(import.meta.url);

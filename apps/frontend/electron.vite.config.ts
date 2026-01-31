@@ -33,7 +33,7 @@ export default defineConfig({
         '@anthropic-ai/sdk',
         'kuzu',
         'electron-updater',
-        '@electron-toolkit/utils',
+        // REMOVED: '@electron-toolkit/utils' - Keep external to avoid electron.app access issues
         // Sentry and its transitive dependencies (opentelemetry -> debug -> ms)
         '@sentry/electron',
         '@sentry/core',

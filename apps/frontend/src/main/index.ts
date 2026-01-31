@@ -38,7 +38,35 @@ for (const envPath of possibleEnvPaths) {
 import { app, BrowserWindow, shell, nativeImage, session, screen } from 'electron';
 import { join } from 'path';
 import { accessSync, readFileSync, writeFileSync, rmSync } from 'fs';
-import { electronApp, optimizer, is } from '@electron-toolkit/utils';
+import { optimizer } from '@electron-toolkit/utils';
+
+// Custom safe implementation to avoid module-level electron.app access
+const is = {
+  get dev() {
+    try {
+      return !app.isPackaged;
+    } catch {
+      return true; // Default to dev mode if app not ready
+    }
+  }
+};
+
+const electronApp = {
+  setAppUserModelId(id: string) {
+    if (process.platform === 'win32') {
+      app.setAppUserModelId(is.dev ? process.execPath : id);
+    }
+  },
+  setAutoLaunch(auto: boolean) {
+    if (process.platform === 'linux') return false;
+    const isOpenAtLogin = () => app.getLoginItemSettings().openAtLogin;
+    if (isOpenAtLogin() !== auto) {
+      app.setLoginItemSettings({ openAtLogin: auto });
+      return isOpenAtLogin() === auto;
+    }
+    return true;
+  }
+};
 import { setupIpcHandlers } from './ipc-setup';
 import { AgentManager } from './agent';
 import { TerminalManager } from './terminal-manager';

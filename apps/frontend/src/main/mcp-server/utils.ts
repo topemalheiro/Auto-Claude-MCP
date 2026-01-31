@@ -205,6 +205,11 @@ export function listTasks(
   statusFilter?: TaskStatus
 ): MCPResult<TaskSummary[]> {
   try {
+    const project = projectStore.getProject(projectId);
+    if (!project) {
+      return { success: false, error: `Project not found: ${projectId}` };
+    }
+
     const tasks = projectStore.getTasks(projectId);
 
     let filteredTasks = tasks;
@@ -214,6 +219,7 @@ export function listTasks(
 
     const summaries: TaskSummary[] = filteredTasks.map(task => ({
       taskId: task.specId,
+      projectPath: project.path, // ADD THIS - fixes MCP tools that need to write files
       title: task.title,
       description: task.description || '',
       status: task.status,

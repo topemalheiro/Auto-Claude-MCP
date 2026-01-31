@@ -2,7 +2,17 @@ import { ipcMain, app } from 'electron';
 import { existsSync, readFileSync } from 'fs';
 import path from 'path';
 import { execFileSync } from 'child_process';
-import { is } from '@electron-toolkit/utils';
+
+// Custom safe implementation to avoid module-level electron.app access
+const is = {
+  get dev() {
+    try {
+      return !app.isPackaged;
+    } catch {
+      return true; // Default to dev mode if app not ready
+    }
+  }
+};
 import { IPC_CHANNELS } from '../../shared/constants';
 import type {
   Project,

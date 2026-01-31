@@ -190,6 +190,7 @@ export interface CreatedTask {
  */
 export interface TaskSummary {
   taskId: string;
+  projectPath: string; // Path to project directory - needed by MCP tools to write fix files
   title: string;
   description: string;
   status: TaskStatus;
