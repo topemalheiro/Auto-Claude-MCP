@@ -185,6 +185,29 @@ export interface ElectronAPI {
   archiveTasks: (projectId: string, taskIds: string[], version?: string) => Promise<IPCResult<boolean>>;
   unarchiveTasks: (projectId: string, taskIds: string[]) => Promise<IPCResult<boolean>>;
 
+  // RDR (Recover Debug Resend) operations
+  triggerRdrProcessing: (projectId: string, taskIds: string[]) => Promise<IPCResult<{ processed: number }>>;
+  pingRdrImmediate: (projectId: string, tasks: Task[]) => Promise<IPCResult<{ taskCount: number; signalPath: string }>>;
+  getVSCodeWindows: () => Promise<IPCResult<Array<{ handle: number; title: string; processId: number }>>>;
+  sendRdrToWindow: (handle: number, message: string) => Promise<IPCResult<{ success: boolean; error?: string }>>;
+  getRdrBatchDetails: (projectId: string) => Promise<IPCResult<{
+    batches: Array<{ type: string; taskIds: string[]; taskCount: number }>;
+    taskDetails: Array<{
+      specId: string;
+      title: string;
+      description: string;
+      status: TaskStatus;
+      reviewReason?: string;
+      exitReason?: string;
+      subtasks?: Array<{ name: string; status: string }>;
+      errorSummary?: string;
+    }>;
+  }>>;
+
+  // Task event listeners
+  onTaskListRefresh: (callback: (projectId: string) => void) => () => void;
+  onTaskAutoStart: (callback: (projectId: string, taskId: string) => void) => () => void;
+
   // Event listeners
   onTaskProgress: (callback: (taskId: string, plan: ImplementationPlan) => void) => () => void;
   onTaskError: (callback: (taskId: string, error: string) => void) => () => void;

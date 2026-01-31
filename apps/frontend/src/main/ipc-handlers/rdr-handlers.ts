@@ -847,4 +847,105 @@ export function registerRdrHandlers(): void {
       }
     }
   );
+
+  // Get detailed RDR batch information for auto-send messages
+  ipcMain.handle(
+    IPC_CHANNELS.GET_RDR_BATCH_DETAILS,
+    async (event, projectId: string): Promise<IPCResult<{
+      batches: Array<{ type: string; taskIds: string[]; taskCount: number }>;
+      taskDetails: Array<{
+        specId: string;
+        title: string;
+        description: string;
+        status: string;
+        reviewReason?: string;
+        exitReason?: string;
+        subtasks?: Array<{ name: string; status: string }>;
+        errorSummary?: string;
+      }>;
+    }>> => {
+      console.log(`[RDR] Getting batch details for project ${projectId}`);
+
+      try {
+        const tasks = projectStore.getTasks(projectId);
+
+        // Filter tasks that need intervention (same logic as RDR toggle)
+        const tasksNeedingHelp = tasks.filter(task =>
+          task.status === 'human_review' &&
+          (task.reviewReason === 'errors' ||
+           task.reviewReason === 'qa_rejected' ||
+           (task.subtasks && task.subtasks.some((s: { status: string }) => s.status !== 'completed')))
+        );
+
+        if (tasksNeedingHelp.length === 0) {
+          return {
+            success: true,
+            data: {
+              batches: [],
+              taskDetails: []
+            }
+          };
+        }
+
+        // Convert to TaskInfo format for categorization
+        const taskInfos: TaskInfo[] = tasksNeedingHelp.map(t => ({
+          specId: t.specId,
+          status: t.status,
+          reviewReason: t.reviewReason,
+          description: t.description,
+          subtasks: t.subtasks
+        }));
+
+        // Categorize into batches
+        const batches = categorizeTasks(taskInfos);
+
+        // Build detailed task info for the message
+        const taskDetails = tasksNeedingHelp.map(task => {
+          // Extract error summary if available
+          let errorSummary: string | undefined;
+          if (task.reviewReason === 'errors') {
+            errorSummary = task.exitReason || 'Task failed during execution';
+          } else if (task.reviewReason === 'qa_rejected') {
+            errorSummary = 'QA found issues with implementation';
+          } else if (task.description?.startsWith(JSON_ERROR_PREFIX)) {
+            errorSummary = 'JSON parse error in task data';
+          }
+
+          return {
+            specId: task.specId,
+            title: task.title || task.specId,
+            description: task.description?.substring(0, 200) || '',
+            status: task.status,
+            reviewReason: task.reviewReason,
+            exitReason: task.exitReason,
+            subtasks: task.subtasks?.map((s) => ({
+              name: s.title || s.id,
+              status: s.status
+            })),
+            errorSummary
+          };
+        });
+
+        console.log(`[RDR] Found ${taskDetails.length} tasks needing intervention, ${batches.length} batches`);
+
+        return {
+          success: true,
+          data: {
+            batches: batches.map(b => ({
+              type: b.type,
+              taskIds: b.taskIds,
+              taskCount: b.taskIds.length
+            })),
+            taskDetails
+          }
+        };
+      } catch (error) {
+        console.error('[RDR] Failed to get batch details:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : String(error)
+        };
+      }
+    }
+  );
 }

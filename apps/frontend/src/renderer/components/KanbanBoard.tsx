@@ -26,13 +26,12 @@ import { Button } from './ui/button';
 import { Switch } from './ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
-import { useSettingsStore } from '../stores/settings-store';
 import { TaskCard } from './TaskCard';
 import { SortableTaskCard } from './SortableTaskCard';
 import { TASK_STATUS_COLUMNS, TASK_STATUS_LABELS } from '../../shared/constants';
 import { cn } from '../lib/utils';
 import { persistTaskStatus, forceCompleteTask, archiveTasks, useTaskStore, startTask, isIncompleteHumanReview } from '../stores/task-store';
-import { saveSettings } from '../stores/settings-store';
+import { useProjectStore } from '../stores/project-store';
 import { useToast } from '../hooks/use-toast';
 import { WorktreeCleanupDialog } from './WorktreeCleanupDialog';
 import { BulkPRDialog } from './BulkPRDialog';
@@ -856,15 +855,24 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     }
   };
 
-  // Get settings store for auto-resume and RDR toggles
-  const { settings } = useSettingsStore();
-  const autoResumeEnabled = settings.autoResumeAfterRateLimit ?? false;
-  const rdrEnabled = settings.rdrEnabled ?? false;
+  // Get project store for auto-resume and RDR toggles (per-project settings)
+  const currentProject = useProjectStore((state) => state.getSelectedProject());
+  const updateProject = useProjectStore((state) => state.updateProject);
+
+  // Per-project settings for auto-resume and RDR
+  const autoResumeEnabled = currentProject?.settings?.autoResumeAfterRateLimit ?? false;
+  const rdrEnabled = currentProject?.settings?.rdrEnabled ?? false;
 
   // VS Code window state for RDR direct sending
   const [vsCodeWindows, setVsCodeWindows] = useState<Array<{ handle: number; title: string; processId: number }>>([]);
   const [selectedWindowHandle, setSelectedWindowHandle] = useState<number | null>(null);
   const [isLoadingWindows, setIsLoadingWindows] = useState(false);
+
+  // RDR 60-second auto timer state
+  const [rdrMessageInFlight, setRdrMessageInFlight] = useState(false);
+  const rdrIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const RDR_INTERVAL_MS = 60000; // 60 seconds
+  const RDR_IN_FLIGHT_TIMEOUT_MS = 30000; // 30 seconds before allowing next message
 
   // Load VS Code windows from system
   const loadVsCodeWindows = useCallback(async () => {
@@ -890,6 +898,151 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     loadVsCodeWindows();
   }, [loadVsCodeWindows]);
 
+  /**
+   * Build detailed RDR message with task error information
+   * This gives Claude Code all the info it needs to act directly
+   */
+  const buildRdrMessage = useCallback((data: {
+    batches: Array<{ type: string; taskIds: string[]; taskCount: number }>;
+    taskDetails: Array<{
+      specId: string;
+      title: string;
+      description: string;
+      status: string;
+      reviewReason?: string;
+      exitReason?: string;
+      subtasks?: Array<{ name: string; status: string }>;
+      errorSummary?: string;
+    }>;
+  }): string => {
+    const lines: string[] = ['[Auto-Claude RDR] Tasks needing intervention:'];
+    lines.push('');
+
+    for (const task of data.taskDetails) {
+      lines.push(`## ${task.specId}: ${task.title}`);
+      lines.push(`Status: ${task.reviewReason || task.status} | Exit: ${task.exitReason || 'none'}`);
+
+      if (task.subtasks && task.subtasks.length > 0) {
+        const completed = task.subtasks.filter(s => s.status === 'completed').length;
+        lines.push(`Subtasks: ${completed}/${task.subtasks.length} complete`);
+        const pending = task.subtasks.filter(s => s.status !== 'completed');
+        if (pending.length > 0) {
+          lines.push(`Pending: ${pending.map(s => s.name).join(', ')}`);
+        }
+      }
+
+      if (task.errorSummary) {
+        lines.push(`Error: ${task.errorSummary}`);
+      }
+
+      lines.push('');
+    }
+
+    lines.push('Use MCP tools: get_task_error_details, submit_task_fix_request, process_rdr_batch');
+
+    return lines.join('\n');
+  }, []);
+
+  /**
+   * Handle automatic RDR processing every 60 seconds
+   * Skips if a message is already in-flight (Claude Code is processing)
+   */
+  const handleAutoRdr = useCallback(async () => {
+    // Skip if message is in-flight (Claude Code still processing previous request)
+    if (rdrMessageInFlight) {
+      console.log('[RDR] Skipping auto-send - message in flight');
+      return;
+    }
+
+    // Skip if no window selected
+    if (!selectedWindowHandle) {
+      console.log('[RDR] Skipping auto-send - no window selected');
+      return;
+    }
+
+    // Skip if no project
+    if (!projectId) {
+      console.log('[RDR] Skipping auto-send - no project');
+      return;
+    }
+
+    console.log('[RDR] Auto-send triggered - getting batch details...');
+
+    try {
+      // Get detailed task info via IPC
+      const result = await window.electronAPI.getRdrBatchDetails(projectId);
+
+      if (!result.success || !result.data?.taskDetails?.length) {
+        console.log('[RDR] No tasks needing intervention');
+        return;
+      }
+
+      // Build detailed message
+      const message = buildRdrMessage(result.data);
+      console.log(`[RDR] Sending detailed message with ${result.data.taskDetails.length} tasks`);
+
+      // Mark message as in-flight
+      setRdrMessageInFlight(true);
+
+      // Send to VS Code window
+      const sendResult = await window.electronAPI.sendRdrToWindow(selectedWindowHandle, message);
+
+      if (sendResult.success) {
+        console.log('[RDR] Auto-send successful');
+        toast({
+          title: t('kanban.rdrSendSuccess'),
+          description: t('kanban.rdrSendSuccessDesc')
+        });
+      } else {
+        console.error('[RDR] Auto-send failed:', sendResult.data?.error);
+        setRdrMessageInFlight(false); // Allow retry immediately on failure
+      }
+
+      // Reset in-flight flag after timeout (assume Claude Code processed by then)
+      setTimeout(() => {
+        setRdrMessageInFlight(false);
+        console.log('[RDR] In-flight timeout - ready for next message');
+      }, RDR_IN_FLIGHT_TIMEOUT_MS);
+
+    } catch (error) {
+      console.error('[RDR] Auto-send error:', error);
+      setRdrMessageInFlight(false);
+    }
+  }, [rdrMessageInFlight, selectedWindowHandle, projectId, buildRdrMessage, toast, t]);
+
+  // Start/stop 60-second timer when RDR toggle or window selection changes
+  useEffect(() => {
+    // Clear any existing timer
+    if (rdrIntervalRef.current) {
+      clearInterval(rdrIntervalRef.current);
+      rdrIntervalRef.current = null;
+    }
+
+    // Only start timer if RDR is enabled AND a window is selected
+    if (rdrEnabled && selectedWindowHandle) {
+      console.log(`[RDR] Starting timer - immediate send + ${RDR_INTERVAL_MS / 1000}s recurring`);
+
+      // CRITICAL FIX: Trigger immediate send when toggle enabled (don't wait 60 seconds)
+      handleAutoRdr();
+
+      // THEN set up recurring 60-second interval
+      rdrIntervalRef.current = setInterval(() => {
+        handleAutoRdr();
+      }, RDR_INTERVAL_MS);
+
+      // Cleanup on unmount or dependency change
+      return () => {
+        if (rdrIntervalRef.current) {
+          clearInterval(rdrIntervalRef.current);
+          rdrIntervalRef.current = null;
+          console.log('[RDR] Auto-send timer stopped');
+        }
+      };
+    } else {
+      console.log('[RDR] Auto-send timer not started (RDR disabled or no window selected)');
+    }
+  }, [rdrEnabled, selectedWindowHandle, handleAutoRdr]);
+
   // Helper function to start a task with retry logic
   const startTaskWithRetry = useCallback(async (taskId: string, maxRetries = 3, delayMs = 2000) => {
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -911,8 +1064,16 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
 
   // Handle auto-resume toggle - when enabled, immediately resume all incomplete tasks
   const handleAutoResumeToggle = async (checked: boolean) => {
-    // Update and persist the setting
-    await saveSettings({ autoResumeAfterRateLimit: checked });
+    // Update per-project setting
+    if (currentProject) {
+      const updatedSettings = {
+        ...currentProject.settings,
+        autoResumeAfterRateLimit: checked
+      };
+      updateProject(currentProject.id, { settings: updatedSettings });
+      // Persist to storage via IPC
+      await window.electronAPI.updateProjectSettings(currentProject.id, updatedSettings);
+    }
 
     // When turning ON, resume all incomplete tasks in human_review (those showing "Needs Resume")
     if (checked) {
@@ -937,8 +1098,16 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
 
   // Handle RDR (Recover Debug Resend) toggle - when enabled, process stuck/errored tasks
   const handleRdrToggle = async (checked: boolean) => {
-    // Update and persist the setting
-    await saveSettings({ rdrEnabled: checked });
+    // Update per-project setting
+    if (currentProject) {
+      const updatedSettings = {
+        ...currentProject.settings,
+        rdrEnabled: checked
+      };
+      updateProject(currentProject.id, { settings: updatedSettings });
+      // Persist to storage via IPC
+      await window.electronAPI.updateProjectSettings(currentProject.id, updatedSettings);
+    }
 
     // When turning ON, trigger RDR processing for all tasks needing intervention
     if (checked) {
@@ -982,14 +1151,24 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
 
     // Check if a window is selected for direct sending
     if (selectedWindowHandle) {
-      // Send directly to VS Code window
+      // Send directly to VS Code window with detailed message
       toast({
         title: t('kanban.rdrSending'),
         description: t('kanban.rdrSendingDesc', { count: humanReviewTasks.length })
       });
 
       try {
-        const message = 'Check RDR batches and fix errored tasks';
+        // Get detailed batch info for the message
+        const batchResult = await window.electronAPI.getRdrBatchDetails(projectId);
+        let message: string;
+
+        if (batchResult.success && batchResult.data?.taskDetails?.length) {
+          message = buildRdrMessage(batchResult.data);
+        } else {
+          // Fallback to simple message if no detailed info available
+          message = 'Check RDR batches and fix errored tasks';
+        }
+
         const result = await window.electronAPI.sendRdrToWindow(selectedWindowHandle, message);
 
         if (result.success) {

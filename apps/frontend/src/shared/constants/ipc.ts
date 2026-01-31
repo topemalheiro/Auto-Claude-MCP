@@ -602,5 +602,6 @@ export const IPC_CHANNELS = {
 
   // VS Code Window Management (for RDR message sending)
   GET_VSCODE_WINDOWS: 'rdr:getVSCodeWindows',               // Get list of VS Code windows
-  SEND_RDR_TO_WINDOW: 'rdr:sendToWindow'                    // Send RDR message to specific window
+  SEND_RDR_TO_WINDOW: 'rdr:sendToWindow',                   // Send RDR message to specific window
+  GET_RDR_BATCH_DETAILS: 'rdr:getBatchDetails'              // Get detailed task info for RDR message
 } as const;

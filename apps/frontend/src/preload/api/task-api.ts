@@ -17,6 +17,27 @@ import type {
   ImageAttachment
 } from '../../shared/types';
 
+// Types for detailed RDR batch information
+export interface RdrTaskDetail {
+  specId: string;
+  title: string;
+  description: string;
+  status: TaskStatus;
+  reviewReason?: string;
+  exitReason?: string;
+  subtasks?: Array<{ name: string; status: string }>;
+  errorSummary?: string;
+}
+
+export interface RdrBatchDetails {
+  batches: Array<{
+    type: 'json_error' | 'incomplete' | 'qa_rejected' | 'errors';
+    taskIds: string[];
+    taskCount: number;
+  }>;
+  taskDetails: RdrTaskDetail[];
+}
+
 export interface TaskAPI {
   // Task Operations
   getTasks: (projectId: string, options?: { forceRefresh?: boolean }) => Promise<IPCResult<Task[]>>;
@@ -91,6 +112,9 @@ export interface TaskAPI {
   // VS Code Window Management (for RDR message sending)
   getVSCodeWindows: () => Promise<IPCResult<Array<{ handle: number; title: string; processId: number }>>>;
   sendRdrToWindow: (handle: number, message: string) => Promise<IPCResult<{ success: boolean; error?: string }>>;
+
+  // Detailed RDR batch info for auto-send
+  getRdrBatchDetails: (projectId: string) => Promise<IPCResult<RdrBatchDetails>>;
 }
 
 export const createTaskAPI = (): TaskAPI => ({
@@ -353,5 +377,9 @@ export const createTaskAPI = (): TaskAPI => ({
     ipcRenderer.invoke(IPC_CHANNELS.GET_VSCODE_WINDOWS),
 
   sendRdrToWindow: (handle: number, message: string): Promise<IPCResult<{ success: boolean; error?: string }>> =>
-    ipcRenderer.invoke(IPC_CHANNELS.SEND_RDR_TO_WINDOW, handle, message)
+    ipcRenderer.invoke(IPC_CHANNELS.SEND_RDR_TO_WINDOW, handle, message),
+
+  // Detailed RDR batch info for auto-send
+  getRdrBatchDetails: (projectId: string): Promise<IPCResult<RdrBatchDetails>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.GET_RDR_BATCH_DETAILS, projectId)
 });

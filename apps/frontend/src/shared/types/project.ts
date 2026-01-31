@@ -28,6 +28,18 @@ export interface ProjectSettings {
   useClaudeMd?: boolean;
   /** Maximum parallel tasks allowed (default: 3) */
   maxParallelTasks?: number;
+  /**
+   * Auto-resume tasks after rate limit reset (when task crashes due to rate limit)
+   * When enabled, tasks auto-resume when limit resets. When disabled, tasks go to Human Review.
+   * This is a per-project setting.
+   */
+  autoResumeAfterRateLimit?: boolean;
+  /**
+   * RDR (Recover Debug Resend) - Auto-recover stuck/errored tasks
+   * When enabled, automatically sends detailed error info to Claude Code for fixing.
+   * This is a per-project setting.
+   */
+  rdrEnabled?: boolean;
 }
 
 export interface NotificationSettings {

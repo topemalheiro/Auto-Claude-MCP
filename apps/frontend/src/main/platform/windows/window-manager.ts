@@ -9,6 +9,9 @@
 
 import { execSync, exec } from 'child_process';
 import { isWindows } from '../index';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as os from 'os';
 
 /**
  * Represents a VS Code window
@@ -137,17 +140,30 @@ export function sendMessageToWindow(
       return;
     }
 
-    try {
-      // Escape message for PowerShell string literal
-      // Single quotes in PowerShell strings are escaped by doubling
-      const escapedMessage = message.replace(/'/g, "''");
+    // Use temp files to avoid command line length limit
+    const tempFile = path.join(os.tmpdir(), `rdr-message-${Date.now()}.txt`);
+    let scriptFile: string | null = null;
 
-      // Build the PowerShell script with the message embedded
-      // Added $ProgressPreference to suppress CLIXML progress output
+    try {
+      // Write message to temp file with UTF-8 encoding
+      fs.writeFileSync(tempFile, message, { encoding: 'utf-8' });
+
+      // Build PowerShell script that reads from file
+      // This avoids the ~8191 char command line limit
       const script = `
 $ProgressPreference = 'SilentlyContinue'
 $Handle = ${handle}
-$Message = '${escapedMessage}'
+$MessageFile = '${tempFile.replace(/\\/g, '\\\\')}'
+
+# Read message from file
+if (-not (Test-Path $MessageFile)) {
+    Write-Error "Message file not found: $MessageFile"
+    exit 1
+}
+$Message = Get-Content -Path $MessageFile -Raw -Encoding UTF8
+
+# Clean up temp file
+Remove-Item -Path $MessageFile -Force -ErrorAction SilentlyContinue
 
 Add-Type @"
 using System;
@@ -203,8 +219,12 @@ if ($original -ne [IntPtr]::Zero -and $original -ne [IntPtr]$Handle) {
 Write-Output "Message sent successfully"
 `;
 
-      const encoded = encodePS(script);
-      const command = `powershell -ExecutionPolicy Bypass -NoProfile -NonInteractive -EncodedCommand ${encoded}`;
+      // Write script to temp file
+      scriptFile = path.join(os.tmpdir(), `rdr-script-${Date.now()}.ps1`);
+      fs.writeFileSync(scriptFile, script, { encoding: 'utf-8' });
+
+      // Execute PowerShell script from file (no command line length limit)
+      const command = `powershell -ExecutionPolicy Bypass -NoProfile -NonInteractive -File "${scriptFile}"`;
 
       exec(
         command,
@@ -213,6 +233,15 @@ Write-Output "Message sent successfully"
           windowsHide: true
         },
         (error, stdout, stderr) => {
+          // Clean up script file
+          if (scriptFile) {
+            try {
+              fs.unlinkSync(scriptFile);
+            } catch (e) {
+              // Ignore cleanup errors
+            }
+          }
+
           if (error) {
             console.error('[WindowManager] Failed to send message:', error.message);
             resolve({
@@ -226,6 +255,14 @@ Write-Output "Message sent successfully"
         }
       );
     } catch (error) {
+      // Clean up temp files on error
+      try {
+        if (fs.existsSync(tempFile)) fs.unlinkSync(tempFile);
+        if (scriptFile && fs.existsSync(scriptFile)) fs.unlinkSync(scriptFile);
+      } catch (e) {
+        // Ignore cleanup errors
+      }
+
       const errorMessage = error instanceof Error ? error.message : String(error);
       console.error('[WindowManager] Exception sending message:', errorMessage);
       resolve({ success: false, error: errorMessage });
