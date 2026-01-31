@@ -98,7 +98,8 @@
     "autoResume": "Reprise auto",
     "autoResumeHeader": "Reprise Auto",
     "arLimitReset": "RA sur Réinit. Limite",
-    "autoResumeTooltip": "Si activé, les tâches pausées par limites de taux reprendront automatiquement."
+    "autoResumeTooltip": "Si activé, les tâches pausées par limites de taux reprendront automatiquement.",
+    "rdrTooltip": "Récupération, Débogage et Renvoi automatiques : corrige les tâches bloquées/erreurs via Claude Manager MCP."
   },
   "execution": {
     "phases": {

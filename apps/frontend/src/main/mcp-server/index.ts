@@ -403,6 +403,265 @@ server.tool(
 );
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Tool: get_tasks_needing_intervention
+// ─────────────────────────────────────────────────────────────────────────────
+
+server.tool(
+  'get_tasks_needing_intervention',
+  'Get all tasks that need intervention (errors, stuck, incomplete subtasks, QA rejected)',
+  {
+    projectId: z.string().describe('The project ID (UUID)')
+  },
+  async ({ projectId }) => {
+    const result = await listTasks(projectId);
+
+    if (!result.success || !result.data) {
+      return {
+        content: [{
+          type: 'text' as const,
+          text: JSON.stringify({ success: false, error: result.error || 'Failed to list tasks' })
+        }]
+      };
+    }
+
+    // Filter tasks that need intervention
+    const tasksNeedingHelp = result.data.filter(task => {
+      if (task.status !== 'human_review') return false;
+
+      // JSON error tasks
+      if (task.description?.startsWith('__JSON_ERROR__:')) return true;
+
+      // Tasks with errors or QA rejected
+      if (task.reviewReason === 'errors' || task.reviewReason === 'qa_rejected') return true;
+
+      // Incomplete tasks (subtasks not all completed)
+      if (task.subtasks && task.subtasks.some((s: { status: string }) => s.status !== 'completed')) return true;
+
+      return false;
+    });
+
+    const interventionTasks = tasksNeedingHelp.map(task => ({
+      taskId: task.specId || task.id,
+      title: task.title,
+      interventionType: task.description?.startsWith('__JSON_ERROR__:') ? 'json_error' :
+                        task.reviewReason === 'qa_rejected' ? 'qa_rejected' :
+                        task.reviewReason === 'errors' ? 'error' : 'incomplete_subtasks',
+      errorSummary: task.description?.startsWith('__JSON_ERROR__:')
+        ? task.description.slice('__JSON_ERROR__:'.length)
+        : task.reviewReason || 'Incomplete subtasks',
+      subtasksCompleted: task.subtasks?.filter((s: { status: string }) => s.status === 'completed').length || 0,
+      subtasksTotal: task.subtasks?.length || 0,
+      lastActivity: task.updatedAt
+    }));
+
+    return {
+      content: [{
+        type: 'text' as const,
+        text: JSON.stringify({
+          success: true,
+          count: interventionTasks.length,
+          tasks: interventionTasks
+        }, null, 2)
+      }]
+    };
+  }
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Tool: get_task_error_details
+// ─────────────────────────────────────────────────────────────────────────────
+
+server.tool(
+  'get_task_error_details',
+  'Get detailed error information for a task including logs, QA report, and context',
+  {
+    projectId: z.string().describe('The project ID (UUID)'),
+    taskId: z.string().describe('The task/spec ID')
+  },
+  async ({ projectId, taskId }) => {
+    const statusResult = await getTaskStatus(projectId, taskId);
+
+    if (!statusResult.success || !statusResult.data) {
+      return {
+        content: [{
+          type: 'text' as const,
+          text: JSON.stringify({ success: false, error: statusResult.error || 'Task not found' })
+        }]
+      };
+    }
+
+    const task = statusResult.data;
+
+    // Build error details
+    const errorDetails: Record<string, unknown> = {};
+
+    // Check for JSON error
+    if (task.description?.startsWith('__JSON_ERROR__:')) {
+      errorDetails.jsonError = task.description.slice('__JSON_ERROR__:'.length);
+    }
+
+    // Get failed subtasks
+    if (task.subtasks) {
+      const failedSubtasks = task.subtasks.filter((s: { status: string }) => s.status === 'failed');
+      if (failedSubtasks.length > 0) {
+        errorDetails.failedSubtasks = failedSubtasks;
+      }
+    }
+
+    // Include QA report if available
+    if (task.qaReport) {
+      errorDetails.qaReport = task.qaReport;
+    }
+
+    // Include exit reason and rate limit info
+    if (task.exitReason) {
+      errorDetails.exitReason = task.exitReason;
+    }
+    if (task.rateLimitInfo) {
+      errorDetails.rateLimitInfo = task.rateLimitInfo;
+    }
+
+    return {
+      content: [{
+        type: 'text' as const,
+        text: JSON.stringify({
+          success: true,
+          taskId: task.specId || task.id,
+          status: task.status,
+          reviewReason: task.reviewReason,
+          exitReason: task.exitReason,
+          errorDetails,
+          context: {
+            title: task.title,
+            description: task.description,
+            subtasksTotal: task.subtasks?.length || 0,
+            subtasksCompleted: task.subtasks?.filter((s: { status: string }) => s.status === 'completed').length || 0
+          }
+        }, null, 2)
+      }]
+    };
+  }
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Tool: recover_stuck_task
+// ─────────────────────────────────────────────────────────────────────────────
+
+server.tool(
+  'recover_stuck_task',
+  'Trigger recovery for a stuck task (equivalent to clicking Recover button)',
+  {
+    projectId: z.string().describe('The project ID (UUID)'),
+    taskId: z.string().describe('The task/spec ID'),
+    autoRestart: z.boolean().optional().default(true).describe('Whether to auto-restart after recovery')
+  },
+  async ({ projectId, taskId, autoRestart }) => {
+    // Note: Recovery requires IPC access which is only available within Electron context
+    // When running as standalone MCP server, we can only provide guidance
+    return {
+      content: [{
+        type: 'text' as const,
+        text: JSON.stringify({
+          success: false,
+          note: 'Task recovery requires the MCP server to run within the Electron app context. ' +
+                'To recover this task: ' +
+                '1. Open the Auto-Claude UI ' +
+                '2. Find task ' + taskId + ' in Human Review ' +
+                '3. Click the "Recover Task" button ' +
+                'Alternatively, enable RDR toggle in the Kanban header to auto-recover stuck tasks.',
+          taskId,
+          autoRestart
+        }, null, 2)
+      }]
+    };
+  }
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Tool: submit_task_fix_request
+// ─────────────────────────────────────────────────────────────────────────────
+
+server.tool(
+  'submit_task_fix_request',
+  'Submit a fix request for a task (equivalent to Request Changes)',
+  {
+    projectId: z.string().describe('The project ID (UUID)'),
+    taskId: z.string().describe('The task/spec ID'),
+    feedback: z.string().describe('Description of what needs to be fixed')
+  },
+  async ({ projectId, taskId, feedback }) => {
+    // Note: Submitting fix requests requires IPC access which is only available within Electron context
+    // When running as standalone MCP server, we can only provide guidance
+    return {
+      content: [{
+        type: 'text' as const,
+        text: JSON.stringify({
+          success: false,
+          note: 'Submitting fix requests requires the MCP server to run within the Electron app context. ' +
+                'To submit this fix request: ' +
+                '1. Open the Auto-Claude UI ' +
+                '2. Find task ' + taskId + ' in Human Review ' +
+                '3. Enter the following in the Request Changes field: ' +
+                feedback,
+          taskId,
+          feedback
+        }, null, 2)
+      }]
+    };
+  }
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Tool: get_task_logs
+// ─────────────────────────────────────────────────────────────────────────────
+
+server.tool(
+  'get_task_logs',
+  'Get detailed phase logs for a task (planning, coding, validation)',
+  {
+    projectId: z.string().describe('The project ID (UUID)'),
+    taskId: z.string().describe('The task/spec ID'),
+    phase: z.enum(['planning', 'coding', 'validation']).optional().describe('Specific phase to get logs for (all phases if not specified)'),
+    lastN: z.number().optional().default(50).describe('Number of recent log entries to return')
+  },
+  async ({ projectId, taskId, phase, lastN }) => {
+    // Note: Full log access requires IPC which is only available within Electron context
+    // When running as standalone MCP server, we provide limited info
+    const statusResult = await getTaskStatus(projectId, taskId);
+
+    if (!statusResult.success || !statusResult.data) {
+      return {
+        content: [{
+          type: 'text' as const,
+          text: JSON.stringify({ success: false, error: statusResult.error || 'Task not found' })
+        }]
+      };
+    }
+
+    return {
+      content: [{
+        type: 'text' as const,
+        text: JSON.stringify({
+          success: true,
+          taskId,
+          phase: phase || 'all',
+          note: 'Full task logs are available in the Auto-Claude UI. ' +
+                'Open the task detail modal and navigate to the "Logs" tab. ' +
+                'For programmatic access to logs, the MCP server must run within the Electron app context.',
+          taskStatus: statusResult.data.status,
+          executionPhase: statusResult.data.executionProgress?.phase || 'unknown',
+          subtasksStatus: statusResult.data.subtasks?.map((s: { id: string; title: string; status: string }) => ({
+            id: s.id,
+            title: s.title,
+            status: s.status
+          }))
+        }, null, 2)
+      }]
+    };
+  }
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Start Server
 // ─────────────────────────────────────────────────────────────────────────────
 

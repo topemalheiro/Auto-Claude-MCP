@@ -589,5 +589,10 @@ export const IPC_CHANNELS = {
 
   // Task rate limit crash detection (Bug #5 - smart shutdown)
   TASK_RATE_LIMIT_CRASH: 'task:rateLimitCrash',           // Task crashed due to rate limit
-  TASK_RATE_LIMIT_WAITING: 'task:rateLimitWaiting'        // Task is waiting for rate limit reset
+  TASK_RATE_LIMIT_WAITING: 'task:rateLimitWaiting',       // Task is waiting for rate limit reset
+
+  // RDR (Recover Debug Resend) - Auto-recover stuck/errored tasks
+  TRIGGER_RDR_PROCESSING: 'rdr:triggerProcessing',        // Trigger RDR processing for tasks
+  RDR_TASK_PROCESSED: 'rdr:taskProcessed',                // Single task processed by RDR
+  RDR_PROCESSING_COMPLETE: 'rdr:processingComplete'       // All RDR processing complete
 } as const;

@@ -35,6 +35,7 @@ import { registerMcpHandlers } from './mcp-handlers';
 import { registerProfileHandlers } from './profile-handlers';
 import { registerTerminalWorktreeIpcHandlers } from './terminal';
 import { registerRateLimitHandlers } from './rate-limit-handlers';
+import { registerRdrHandlers } from './rdr-handlers';
 import { notificationService } from '../notification-service';
 
 /**
@@ -126,6 +127,9 @@ export function setupIpcHandlers(
   // Rate limit wait-and-resume handlers (single account scenario)
   registerRateLimitHandlers(agentManager, getMainWindow);
 
+  // RDR (Recover Debug Resend) handlers - auto-recovery for stuck/errored tasks
+  registerRdrHandlers();
+
   console.warn('[IPC] All handler modules registered successfully');
 }
 
@@ -154,5 +158,6 @@ export {
   registerClaudeCodeHandlers,
   registerMcpHandlers,
   registerProfileHandlers,
-  registerRateLimitHandlers
+  registerRateLimitHandlers,
+  registerRdrHandlers
 };

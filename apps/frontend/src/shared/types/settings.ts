@@ -291,6 +291,9 @@ export interface AppSettings {
   // When enabled, a countdown timer starts and the task auto-resumes when limit resets
   // When disabled, tasks go to Human Review and require manual restart
   autoResumeAfterRateLimit?: boolean;
+  // RDR (Recover Debug Resend) - Auto-recover stuck/errored tasks
+  // When enabled, automatically recovers stuck tasks, analyzes errors, and submits fix requests
+  rdrEnabled?: boolean;
 }
 
 // Auto-Claude Source Environment Configuration (for auto-claude repo .env)

@@ -855,9 +855,10 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     }
   };
 
-  // Get settings store for auto-resume toggle
+  // Get settings store for auto-resume and RDR toggles
   const { settings } = useSettingsStore();
   const autoResumeEnabled = settings.autoResumeAfterRateLimit ?? false;
+  const rdrEnabled = settings.rdrEnabled ?? false;
 
   // Helper function to start a task with retry logic
   const startTaskWithRetry = useCallback(async (taskId: string, maxRetries = 3, delayMs = 2000) => {
@@ -900,6 +901,35 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
         console.log(`[KanbanBoard] Auto-resume complete: ${successCount} succeeded, ${failCount} failed`);
       } else {
         console.log('[KanbanBoard] Auto-resume enabled - no incomplete tasks to resume');
+      }
+    }
+  };
+
+  // Handle RDR (Recover Debug Resend) toggle - when enabled, process stuck/errored tasks
+  const handleRdrToggle = async (checked: boolean) => {
+    // Update and persist the setting
+    await saveSettings({ rdrEnabled: checked });
+
+    // When turning ON, trigger RDR processing for all tasks needing intervention
+    if (checked) {
+      const tasksNeedingHelp = tasks.filter(task =>
+        task.status === 'human_review' &&
+        (task.reviewReason === 'errors' ||
+         task.reviewReason === 'qa_rejected' ||
+         isIncompleteHumanReview(task))
+      );
+
+      if (tasksNeedingHelp.length > 0) {
+        console.log(`[KanbanBoard] RDR enabled - ${tasksNeedingHelp.length} tasks need intervention`);
+
+        // Trigger RDR processing via IPC
+        try {
+          await window.electronAPI.triggerRdrProcessing(projectId, tasksNeedingHelp.map(t => t.id));
+        } catch (error) {
+          console.error('[KanbanBoard] Failed to trigger RDR processing:', error);
+        }
+      } else {
+        console.log('[KanbanBoard] RDR enabled - no tasks need intervention');
       }
     }
   };
@@ -952,7 +982,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
           </span>
 
           {/* Toggles Row */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-start gap-3">
             {/* Toggle 1: AR on Limit Reset */}
             <Tooltip>
               <TooltipTrigger asChild>
@@ -963,9 +993,11 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
                     onCheckedChange={handleAutoResumeToggle}
                     className="scale-90"
                   />
-                  <span className="text-xs text-muted-foreground">
-                    {t('kanban.arLimitReset')}
-                  </span>
+                  <div className="flex flex-col text-[10px] leading-tight text-muted-foreground">
+                    <span>AR on</span>
+                    <span>Limit</span>
+                    <span>Reset</span>
+                  </div>
                 </div>
               </TooltipTrigger>
               <TooltipContent side="bottom" className="max-w-xs">
@@ -973,17 +1005,28 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
               </TooltipContent>
             </Tooltip>
 
-            {/* Toggle 2: Placeholder for future toggle */}
-            {/* <Tooltip>
+            {/* Toggle 2: RDR - Recover Debug Resend */}
+            <Tooltip>
               <TooltipTrigger asChild>
                 <div className="flex items-center gap-1.5">
-                  <Switch id="kanban-auto-resume-2" className="scale-90" />
-                  <span className="text-xs text-muted-foreground">
-                    {t('kanban.arManual')}
-                  </span>
+                  <Switch
+                    id="kanban-auto-rdr"
+                    checked={rdrEnabled}
+                    onCheckedChange={handleRdrToggle}
+                    className="scale-90"
+                  />
+                  <div className="flex flex-col text-[10px] leading-tight text-muted-foreground">
+                    <span className="font-medium">RDR</span>
+                    <span className="text-[8px] text-muted-foreground/60">Recover</span>
+                    <span className="text-[8px] text-muted-foreground/60">Debug</span>
+                    <span className="text-[8px] text-muted-foreground/60">Resend</span>
+                  </div>
                 </div>
               </TooltipTrigger>
-            </Tooltip> */}
+              <TooltipContent side="bottom" className="max-w-xs">
+                <p>{t('kanban.rdrTooltip')}</p>
+              </TooltipContent>
+            </Tooltip>
           </div>
         </div>
 

@@ -83,6 +83,9 @@ export interface TaskAPI {
   unwatchTaskLogs: (specId: string) => Promise<IPCResult>;
   onTaskLogsChanged: (callback: (specId: string, logs: TaskLogs) => void) => () => void;
   onTaskLogsStream: (callback: (specId: string, chunk: TaskLogStreamChunk) => void) => () => void;
+
+  // RDR (Recover Debug Resend) Processing
+  triggerRdrProcessing: (projectId: string, taskIds: string[]) => Promise<IPCResult<{ processed: number }>>;
 }
 
 export const createTaskAPI = (): TaskAPI => ({
@@ -330,5 +333,9 @@ export const createTaskAPI = (): TaskAPI => ({
     return () => {
       ipcRenderer.removeListener(IPC_CHANNELS.TASK_LOGS_STREAM, handler);
     };
-  }
+  },
+
+  // RDR (Recover Debug Resend) Processing
+  triggerRdrProcessing: (projectId: string, taskIds: string[]): Promise<IPCResult<{ processed: number }>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.TRIGGER_RDR_PROCESSING, projectId, taskIds)
 });

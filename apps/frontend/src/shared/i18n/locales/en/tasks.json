@@ -98,7 +98,8 @@
     "autoResume": "Auto-Resume",
     "autoResumeHeader": "Auto Resume",
     "arLimitReset": "AR on Limit Reset",
-    "autoResumeTooltip": "When enabled, tasks paused due to rate limits will automatically resume when the limit resets."
+    "autoResumeTooltip": "When enabled, tasks paused due to rate limits will automatically resume when the limit resets.",
+    "rdrTooltip": "Auto Recover, Debug, and Resend: Automatically fix stuck/errored tasks via Claude Manager MCP."
   },
   "execution": {
     "phases": {
