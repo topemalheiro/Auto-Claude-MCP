@@ -1239,6 +1239,89 @@ Batch Type: ${batchType}
 );
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Tool: trigger_auto_restart
+// ─────────────────────────────────────────────────────────────────────────────
+
+server.tool(
+  'trigger_auto_restart',
+  'Trigger automatic restart with build when prompt loop, crash, or error detected. Only works if auto-restart feature is enabled in settings.',
+  {
+    reason: z.enum(['prompt_loop', 'crash', 'manual', 'error']).describe('Reason for restart'),
+    buildCommand: z.string().optional().describe('Custom build command (default: from settings or "npm run build")')
+  },
+  withMonitoring('trigger_auto_restart', async ({ reason, buildCommand }) => {
+    try {
+      // Import dynamically to avoid circular dependencies
+      const { readSettingsFile } = await import('../settings-utils.js');
+      const { writeFileSync } = await import('fs');
+      const { app } = await import('electron');
+      const path = await import('path');
+
+      const settings = readSettingsFile();
+
+      if (!settings.autoRestartOnFailure?.enabled) {
+        return {
+          content: [{
+            type: 'text' as const,
+            text: JSON.stringify({
+              success: false,
+              error: 'Auto-restart feature is disabled in settings. Enable it in Settings > General > Auto-Restart on Loop/Crash.'
+            })
+          }]
+        };
+      }
+
+      // Write restart marker file
+      const restartMarkerPath = path.join(app.getPath('userData'), '.restart-requested');
+      writeFileSync(restartMarkerPath, JSON.stringify({
+        reason,
+        timestamp: new Date().toISOString(),
+        triggeredBy: 'mcp_tool'
+      }));
+
+      console.log('[MCP] Restart marker written:', restartMarkerPath);
+
+      // Import and call buildAndRestart
+      const { buildAndRestart, saveRestartState } = await import('../ipc-handlers/restart-handlers.js');
+      const cmd = buildCommand || settings.autoRestartOnFailure.buildCommand || 'npm run build';
+
+      // Save running tasks before restart
+      saveRestartState(reason as 'prompt_loop' | 'crash' | 'manual');
+
+      console.log('[MCP] Triggering build and restart with command:', cmd);
+
+      // Execute build and restart
+      const result = await buildAndRestart(cmd);
+
+      return {
+        content: [{
+          type: 'text' as const,
+          text: JSON.stringify({
+            success: result.success,
+            error: result.error,
+            reason,
+            buildCommand: cmd,
+            message: result.success
+              ? `Build and restart initiated. App will restart after successful build.`
+              : `Build failed: ${result.error}`
+          }, null, 2)
+        }]
+      };
+    } catch (error) {
+      return {
+        content: [{
+          type: 'text' as const,
+          text: JSON.stringify({
+            success: false,
+            error: error instanceof Error ? error.message : String(error)
+          })
+        }]
+      };
+    }
+  })
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Start Server
 // ─────────────────────────────────────────────────────────────────────────────
 

@@ -673,7 +673,7 @@ export class AgentProcessManager {
       stderrBuffer = processBufferedOutput(stderrBuffer, data.toString('utf8'));
     });
 
-    childProcess.on('exit', (code: number | null) => {
+    childProcess.on('exit', (code: number | null, signal: NodeJS.Signals | null) => {
       if (stdoutBuffer.trim()) {
         this.emitter.emit('log', taskId, stdoutBuffer + '\n');
         processLog(stdoutBuffer);
@@ -696,6 +696,38 @@ export class AgentProcessManager {
         if (wasHandled) {
           this.emitter.emit('exit', taskId, code, processType);
           return;
+        }
+      }
+
+      // Crash detection: non-zero exit code and not a graceful shutdown
+      const crashed = code !== 0 && code !== null && signal !== 'SIGTERM';
+
+      if (crashed) {
+        console.error(`[CRASH] Task ${taskId} crashed with code ${code} signal ${signal}`);
+
+        // Check if auto-restart is enabled
+        const settings = readSettingsFile();
+        if (settings.autoRestartOnFailure?.enabled) {
+          const restartMarkerPath = path.join(app.getPath('userData'), '.restart-requested');
+          writeFileSync(restartMarkerPath, JSON.stringify({
+            reason: 'crash',
+            timestamp: new Date().toISOString(),
+            taskId,
+            exitCode: code,
+            signal: signal || 'none'
+          }));
+
+          console.log('[CRASH] Auto-restart enabled, triggering rebuild after 5s delay...');
+
+          // Trigger restart after short delay (let other tasks finish)
+          setTimeout(() => {
+            import('../ipc-handlers/restart-handlers.js').then(({ buildAndRestart, saveRestartState }) => {
+              saveRestartState('crash');
+              buildAndRestart(settings.autoRestartOnFailure.buildCommand || 'npm run build').catch(error => {
+                console.error('[CRASH] Auto-restart failed:', error);
+              });
+            });
+          }, 5000);
         }
       }
 
