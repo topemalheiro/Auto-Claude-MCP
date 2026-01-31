@@ -996,13 +996,26 @@ export function registerRdrHandlers(): void {
       try {
         const tasks = projectStore.getTasks(projectId);
 
-        // Filter tasks that need intervention (same logic as RDR toggle)
-        const tasksNeedingHelp = tasks.filter(task =>
-          task.status === 'human_review' &&
-          (task.reviewReason === 'errors' ||
-           task.reviewReason === 'qa_rejected' ||
-           (task.subtasks && task.subtasks.some((s: { status: string }) => s.status !== 'completed')))
-        );
+        // Filter tasks that need intervention
+        // EXCLUDE tasks with 100% subtasks complete (ready for manual review/merge)
+        const tasksNeedingHelp = tasks.filter(task => {
+          if (task.status !== 'human_review') return false;
+
+          // If task has subtasks, check completion percentage
+          if (task.subtasks && task.subtasks.length > 0) {
+            const allComplete = task.subtasks.every((s: { status: string }) => s.status === 'completed');
+            if (allComplete) {
+              // 100% complete - ready for manual review, don't auto-process
+              console.log(`[RDR] Skipping task ${task.specId} - all subtasks complete (ready for manual review)`);
+              return false;
+            }
+            // Has incomplete subtasks - needs help
+            return true;
+          }
+
+          // No subtasks but has errors/qa_rejected - needs help
+          return task.reviewReason === 'errors' || task.reviewReason === 'qa_rejected';
+        });
 
         if (tasksNeedingHelp.length === 0) {
           return {

@@ -187,13 +187,12 @@ class ClaudeOutputMonitor {
 
               // Only consider files modified in the last 60 seconds
               const ageMs = Date.now() - stats.mtimeMs;
-              const ageSeconds = Math.floor(ageMs / 1000);
 
               if (ageMs > 60000) {
-                console.log('[OutputMonitor]   Skipping old file:', file, `(${ageSeconds}s old)`);
-                continue;
+                continue; // Skip old files silently
               }
 
+              const ageSeconds = Math.floor(ageMs / 1000);
               recentJsonlFiles++;
               console.log('[OutputMonitor]   Found recent file:', file, `(${ageSeconds}s old)`);
 
