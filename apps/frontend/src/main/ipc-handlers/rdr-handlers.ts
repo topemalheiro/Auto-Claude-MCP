@@ -18,13 +18,13 @@ import type { IPCResult } from '../../shared/types';
 import { JSON_ERROR_PREFIX } from '../../shared/constants/task';
 import { projectStore } from '../project-store';
 import { isElectron } from '../electron-compat';
+import { outputMonitor } from '../claude-code/output-monitor';
 
 // Conditionally import Electron-specific modules
 let ipcMain: any = null;
 let BrowserWindow: any = null;
 let isClaudeCodeBusy: any = null;
 let mcpMonitor: any = null;
-let outputMonitor: any = null;
 
 if (isElectron) {
   // Load each module independently so one failure doesn't break everything
@@ -46,12 +46,6 @@ if (isElectron) {
     mcpMonitor = require('../mcp-server').mcpMonitor;
   } catch (error) {
     console.warn('[RDR] Failed to load MCP monitor:', error);
-  }
-
-  try {
-    outputMonitor = require('../claude-code/output-monitor').outputMonitor;
-  } catch (error) {
-    console.warn('[RDR] Failed to load output monitor:', error);
   }
 }
 
