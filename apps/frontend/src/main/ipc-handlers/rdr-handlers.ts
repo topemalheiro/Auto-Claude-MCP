@@ -10,7 +10,6 @@
  * - Batch 3: QA Rejected / Other Errors → Queue for MCP/Claude Code analysis
  */
 
-import { ipcMain, BrowserWindow } from 'electron';
 import { readFileSync, writeFileSync, existsSync, unlinkSync, readdirSync, statSync } from 'fs';
 import * as path from 'path';
 import * as os from 'os';
@@ -18,9 +17,27 @@ import { IPC_CHANNELS } from '../../shared/constants/ipc';
 import type { IPCResult } from '../../shared/types';
 import { JSON_ERROR_PREFIX } from '../../shared/constants/task';
 import { projectStore } from '../project-store';
-import { isClaudeCodeBusy } from '../platform/windows/window-manager';
-import { mcpMonitor } from '../mcp-server';
-import { outputMonitor } from '../claude-code/output-monitor';
+import { isElectron } from '../electron-compat';
+
+// Conditionally import Electron-specific modules
+let ipcMain: any = null;
+let BrowserWindow: any = null;
+let isClaudeCodeBusy: any = null;
+let mcpMonitor: any = null;
+let outputMonitor: any = null;
+
+if (isElectron) {
+  try {
+    const electron = require('electron');
+    ipcMain = electron.ipcMain;
+    BrowserWindow = electron.BrowserWindow;
+    isClaudeCodeBusy = require('../platform/windows/window-manager').isClaudeCodeBusy;
+    mcpMonitor = require('../mcp-server').mcpMonitor;
+    outputMonitor = require('../claude-code/output-monitor').outputMonitor;
+  } catch (error) {
+    console.warn('[RDR] Failed to load Electron-specific modules:', error);
+  }
+}
 
 // ============================================================================
 // Timer-Based Batching State
@@ -50,6 +67,7 @@ interface TaskInfo {
   reviewReason?: string;
   description?: string;
   subtasks?: Array<{ status: string; name?: string }>;
+  rdrDisabled?: boolean;  // If true, RDR will skip this task
 }
 
 interface RdrBatch {
@@ -139,15 +157,21 @@ function getPlanPath(projectPath: string, specId: string): string {
 function categorizeTasks(tasks: TaskInfo[]): RdrBatch[] {
   const batches: RdrBatch[] = [];
 
+  // Filter out tasks with RDR disabled
+  const rdrEnabledTasks = tasks.filter(t => !t.rdrDisabled);
+  if (rdrEnabledTasks.length < tasks.length) {
+    console.log(`[RDR] Skipping ${tasks.length - rdrEnabledTasks.length} tasks with RDR disabled`);
+  }
+
   // Batch 1: JSON Errors (tasks with JSON parse error in description)
-  const jsonErrors = tasks.filter(t => t.description?.startsWith(JSON_ERROR_PREFIX));
+  const jsonErrors = rdrEnabledTasks.filter(t => t.description?.startsWith(JSON_ERROR_PREFIX));
   if (jsonErrors.length > 0) {
     batches.push({ type: 'json_error', taskIds: jsonErrors.map(t => t.specId), tasks: jsonErrors });
     console.log(`[RDR] Batch 1 - JSON Errors: ${jsonErrors.length} tasks`);
   }
 
   // Batch 2: Incomplete Tasks (has subtasks but not all completed, NOT an error state)
-  const incomplete = tasks.filter(t =>
+  const incomplete = rdrEnabledTasks.filter(t =>
     t.status === 'human_review' &&
     t.reviewReason !== 'errors' &&
     !t.description?.startsWith(JSON_ERROR_PREFIX) &&
@@ -161,7 +185,7 @@ function categorizeTasks(tasks: TaskInfo[]): RdrBatch[] {
   }
 
   // Batch 3: QA Rejected
-  const qaRejected = tasks.filter(t =>
+  const qaRejected = rdrEnabledTasks.filter(t =>
     t.reviewReason === 'qa_rejected' &&
     !t.description?.startsWith(JSON_ERROR_PREFIX)
   );
@@ -171,7 +195,7 @@ function categorizeTasks(tasks: TaskInfo[]): RdrBatch[] {
   }
 
   // Batch 4: Other Errors (not JSON errors)
-  const errors = tasks.filter(t =>
+  const errors = rdrEnabledTasks.filter(t =>
     t.reviewReason === 'errors' &&
     !t.description?.startsWith(JSON_ERROR_PREFIX)
   );
@@ -372,37 +396,65 @@ async function processMcpBatch(
  */
 function generateBatchPrompt(batches: RdrBatch[]): string {
   const lines: string[] = [
-    '# RDR Batch Analysis Request',
+    '# [AUTO-CLAUDE RDR] Recovery Manager Role',
+    '',
+    '**YOU ARE THE CLAUDE MANAGER** for the Auto-Claude autonomous coding system.',
+    '**YOUR ROLE:** Recover stuck tasks using ONLY MCP tools, NOT manual fixes.',
     '',
     `**Timestamp:** ${new Date().toISOString()}`,
     `**Total Batches:** ${batches.length}`,
     '',
-    '## Tasks Needing Analysis',
+    '## CRITICAL: 4-Tier Priority System',
+    '',
+    '**PRIORITY 1 (AUTO - 95%):** System auto-recovers via file watcher',
+    '- Tasks automatically move to correct boards and resume',
+    '- **YOU DO NOTHING** - Already handled by MCP tools',
+    '',
+    '**PRIORITY 2 (REQUEST - 4%):** Request changes only',
+    '- Use `process_rdr_batch` to write fix requests',
+    '- Let task agent fix issues itself',
+    '',
+    '**PRIORITY 3 (FIX - <1%):** Auto-fix ONLY JSON errors',
+    '- Use `process_rdr_batch` for technical blockers',
+    '',
+    '**PRIORITY 4 (MANUAL - RARE):** Last resort only',
+    '- ONLY when Priorities 1-3 fail',
+    '- Minimal intervention',
+    '',
+    '## ⚠️ STRICT RULES',
+    '',
+    '1. **ONLY USE** MCP tool: `mcp__auto-claude-manager__process_rdr_batch`',
+    '2. **DO NOT** read files (no Read, Grep, Glob)',
+    '3. **DO NOT** edit files (no Edit, Write)',
+    '4. **DO NOT** try to fix manually',
+    '5. **CALL MCP TOOL IMMEDIATELY** - One call per batch type',
+    '',
+    '## Tasks Detected',
     ''
   ];
 
   for (const batch of batches) {
-    lines.push(`### Batch: ${batch.type} (${batch.taskIds.length} tasks)`);
-    lines.push('');
-
+    lines.push(`### ${batch.type}: ${batch.taskIds.length} tasks`);
     for (const task of batch.tasks) {
-      lines.push(`- **${task.specId}**: ${task.description?.substring(0, 100) || 'No description'}`);
-      if (task.reviewReason) {
-        lines.push(`  - Review Reason: ${task.reviewReason}`);
-      }
-      if (task.subtasks && task.subtasks.length > 0) {
-        const completed = task.subtasks.filter(s => s.status === 'completed').length;
-        lines.push(`  - Subtasks: ${completed}/${task.subtasks.length} completed`);
-      }
+      const completed = task.subtasks?.filter(s => s.status === 'completed').length || 0;
+      const total = task.subtasks?.length || 0;
+      lines.push(`- ${task.specId} (${completed}/${total} subtasks)`);
     }
     lines.push('');
   }
 
-  lines.push('## Action Required');
+  lines.push('## IMMEDIATE ACTION');
   lines.push('');
-  lines.push('1. Call `get_rdr_batches` to get full task details');
-  lines.push('2. Analyze error logs and QA reports for each task');
-  lines.push('3. Call `process_rdr_batch` with fix requests for each batch');
+  lines.push('Call `mcp__auto-claude-manager__process_rdr_batch` NOW for EACH batch:');
+  lines.push('');
+  for (const batch of batches) {
+    lines.push(`  mcp__auto-claude-manager__process_rdr_batch(`);
+    lines.push(`    batchType: "${batch.type}",`);
+    lines.push(`    fixes: [/* task IDs: ${batch.taskIds.slice(0,3).join(', ')}${batch.taskIds.length > 3 ? '...' : ''} */]`);
+    lines.push(`  )`);
+    lines.push('');
+  }
+  lines.push('**REMEMBER:** Call MCP tool ONLY. NO manual fixes. System auto-recovers.');
   lines.push('');
 
   return lines.join('\n');
@@ -599,6 +651,11 @@ export function getPendingTaskCount(): number {
  * Register RDR IPC handlers
  */
 export function registerRdrHandlers(): void {
+  if (!isElectron || !ipcMain) {
+    console.log('[RDR] Skipping handler registration (not in Electron context)');
+    return;
+  }
+
   console.log('[RDR] Registering RDR handlers');
 
   ipcMain.handle(

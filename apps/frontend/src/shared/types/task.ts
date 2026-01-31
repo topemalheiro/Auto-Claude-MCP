@@ -238,6 +238,11 @@ export interface TaskMetadata {
   prUrl?: string;  // GitHub PR URL if task has been submitted as a PR
   useWorktree?: boolean;  // If false, use direct mode (no worktree isolation) - default is true for safety
 
+  // RDR (Recover Debug Resend) configuration
+  rdrDisabled?: boolean;  // If true, RDR will skip auto-recovery for this task
+  rdrAttempts?: number;  // How many times RDR has attempted recovery
+  rdrLastAttempt?: string;  // ISO timestamp of last RDR recovery attempt
+
   // Archive status
   archivedAt?: string;  // ISO date when task was archived
   archivedInVersion?: string;  // Version in which task was archived (from changelog)
