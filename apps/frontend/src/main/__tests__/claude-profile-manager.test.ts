@@ -637,7 +637,8 @@ describe('ClaudeProfileManager', () => {
 
     it('should retrieve OAuth token from Keychain', () => {
       vi.mocked(credentialUtils.getCredentialsFromKeychain).mockReturnValue({
-        token: 'keychain-token'
+        token: 'keychain-token',
+        email: 'test@example.com'
       });
 
       const env = manager.getProfileEnv('primary');
