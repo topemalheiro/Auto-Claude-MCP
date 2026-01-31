@@ -106,5 +106,6 @@ export const taskMock = {
       batches: [],
       taskDetails: []
     }
-  })
+  }),
+  isClaudeCodeBusy: async () => ({ success: true, data: false }) // Always idle in browser
 };

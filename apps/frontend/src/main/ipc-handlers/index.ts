@@ -38,6 +38,9 @@ import { registerRateLimitHandlers } from './rate-limit-handlers';
 import { registerRdrHandlers } from './rdr-handlers';
 import { notificationService } from '../notification-service';
 
+// Auto-shutdown handlers (self-registering on import)
+import './auto-shutdown-handlers';
+
 /**
  * Setup all IPC handlers across all domains
  *

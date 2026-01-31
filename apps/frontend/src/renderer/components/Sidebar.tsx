@@ -50,6 +50,7 @@ import { GitSetupModal } from './GitSetupModal';
 import { RateLimitIndicator } from './RateLimitIndicator';
 import { ClaudeCodeStatusBadge } from './ClaudeCodeStatusBadge';
 import { UpdateBanner } from './UpdateBanner';
+import { AutoShutdownToggle } from './AutoShutdownToggle';
 import type { Project, AutoBuildVersionInfo, GitStatus, ProjectEnvConfig } from '../../shared/types';
 
 export type SidebarView = 'kanban' | 'terminals' | 'roadmap' | 'context' | 'ideation' | 'github-issues' | 'gitlab-issues' | 'github-prs' | 'gitlab-merge-requests' | 'changelog' | 'insights' | 'worktrees' | 'agent-tools';
@@ -330,6 +331,9 @@ export function Sidebar({
         <div className="p-4 space-y-3">
           {/* Claude Code Status Badge */}
           <ClaudeCodeStatusBadge />
+
+          {/* Auto Shutdown Toggle */}
+          <AutoShutdownToggle />
 
           {/* Settings and Help row */}
           <div className="flex items-center gap-2">

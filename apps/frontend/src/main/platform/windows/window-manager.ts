@@ -271,6 +271,51 @@ Write-Output "Message sent successfully"
 }
 
 /**
+ * Check if Claude Code is currently busy (in a prompt loop)
+ *
+ * Detection strategy: Monitor VS Code window title for busy indicators
+ *
+ * @param handle - Window handle to check
+ * @returns Promise resolving to true if Claude Code is busy, false if idle
+ */
+export async function isClaudeCodeBusy(handle: number): Promise<boolean> {
+  if (!isWindows()) {
+    return false; // Assume idle on non-Windows
+  }
+
+  try {
+    // Get current window title
+    const windows = getVSCodeWindows();
+    const targetWindow = windows.find(w => w.handle === handle);
+
+    if (!targetWindow) {
+      console.warn('[WindowManager] Window handle not found, assuming idle');
+      return false;
+    }
+
+    // Patterns that indicate Claude Code is busy
+    const busyPatterns = [
+      /●/,                     // Modified indicator (unsaved changes, may indicate typing)
+      /thinking/i,             // "Claude is thinking..."
+      /generating/i,           // "Generating response..."
+      /processing/i,           // "Processing..."
+      /claude.*working/i,      // "Claude is working..."
+    ];
+
+    const isBusy = busyPatterns.some(pattern => pattern.test(targetWindow.title));
+
+    if (isBusy) {
+      console.log(`[WindowManager] Claude Code is busy - title: "${targetWindow.title}"`);
+    }
+
+    return isBusy;
+  } catch (error) {
+    console.error('[WindowManager] Error checking busy state:', error);
+    return false; // Assume idle on error
+  }
+}
+
+/**
  * Find a VS Code window by title pattern
  *
  * Useful for matching a window to a project name.

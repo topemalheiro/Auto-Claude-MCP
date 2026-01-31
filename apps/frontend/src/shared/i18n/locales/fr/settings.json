@@ -626,5 +626,17 @@
       "openai": "Ceci ressemble à une API OpenAI. Vous aurez besoin d'une clé API.",
       "createOpenaiKey": "Créer une clé API OpenAI"
     }
+  },
+  "autoShutdown": {
+    "title": "Arrêt automatique",
+    "description": "Arrêter automatiquement votre ordinateur lorsque toutes les tâches atteignent la révision humaine",
+    "toggle": "Activer l'arrêt automatique",
+    "monitoring": "Surveillance",
+    "disabled": "Désactivé",
+    "tasksRemaining": "{{count}} tâches restantes",
+    "tasksRemaining_one": "{{count}} tâche restante",
+    "tasksRemaining_other": "{{count}} tâches restantes",
+    "waitingForCompletion": "En attente des tâches...",
+    "shutdownIn": "Arrêt dans {{seconds}}s"
   }
 }

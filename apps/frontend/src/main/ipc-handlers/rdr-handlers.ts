@@ -17,6 +17,7 @@ import { IPC_CHANNELS } from '../../shared/constants/ipc';
 import type { IPCResult } from '../../shared/types';
 import { JSON_ERROR_PREFIX } from '../../shared/constants/task';
 import { projectStore } from '../project-store';
+import { isClaudeCodeBusy } from '../platform/windows/window-manager';
 
 // ============================================================================
 // Timer-Based Batching State
@@ -945,6 +946,21 @@ export function registerRdrHandlers(): void {
           success: false,
           error: error instanceof Error ? error.message : String(error)
         };
+      }
+    }
+  );
+
+  // Check if Claude Code is currently busy (in a prompt loop)
+  ipcMain.handle(
+    IPC_CHANNELS.IS_CLAUDE_CODE_BUSY,
+    async (event, handle: number): Promise<IPCResult<boolean>> => {
+      try {
+        const isBusy = await isClaudeCodeBusy(handle);
+        return { success: true, data: isBusy };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        console.error('[RDR] Failed to check busy state:', errorMessage);
+        return { success: false, error: errorMessage };
       }
     }
   );

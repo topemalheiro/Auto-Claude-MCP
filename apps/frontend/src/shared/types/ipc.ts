@@ -43,7 +43,8 @@ import type {
   TaskMetadata,
   TaskLogs,
   TaskLogStreamChunk,
-  ImageAttachment
+  ImageAttachment,
+  AutoShutdownStatus
 } from './task';
 import type {
   TerminalCreateOptions,
@@ -203,6 +204,12 @@ export interface ElectronAPI {
       errorSummary?: string;
     }>;
   }>>;
+  isClaudeCodeBusy: (handle: number) => Promise<IPCResult<boolean>>;
+
+  // Auto Shutdown
+  getAutoShutdownStatus: (projectId: string) => Promise<IPCResult<AutoShutdownStatus>>;
+  setAutoShutdown: (projectId: string, projectPath: string, enabled: boolean) => Promise<IPCResult<AutoShutdownStatus>>;
+  cancelAutoShutdown: (projectId: string) => Promise<IPCResult<void>>;
 
   // Task event listeners
   onTaskListRefresh: (callback: (projectId: string) => void) => () => void;

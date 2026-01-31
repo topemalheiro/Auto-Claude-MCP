@@ -603,5 +603,11 @@ export const IPC_CHANNELS = {
   // VS Code Window Management (for RDR message sending)
   GET_VSCODE_WINDOWS: 'rdr:getVSCodeWindows',               // Get list of VS Code windows
   SEND_RDR_TO_WINDOW: 'rdr:sendToWindow',                   // Send RDR message to specific window
-  GET_RDR_BATCH_DETAILS: 'rdr:getBatchDetails'              // Get detailed task info for RDR message
+  GET_RDR_BATCH_DETAILS: 'rdr:getBatchDetails',             // Get detailed task info for RDR message
+  IS_CLAUDE_CODE_BUSY: 'rdr:isClaudeCodeBusy',              // Check if Claude Code is in a prompt loop
+
+  // Auto Shutdown
+  GET_AUTO_SHUTDOWN_STATUS: 'autoShutdown:getStatus',       // Get auto-shutdown status for a project
+  SET_AUTO_SHUTDOWN: 'autoShutdown:set',                    // Enable/disable auto-shutdown for a project
+  CANCEL_AUTO_SHUTDOWN: 'autoShutdown:cancel'               // Cancel pending shutdown
 } as const;

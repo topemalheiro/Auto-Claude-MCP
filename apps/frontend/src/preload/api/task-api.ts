@@ -14,7 +14,8 @@ import type {
   SupportedTerminal,
   WorktreeCreatePROptions,
   WorktreeCreatePRResult,
-  ImageAttachment
+  ImageAttachment,
+  AutoShutdownStatus
 } from '../../shared/types';
 
 // Types for detailed RDR batch information
@@ -115,6 +116,12 @@ export interface TaskAPI {
 
   // Detailed RDR batch info for auto-send
   getRdrBatchDetails: (projectId: string) => Promise<IPCResult<RdrBatchDetails>>;
+  isClaudeCodeBusy: (handle: number) => Promise<IPCResult<boolean>>;
+
+  // Auto Shutdown
+  getAutoShutdownStatus: (projectId: string) => Promise<IPCResult<AutoShutdownStatus>>;
+  setAutoShutdown: (projectId: string, projectPath: string, enabled: boolean) => Promise<IPCResult<AutoShutdownStatus>>;
+  cancelAutoShutdown: (projectId: string) => Promise<IPCResult<void>>;
 }
 
 export const createTaskAPI = (): TaskAPI => ({
@@ -381,5 +388,19 @@ export const createTaskAPI = (): TaskAPI => ({
 
   // Detailed RDR batch info for auto-send
   getRdrBatchDetails: (projectId: string): Promise<IPCResult<RdrBatchDetails>> =>
-    ipcRenderer.invoke(IPC_CHANNELS.GET_RDR_BATCH_DETAILS, projectId)
+    ipcRenderer.invoke(IPC_CHANNELS.GET_RDR_BATCH_DETAILS, projectId),
+
+  // Check if Claude Code is busy (in a prompt loop)
+  isClaudeCodeBusy: (handle: number): Promise<IPCResult<boolean>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.IS_CLAUDE_CODE_BUSY, handle),
+
+  // Auto Shutdown
+  getAutoShutdownStatus: (projectId: string) =>
+    ipcRenderer.invoke(IPC_CHANNELS.GET_AUTO_SHUTDOWN_STATUS, projectId),
+
+  setAutoShutdown: (projectId: string, projectPath: string, enabled: boolean) =>
+    ipcRenderer.invoke(IPC_CHANNELS.SET_AUTO_SHUTDOWN, projectId, projectPath, enabled),
+
+  cancelAutoShutdown: (projectId: string) =>
+    ipcRenderer.invoke(IPC_CHANNELS.CANCEL_AUTO_SHUTDOWN, projectId)
 });

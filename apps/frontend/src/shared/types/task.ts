@@ -507,3 +507,11 @@ export interface TaskStartOptions {
   model?: string;
   baseBranch?: string; // Override base branch for worktree creation
 }
+
+export interface AutoShutdownStatus {
+  enabled: boolean;
+  monitoring: boolean;
+  tasksRemaining: number;
+  shutdownPending: boolean;
+  countdown?: number;
+}

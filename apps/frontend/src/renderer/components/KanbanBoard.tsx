@@ -960,6 +960,18 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       return;
     }
 
+    // NEW: Check if Claude Code is busy (in a prompt loop)
+    try {
+      const busyResult = await window.electronAPI.isClaudeCodeBusy(selectedWindowHandle);
+      if (busyResult.success && busyResult.data) {
+        console.log('[RDR] Skipping auto-send - Claude Code is busy (in prompt loop)');
+        return;
+      }
+    } catch (error) {
+      console.warn('[RDR] Failed to check busy state, proceeding with send:', error);
+      // Continue with send on error (graceful degradation)
+    }
+
     // Skip if no project
     if (!projectId) {
       console.log('[RDR] Skipping auto-send - no project');
