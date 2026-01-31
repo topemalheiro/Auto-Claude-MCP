@@ -126,6 +126,28 @@ class ClaudeOutputMonitor {
       return;
     }
 
+    // NEW: Detect when LLM is actively thinking/generating a response
+    // If last entry is a USER message and file was just updated, LLM is processing
+    if (lines.length > 0 && timeSinceLastWrite < 10000) {
+      try {
+        const lastLine = lines[lines.length - 1];
+        const lastEntry = JSON.parse(lastLine);
+
+        if (lastEntry.type === 'user') {
+          // User just sent message < 10s ago, LLM is likely thinking/generating
+          const ageSeconds = Math.floor(timeSinceLastWrite / 1000);
+          console.log(
+            `[OutputMonitor] Recent user message (${ageSeconds}s ago), LLM likely processing - setting PROCESSING`
+          );
+          this.setState('PROCESSING');
+          return;
+        }
+      } catch {
+        // If we can't parse the last line, continue with normal detection
+        console.log('[OutputMonitor] Could not parse last JSONL line, continuing with pattern detection');
+      }
+    }
+
     // Parse JSONL and extract text content
     let recentText = '';
     for (const line of recentLines) {
