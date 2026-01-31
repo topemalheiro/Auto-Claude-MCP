@@ -4,7 +4,8 @@
  * Monitors Claude Code's session state to detect when it's waiting at a prompt.
  * This prevents RDR from sending messages while Claude is in a prompt loop.
  *
- * FIXED: Now uses the CORRECT directory paths where Claude Code stores output
+ * FIXED: Now monitors JSONL transcripts in ~/.claude/projects/ instead of empty
+ * .output files in %LOCALAPPDATA%\Temp\claude\
  */
 
 import * as fs from 'fs/promises';
@@ -51,12 +52,12 @@ const PATTERNS = {
 class ClaudeOutputMonitor {
   private currentState: ClaudeState = 'IDLE';
   private lastStateChange: number = Date.now();
-  private taskOutputBaseDir: string;
+  private claudeProjectsDir: string;
 
   constructor() {
-    // Use the CORRECT path: %APPDATA%\Local\Temp\claude\
-    const localAppData = process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local');
-    this.taskOutputBaseDir = path.join(localAppData, 'Temp', 'claude');
+    // Monitor JSONL transcripts in ~/.claude/projects/
+    // (.output files in temp are empty/old, JSONL files have real session data)
+    this.claudeProjectsDir = path.join(os.homedir(), '.claude', 'projects');
   }
 
   /**
@@ -89,32 +90,52 @@ class ClaudeOutputMonitor {
   }
 
   /**
-   * Update Claude's state by checking recent output files
+   * Update Claude's state by checking recent JSONL transcript
    */
   private async updateState(): Promise<void> {
-    // Find the most recent .output file across all projects
-    const latestOutput = await this.getLatestOutputFile();
+    // Find the most recent JSONL transcript across all projects
+    const latestTranscript = await this.getLatestOutputFile();
 
-    if (!latestOutput) {
-      // No recent output files - Claude is idle
+    if (!latestTranscript) {
+      // No recent transcript files - Claude is idle
       this.setState('IDLE');
       return;
     }
 
-    const content = await fs.readFile(latestOutput, 'utf-8');
+    // Read last 50 lines of JSONL file (each line is a JSON object)
+    const content = await fs.readFile(latestTranscript, 'utf-8');
+    const lines = content.trim().split('\n');
+    const recentLines = lines.slice(-50);
 
-    // Get last 20 lines (enough to detect current state)
-    const lines = content.split('\n');
-    const recentLines = lines.slice(-20).join('\n');
+    // Parse JSONL and extract text content
+    let recentText = '';
+    for (const line of recentLines) {
+      try {
+        const entry = JSON.parse(line);
+        // Extract text from "text" field or "content" array
+        if (entry.text) {
+          recentText += entry.text + '\n';
+        } else if (entry.content && Array.isArray(entry.content)) {
+          for (const block of entry.content) {
+            if (block.type === 'text' && block.text) {
+              recentText += block.text + '\n';
+            }
+          }
+        }
+      } catch {
+        // Skip malformed JSON lines
+        continue;
+      }
+    }
 
     // Check for prompt pattern (highest priority)
-    if (this.matchesAnyPattern(recentLines, PATTERNS.AT_PROMPT)) {
+    if (this.matchesAnyPattern(recentText, PATTERNS.AT_PROMPT)) {
       this.setState('AT_PROMPT');
       return;
     }
 
     // Check for processing pattern
-    if (this.matchesAnyPattern(recentLines, PATTERNS.PROCESSING)) {
+    if (this.matchesAnyPattern(recentText, PATTERNS.PROCESSING)) {
       this.setState('PROCESSING');
       return;
     }
@@ -124,24 +145,25 @@ class ClaudeOutputMonitor {
   }
 
   /**
-   * Find the most recently modified .output file across all project directories
+   * Find the most recently modified JSONL transcript file across all project directories
    */
   private async getLatestOutputFile(): Promise<string | null> {
     try {
-      // List all project directories under %APPDATA%\Local\Temp\claude\
-      const projectDirs = await fs.readdir(this.taskOutputBaseDir);
+      // List all project directories under ~/.claude/projects/
+      const projectDirs = await fs.readdir(this.claudeProjectsDir);
 
       let latestFile: { path: string; mtime: number } | null = null;
 
       for (const projectDir of projectDirs) {
-        const tasksDir = path.join(this.taskOutputBaseDir, projectDir, 'tasks');
+        const projectPath = path.join(this.claudeProjectsDir, projectDir);
 
         try {
-          const files = await fs.readdir(tasksDir);
+          const files = await fs.readdir(projectPath);
 
           for (const file of files) {
-            if (file.endsWith('.output')) {
-              const filePath = path.join(tasksDir, file);
+            // Find .jsonl files (but skip sessions-index.json)
+            if (file.endsWith('.jsonl') && !file.startsWith('sessions-index')) {
+              const filePath = path.join(projectPath, file);
               const stats = await fs.stat(filePath);
 
               // Only consider files modified in the last 60 seconds
@@ -154,7 +176,7 @@ class ClaudeOutputMonitor {
             }
           }
         } catch {
-          // tasks directory doesn't exist for this project, skip
+          // Directory doesn't exist or can't be read, skip
           continue;
         }
       }
@@ -209,7 +231,7 @@ class ClaudeOutputMonitor {
     const latestOutput = await this.getLatestOutputFile().catch(() => null);
     let baseDirExists = false;
     try {
-      await fs.access(this.taskOutputBaseDir);
+      await fs.access(this.claudeProjectsDir);
       baseDirExists = true;
     } catch {
       baseDirExists = false;
