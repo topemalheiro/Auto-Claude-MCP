@@ -136,6 +136,25 @@ class ClaudeOutputMonitor {
     const textPreview = recentText.slice(-200).replace(/\n/g, '\\n');
     console.log('[OutputMonitor] Extracted text (last 200 chars):', textPreview);
 
+    // CRITICAL FIX: Detect prompt state by checking if last entry is from assistant
+    // and file hasn't been updated recently (meaning we're waiting for user input)
+    const stats = await fs.stat(latestTranscript);
+    const timeSinceLastWrite = Date.now() - stats.mtimeMs;
+
+    const lastLine = lines[lines.length - 1];
+    try {
+      const lastEntry = JSON.parse(lastLine);
+      if (lastEntry.type === 'assistant' && timeSinceLastWrite > 3000) {
+        console.log(
+          `[OutputMonitor] Last entry is assistant message, no activity for ${Math.floor(timeSinceLastWrite / 1000)}s - AT_PROMPT`
+        );
+        this.setState('AT_PROMPT');
+        return;
+      }
+    } catch {
+      // Ignore parse errors
+    }
+
     // Check for prompt pattern (highest priority)
     if (this.matchesAnyPattern(recentText, PATTERNS.AT_PROMPT)) {
       console.log('[OutputMonitor] PROMPT DETECTED - Setting AT_PROMPT');
