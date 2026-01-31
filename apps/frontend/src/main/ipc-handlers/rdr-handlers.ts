@@ -1020,13 +1020,13 @@ export function registerRdrHandlers(): void {
   // Send RDR message to a specific VS Code window
   ipcMain.handle(
     IPC_CHANNELS.SEND_RDR_TO_WINDOW,
-    async (event, handle: number, message: string): Promise<IPCResult<{ success: boolean; error?: string }>> => {
-      console.log(`[RDR] 📤 Preparing to send message to window handle ${handle}`);
+    async (event, titlePattern: string, message: string): Promise<IPCResult<{ success: boolean; error?: string }>> => {
+      console.log(`[RDR] 📤 Preparing to send message to window matching: "${titlePattern}"`);
       console.log(`[RDR]    Message length: ${message.length} characters`);
 
       try {
         const { sendMessageToWindow } = await import('../platform/windows/window-manager');
-        const result = await sendMessageToWindow(handle, message);
+        const result = await sendMessageToWindow(titlePattern, message);
 
         if (result.success) {
           console.log('[RDR] ✅ Message sent successfully');
@@ -1195,9 +1195,15 @@ export function registerRdrHandlers(): void {
   // Check if Claude Code is currently busy (in a prompt loop)
   ipcMain.handle(
     IPC_CHANNELS.IS_CLAUDE_CODE_BUSY,
-    async (event, handle: number): Promise<IPCResult<boolean>> => {
-      const busy = await checkClaudeCodeBusy();
-      return { success: true, data: busy };
+    async (event, titlePattern: string): Promise<IPCResult<boolean>> => {
+      try {
+        const { isClaudeCodeBusy } = await import('../platform/windows/window-manager');
+        const busy = await isClaudeCodeBusy(titlePattern);
+        return { success: true, data: busy };
+      } catch (error) {
+        console.error('[RDR] Error checking busy state:', error);
+        return { success: false, error: String(error) };
+      }
     }
   );
 }

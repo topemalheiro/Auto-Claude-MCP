@@ -120,11 +120,11 @@ export interface TaskAPI {
 
   // VS Code Window Management (for RDR message sending)
   getVSCodeWindows: () => Promise<IPCResult<Array<{ handle: number; title: string; processId: number }>>>;
-  sendRdrToWindow: (handle: number, message: string) => Promise<IPCResult<{ success: boolean; error?: string }>>;
+  sendRdrToWindow: (titlePattern: string, message: string) => Promise<IPCResult<{ success: boolean; error?: string }>>;
 
   // Detailed RDR batch info for auto-send
   getRdrBatchDetails: (projectId: string) => Promise<IPCResult<RdrBatchDetails>>;
-  isClaudeCodeBusy: (handle: number) => Promise<IPCResult<boolean>>;
+  isClaudeCodeBusy: (titlePattern: string) => Promise<IPCResult<boolean>>;
 
   // Auto Shutdown
   getAutoShutdownStatus: (projectId: string) => Promise<IPCResult<AutoShutdownStatus>>;
@@ -419,16 +419,16 @@ export const createTaskAPI = (): TaskAPI => ({
   getVSCodeWindows: (): Promise<IPCResult<Array<{ handle: number; title: string; processId: number }>>> =>
     ipcRenderer.invoke(IPC_CHANNELS.GET_VSCODE_WINDOWS),
 
-  sendRdrToWindow: (handle: number, message: string): Promise<IPCResult<{ success: boolean; error?: string }>> =>
-    ipcRenderer.invoke(IPC_CHANNELS.SEND_RDR_TO_WINDOW, handle, message),
+  sendRdrToWindow: (titlePattern: string, message: string): Promise<IPCResult<{ success: boolean; error?: string }>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.SEND_RDR_TO_WINDOW, titlePattern, message),
 
   // Detailed RDR batch info for auto-send
   getRdrBatchDetails: (projectId: string): Promise<IPCResult<RdrBatchDetails>> =>
     ipcRenderer.invoke(IPC_CHANNELS.GET_RDR_BATCH_DETAILS, projectId),
 
   // Check if Claude Code is busy (in a prompt loop)
-  isClaudeCodeBusy: (handle: number): Promise<IPCResult<boolean>> =>
-    ipcRenderer.invoke(IPC_CHANNELS.IS_CLAUDE_CODE_BUSY, handle),
+  isClaudeCodeBusy: (titlePattern: string): Promise<IPCResult<boolean>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.IS_CLAUDE_CODE_BUSY, titlePattern),
 
   // Auto Shutdown
   getAutoShutdownStatus: (projectId: string) =>

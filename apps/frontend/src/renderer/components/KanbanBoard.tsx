@@ -960,9 +960,20 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       return;
     }
 
+    // Find window title from selected handle
+    const selectedWindow = vsCodeWindows.find(w => w.handle === selectedWindowHandle);
+    if (!selectedWindow) {
+      console.log('[RDR] Skipping auto-send - selected window not found');
+      return;
+    }
+
+    // Extract project name from title (e.g., "CV Project - Visual Studio Code" → "CV Project")
+    const titlePattern = selectedWindow.title.split(' - ')[0];
+    console.log(`[RDR] Using title pattern: "${titlePattern}"`);
+
     // NEW: Check if Claude Code is busy (in a prompt loop)
     try {
-      const busyResult = await window.electronAPI.isClaudeCodeBusy(selectedWindowHandle);
+      const busyResult = await window.electronAPI.isClaudeCodeBusy(titlePattern);
       if (busyResult.success && busyResult.data) {
         console.log('[RDR] Skipping auto-send - Claude Code is busy (in prompt loop)');
         return;
@@ -996,8 +1007,8 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       // Mark message as in-flight
       setRdrMessageInFlight(true);
 
-      // Send to VS Code window
-      const sendResult = await window.electronAPI.sendRdrToWindow(selectedWindowHandle, message);
+      // Send to VS Code window using title pattern (not handle to avoid stale handle errors)
+      const sendResult = await window.electronAPI.sendRdrToWindow(titlePattern, message);
 
       if (sendResult.success) {
         console.log('[RDR] Auto-send successful');
@@ -1163,6 +1174,20 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
 
     // Check if a window is selected for direct sending
     if (selectedWindowHandle) {
+      // Find window title from selected handle
+      const selectedWindow = vsCodeWindows.find(w => w.handle === selectedWindowHandle);
+      if (!selectedWindow) {
+        toast({
+          title: t('kanban.rdrSendFailed'),
+          description: 'Selected window not found',
+          variant: 'destructive'
+        });
+        return;
+      }
+
+      // Extract project name from title (e.g., "CV Project - Visual Studio Code" → "CV Project")
+      const titlePattern = selectedWindow.title.split(' - ')[0];
+
       // Send directly to VS Code window with detailed message
       toast({
         title: t('kanban.rdrSending'),
@@ -1181,7 +1206,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
           message = 'Check RDR batches and fix errored tasks';
         }
 
-        const result = await window.electronAPI.sendRdrToWindow(selectedWindowHandle, message);
+        const result = await window.electronAPI.sendRdrToWindow(titlePattern, message);
 
         if (result.success) {
           toast({

@@ -108,20 +108,22 @@ if ($windows.Count -eq 0) {
  * Send a message to a VS Code window
  *
  * Uses PowerShell to:
- * 1. Copy message to clipboard
- * 2. Focus the target window
- * 3. Send Ctrl+V to paste
- * 4. Send Enter to submit
- * 5. Restore original foreground window
+ * 1. Re-enumerate windows to get fresh handle (eliminates race condition)
+ * 2. Find window by title pattern
+ * 3. Copy message to clipboard
+ * 4. Focus the target window
+ * 5. Send Ctrl+V to paste
+ * 6. Send Enter to submit
+ * 7. Restore original foreground window
  *
  * Same logic as ClaudeAutoResponse PermissionMonitorService.SendMessageToClaudeCode.
  *
- * @param handle - Window handle (from getVSCodeWindows)
+ * @param titlePattern - Window title pattern to match (e.g., "CV Project", "Auto-Claude")
  * @param message - Message to send
  * @returns Promise resolving to success/error result
  */
 export function sendMessageToWindow(
-  handle: number,
+  titlePattern: string,
   message: string
 ): Promise<SendMessageResult> {
   return new Promise((resolve) => {
@@ -130,8 +132,8 @@ export function sendMessageToWindow(
       return;
     }
 
-    if (!handle || handle === 0) {
-      resolve({ success: false, error: 'Invalid window handle' });
+    if (!titlePattern) {
+      resolve({ success: false, error: 'Window title pattern cannot be empty' });
       return;
     }
 
@@ -139,6 +141,30 @@ export function sendMessageToWindow(
       resolve({ success: false, error: 'Message cannot be empty' });
       return;
     }
+
+    // Re-enumerate windows to get fresh handle (prevents stale handle errors)
+    console.log(`[WindowManager] Looking for window matching: "${titlePattern}"`);
+    const windows = getVSCodeWindows();
+
+    if (windows.length === 0) {
+      resolve({ success: false, error: 'No VS Code windows found' });
+      return;
+    }
+
+    // Find window by title pattern (case-insensitive)
+    const targetWindow = findWindowByTitle(titlePattern);
+
+    if (!targetWindow) {
+      const availableTitles = windows.map(w => w.title).join(', ');
+      resolve({
+        success: false,
+        error: `No window found matching "${titlePattern}". Available: ${availableTitles}`
+      });
+      return;
+    }
+
+    const handle = targetWindow.handle;
+    console.log(`[WindowManager] Found window: "${targetWindow.title}" (handle: ${handle})`)
 
     // Use temp files to avoid command line length limit
     const tempFile = path.join(os.tmpdir(), `rdr-message-${Date.now()}.txt`);
@@ -275,21 +301,21 @@ Write-Output "Message sent successfully"
  *
  * Detection strategy: Monitor VS Code window title for busy indicators
  *
- * @param handle - Window handle to check
+ * @param titlePattern - Window title pattern to match (e.g., "CV Project")
  * @returns Promise resolving to true if Claude Code is busy, false if idle
  */
-export async function isClaudeCodeBusy(handle: number): Promise<boolean> {
+export async function isClaudeCodeBusy(titlePattern: string): Promise<boolean> {
   if (!isWindows()) {
     return false; // Assume idle on non-Windows
   }
 
   try {
-    // Get current window title
+    // Get current windows (fresh list)
     const windows = getVSCodeWindows();
-    const targetWindow = windows.find(w => w.handle === handle);
+    const targetWindow = findWindowByTitle(titlePattern);
 
     if (!targetWindow) {
-      console.warn('[WindowManager] Window handle not found, assuming idle');
+      console.warn('[WindowManager] Window not found, assuming idle');
       return false;
     }
 
