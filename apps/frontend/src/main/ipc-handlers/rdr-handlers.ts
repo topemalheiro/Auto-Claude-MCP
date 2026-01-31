@@ -11,12 +11,26 @@
  */
 
 import { ipcMain, BrowserWindow } from 'electron';
-import { readFileSync, writeFileSync, existsSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, unlinkSync } from 'fs';
 import * as path from 'path';
 import { IPC_CHANNELS } from '../../shared/constants/ipc';
 import type { IPCResult } from '../../shared/types';
 import { JSON_ERROR_PREFIX } from '../../shared/constants/task';
 import { projectStore } from '../project-store';
+
+// ============================================================================
+// Timer-Based Batching State
+// ============================================================================
+
+// Pending tasks collected before timer fires
+interface PendingRdrTask {
+  projectId: string;
+  task: TaskInfo;
+}
+
+let pendingTasks: PendingRdrTask[] = [];
+let batchTimer: NodeJS.Timeout | null = null;
+const BATCH_COLLECTION_WINDOW_MS = 30000; // 30 seconds
 
 // Types for RDR processing
 interface RdrProcessResult {
@@ -296,29 +310,38 @@ async function processIncompleteBatch(
 
 /**
  * Process QA rejected / error batches - queue for MCP/Claude Code analysis
+ * Writes a signal file that Claude Code can pick up via the get_rdr_batches MCP tool
  */
 async function processMcpBatch(
   batch: RdrBatch,
   projectPath: string,
   mainWindow: BrowserWindow | null,
-  projectId: string
+  projectId: string,
+  allMcpBatches?: RdrBatch[]
 ): Promise<RdrProcessResult[]> {
   const results: RdrProcessResult[] = [];
 
-  // These batches need intelligent analysis - emit event for MCP/Claude Code
+  // These batches need intelligent analysis
   console.log(`[RDR] Batch type=${batch.type} queued for MCP/Claude Code analysis: ${batch.taskIds.length} tasks`);
 
-  // Emit event for MCP consumers to pick up
+  // Write signal file for Claude Code to pick up
+  // If allMcpBatches is provided, write all of them (batched call)
+  // Otherwise, write just this batch (individual call)
+  const batchesToWrite = allMcpBatches || [batch];
+  writeRdrSignalFile(projectPath, projectId, batchesToWrite);
+
+  // Emit event for renderer notification
   if (mainWindow) {
     mainWindow.webContents.send(IPC_CHANNELS.RDR_BATCH_READY, {
       projectId,
       batchType: batch.type,
       taskIds: batch.taskIds,
       taskCount: batch.tasks.length,
+      signalWritten: true,
       tasks: batch.tasks.map(t => ({
         specId: t.specId,
         reviewReason: t.reviewReason,
-        description: t.description?.substring(0, 200), // Truncate for event
+        description: t.description?.substring(0, 200),
         subtasksTotal: t.subtasks?.length || 0,
         subtasksCompleted: t.subtasks?.filter(s => s.status === 'completed').length || 0
       }))
@@ -329,12 +352,244 @@ async function processMcpBatch(
     results.push({
       taskId: task.specId,
       action: 'no_action',
-      reason: `Queued for Claude Code analysis via MCP (batch: ${batch.type})`
+      reason: `Queued for Claude Code analysis via MCP (batch: ${batch.type}). Signal file written.`
     });
   }
 
   return results;
 }
+
+// ============================================================================
+// Timer-Based Batching Functions
+// ============================================================================
+
+/**
+ * Generate a prompt for Claude Code to analyze the batch
+ */
+function generateBatchPrompt(batches: RdrBatch[]): string {
+  const lines: string[] = [
+    '# RDR Batch Analysis Request',
+    '',
+    `**Timestamp:** ${new Date().toISOString()}`,
+    `**Total Batches:** ${batches.length}`,
+    '',
+    '## Tasks Needing Analysis',
+    ''
+  ];
+
+  for (const batch of batches) {
+    lines.push(`### Batch: ${batch.type} (${batch.taskIds.length} tasks)`);
+    lines.push('');
+
+    for (const task of batch.tasks) {
+      lines.push(`- **${task.specId}**: ${task.description?.substring(0, 100) || 'No description'}`);
+      if (task.reviewReason) {
+        lines.push(`  - Review Reason: ${task.reviewReason}`);
+      }
+      if (task.subtasks && task.subtasks.length > 0) {
+        const completed = task.subtasks.filter(s => s.status === 'completed').length;
+        lines.push(`  - Subtasks: ${completed}/${task.subtasks.length} completed`);
+      }
+    }
+    lines.push('');
+  }
+
+  lines.push('## Action Required');
+  lines.push('');
+  lines.push('1. Call `get_rdr_batches` to get full task details');
+  lines.push('2. Analyze error logs and QA reports for each task');
+  lines.push('3. Call `process_rdr_batch` with fix requests for each batch');
+  lines.push('');
+
+  return lines.join('\n');
+}
+
+/**
+ * Write signal file for Claude Code to pick up via MCP
+ */
+function writeRdrSignalFile(
+  projectPath: string,
+  projectId: string,
+  batches: RdrBatch[]
+): void {
+  const signalDir = path.join(projectPath, '.auto-claude');
+  const signalPath = path.join(signalDir, 'rdr-pending.json');
+
+  const signal = {
+    timestamp: new Date().toISOString(),
+    projectId,
+    batches: batches.map(b => ({
+      type: b.type,
+      taskCount: b.taskIds.length,
+      taskIds: b.taskIds,
+      tasks: b.tasks.map(t => ({
+        specId: t.specId,
+        description: t.description?.substring(0, 200),
+        reviewReason: t.reviewReason,
+        subtasksCompleted: t.subtasks?.filter(s => s.status === 'completed').length || 0,
+        subtasksTotal: t.subtasks?.length || 0
+      }))
+    })),
+    prompt: generateBatchPrompt(batches)
+  };
+
+  writeFileSync(signalPath, JSON.stringify(signal, null, 2));
+  console.log(`[RDR] Wrote signal file: ${signalPath}`);
+  console.log(`[RDR] Signal contains ${batches.length} batches with ${batches.reduce((sum, b) => sum + b.taskIds.length, 0)} total tasks`);
+}
+
+/**
+ * Read and clear the RDR signal file if it exists
+ * Returns the signal data or null if no file exists
+ */
+export function readAndClearSignalFile(projectPath: string): {
+  timestamp: string;
+  projectId: string;
+  batches: Array<{
+    type: string;
+    taskCount: number;
+    taskIds: string[];
+    tasks: Array<{
+      specId: string;
+      description?: string;
+      reviewReason?: string;
+      subtasksCompleted: number;
+      subtasksTotal: number;
+    }>;
+  }>;
+  prompt: string;
+} | null {
+  const signalPath = path.join(projectPath, '.auto-claude', 'rdr-pending.json');
+
+  if (!existsSync(signalPath)) {
+    return null;
+  }
+
+  try {
+    const content = readFileSync(signalPath, 'utf-8');
+    const signal = JSON.parse(content);
+
+    // Clear signal file after reading
+    unlinkSync(signalPath);
+    console.log(`[RDR] Read and cleared signal file: ${signalPath}`);
+
+    return signal;
+  } catch (error) {
+    console.error(`[RDR] Failed to read signal file:`, error);
+    return null;
+  }
+}
+
+/**
+ * Queue a task for RDR processing with timer-based batching
+ * Tasks are collected for BATCH_COLLECTION_WINDOW_MS before processing
+ */
+export function queueTaskForRdr(projectId: string, task: TaskInfo): void {
+  console.log(`[RDR] Queuing task ${task.specId} for batched processing`);
+
+  // Add to pending tasks
+  pendingTasks.push({ projectId, task });
+
+  // Start or reset timer
+  if (batchTimer) {
+    clearTimeout(batchTimer);
+  }
+
+  batchTimer = setTimeout(async () => {
+    await processPendingTasks();
+  }, BATCH_COLLECTION_WINDOW_MS);
+
+  console.log(`[RDR] Timer set - will process ${pendingTasks.length} tasks in ${BATCH_COLLECTION_WINDOW_MS}ms`);
+}
+
+/**
+ * Process all collected pending tasks after timer expires
+ */
+async function processPendingTasks(): Promise<void> {
+  if (pendingTasks.length === 0) {
+    console.log(`[RDR] No pending tasks to process`);
+    return;
+  }
+
+  console.log(`[RDR] Timer expired - processing ${pendingTasks.length} pending tasks`);
+
+  // Group tasks by project
+  const tasksByProject = new Map<string, TaskInfo[]>();
+  for (const { projectId, task } of pendingTasks) {
+    const existing = tasksByProject.get(projectId) || [];
+    existing.push(task);
+    tasksByProject.set(projectId, existing);
+  }
+
+  // Clear pending tasks and timer
+  pendingTasks = [];
+  batchTimer = null;
+
+  // Process each project's tasks
+  for (const [projectId, tasks] of tasksByProject) {
+    const project = projectStore.getProject(projectId);
+    if (!project) {
+      console.error(`[RDR] Project not found: ${projectId}`);
+      continue;
+    }
+
+    const mainWindow = BrowserWindow.getAllWindows()[0] || null;
+
+    // Categorize tasks into batches
+    const batches = categorizeTasks(tasks);
+    console.log(`[RDR] Categorized ${tasks.length} tasks into ${batches.length} batches for project ${projectId}`);
+
+    // Process auto-fixable batches immediately
+    for (const batch of batches) {
+      if (batch.type === 'json_error') {
+        await processJsonErrorBatch(batch, project.path, mainWindow, projectId);
+      } else if (batch.type === 'incomplete') {
+        await processIncompleteBatch(batch, project.path, mainWindow, projectId);
+      }
+    }
+
+    // Write signal file for batches needing Claude Code analysis
+    const mcpBatches = batches.filter(b => b.type === 'qa_rejected' || b.type === 'errors');
+    if (mcpBatches.length > 0) {
+      writeRdrSignalFile(project.path, projectId, mcpBatches);
+
+      // Also emit event for renderer (optional, signal file is the main mechanism)
+      if (mainWindow) {
+        mainWindow.webContents.send(IPC_CHANNELS.RDR_BATCH_READY, {
+          projectId,
+          batchCount: mcpBatches.length,
+          taskCount: mcpBatches.reduce((sum, b) => sum + b.taskIds.length, 0),
+          signalWritten: true
+        });
+      }
+    }
+
+    console.log(`[RDR] Completed batch processing for project ${projectId}`);
+  }
+}
+
+/**
+ * Immediately process all pending tasks (bypass timer)
+ * Useful for testing or when user wants immediate processing
+ */
+export async function flushPendingTasks(): Promise<void> {
+  if (batchTimer) {
+    clearTimeout(batchTimer);
+    batchTimer = null;
+  }
+  await processPendingTasks();
+}
+
+/**
+ * Get the current number of pending tasks
+ */
+export function getPendingTaskCount(): number {
+  return pendingTasks.length;
+}
+
+// ============================================================================
+// IPC Handlers
+// ============================================================================
 
 /**
  * Register RDR IPC handlers
@@ -380,6 +635,9 @@ export function registerRdrHandlers(): void {
       let queuedForMcpCount = 0;
       const batchSummaries: Array<{ type: string; count: number }> = [];
 
+      // Collect MCP batches to write signal file once (not per-batch)
+      const mcpBatches: RdrBatch[] = batches.filter(b => b.type === 'qa_rejected' || b.type === 'errors');
+
       for (const batch of batches) {
         let results: RdrProcessResult[] = [];
 
@@ -399,7 +657,8 @@ export function registerRdrHandlers(): void {
           case 'qa_rejected':
           case 'errors':
             // Queue for MCP/Claude Code analysis
-            results = await processMcpBatch(batch, project.path, mainWindow, projectId);
+            // Pass all MCP batches so signal file includes all of them
+            results = await processMcpBatch(batch, project.path, mainWindow, projectId, mcpBatches);
             queuedForMcpCount += results.length;
             break;
         }

@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "auto-claude-manager": {
+      "command": "npx",
+      "args": ["--yes", "tsx", "apps/frontend/src/main/mcp-server/index.ts"],
+      "description": "Auto-Claude task management - create, monitor, fix tasks via MCP"
+    }
+  }
+}

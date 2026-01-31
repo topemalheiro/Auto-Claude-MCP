@@ -26,6 +26,8 @@ import {
   executeCommand,
   pollTaskStatuses
 } from './utils.js';
+import { projectStore } from '../project-store.js';
+import { readAndClearSignalFile } from '../ipc-handlers/rdr-handlers.js';
 import type {
   TaskOptions,
   TaskCategory,
@@ -735,18 +737,34 @@ server.tool(
 
 server.tool(
   'get_rdr_batches',
-  'Get all pending RDR (Recover Debug Resend) batches categorized by problem type. Returns tasks grouped into: json_error, incomplete, qa_rejected, errors.',
+  'Get all pending RDR (Recover Debug Resend) batches categorized by problem type. Returns tasks grouped into: json_error, incomplete, qa_rejected, errors. Also reads and clears any pending signal file from the Electron app.',
   {
     projectId: z.string().describe('The project ID (UUID)')
   },
   async ({ projectId }) => {
+    // Get project to check for signal file
+    const project = projectStore.getProject(projectId);
+    let signalData = null;
+
+    if (project) {
+      // Check for and read signal file (clears it after reading)
+      signalData = readAndClearSignalFile(project.path);
+      if (signalData) {
+        console.log(`[MCP] Found and cleared RDR signal file with ${signalData.batches?.length || 0} batches`);
+      }
+    }
+
     const tasksResult = await listTasks(projectId);
 
     if (!tasksResult.success || !tasksResult.data) {
       return {
         content: [{
           type: 'text' as const,
-          text: JSON.stringify({ success: false, error: tasksResult.error || 'Failed to list tasks' })
+          text: JSON.stringify({
+            success: false,
+            error: tasksResult.error || 'Failed to list tasks',
+            signal: signalData // Include signal even if task list fails
+          })
         }]
       };
     }
@@ -869,9 +887,16 @@ server.tool(
           totalTasksInHumanReview: humanReviewTasks.length,
           batchCount: batches.length,
           batches,
+          signal: signalData ? {
+            timestamp: signalData.timestamp,
+            prompt: signalData.prompt,
+            batchesFromSignal: signalData.batches
+          } : null,
           instructions: batches.length > 0 ?
             'Use process_rdr_batch tool to process each batch. For json_error batch, RDR auto-fixes are applied. For incomplete batch, submit_task_fix_request auto-resumes. For qa_rejected/errors, analyze and submit fixes.' :
-            'No tasks need intervention.'
+            signalData ?
+              `Signal file contained prompt:\n\n${signalData.prompt}` :
+              'No tasks need intervention.'
         }, null, 2)
       }]
     };
