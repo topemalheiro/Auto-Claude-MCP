@@ -611,11 +611,19 @@ export function queueTaskForRdr(projectId: string, task: TaskInfo): void {
  */
 async function checkClaudeCodeBusy(): Promise<boolean> {
   try {
-    // PRIMARY: Check if Claude is at prompt (waiting for input)
+    // PRIMARY: Check if Claude is at prompt OR processing (NOT idle)
     if (outputMonitor) {
-      const atPrompt = await outputMonitor.isAtPrompt();
-      if (atPrompt) {
-        console.log('[RDR] BUSY: Claude Code is at prompt (waiting for input)');
+      // Update state by reading latest JSONL transcript
+      await outputMonitor.isAtPrompt(); // This updates internal state
+      const state = outputMonitor.getCurrentState();
+
+      // Block RDR if Claude is at prompt OR actively processing
+      if (state === 'AT_PROMPT' || state === 'PROCESSING') {
+        const stateDescription = state === 'AT_PROMPT'
+          ? 'at prompt (waiting for input)'
+          : 'processing (thinking/using tools)';
+        console.log(`[RDR] BUSY: Claude Code is ${stateDescription}`);
+
         const diagnostics = await outputMonitor.getDiagnostics();
         console.log('[RDR]    Details:', {
           state: diagnostics.state,
