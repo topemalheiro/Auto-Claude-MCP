@@ -637,13 +637,6 @@ async function checkClaudeCodeBusy(): Promise<boolean> {
       return true;
     }
 
-    // FALLBACK: Session file activity check
-    const sessionBusy = await isClaudeSessionActive();
-    if (sessionBusy) {
-      console.log('[RDR] BUSY: Claude Code is busy (session file active)');
-      return true;
-    }
-
     // All checks passed - Claude is truly idle
     console.log('[RDR] IDLE: Claude Code is idle (safe to send)');
     return false;

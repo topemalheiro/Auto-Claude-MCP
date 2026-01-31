@@ -114,6 +114,18 @@ class ClaudeOutputMonitor {
 
     console.log('[OutputMonitor] Reading last', recentLines.length, 'lines from transcript');
 
+    // Check file age first - if very old, session is IDLE not AT_PROMPT
+    const stats = await fs.stat(latestTranscript);
+    const timeSinceLastWrite = Date.now() - stats.mtimeMs;
+    const ageMinutes = Math.floor(timeSinceLastWrite / 60000);
+
+    // If file hasn't been touched in 2+ minutes, session is IDLE
+    if (timeSinceLastWrite > 120000) {
+      console.log(`[OutputMonitor] Session idle for ${ageMinutes} minutes - setting IDLE`);
+      this.setState('IDLE');
+      return;
+    }
+
     // Parse JSONL and extract text content
     let recentText = '';
     for (const line of recentLines) {
@@ -136,26 +148,7 @@ class ClaudeOutputMonitor {
     const textPreview = recentText.slice(-200).replace(/\n/g, '\\n');
     console.log('[OutputMonitor] Extracted text (last 200 chars):', textPreview);
 
-    // CRITICAL FIX: Detect prompt state by checking if last entry is from assistant
-    // and file hasn't been updated recently (meaning we're waiting for user input)
-    const stats = await fs.stat(latestTranscript);
-    const timeSinceLastWrite = Date.now() - stats.mtimeMs;
-
-    const lastLine = lines[lines.length - 1];
-    try {
-      const lastEntry = JSON.parse(lastLine);
-      if (lastEntry.type === 'assistant' && timeSinceLastWrite > 3000) {
-        console.log(
-          `[OutputMonitor] Last entry is assistant message, no activity for ${Math.floor(timeSinceLastWrite / 1000)}s - AT_PROMPT`
-        );
-        this.setState('AT_PROMPT');
-        return;
-      }
-    } catch {
-      // Ignore parse errors
-    }
-
-    // Check for prompt pattern (highest priority)
+    // Check for prompt pattern (PRIMARY detection method)
     if (this.matchesAnyPattern(recentText, PATTERNS.AT_PROMPT)) {
       console.log('[OutputMonitor] PROMPT DETECTED - Setting AT_PROMPT');
       this.setState('AT_PROMPT');
