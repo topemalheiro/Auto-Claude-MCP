@@ -310,6 +310,8 @@ export async function isClaudeCodeBusy(titlePattern: string): Promise<boolean> {
   }
 
   try {
+    console.log('[WindowManager] 🔍 Checking if Claude Code is busy...');
+
     // Get current windows (fresh list)
     const windows = getVSCodeWindows();
     const targetWindow = findWindowByTitle(titlePattern);
@@ -319,7 +321,7 @@ export async function isClaudeCodeBusy(titlePattern: string): Promise<boolean> {
       return false;
     }
 
-    // Patterns that indicate Claude Code is busy
+    // PRIMARY: Check window title for busy patterns
     const busyPatterns = [
       /●/,                     // Modified indicator (unsaved changes, may indicate typing)
       /thinking/i,             // "Claude is thinking..."
@@ -328,13 +330,46 @@ export async function isClaudeCodeBusy(titlePattern: string): Promise<boolean> {
       /claude.*working/i,      // "Claude is working..."
     ];
 
-    const isBusy = busyPatterns.some(pattern => pattern.test(targetWindow.title));
+    const titleIndicatesBusy = busyPatterns.some(pattern => pattern.test(targetWindow.title));
 
-    if (isBusy) {
-      console.log(`[WindowManager] Claude Code is busy - title: "${targetWindow.title}"`);
+    if (titleIndicatesBusy) {
+      console.log(`[WindowManager] ⏸️  BUSY: Window title indicates busy - "${targetWindow.title}"`);
+      return true;
     }
 
-    return isBusy;
+    // SECONDARY: Check output monitor state (catches plan mode, active sessions)
+    try {
+      const { outputMonitor } = await import('../../claude-code/output-monitor');
+
+      if (outputMonitor) {
+        await outputMonitor.isAtPrompt(); // Update internal state
+        const state = outputMonitor.getCurrentState();
+
+        // If at prompt or processing, Claude is busy
+        if (state === 'AT_PROMPT' || state === 'PROCESSING') {
+          const stateDesc = state === 'AT_PROMPT' ? 'at prompt (waiting for input)' : 'processing (active work)';
+          console.log(`[WindowManager] ⏸️  BUSY: Output monitor state is ${state} (${stateDesc})`);
+          return true;
+        }
+
+        // Check minimum idle time (prevents interrupting during rapid tool use)
+        const timeSinceStateChange = outputMonitor.getTimeSinceStateChange();
+        const MINIMUM_IDLE_TIME_MS = 30000; // 30 seconds
+
+        if (timeSinceStateChange < MINIMUM_IDLE_TIME_MS) {
+          console.log(`[WindowManager] ⏸️  BUSY: Recently active (${timeSinceStateChange}ms ago) - waiting for ${MINIMUM_IDLE_TIME_MS}ms idle time`);
+          return true;
+        }
+
+        console.log(`[WindowManager] ✅ Output monitor: IDLE (state: ${state}, idle for ${timeSinceStateChange}ms)`);
+      }
+    } catch (error) {
+      console.warn('[WindowManager] Output monitor not available, using title-based detection only:', error);
+      // Continue - fall back to title-based detection
+    }
+
+    console.log('[WindowManager] ✅ All checks passed - Claude Code is IDLE');
+    return false;
   } catch (error) {
     console.error('[WindowManager] Error checking busy state:', error);
     return false; // Assume idle on error
