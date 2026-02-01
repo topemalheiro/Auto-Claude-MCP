@@ -434,9 +434,11 @@ async function processMcpBatch(
 /**
  * Generate a prompt for Claude Code to analyze the batch
  */
-function generateBatchPrompt(batches: RdrBatch[]): string {
+function generateBatchPrompt(batches: RdrBatch[], projectId: string): string {
   const lines: string[] = [
-    '/auto-claude-mcp',
+    '/auto-claude-rdr',
+    '',
+    `**PROJECT_ID:** ${projectId}`,
     '',
     '# [AUTO-CLAUDE RDR] Recovery Manager Role',
     '',
@@ -528,7 +530,7 @@ function writeRdrSignalFile(
         subtasksTotal: t.subtasks?.length || 0
       }))
     })),
-    prompt: generateBatchPrompt(batches)
+    prompt: generateBatchPrompt(batches, projectId)
   };
 
   writeFileSync(signalPath, JSON.stringify(signal, null, 2));
@@ -946,7 +948,7 @@ export function registerRdrHandlers(): void {
             subtasksTotal: t.subtasks?.length || 0
           }))
         })),
-        prompt: generateBatchPrompt(batches)
+        prompt: generateBatchPrompt(batches, projectId)
       };
 
       writeFileSync(signalPath, JSON.stringify(signal, null, 2));
@@ -1065,9 +1067,7 @@ export function registerRdrHandlers(): void {
           if (task.status === 'backlog') {
             return false;  // Don't flag pending tasks
           }
-          if (task.status === 'ai_review') {
-            return false;  // Don't flag tasks in AI review
-          }
+          // Removed ai_review exclusion - we now check for staleness
 
           // 1. Empty plan (0 phases/subtasks) → NEEDS INTERVENTION
           // This catches tasks that crashed before creating a plan
@@ -1096,6 +1096,16 @@ export function registerRdrHandlers(): void {
             const hoursSinceUpdate = (Date.now() - lastSubtaskUpdate) / (1000 * 60 * 60);
             if (hoursSinceUpdate > 1) {
               console.log(`[RDR] ✅ Task ${task.specId} needs intervention: Stuck in_progress (${hoursSinceUpdate.toFixed(1)}h since last update)`);
+              return true;
+            }
+          }
+
+          // 4b. Stuck ai_review tasks (no subtask progress >1 hour)
+          if (task.status === 'ai_review') {
+            const lastSubtaskUpdate = getLastSubtaskUpdate(task);
+            const hoursSinceUpdate = (Date.now() - lastSubtaskUpdate) / (1000 * 60 * 60);
+            if (hoursSinceUpdate > 1) {
+              console.log(`[RDR] ✅ Task ${task.specId} needs intervention: Stuck in ai_review (${hoursSinceUpdate.toFixed(1)}h since last update)`);
               return true;
             }
           }
