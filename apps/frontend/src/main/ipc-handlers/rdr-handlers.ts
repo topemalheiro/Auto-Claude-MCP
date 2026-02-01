@@ -1023,26 +1023,98 @@ export function registerRdrHandlers(): void {
       try {
         const tasks = projectStore.getTasks(projectId);
 
-        // Filter tasks that need intervention
-        // EXCLUDE tasks with 100% subtasks complete (ready for manual review/merge)
-        const tasksNeedingHelp = tasks.filter(task => {
-          if (task.status !== 'human_review') return false;
-
-          // If task has subtasks, check completion percentage
-          if (task.subtasks && task.subtasks.length > 0) {
-            const allComplete = task.subtasks.every((s: { status: string }) => s.status === 'completed');
-            if (allComplete) {
-              // 100% complete - ready for manual review, don't auto-process
-              console.log(`[RDR] Skipping task ${task.specId} - all subtasks complete (ready for manual review)`);
-              return false;
-            }
-            // Has incomplete subtasks - needs help
+        /**
+         * Helper: Check if task needs intervention
+         * Enhanced detection logic that checks multiple indicators:
+         * - Empty plans (0 phases/subtasks)
+         * - Error exit reasons (exitReason: error/prompt_loop)
+         * - Plan needs approval (planStatus: review)
+         * - Stuck in_progress tasks (no subtask progress >1 hour)
+         * - Original logic (incomplete subtasks in human_review)
+         */
+        const needsIntervention = (task: any): boolean => {
+          // 1. Empty plan (0 phases/subtasks) → NEEDS INTERVENTION
+          // This catches tasks that crashed before creating a plan
+          if (!task.phases || task.phases.length === 0) {
+            console.log(`[RDR] ✅ Task ${task.specId} needs intervention: Empty plan (0 phases)`);
             return true;
           }
 
-          // No subtasks but has errors/qa_rejected - needs help
-          return task.reviewReason === 'errors' || task.reviewReason === 'qa_rejected';
-        });
+          // 2. Error exit reason → NEEDS INTERVENTION
+          // exitReason is the field that indicates WHY the task stopped
+          if (task.exitReason === 'error' || task.exitReason === 'prompt_loop') {
+            console.log(`[RDR] ✅ Task ${task.specId} needs intervention: exitReason=${task.exitReason}`);
+            return true;
+          }
+
+          // 3. Plan needs approval → NEEDS INTERVENTION
+          // planStatus: "review" means waiting for user to approve the plan
+          if (task.planStatus === 'review' && task.status === 'human_review') {
+            console.log(`[RDR] ✅ Task ${task.specId} needs intervention: planStatus=review (needs approval)`);
+            return true;
+          }
+
+          // 4. Stuck in_progress tasks (no subtask progress >1 hour)
+          if (task.status === 'in_progress') {
+            const lastSubtaskUpdate = getLastSubtaskUpdate(task);
+            const hoursSinceUpdate = (Date.now() - lastSubtaskUpdate) / (1000 * 60 * 60);
+            if (hoursSinceUpdate > 1) {
+              console.log(`[RDR] ✅ Task ${task.specId} needs intervention: Stuck in_progress (${hoursSinceUpdate.toFixed(1)}h since last update)`);
+              return true;
+            }
+          }
+
+          // 5. Original logic: human_review with incomplete subtasks
+          if (task.status === 'human_review') {
+            // If task has subtasks, check completion percentage
+            if (task.subtasks && task.subtasks.length > 0) {
+              const allComplete = task.subtasks.every((s: { status: string }) => s.status === 'completed');
+              if (allComplete) {
+                // 100% complete - ready for manual review, don't auto-process
+                console.log(`[RDR] ⏭️  Skipping task ${task.specId} - all subtasks complete (ready for manual review)`);
+                return false;
+              }
+              // Has incomplete subtasks - needs help
+              console.log(`[RDR] ✅ Task ${task.specId} needs intervention: Incomplete subtasks in human_review`);
+              return true;
+            }
+
+            // No subtasks but has reviewReason errors/qa_rejected - needs help
+            if (task.reviewReason === 'errors' || task.reviewReason === 'qa_rejected') {
+              console.log(`[RDR] ✅ Task ${task.specId} needs intervention: reviewReason=${task.reviewReason}`);
+              return true;
+            }
+          }
+
+          // No intervention needed
+          return false;
+        };
+
+        /**
+         * Helper: Get timestamp of last subtask update
+         */
+        const getLastSubtaskUpdate = (task: any): number => {
+          if (!task.phases || task.phases.length === 0) {
+            return new Date(task.updated_at || task.created_at).getTime();
+          }
+
+          let latestUpdate = 0;
+          for (const phase of task.phases) {
+            if (phase.subtasks) {
+              for (const subtask of phase.subtasks) {
+                if (subtask.updated_at) {
+                  const updateTime = new Date(subtask.updated_at).getTime();
+                  latestUpdate = Math.max(latestUpdate, updateTime);
+                }
+              }
+            }
+          }
+
+          return latestUpdate || new Date(task.updated_at || task.created_at).getTime();
+        };
+
+        // Filter tasks using enhanced detection
+        const tasksNeedingHelp = tasks.filter(needsIntervention);
 
         if (tasksNeedingHelp.length === 0) {
           return {

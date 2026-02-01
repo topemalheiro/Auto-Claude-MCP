@@ -37,6 +37,7 @@ import {
 } from "../rate-limit-detector";
 import { startRateLimitWaitForTask } from "../rate-limit-waiter";
 import { readSettingsFile } from "../settings-utils";
+import { queueTaskForRdr } from "./rdr-handlers";
 
 /**
  * Validates status transitions to prevent invalid state changes.
@@ -330,6 +331,17 @@ export function registerAgenteventsHandlers(
               startRateLimitWaitForTask(taskId, rateLimitInfo, mainWindow, () => {
                 console.warn(`[Task ${taskId}] Rate limit reset - task can now be resumed`);
                 clearRateLimitForTask(taskId);
+
+                // FEATURE: Trigger RDR to send prompt to Claude Code for auto-recovery
+                console.warn(`[Task ${taskId}] Triggering RDR processing after rate limit reset`);
+                const taskInfo = {
+                  specId: taskId,
+                  status: 'human_review' as const,
+                  reviewReason: 'rate_limit_reset',
+                  description: `Rate limit reset at ${new Date().toISOString()}. Task ready to resume.`,
+                  subtasks: []
+                };
+                queueTaskForRdr(projectId, taskInfo);
               });
               console.warn(`[Task ${taskId}] Auto-resume enabled - waiting for rate limit reset`);
             } else {
