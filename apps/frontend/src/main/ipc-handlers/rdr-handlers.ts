@@ -629,9 +629,25 @@ async function checkClaudeCodeBusy(): Promise<boolean> {
           timestamp: new Date().toISOString()
         });
         return true; // BUSY - reschedule!
-      } else {
-        console.log(`[RDR] ✅ Output Monitor: Claude is IDLE (state: ${state})`);
       }
+
+      // NEW: Require minimum idle time before considering truly idle
+      // This prevents interrupting during active work sessions (plan mode, coding, etc.)
+      const diagnostics = await outputMonitor.getDiagnostics();
+      const MINIMUM_IDLE_TIME_MS = 30000; // 30 seconds
+
+      if (diagnostics.timeSinceStateChange < MINIMUM_IDLE_TIME_MS) {
+        console.log(`[RDR] ⏸️  Recently active (${diagnostics.timeSinceStateChange}ms ago) - waiting for ${MINIMUM_IDLE_TIME_MS}ms idle time`);
+        console.log('[RDR]    📊 Diagnostics:', {
+          state: diagnostics.state,
+          timeSinceStateChange: `${diagnostics.timeSinceStateChange}ms`,
+          recentOutputFiles: diagnostics.recentOutputFiles,
+          timestamp: new Date().toISOString()
+        });
+        return true; // Still too recent - treat as busy
+      }
+
+      console.log(`[RDR] ✅ Output Monitor: Claude is IDLE (state: ${state}, idle for ${diagnostics.timeSinceStateChange}ms)`);
     } else {
       console.warn('[RDR] ⚠️  Output Monitor not available');
     }
@@ -1038,6 +1054,21 @@ export function registerRdrHandlers(): void {
          * - Original logic (incomplete subtasks in human_review)
          */
         const needsIntervention = (task: any): boolean => {
+          // CRITICAL: Only check tasks that can be stuck
+          // Skip tasks that are complete, pending, or already handled
+          if (task.status === 'done') {
+            return false;  // Don't flag completed tasks
+          }
+          if (task.status === 'pr_created') {
+            return false;  // Don't flag PR'd tasks
+          }
+          if (task.status === 'backlog') {
+            return false;  // Don't flag pending tasks
+          }
+          if (task.status === 'ai_review') {
+            return false;  // Don't flag tasks in AI review
+          }
+
           // 1. Empty plan (0 phases/subtasks) → NEEDS INTERVENTION
           // This catches tasks that crashed before creating a plan
           if (!task.phases || task.phases.length === 0) {
