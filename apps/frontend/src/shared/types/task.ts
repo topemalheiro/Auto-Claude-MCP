@@ -257,6 +257,8 @@ export interface Task {
   status: TaskStatus;
   reviewReason?: ReviewReason;  // Why task needs human review (only set when status is 'human_review')
   subtasks: Subtask[];
+  phases?: Phase[];  // Full implementation plan phases (for RDR detection)
+  planStatus?: string;  // Plan approval status (for RDR detection)
   qaReport?: QAReport;
   logs: string[];
   metadata?: TaskMetadata;  // Rich metadata from ideation or manual entry

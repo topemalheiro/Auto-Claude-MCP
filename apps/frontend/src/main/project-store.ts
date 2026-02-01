@@ -590,6 +590,8 @@ export class ProjectStore {
           stagedAt,
           location, // Add location metadata (main vs worktree)
           specsPath: specPath, // Add full path to specs directory
+          phases: plan?.phases,  // Full phases array for RDR detection
+          planStatus: plan?.planStatus,  // Plan approval status for RDR
           exitReason: plan?.exitReason,  // Rate limit crash detection (Bug #5)
           rateLimitInfo: plan?.rateLimitInfo,  // Rate limit details
           createdAt: new Date(plan?.created_at || Date.now()),

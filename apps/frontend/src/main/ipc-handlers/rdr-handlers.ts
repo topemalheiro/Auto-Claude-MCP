@@ -66,6 +66,11 @@ interface TaskInfo {
   reviewReason?: string;
   description?: string;
   subtasks?: Array<{ status: string; name?: string }>;
+  phases?: Array<{ subtasks?: Array<{ status: string; updated_at?: string }> }>;
+  exitReason?: string;
+  planStatus?: string;
+  created_at?: string;
+  updated_at?: string;
   rdrDisabled?: boolean;  // If true, RDR will skip this task
 }
 
