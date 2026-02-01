@@ -6,8 +6,10 @@ Main autonomous agent loop that runs the coder agent to implement subtasks.
 """
 
 import asyncio
+import json
 import logging
 import os
+from datetime import datetime, timezone
 from pathlib import Path
 
 from core.client import create_client
@@ -68,6 +70,32 @@ from .utils import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _save_exit_reason(spec_dir: Path, exit_reason: str) -> None:
+    """
+    Write exitReason to implementation_plan.json so RDR can detect it.
+
+    This is critical for RDR auto-recovery system which monitors exitReason
+    to determine which tasks need intervention.
+
+    Args:
+        spec_dir: Spec directory containing implementation_plan.json
+        exit_reason: The reason for exit ("error", "prompt_loop", etc.)
+    """
+    try:
+        plan = load_implementation_plan(spec_dir)
+        if plan:
+            plan["exitReason"] = exit_reason
+            plan["updated_at"] = datetime.now(timezone.utc).isoformat()
+
+            plan_file = spec_dir / "implementation_plan.json"
+            with open(plan_file, "w", encoding="utf-8") as f:
+                json.dump(plan, f, indent=2)
+
+            logger.info(f"Set exitReason={exit_reason} in implementation_plan.json")
+    except Exception as e:
+        logger.warning(f"Failed to write exitReason to plan: {e}")
 
 
 async def run_autonomous_agent(
@@ -482,6 +510,10 @@ async def run_autonomous_agent(
             # Check for stuck subtasks
             attempt_count = recovery_manager.get_attempt_count(subtask_id)
             if not success and attempt_count >= 3:
+                # Write exitReason="prompt_loop" for RDR detection
+                # (3+ failed attempts indicates agent is stuck in a loop)
+                _save_exit_reason(spec_dir, "prompt_loop")
+
                 recovery_manager.mark_subtask_stuck(
                     subtask_id, f"Failed after {attempt_count} attempts"
                 )
@@ -555,6 +587,9 @@ async def run_autonomous_agent(
             await asyncio.sleep(AUTO_CONTINUE_DELAY_SECONDS)
 
         elif status == "error":
+            # Write exitReason to implementation_plan.json so RDR can detect it
+            _save_exit_reason(spec_dir, "error")
+
             emit_phase(ExecutionPhase.FAILED, "Session encountered an error")
             print_status("Session encountered an error", "error")
             print(muted("Will retry with a fresh session..."))

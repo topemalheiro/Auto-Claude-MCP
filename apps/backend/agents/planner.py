@@ -5,7 +5,9 @@ Planner Agent Module
 Handles follow-up planner sessions for adding new subtasks to completed specs.
 """
 
+import json
 import logging
+from datetime import datetime, timezone
 from pathlib import Path
 
 from core.client import create_client
@@ -28,8 +30,32 @@ from ui import (
 )
 
 from .session import run_agent_session
+from .utils import load_implementation_plan
 
 logger = logging.getLogger(__name__)
+
+
+def _save_exit_reason(spec_dir: Path, exit_reason: str) -> None:
+    """
+    Write exitReason to implementation_plan.json so RDR can detect it.
+
+    Args:
+        spec_dir: Spec directory containing implementation_plan.json
+        exit_reason: The reason for exit ("error", "prompt_loop", etc.)
+    """
+    try:
+        plan = load_implementation_plan(spec_dir)
+        if plan:
+            plan["exitReason"] = exit_reason
+            plan["updated_at"] = datetime.now(timezone.utc).isoformat()
+
+            plan_file = spec_dir / "implementation_plan.json"
+            with open(plan_file, "w", encoding="utf-8") as f:
+                json.dump(plan, f, indent=2)
+
+            logger.info(f"Set exitReason={exit_reason} in implementation_plan.json")
+    except Exception as e:
+        logger.warning(f"Failed to write exitReason to plan: {e}")
 
 
 async def run_followup_planner(
@@ -124,6 +150,9 @@ async def run_followup_planner(
             )
 
         if status == "error":
+            # Write exitReason to implementation_plan.json so RDR can detect it
+            _save_exit_reason(spec_dir, "error")
+
             print()
             print_status("Follow-up planning failed", "error")
             status_manager.update(state=BuildState.ERROR)
@@ -175,6 +204,9 @@ async def run_followup_planner(
             return False
 
     except Exception as e:
+        # Write exitReason to implementation_plan.json so RDR can detect it
+        _save_exit_reason(spec_dir, "error")
+
         print()
         print_status(f"Follow-up planning error: {e}", "error")
         if task_logger:
