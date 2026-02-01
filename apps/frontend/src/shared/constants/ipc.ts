@@ -607,6 +607,7 @@ export const IPC_CHANNELS = {
   SEND_RDR_TO_WINDOW: 'rdr:sendToWindow',                   // Send RDR message to specific window
   GET_RDR_BATCH_DETAILS: 'rdr:getBatchDetails',             // Get detailed task info for RDR message
   IS_CLAUDE_CODE_BUSY: 'rdr:isClaudeCodeBusy',              // Check if Claude Code is in a prompt loop
+  AUTO_RECOVER_ALL_TASKS: 'rdr:autoRecoverAllTasks',        // Auto-recover all tasks with start_requested status
 
   // Auto Shutdown
   GET_AUTO_SHUTDOWN_STATUS: 'autoShutdown:getStatus',       // Get auto-shutdown status for a project

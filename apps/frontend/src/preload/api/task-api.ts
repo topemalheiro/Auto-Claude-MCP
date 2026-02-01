@@ -117,6 +117,7 @@ export interface TaskAPI {
   // RDR (Recover Debug Resend) Processing
   triggerRdrProcessing: (projectId: string, taskIds: string[]) => Promise<IPCResult<{ processed: number }>>;
   pingRdrImmediate: (projectId: string, tasks: Task[]) => Promise<IPCResult<{ taskCount: number; signalPath: string }>>;
+  autoRecoverAllTasks: (projectId: string) => Promise<IPCResult<{ recovered: number; taskIds: string[] }>>;
 
   // VS Code Window Management (for RDR message sending)
   getVSCodeWindows: () => Promise<IPCResult<Array<{ handle: number; title: string; processId: number }>>>;
@@ -414,6 +415,10 @@ export const createTaskAPI = (): TaskAPI => ({
   // Immediate RDR ping - writes signal file now (no 30s timer)
   pingRdrImmediate: (projectId: string, tasks: Task[]): Promise<IPCResult<{ taskCount: number; signalPath: string }>> =>
     ipcRenderer.invoke(IPC_CHANNELS.PING_RDR_IMMEDIATE, projectId, tasks),
+
+  // Auto-recover all tasks with start_requested status or incomplete subtasks
+  autoRecoverAllTasks: (projectId: string): Promise<IPCResult<{ recovered: number; taskIds: string[] }>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.AUTO_RECOVER_ALL_TASKS, projectId),
 
   // VS Code Window Management (for RDR message sending)
   getVSCodeWindows: (): Promise<IPCResult<Array<{ handle: number; title: string; processId: number }>>> =>

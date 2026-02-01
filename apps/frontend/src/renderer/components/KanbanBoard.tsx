@@ -1132,8 +1132,33 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       await window.electronAPI.updateProjectSettings(currentProject.id, updatedSettings);
     }
 
-    // When turning ON, trigger RDR processing for all tasks needing intervention
+    // When turning ON, auto-recover ALL stuck tasks and trigger RDR processing
     if (checked) {
+      console.log('[KanbanBoard] RDR enabled - triggering auto-recovery for all stuck tasks');
+
+      // FIRST: Auto-recover tasks with start_requested status or incomplete subtasks
+      try {
+        const recoverResult = await window.api.task.autoRecoverAllTasks(projectId);
+
+        if (recoverResult.success && recoverResult.data) {
+          const { recovered, taskIds } = recoverResult.data;
+          console.log(`[KanbanBoard] Auto-recovered ${recovered} tasks:`, taskIds);
+
+          if (recovered > 0) {
+            toast({
+              title: `Auto-recovered ${recovered} tasks`,
+              description: 'Tasks have been moved to correct board states',
+              variant: 'default'
+            });
+          }
+        } else {
+          console.warn('[KanbanBoard] Auto-recovery failed:', recoverResult.error);
+        }
+      } catch (error) {
+        console.error('[KanbanBoard] Failed to auto-recover tasks:', error);
+      }
+
+      // SECOND: Also trigger RDR processing for manual/MCP intervention
       const tasksNeedingHelp = tasks.filter(task =>
         task.status === 'human_review' &&
         (task.reviewReason === 'errors' ||
@@ -1142,7 +1167,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       );
 
       if (tasksNeedingHelp.length > 0) {
-        console.log(`[KanbanBoard] RDR enabled - ${tasksNeedingHelp.length} tasks need intervention`);
+        console.log(`[KanbanBoard] Queueing ${tasksNeedingHelp.length} tasks for RDR processing`);
 
         // Trigger RDR processing via IPC
         try {
@@ -1151,7 +1176,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
           console.error('[KanbanBoard] Failed to trigger RDR processing:', error);
         }
       } else {
-        console.log('[KanbanBoard] RDR enabled - no tasks need intervention');
+        console.log('[KanbanBoard] No additional tasks need RDR processing');
       }
     }
   };

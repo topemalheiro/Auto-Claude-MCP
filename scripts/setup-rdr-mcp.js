@@ -1,156 +1,3383 @@
-#!/usr/bin/env node
 
-const fs = require('fs');
-const path = require('path');
-const os = require('os');
+ [Auto-Claude RDR] Tasks needing intervention:
 
-// Determine VS Code settings paths based on platform
-function getVSCodePaths() {
-  const platform = os.platform();
-  const homeDir = os.homedir();
+## 071-marko: 071-marko__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
 
-  if (platform === 'win32') {
-    return {
-      mcpSettings: path.join(process.env.APPDATA, 'Code', 'User', 'globalStorage', 'saoudrizwan.claude-dev', 'settings', 'cline_mcp_settings.json'),
-      userSettings: path.join(process.env.APPDATA, 'Code', 'User', 'settings.json')
-    };
-  } else if (platform === 'darwin') {
-    return {
-      mcpSettings: path.join(homeDir, 'Library', 'Application Support', 'Code', 'User', 'globalStorage', 'saoudrizwan.claude-dev', 'settings', 'cline_mcp_settings.json'),
-      userSettings: path.join(homeDir, 'Library', 'Application Support', 'Code', 'User', 'settings.json')
-    };
-  } else {
-    return {
-      mcpSettings: path.join(homeDir, '.config', 'Code', 'User', 'globalStorage', 'saoudrizwan.claude-dev', 'settings', 'cline_mcp_settings.json'),
-      userSettings: path.join(homeDir, '.config', 'Code', 'User', 'settings.json')
-    };
-  }
-}
+## 073-qwik: Qwik Framework Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 13/21 complete
+Pending: Add selection element examples to training.jsonl (15+ examples for checkboxes, radio, select), Add specialized input examples (10+ examples for date, time, file, range, color), Add edge case examples (10+ examples for disabled, hidden, multi-select, error handling), Add Qwik-specific pattern examples (5+ examples showing data-qwik-* usage, event dispatch), Validate training.jsonl format and line count (minimum 50 lines), Verify test page renders without errors and FFM loads correctly, Test FFM methods populate all form element types correctly, Execute random training examples to verify completeness
 
-// Get absolute path to Auto-Claude MCP server
-const mcpServerPath = path.join(__dirname, '..', 'apps', 'frontend', 'src', 'main', 'mcp-server', 'index.ts');
+## 077-shadow-component-libs: Shadow DOM Component Library Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 10/13 complete
+Pending: Cross-framework consistency check, Training data quality validation, End-to-end browser testing of all frameworks
 
-// MCP server configuration with alwaysAllow for auto-bypass permissions
-const mcpConfig = {
-  mcpServers: {
-    "auto-claude-manager": {
-      command: "npx",
-      args: ["--yes", "tsx", mcpServerPath.replace(/\\/g, '/')],
-      env: {
-        NODE_ENV: "production"
-      },
-      alwaysAllow: ["*"],  // Auto-approve all MCP tool calls
-      description: "Auto-Claude task management - create, monitor, fix tasks via MCP"
-    }
-  }
-};
+## 079-alpine-htmx-knockout: 079-alpine-htmx-knockout__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
 
-// Get VS Code paths
-const paths = getVSCodePaths();
-const mcpSettingsPath = paths.mcpSettings;
-const userSettingsPath = paths.userSettings;
-const mcpSettingsDir = path.dirname(mcpSettingsPath);
+## 080-svelte-aurelia: 080-svelte-aurelia__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
 
-console.log('🔧 Setting up Auto-Claude MCP server for VS Code...\n');
-console.log(`   MCP server path: ${mcpServerPath}`);
-console.log(`   MCP config: ${mcpSettingsPath}`);
-console.log(`   User settings: ${userSettingsPath}\n`);
+## 081-ats-major: ATS Major Platform Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 10/21 complete
+Pending: Generate Lever training.jsonl with 20+ diverse examples, Create iCIMS index.html test page with iframe-embedded traditional form, Create iCIMS ffm.js Form Fill Module with fallback for non-framework forms, Generate iCIMS training.jsonl with 20+ diverse examples, Create Taleo index.html test page with iframe-embedded multi-page form, Create Taleo ffm.js Form Fill Module with multi-step navigation, Generate Taleo training.jsonl with 20+ diverse examples, Validate all JSONL files have correct format and sufficient examples, Security validation: verify no wildcard origins in postMessage calls, Verify all FFM modules include origin validation, Manual end-to-end verification of all test pages
 
-// === STEP 1: Configure MCP Server ===
-console.log('📋 Step 1: Configuring MCP server...');
+## 082-ats-other: 082-ats-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
 
-// Ensure directory exists
-if (!fs.existsSync(mcpSettingsDir)) {
-  console.log(`   Creating directory: ${mcpSettingsDir}`);
-  fs.mkdirSync(mcpSettingsDir, { recursive: true });
-}
+## 083-rte-major: Rich Text Editor Training Data Generation (CKEditor & Froala)
+Status: plan_review | Exit: error
+Subtasks: 0/9 complete
+Pending: Create CKEditor 5 test page (index.html), Create CKEditor Form Fill Module (ffm.js), Generate CKEditor training data (training.jsonl), Create Froala test page (index.html), Create Froala Form Fill Module (ffm.js), Generate Froala training data (training.jsonl), Validate all test pages load without errors, Validate training data consistency across all editors, Verify license compliance documentation
 
-// Read existing MCP config if it exists
-let existingMcpConfig = {};
-if (fs.existsSync(mcpSettingsPath)) {
-  try {
-    const content = fs.readFileSync(mcpSettingsPath, 'utf-8');
-    existingMcpConfig = JSON.parse(content);
-    console.log('   ✓ Found existing MCP configuration');
-  } catch (err) {
-    console.warn('   ⚠️  Warning: Could not parse existing MCP config, will overwrite');
-  }
-}
+## 084-rte-other: 084-rte-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
 
-// Merge MCP configurations
-const finalMcpConfig = {
-  ...existingMcpConfig,
-  mcpServers: {
-    ...(existingMcpConfig.mcpServers || {}),
-    ...mcpConfig.mcpServers
-  }
-};
+## 085-templating-backend: Server-Side Templating Framework Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 0/12 complete
+Pending: Create Jinja2 HTML test page with Django form patterns, Create Jinja2 Form Fill Module with vanilla JavaScript, Generate Jinja2 training dataset with detection patterns, Research Twig/Symfony form patterns via web search, Create Twig HTML test page with Symfony form patterns, Create Twig Form Fill Module with vanilla JavaScript, Generate Twig training dataset with detection patterns, Validate file structure and completeness for all frameworks, Validate HTML files are valid HTML5 and render correctly, Validate JavaScript FFM modules have no syntax errors, Validate JSONL files are valid JSON Lines format, Verify framework-specific patterns in all artifacts
 
-// Write MCP configuration
-fs.writeFileSync(mcpSettingsPath, JSON.stringify(finalMcpConfig, null, 2), 'utf-8');
-console.log('   ✓ MCP server configured with auto-approve enabled');
+## 086-templating-frontend: Frontend Templating Framework Training Data
+Status: plan_review | Exit: none
+Subtasks: 0/21 complete
+Pending: Research Pug/Jade form rendering patterns via web search, Research Nunjucks form rendering patterns via web search, Research Liquid form rendering patterns via web search, Research Haml form rendering patterns via web search, Research Slim form rendering patterns via web search, Create Pug/Jade index.html with comprehensive form elements, Create Pug/Jade ffm.js using vanilla JavaScript DOM methods, Create Pug/Jade training.jsonl with 10-20 training examples, Create Nunjucks index.html with comprehensive form elements, Create Nunjucks ffm.js using vanilla JavaScript DOM methods, Create Nunjucks training.jsonl with 10-20 training examples, Create Liquid index.html with comprehensive form elements, Create Liquid ffm.js using vanilla JavaScript DOM methods, Create Liquid training.jsonl with 10-20 training examples, Create Haml index.html with comprehensive form elements, Create Haml ffm.js using vanilla JavaScript DOM methods, Create Haml training.jsonl with 10-20 training examples, Create Slim index.html with comprehensive form elements, Create Slim ffm.js using vanilla JavaScript DOM methods, Create Slim training.jsonl with 10-20 training examples, Run QA validation script to verify all 24 files exist and meet criteria
 
-// === STEP 2: Configure Bypass Permissions ===
-console.log('\n📋 Step 2: Enabling bypass permissions...');
+Use MCP tools: get_task_error_details, submit_task_fix_request, process_rdr_batch
+ [Auto-Claude RDR] Tasks needing intervention:
 
-// Option A: Modify project-level .claude_settings.json (recommended for Auto-Claude project)
-const projectSettingsPath = path.join(__dirname, '..', '.claude_settings.json');
+## 071-marko: 071-marko__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
 
-if (fs.existsSync(projectSettingsPath)) {
-  try {
-    const projectSettings = JSON.parse(fs.readFileSync(projectSettingsPath, 'utf-8'));
+## 073-qwik: Qwik Framework Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 13/21 complete
+Pending: Add selection element examples to training.jsonl (15+ examples for checkboxes, radio, select), Add specialized input examples (10+ examples for date, time, file, range, color), Add edge case examples (10+ examples for disabled, hidden, multi-select, error handling), Add Qwik-specific pattern examples (5+ examples showing data-qwik-* usage, event dispatch), Validate training.jsonl format and line count (minimum 50 lines), Verify test page renders without errors and FFM loads correctly, Test FFM methods populate all form element types correctly, Execute random training examples to verify completeness
 
-    // Change from "acceptEdits" to "bypassPermissions"
-    projectSettings.permissions = {
-      ...projectSettings.permissions,
-      defaultMode: 'bypassPermissions'
-    };
+## 077-shadow-component-libs: Shadow DOM Component Library Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 10/13 complete
+Pending: Cross-framework consistency check, Training data quality validation, End-to-end browser testing of all frameworks
 
-    fs.writeFileSync(projectSettingsPath, JSON.stringify(projectSettings, null, 2));
-    console.log('   ✓ Bypass permissions enabled in .claude_settings.json');
-    console.log('   ℹ️  Mode changed from "acceptEdits" to "bypassPermissions"');
-  } catch (err) {
-    console.error('   ⚠️  Failed to update .claude_settings.json:', err.message);
-  }
-} else {
-  console.warn('   ⚠️  .claude_settings.json not found in project root');
-}
+## 079-alpine-htmx-knockout: 079-alpine-htmx-knockout__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
 
-// Option B: Global settings (applies to all projects)
-const globalSettingsPath = path.join(os.homedir(), '.claude', 'settings.json');
+## 080-svelte-aurelia: 080-svelte-aurelia__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
 
-if (fs.existsSync(globalSettingsPath)) {
-  try {
-    const globalSettings = JSON.parse(fs.readFileSync(globalSettingsPath, 'utf-8'));
+## 081-ats-major: ATS Major Platform Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 10/21 complete
+Pending: Generate Lever training.jsonl with 20+ diverse examples, Create iCIMS index.html test page with iframe-embedded traditional form, Create iCIMS ffm.js Form Fill Module with fallback for non-framework forms, Generate iCIMS training.jsonl with 20+ diverse examples, Create Taleo index.html test page with iframe-embedded multi-page form, Create Taleo ffm.js Form Fill Module with multi-step navigation, Generate Taleo training.jsonl with 20+ diverse examples, Validate all JSONL files have correct format and sufficient examples, Security validation: verify no wildcard origins in postMessage calls, Verify all FFM modules include origin validation, Manual end-to-end verification of all test pages
 
-    globalSettings.permissions = {
-      ...globalSettings.permissions,
-      defaultMode: 'bypassPermissions'
-    };
+## 082-ats-other: 082-ats-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
 
-    fs.writeFileSync(globalSettingsPath, JSON.stringify(globalSettings, null, 2));
-    console.log('   ✓ Bypass permissions also set globally in ~/.claude/settings.json');
-  } catch (err) {
-    console.warn('   ⚠️  Could not update global settings:', err.message);
-  }
-}
+## 083-rte-major: Rich Text Editor Training Data Generation (CKEditor & Froala)
+Status: plan_review | Exit: error
+Subtasks: 0/9 complete
+Pending: Create CKEditor 5 test page (index.html), Create CKEditor Form Fill Module (ffm.js), Generate CKEditor training data (training.jsonl), Create Froala test page (index.html), Create Froala Form Fill Module (ffm.js), Generate Froala training data (training.jsonl), Validate all test pages load without errors, Validate training data consistency across all editors, Verify license compliance documentation
 
-console.log('\n✅ Auto-Claude MCP server configured successfully!');
-console.log(`   MCP config: ${mcpSettingsPath}`);
-console.log(`   User settings: ${userSettingsPath}`);
+## 084-rte-other: 084-rte-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
 
-console.log('\n📝 Next steps:');
-console.log('1. Restart VS Code COMPLETELY (close and reopen, not just reload)');
-console.log('2. Open a Claude Code session in your Auto-Claude project');
-console.log('3. Check bottom-left corner for "Bypass permissions" toggle');
-console.log('   - It should be automatically enabled for read operations');
-console.log('   - You can enable it fully for all operations if desired');
-console.log('4. Verify MCP tools are available:');
-console.log('   - Type: "List my Auto-Claude tasks"');
-console.log('   - Or: "Show available MCP tools"');
+## 085-templating-backend: Server-Side Templating Framework Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 0/12 complete
+Pending: Create Jinja2 HTML test page with Django form patterns, Create Jinja2 Form Fill Module with vanilla JavaScript, Generate Jinja2 training dataset with detection patterns, Research Twig/Symfony form patterns via web search, Create Twig HTML test page with Symfony form patterns, Create Twig Form Fill Module with vanilla JavaScript, Generate Twig training dataset with detection patterns, Validate file structure and completeness for all frameworks, Validate HTML files are valid HTML5 and render correctly, Validate JavaScript FFM modules have no syntax errors, Validate JSONL files are valid JSON Lines format, Verify framework-specific patterns in all artifacts
 
-console.log('\n🔍 Troubleshooting:');
-console.log('- If tools don\'t appear: Check VS Code Dev Tools Console (Help > Toggle Developer Tools)');
-console.log('- Verify tsx is available: npx --yes tsx --version');
-console.log('- Test MCP server manually:');
-console.log(`  npx --yes tsx "${mcpServerPath}"`);
+## 086-templating-frontend: Frontend Templating Framework Training Data
+Status: plan_review | Exit: none
+Subtasks: 0/21 complete
+Pending: Research Pug/Jade form rendering patterns via web search, Research Nunjucks form rendering patterns via web search, Research Liquid form rendering patterns via web search, Research Haml form rendering patterns via web search, Research Slim form rendering patterns via web search, Create Pug/Jade index.html with comprehensive form elements, Create Pug/Jade ffm.js using vanilla JavaScript DOM methods, Create Pug/Jade training.jsonl with 10-20 training examples, Create Nunjucks index.html with comprehensive form elements, Create Nunjucks ffm.js using vanilla JavaScript DOM methods, Create Nunjucks training.jsonl with 10-20 training examples, Create Liquid index.html with comprehensive form elements, Create Liquid ffm.js using vanilla JavaScript DOM methods, Create Liquid training.jsonl with 10-20 training examples, Create Haml index.html with comprehensive form elements, Create Haml ffm.js using vanilla JavaScript DOM methods, Create Haml training.jsonl with 10-20 training examples, Create Slim index.html with comprehensive form elements, Create Slim ffm.js using vanilla JavaScript DOM methods, Create Slim training.jsonl with 10-20 training examples, Run QA validation script to verify all 24 files exist and meet criteria
+
+Use MCP tools: get_task_error_details, submit_task_fix_request, process_rdr_batch
+  [Auto-Claude RDR] Tasks needing intervention:
+
+## 071-marko: 071-marko__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 073-qwik: Qwik Framework Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 13/21 complete
+Pending: Add selection element examples to training.jsonl (15+ examples for checkboxes, radio, select), Add specialized input examples (10+ examples for date, time, file, range, color), Add edge case examples (10+ examples for disabled, hidden, multi-select, error handling), Add Qwik-specific pattern examples (5+ examples showing data-qwik-* usage, event dispatch), Validate training.jsonl format and line count (minimum 50 lines), Verify test page renders without errors and FFM loads correctly, Test FFM methods populate all form element types correctly, Execute random training examples to verify completeness
+
+## 077-shadow-component-libs: Shadow DOM Component Library Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 10/13 complete
+Pending: Cross-framework consistency check, Training data quality validation, End-to-end browser testing of all frameworks
+
+## 079-alpine-htmx-knockout: 079-alpine-htmx-knockout__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 080-svelte-aurelia: 080-svelte-aurelia__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 081-ats-major: ATS Major Platform Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 10/21 complete
+Pending: Generate Lever training.jsonl with 20+ diverse examples, Create iCIMS index.html test page with iframe-embedded traditional form, Create iCIMS ffm.js Form Fill Module with fallback for non-framework forms, Generate iCIMS training.jsonl with 20+ diverse examples, Create Taleo index.html test page with iframe-embedded multi-page form, Create Taleo ffm.js Form Fill Module with multi-step navigation, Generate Taleo training.jsonl with 20+ diverse examples, Validate all JSONL files have correct format and sufficient examples, Security validation: verify no wildcard origins in postMessage calls, Verify all FFM modules include origin validation, Manual end-to-end verification of all test pages
+
+## 082-ats-other: 082-ats-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 083-rte-major: Rich Text Editor Training Data Generation (CKEditor & Froala)
+Status: plan_review | Exit: error
+Subtasks: 0/9 complete
+Pending: Create CKEditor 5 test page (index.html), Create CKEditor Form Fill Module (ffm.js), Generate CKEditor training data (training.jsonl), Create Froala test page (index.html), Create Froala Form Fill Module (ffm.js), Generate Froala training data (training.jsonl), Validate all test pages load without errors, Validate training data consistency across all editors, Verify license compliance documentation
+
+## 084-rte-other: 084-rte-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 085-templating-backend: Server-Side Templating Framework Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 0/12 complete
+Pending: Create Jinja2 HTML test page with Django form patterns, Create Jinja2 Form Fill Module with vanilla JavaScript, Generate Jinja2 training dataset with detection patterns, Research Twig/Symfony form patterns via web search, Create Twig HTML test page with Symfony form patterns, Create Twig Form Fill Module with vanilla JavaScript, Generate Twig training dataset with detection patterns, Validate file structure and completeness for all frameworks, Validate HTML files are valid HTML5 and render correctly, Validate JavaScript FFM modules have no syntax errors, Validate JSONL files are valid JSON Lines format, Verify framework-specific patterns in all artifacts
+
+## 086-templating-frontend: Frontend Templating Framework Training Data
+Status: plan_review | Exit: none
+Subtasks: 0/21 complete
+Pending: Research Pug/Jade form rendering patterns via web search, Research Nunjucks form rendering patterns via web search, Research Liquid form rendering patterns via web search, Research Haml form rendering patterns via web search, Research Slim form rendering patterns via web search, Create Pug/Jade index.html with comprehensive form elements, Create Pug/Jade ffm.js using vanilla JavaScript DOM methods, Create Pug/Jade training.jsonl with 10-20 training examples, Create Nunjucks index.html with comprehensive form elements, Create Nunjucks ffm.js using vanilla JavaScript DOM methods, Create Nunjucks training.jsonl with 10-20 training examples, Create Liquid index.html with comprehensive form elements, Create Liquid ffm.js using vanilla JavaScript DOM methods, Create Liquid training.jsonl with 10-20 training examples, Create Haml index.html with comprehensive form elements, Create Haml ffm.js using vanilla JavaScript DOM methods, Create Haml training.jsonl with 10-20 training examples, Create Slim index.html with comprehensive form elements, Create Slim ffm.js using vanilla JavaScript DOM methods, Create Slim training.jsonl with 10-20 training examples, Run QA validation script to verify all 24 files exist and meet criteria
+
+Use MCP tools: get_task_error_details, submit_task_fix_request, process_rdr_batch
+[Auto-Claude RDR] Tasks needing intervention:
+
+## 071-marko: 071-marko__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 073-qwik: Qwik Framework Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 13/21 complete
+Pending: Add selection element examples to training.jsonl (15+ examples for checkboxes, radio, select), Add specialized input examples (10+ examples for date, time, file, range, color), Add edge case examples (10+ examples for disabled, hidden, multi-select, error handling), Add Qwik-specific pattern examples (5+ examples showing data-qwik-* usage, event dispatch), Validate training.jsonl format and line count (minimum 50 lines), Verify test page renders without errors and FFM loads correctly, Test FFM methods populate all form element types correctly, Execute random training examples to verify completeness
+
+## 077-shadow-component-libs: Shadow DOM Component Library Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 10/13 complete
+Pending: Cross-framework consistency check, Training data quality validation, End-to-end browser testing of all frameworks
+
+## 079-alpine-htmx-knockout: 079-alpine-htmx-knockout__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 080-svelte-aurelia: 080-svelte-aurelia__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 081-ats-major: ATS Major Platform Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 10/21 complete
+Pending: Generate Lever training.jsonl with 20+ diverse examples, Create iCIMS index.html test page with iframe-embedded traditional form, Create iCIMS ffm.js Form Fill Module with fallback for non-framework forms, Generate iCIMS training.jsonl with 20+ diverse examples, Create Taleo index.html test page with iframe-embedded multi-page form, Create Taleo ffm.js Form Fill Module with multi-step navigation, Generate Taleo training.jsonl with 20+ diverse examples, Validate all JSONL files have correct format and sufficient examples, Security validation: verify no wildcard origins in postMessage calls, Verify all FFM modules include origin validation, Manual end-to-end verification of all test pages
+
+## 082-ats-other: 082-ats-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 083-rte-major: Rich Text Editor Training Data Generation (CKEditor & Froala)
+Status: plan_review | Exit: error
+Subtasks: 0/9 complete
+Pending: Create CKEditor 5 test page (index.html), Create CKEditor Form Fill Module (ffm.js), Generate CKEditor training data (training.jsonl), Create Froala test page (index.html), Create Froala Form Fill Module (ffm.js), Generate Froala training data (training.jsonl), Validate all test pages load without errors, Validate training data consistency across all editors, Verify license compliance documentation
+
+## 084-rte-other: 084-rte-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 085-templating-backend: Server-Side Templating Framework Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 0/12 complete
+Pending: Create Jinja2 HTML test page with Django form patterns, Create Jinja2 Form Fill Module with vanilla JavaScript, Generate Jinja2 training dataset with detection patterns, Research Twig/Symfony form patterns via web search, Create Twig HTML test page with Symfony form patterns, Create Twig Form Fill Module with vanilla JavaScript, Generate Twig training dataset with detection patterns, Validate file structure and completeness for all frameworks, Validate HTML files are valid HTML5 and render correctly, Validate JavaScript FFM modules have no syntax errors, Validate JSONL files are valid JSON Lines format, Verify framework-specific patterns in all artifacts
+
+## 086-templating-frontend: Frontend Templating Framework Training Data
+Status: plan_review | Exit: none
+Subtasks: 0/21 complete
+Pending: Research Pug/Jade form rendering patterns via web search, Research Nunjucks form rendering patterns via web search, Research Liquid form rendering patterns via web search, Research Haml form rendering patterns via web search, Research Slim form rendering patterns via web search, Create Pug/Jade index.html with comprehensive form elements, Create Pug/Jade ffm.js using vanilla JavaScript DOM methods, Create Pug/Jade training.jsonl with 10-20 training examples, Create Nunjucks index.html with comprehensive form elements, Create Nunjucks ffm.js using vanilla JavaScript DOM methods, Create Nunjucks training.jsonl with 10-20 training examples, Create Liquid index.html with comprehensive form elements, Create Liquid ffm.js using vanilla JavaScript DOM methods, Create Liquid training.jsonl with 10-20 training examples, Create Haml index.html with comprehensive form elements, Create Haml ffm.js using vanilla JavaScript DOM methods, Create Haml training.jsonl with 10-20 training examples, Create Slim index.html with comprehensive form elements, Create Slim ffm.js using vanilla JavaScript DOM methods, Create Slim training.jsonl with 10-20 training examples, Run QA validation script to verify all 24 files exist and meet criteria
+
+Use MCP tools: get_task_error_details, submit_task_fix_request, process_rdr_batch
+[Auto-Claude RDR] Tasks needing intervention:
+
+## 071-marko: 071-marko__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 073-qwik: Qwik Framework Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 13/21 complete
+Pending: Add selection element examples to training.jsonl (15+ examples for checkboxes, radio, select), Add specialized input examples (10+ examples for date, time, file, range, color), Add edge case examples (10+ examples for disabled, hidden, multi-select, error handling), Add Qwik-specific pattern examples (5+ examples showing data-qwik-* usage, event dispatch), Validate training.jsonl format and line count (minimum 50 lines), Verify test page renders without errors and FFM loads correctly, Test FFM methods populate all form element types correctly, Execute random training examples to verify completeness
+
+## 077-shadow-component-libs: Shadow DOM Component Library Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 10/13 complete
+Pending: Cross-framework consistency check, Training data quality validation, End-to-end browser testing of all frameworks
+
+## 079-alpine-htmx-knockout: 079-alpine-htmx-knockout__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 080-svelte-aurelia: 080-svelte-aurelia__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 081-ats-major: ATS Major Platform Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 10/21 complete
+Pending: Generate Lever training.jsonl with 20+ diverse examples, Create iCIMS index.html test page with iframe-embedded traditional form, Create iCIMS ffm.js Form Fill Module with fallback for non-framework forms, Generate iCIMS training.jsonl with 20+ diverse examples, Create Taleo index.html test page with iframe-embedded multi-page form, Create Taleo ffm.js Form Fill Module with multi-step navigation, Generate Taleo training.jsonl with 20+ diverse examples, Validate all JSONL files have correct format and sufficient examples, Security validation: verify no wildcard origins in postMessage calls, Verify all FFM modules include origin validation, Manual end-to-end verification of all test pages
+
+## 082-ats-other: 082-ats-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 083-rte-major: Rich Text Editor Training Data Generation (CKEditor & Froala)
+Status: plan_review | Exit: error
+Subtasks: 0/9 complete
+Pending: Create CKEditor 5 test page (index.html), Create CKEditor Form Fill Module (ffm.js), Generate CKEditor training data (training.jsonl), Create Froala test page (index.html), Create Froala Form Fill Module (ffm.js), Generate Froala training data (training.jsonl), Validate all test pages load without errors, Validate training data consistency across all editors, Verify license compliance documentation
+
+## 084-rte-other: 084-rte-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 085-templating-backend: Server-Side Templating Framework Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 0/12 complete
+Pending: Create Jinja2 HTML test page with Django form patterns, Create Jinja2 Form Fill Module with vanilla JavaScript, Generate Jinja2 training dataset with detection patterns, Research Twig/Symfony form patterns via web search, Create Twig HTML test page with Symfony form patterns, Create Twig Form Fill Module with vanilla JavaScript, Generate Twig training dataset with detection patterns, Validate file structure and completeness for all frameworks, Validate HTML files are valid HTML5 and render correctly, Validate JavaScript FFM modules have no syntax errors, Validate JSONL files are valid JSON Lines format, Verify framework-specific patterns in all artifacts
+
+## 086-templating-frontend: Frontend Templating Framework Training Data
+Status: plan_review | Exit: none
+Subtasks: 0/21 complete
+Pending: Research Pug/Jade form rendering patterns via web search, Research Nunjucks form rendering patterns via web search, Research Liquid form rendering patterns via web search, Research Haml form rendering patterns via web search, Research Slim form rendering patterns via web search, Create Pug/Jade index.html with comprehensive form elements, Create Pug/Jade ffm.js using vanilla JavaScript DOM methods, Create Pug/Jade training.jsonl with 10-20 training examples, Create Nunjucks index.html with comprehensive form elements, Create Nunjucks ffm.js using vanilla JavaScript DOM methods, Create Nunjucks training.jsonl with 10-20 training examples, Create Liquid index.html with comprehensive form elements, Create Liquid ffm.js using vanilla JavaScript DOM methods, Create Liquid training.jsonl with 10-20 training examples, Create Haml index.html with comprehensive form elements, Create Haml ffm.js using vanilla JavaScript DOM methods, Create Haml training.jsonl with 10-20 training examples, Create Slim index.html with comprehensive form elements, Create Slim ffm.js using vanilla JavaScript DOM methods, Create Slim training.jsonl with 10-20 training examples, Run QA validation script to verify all 24 files exist and meet criteria
+
+Use MCP tools: get_task_error_details, submit_task_fix_request, process_rdr_batch
+[Auto-Claude RDR] Tasks needing intervention:
+
+## 071-marko: 071-marko__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 073-qwik: Qwik Framework Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 13/21 complete
+Pending: Add selection element examples to training.jsonl (15+ examples for checkboxes, radio, select), Add specialized input examples (10+ examples for date, time, file, range, color), Add edge case examples (10+ examples for disabled, hidden, multi-select, error handling), Add Qwik-specific pattern examples (5+ examples showing data-qwik-* usage, event dispatch), Validate training.jsonl format and line count (minimum 50 lines), Verify test page renders without errors and FFM loads correctly, Test FFM methods populate all form element types correctly, Execute random training examples to verify completeness
+
+## 077-shadow-component-libs: Shadow DOM Component Library Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 10/13 complete
+Pending: Cross-framework consistency check, Training data quality validation, End-to-end browser testing of all frameworks
+
+## 079-alpine-htmx-knockout: 079-alpine-htmx-knockout__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 080-svelte-aurelia: 080-svelte-aurelia__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 081-ats-major: ATS Major Platform Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 10/21 complete
+Pending: Generate Lever training.jsonl with 20+ diverse examples, Create iCIMS index.html test page with iframe-embedded traditional form, Create iCIMS ffm.js Form Fill Module with fallback for non-framework forms, Generate iCIMS training.jsonl with 20+ diverse examples, Create Taleo index.html test page with iframe-embedded multi-page form, Create Taleo ffm.js Form Fill Module with multi-step navigation, Generate Taleo training.jsonl with 20+ diverse examples, Validate all JSONL files have correct format and sufficient examples, Security validation: verify no wildcard origins in postMessage calls, Verify all FFM modules include origin validation, Manual end-to-end verification of all test pages
+
+## 082-ats-other: 082-ats-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 083-rte-major: Rich Text Editor Training Data Generation (CKEditor & Froala)
+Status: plan_review | Exit: error
+Subtasks: 0/9 complete
+Pending: Create CKEditor 5 test page (index.html), Create CKEditor Form Fill Module (ffm.js), Generate CKEditor training data (training.jsonl), Create Froala test page (index.html), Create Froala Form Fill Module (ffm.js), Generate Froala training data (training.jsonl), Validate all test pages load without errors, Validate training data consistency across all editors, Verify license compliance documentation
+
+## 084-rte-other: 084-rte-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 085-templating-backend: Server-Side Templating Framework Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 0/12 complete
+Pending: Create Jinja2 HTML test page with Django form patterns, Create Jinja2 Form Fill Module with vanilla JavaScript, Generate Jinja2 training dataset with detection patterns, Research Twig/Symfony form patterns via web search, Create Twig HTML test page with Symfony form patterns, Create Twig Form Fill Module with vanilla JavaScript, Generate Twig training dataset with detection patterns, Validate file structure and completeness for all frameworks, Validate HTML files are valid HTML5 and render correctly, Validate JavaScript FFM modules have no syntax errors, Validate JSONL files are valid JSON Lines format, Verify framework-specific patterns in all artifacts
+
+## 086-templating-frontend: Frontend Templating Framework Training Data
+Status: plan_review | Exit: none
+Subtasks: 0/21 complete
+Pending: Research Pug/Jade form rendering patterns via web search, Research Nunjucks form rendering patterns via web search, Research Liquid form rendering patterns via web search, Research Haml form rendering patterns via web search, Research Slim form rendering patterns via web search, Create Pug/Jade index.html with comprehensive form elements, Create Pug/Jade ffm.js using vanilla JavaScript DOM methods, Create Pug/Jade training.jsonl with 10-20 training examples, Create Nunjucks index.html with comprehensive form elements, Create Nunjucks ffm.js using vanilla JavaScript DOM methods, Create Nunjucks training.jsonl with 10-20 training examples, Create Liquid index.html with comprehensive form elements, Create Liquid ffm.js using vanilla JavaScript DOM methods, Create Liquid training.jsonl with 10-20 training examples, Create Haml index.html with comprehensive form elements, Create Haml ffm.js using vanilla JavaScript DOM methods, Create Haml training.jsonl with 10-20 training examples, Create Slim index.html with comprehensive form elements, Create Slim ffm.js using vanilla JavaScript DOM methods, Create Slim training.jsonl with 10-20 training examples, Run QA validation script to verify all 24 files exist and meet criteria
+
+Use MCP tools: get_task_error_details, submit_task_fix_request, process_rdr_batch
+[Auto-Claude RDR] Tasks needing intervention:
+
+## 071-marko: 071-marko__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 073-qwik: Qwik Framework Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 13/21 complete
+Pending: Add selection element examples to training.jsonl (15+ examples for checkboxes, radio, select), Add specialized input examples (10+ examples for date, time, file, range, color), Add edge case examples (10+ examples for disabled, hidden, multi-select, error handling), Add Qwik-specific pattern examples (5+ examples showing data-qwik-* usage, event dispatch), Validate training.jsonl format and line count (minimum 50 lines), Verify test page renders without errors and FFM loads correctly, Test FFM methods populate all form element types correctly, Execute random training examples to verify completeness
+
+## 077-shadow-component-libs: Shadow DOM Component Library Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 10/13 complete
+Pending: Cross-framework consistency check, Training data quality validation, End-to-end browser testing of all frameworks
+
+## 079-alpine-htmx-knockout: 079-alpine-htmx-knockout__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 080-svelte-aurelia: 080-svelte-aurelia__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 081-ats-major: ATS Major Platform Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 10/21 complete
+Pending: Generate Lever training.jsonl with 20+ diverse examples, Create iCIMS index.html test page with iframe-embedded traditional form, Create iCIMS ffm.js Form Fill Module with fallback for non-framework forms, Generate iCIMS training.jsonl with 20+ diverse examples, Create Taleo index.html test page with iframe-embedded multi-page form, Create Taleo ffm.js Form Fill Module with multi-step navigation, Generate Taleo training.jsonl with 20+ diverse examples, Validate all JSONL files have correct format and sufficient examples, Security validation: verify no wildcard origins in postMessage calls, Verify all FFM modules include origin validation, Manual end-to-end verification of all test pages
+
+## 082-ats-other: 082-ats-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 083-rte-major: Rich Text Editor Training Data Generation (CKEditor & Froala)
+Status: plan_review | Exit: error
+Subtasks: 0/9 complete
+Pending: Create CKEditor 5 test page (index.html), Create CKEditor Form Fill Module (ffm.js), Generate CKEditor training data (training.jsonl), Create Froala test page (index.html), Create Froala Form Fill Module (ffm.js), Generate Froala training data (training.jsonl), Validate all test pages load without errors, Validate training data consistency across all editors, Verify license compliance documentation
+
+## 084-rte-other: 084-rte-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 085-templating-backend: Server-Side Templating Framework Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 0/12 complete
+Pending: Create Jinja2 HTML test page with Django form patterns, Create Jinja2 Form Fill Module with vanilla JavaScript, Generate Jinja2 training dataset with detection patterns, Research Twig/Symfony form patterns via web search, Create Twig HTML test page with Symfony form patterns, Create Twig Form Fill Module with vanilla JavaScript, Generate Twig training dataset with detection patterns, Validate file structure and completeness for all frameworks, Validate HTML files are valid HTML5 and render correctly, Validate JavaScript FFM modules have no syntax errors, Validate JSONL files are valid JSON Lines format, Verify framework-specific patterns in all artifacts
+
+## 086-templating-frontend: Frontend Templating Framework Training Data
+Status: plan_review | Exit: none
+Subtasks: 0/21 complete
+Pending: Research Pug/Jade form rendering patterns via web search, Research Nunjucks form rendering patterns via web search, Research Liquid form rendering patterns via web search, Research Haml form rendering patterns via web search, Research Slim form rendering patterns via web search, Create Pug/Jade index.html with comprehensive form elements, Create Pug/Jade ffm.js using vanilla JavaScript DOM methods, Create Pug/Jade training.jsonl with 10-20 training examples, Create Nunjucks index.html with comprehensive form elements, Create Nunjucks ffm.js using vanilla JavaScript DOM methods, Create Nunjucks training.jsonl with 10-20 training examples, Create Liquid index.html with comprehensive form elements, Create Liquid ffm.js using vanilla JavaScript DOM methods, Create Liquid training.jsonl with 10-20 training examples, Create Haml index.html with comprehensive form elements, Create Haml ffm.js using vanilla JavaScript DOM methods, Create Haml training.jsonl with 10-20 training examples, Create Slim index.html with comprehensive form elements, Create Slim ffm.js using vanilla JavaScript DOM methods, Create Slim training.jsonl with 10-20 training examples, Run QA validation script to verify all 24 files exist and meet criteria
+
+Use MCP tools: get_task_error_details, submit_task_fix_request, process_rdr_batch
+A[Auto-Claude RDR] Tasks needing intervention:
+
+## 071-marko: 071-marko__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 073-qwik: Qwik Framework Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 13/21 complete
+Pending: Add selection element examples to training.jsonl (15+ examples for checkboxes, radio, select), Add specialized input examples (10+ examples for date, time, file, range, color), Add edge case examples (10+ examples for disabled, hidden, multi-select, error handling), Add Qwik-specific pattern examples (5+ examples showing data-qwik-* usage, event dispatch), Validate training.jsonl format and line count (minimum 50 lines), Verify test page renders without errors and FFM loads correctly, Test FFM methods populate all form element types correctly, Execute random training examples to verify completeness
+
+## 077-shadow-component-libs: Shadow DOM Component Library Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 10/13 complete
+Pending: Cross-framework consistency check, Training data quality validation, End-to-end browser testing of all frameworks
+
+## 079-alpine-htmx-knockout: 079-alpine-htmx-knockout__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 080-svelte-aurelia: 080-svelte-aurelia__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 081-ats-major: ATS Major Platform Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 10/21 complete
+Pending: Generate Lever training.jsonl with 20+ diverse examples, Create iCIMS index.html test page with iframe-embedded traditional form, Create iCIMS ffm.js Form Fill Module with fallback for non-framework forms, Generate iCIMS training.jsonl with 20+ diverse examples, Create Taleo index.html test page with iframe-embedded multi-page form, Create Taleo ffm.js Form Fill Module with multi-step navigation, Generate Taleo training.jsonl with 20+ diverse examples, Validate all JSONL files have correct format and sufficient examples, Security validation: verify no wildcard origins in postMessage calls, Verify all FFM modules include origin validation, Manual end-to-end verification of all test pages
+
+## 082-ats-other: 082-ats-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 083-rte-major: Rich Text Editor Training Data Generation (CKEditor & Froala)
+Status: plan_review | Exit: error
+Subtasks: 0/9 complete
+Pending: Create CKEditor 5 test page (index.html), Create CKEditor Form Fill Module (ffm.js), Generate CKEditor training data (training.jsonl), Create Froala test page (index.html), Create Froala Form Fill Module (ffm.js), Generate Froala training data (training.jsonl), Validate all test pages load without errors, Validate training data consistency across all editors, Verify license compliance documentation
+
+## 084-rte-other: 084-rte-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 085-templating-backend: Server-Side Templating Framework Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 0/12 complete
+Pending: Create Jinja2 HTML test page with Django form patterns, Create Jinja2 Form Fill Module with vanilla JavaScript, Generate Jinja2 training dataset with detection patterns, Research Twig/Symfony form patterns via web search, Create Twig HTML test page with Symfony form patterns, Create Twig Form Fill Module with vanilla JavaScript, Generate Twig training dataset with detection patterns, Validate file structure and completeness for all frameworks, Validate HTML files are valid HTML5 and render correctly, Validate JavaScript FFM modules have no syntax errors, Validate JSONL files are valid JSON Lines format, Verify framework-specific patterns in all artifacts
+
+## 086-templating-frontend: Frontend Templating Framework Training Data
+Status: plan_review | Exit: none
+Subtasks: 0/21 complete
+Pending: Research Pug/Jade form rendering patterns via web search, Research Nunjucks form rendering patterns via web search, Research Liquid form rendering patterns via web search, Research Haml form rendering patterns via web search, Research Slim form rendering patterns via web search, Create Pug/Jade index.html with comprehensive form elements, Create Pug/Jade ffm.js using vanilla JavaScript DOM methods, Create Pug/Jade training.jsonl with 10-20 training examples, Create Nunjucks index.html with comprehensive form elements, Create Nunjucks ffm.js using vanilla JavaScript DOM methods, Create Nunjucks training.jsonl with 10-20 training examples, Create Liquid index.html with comprehensive form elements, Create Liquid ffm.js using vanilla JavaScript DOM methods, Create Liquid training.jsonl with 10-20 training examples, Create Haml index.html with comprehensive form elements, Create Haml ffm.js using vanilla JavaScript DOM methods, Create Haml training.jsonl with 10-20 training examples, Create Slim index.html with comprehensive form elements, Create Slim ffm.js using vanilla JavaScript DOM methods, Create Slim training.jsonl with 10-20 training examples, Run QA validation script to verify all 24 files exist and meet criteria
+
+Use MCP tools: get_task_error_details, submit_task_fix_request, process_rdr_batch
+ wwwww[Auto-Claude RDR] Tasks needing intervention:
+
+## 071-marko: 071-marko__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 073-qwik: Qwik Framework Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 13/21 complete
+Pending: Add selection element examples to training.jsonl (15+ examples for checkboxes, radio, select), Add specialized input examples (10+ examples for date, time, file, range, color), Add edge case examples (10+ examples for disabled, hidden, multi-select, error handling), Add Qwik-specific pattern examples (5+ examples showing data-qwik-* usage, event dispatch), Validate training.jsonl format and line count (minimum 50 lines), Verify test page renders without errors and FFM loads correctly, Test FFM methods populate all form element types correctly, Execute random training examples to verify completeness
+
+## 077-shadow-component-libs: Shadow DOM Component Library Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 10/13 complete
+Pending: Cross-framework consistency check, Training data quality validation, End-to-end browser testing of all frameworks
+
+## 079-alpine-htmx-knockout: 079-alpine-htmx-knockout__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 080-svelte-aurelia: 080-svelte-aurelia__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 081-ats-major: ATS Major Platform Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 10/21 complete
+Pending: Generate Lever training.jsonl with 20+ diverse examples, Create iCIMS index.html test page with iframe-embedded traditional form, Create iCIMS ffm.js Form Fill Module with fallback for non-framework forms, Generate iCIMS training.jsonl with 20+ diverse examples, Create Taleo index.html test page with iframe-embedded multi-page form, Create Taleo ffm.js Form Fill Module with multi-step navigation, Generate Taleo training.jsonl with 20+ diverse examples, Validate all JSONL files have correct format and sufficient examples, Security validation: verify no wildcard origins in postMessage calls, Verify all FFM modules include origin validation, Manual end-to-end verification of all test pages
+
+## 082-ats-other: 082-ats-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 083-rte-major: Rich Text Editor Training Data Generation (CKEditor & Froala)
+Status: plan_review | Exit: error
+Subtasks: 0/9 complete
+Pending: Create CKEditor 5 test page (index.html), Create CKEditor Form Fill Module (ffm.js), Generate CKEditor training data (training.jsonl), Create Froala test page (index.html), Create Froala Form Fill Module (ffm.js), Generate Froala training data (training.jsonl), Validate all test pages load without errors, Validate training data consistency across all editors, Verify license compliance documentation
+
+## 084-rte-other: 084-rte-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 085-templating-backend: Server-Side Templating Framework Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 0/12 complete
+Pending: Create Jinja2 HTML test page with Django form patterns, Create Jinja2 Form Fill Module with vanilla JavaScript, Generate Jinja2 training dataset with detection patterns, Research Twig/Symfony form patterns via web search, Create Twig HTML test page with Symfony form patterns, Create Twig Form Fill Module with vanilla JavaScript, Generate Twig training dataset with detection patterns, Validate file structure and completeness for all frameworks, Validate HTML files are valid HTML5 and render correctly, Validate JavaScript FFM modules have no syntax errors, Validate JSONL files are valid JSON Lines format, Verify framework-specific patterns in all artifacts
+
+## 086-templating-frontend: Frontend Templating Framework Training Data
+Status: plan_review | Exit: none
+Subtasks: 0/21 complete
+Pending: Research Pug/Jade form rendering patterns via web search, Research Nunjucks form rendering patterns via web search, Research Liquid form rendering patterns via web search, Research Haml form rendering patterns via web search, Research Slim form rendering patterns via web search, Create Pug/Jade index.html with comprehensive form elements, Create Pug/Jade ffm.js using vanilla JavaScript DOM methods, Create Pug/Jade training.jsonl with 10-20 training examples, Create Nunjucks index.html with comprehensive form elements, Create Nunjucks ffm.js using vanilla JavaScript DOM methods, Create Nunjucks training.jsonl with 10-20 training examples, Create Liquid index.html with comprehensive form elements, Create Liquid ffm.js using vanilla JavaScript DOM methods, Create Liquid training.jsonl with 10-20 training examples, Create Haml index.html with comprehensive form elements, Create Haml ffm.js using vanilla JavaScript DOM methods, Create Haml training.jsonl with 10-20 training examples, Create Slim index.html with comprehensive form elements, Create Slim ffm.js using vanilla JavaScript DOM methods, Create Slim training.jsonl with 10-20 training examples, Run QA validation script to verify all 24 files exist and meet criteria
+
+Use MCP tools: get_task_error_details, submit_task_fix_request, process_rdr_batch
+[Auto-Claude RDR] Tasks needing intervention:
+
+## 071-marko: 071-marko__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 073-qwik: Qwik Framework Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 13/21 complete
+Pending: Add selection element examples to training.jsonl (15+ examples for checkboxes, radio, select), Add specialized input examples (10+ examples for date, time, file, range, color), Add edge case examples (10+ examples for disabled, hidden, multi-select, error handling), Add Qwik-specific pattern examples (5+ examples showing data-qwik-* usage, event dispatch), Validate training.jsonl format and line count (minimum 50 lines), Verify test page renders without errors and FFM loads correctly, Test FFM methods populate all form element types correctly, Execute random training examples to verify completeness
+
+## 077-shadow-component-libs: Shadow DOM Component Library Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 10/13 complete
+Pending: Cross-framework consistency check, Training data quality validation, End-to-end browser testing of all frameworks
+
+## 079-alpine-htmx-knockout: 079-alpine-htmx-knockout__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 080-svelte-aurelia: 080-svelte-aurelia__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 081-ats-major: ATS Major Platform Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 10/21 complete
+Pending: Generate Lever training.jsonl with 20+ diverse examples, Create iCIMS index.html test page with iframe-embedded traditional form, Create iCIMS ffm.js Form Fill Module with fallback for non-framework forms, Generate iCIMS training.jsonl with 20+ diverse examples, Create Taleo index.html test page with iframe-embedded multi-page form, Create Taleo ffm.js Form Fill Module with multi-step navigation, Generate Taleo training.jsonl with 20+ diverse examples, Validate all JSONL files have correct format and sufficient examples, Security validation: verify no wildcard origins in postMessage calls, Verify all FFM modules include origin validation, Manual end-to-end verification of all test pages
+
+## 082-ats-other: 082-ats-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 083-rte-major: Rich Text Editor Training Data Generation (CKEditor & Froala)
+Status: plan_review | Exit: error
+Subtasks: 0/9 complete
+Pending: Create CKEditor 5 test page (index.html), Create CKEditor Form Fill Module (ffm.js), Generate CKEditor training data (training.jsonl), Create Froala test page (index.html), Create Froala Form Fill Module (ffm.js), Generate Froala training data (training.jsonl), Validate all test pages load without errors, Validate training data consistency across all editors, Verify license compliance documentation
+
+## 084-rte-other: 084-rte-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 085-templating-backend: Server-Side Templating Framework Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 0/12 complete
+Pending: Create Jinja2 HTML test page with Django form patterns, Create Jinja2 Form Fill Module with vanilla JavaScript, Generate Jinja2 training dataset with detection patterns, Research Twig/Symfony form patterns via web search, Create Twig HTML test page with Symfony form patterns, Create Twig Form Fill Module with vanilla JavaScript, Generate Twig training dataset with detection patterns, Validate file structure and completeness for all frameworks, Validate HTML files are valid HTML5 and render correctly, Validate JavaScript FFM modules have no syntax errors, Validate JSONL files are valid JSON Lines format, Verify framework-specific patterns in all artifacts
+
+## 086-templating-frontend: Frontend Templating Framework Training Data
+Status: plan_review | Exit: none
+Subtasks: 0/21 complete
+Pending: Research Pug/Jade form rendering patterns via web search, Research Nunjucks form rendering patterns via web search, Research Liquid form rendering patterns via web search, Research Haml form rendering patterns via web search, Research Slim form rendering patterns via web search, Create Pug/Jade index.html with comprehensive form elements, Create Pug/Jade ffm.js using vanilla JavaScript DOM methods, Create Pug/Jade training.jsonl with 10-20 training examples, Create Nunjucks index.html with comprehensive form elements, Create Nunjucks ffm.js using vanilla JavaScript DOM methods, Create Nunjucks training.jsonl with 10-20 training examples, Create Liquid index.html with comprehensive form elements, Create Liquid ffm.js using vanilla JavaScript DOM methods, Create Liquid training.jsonl with 10-20 training examples, Create Haml index.html with comprehensive form elements, Create Haml ffm.js using vanilla JavaScript DOM methods, Create Haml training.jsonl with 10-20 training examples, Create Slim index.html with comprehensive form elements, Create Slim ffm.js using vanilla JavaScript DOM methods, Create Slim training.jsonl with 10-20 training examples, Run QA validation script to verify all 24 files exist and meet criteria
+
+Use MCP tools: get_task_error_details, submit_task_fix_request, process_rdr_batch
+w[Auto-Claude RDR] Tasks needing intervention:
+
+## 071-marko: 071-marko__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 073-qwik: Qwik Framework Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 13/21 complete
+Pending: Add selection element examples to training.jsonl (15+ examples for checkboxes, radio, select), Add specialized input examples (10+ examples for date, time, file, range, color), Add edge case examples (10+ examples for disabled, hidden, multi-select, error handling), Add Qwik-specific pattern examples (5+ examples showing data-qwik-* usage, event dispatch), Validate training.jsonl format and line count (minimum 50 lines), Verify test page renders without errors and FFM loads correctly, Test FFM methods populate all form element types correctly, Execute random training examples to verify completeness
+
+## 077-shadow-component-libs: Shadow DOM Component Library Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 10/13 complete
+Pending: Cross-framework consistency check, Training data quality validation, End-to-end browser testing of all frameworks
+
+## 079-alpine-htmx-knockout: 079-alpine-htmx-knockout__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 080-svelte-aurelia: 080-svelte-aurelia__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 081-ats-major: ATS Major Platform Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 10/21 complete
+Pending: Generate Lever training.jsonl with 20+ diverse examples, Create iCIMS index.html test page with iframe-embedded traditional form, Create iCIMS ffm.js Form Fill Module with fallback for non-framework forms, Generate iCIMS training.jsonl with 20+ diverse examples, Create Taleo index.html test page with iframe-embedded multi-page form, Create Taleo ffm.js Form Fill Module with multi-step navigation, Generate Taleo training.jsonl with 20+ diverse examples, Validate all JSONL files have correct format and sufficient examples, Security validation: verify no wildcard origins in postMessage calls, Verify all FFM modules include origin validation, Manual end-to-end verification of all test pages
+
+## 082-ats-other: 082-ats-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 083-rte-major: Rich Text Editor Training Data Generation (CKEditor & Froala)
+Status: plan_review | Exit: error
+Subtasks: 0/9 complete
+Pending: Create CKEditor 5 test page (index.html), Create CKEditor Form Fill Module (ffm.js), Generate CKEditor training data (training.jsonl), Create Froala test page (index.html), Create Froala Form Fill Module (ffm.js), Generate Froala training data (training.jsonl), Validate all test pages load without errors, Validate training data consistency across all editors, Verify license compliance documentation
+
+## 084-rte-other: 084-rte-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 085-templating-backend: Server-Side Templating Framework Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 0/12 complete
+Pending: Create Jinja2 HTML test page with Django form patterns, Create Jinja2 Form Fill Module with vanilla JavaScript, Generate Jinja2 training dataset with detection patterns, Research Twig/Symfony form patterns via web search, Create Twig HTML test page with Symfony form patterns, Create Twig Form Fill Module with vanilla JavaScript, Generate Twig training dataset with detection patterns, Validate file structure and completeness for all frameworks, Validate HTML files are valid HTML5 and render correctly, Validate JavaScript FFM modules have no syntax errors, Validate JSONL files are valid JSON Lines format, Verify framework-specific patterns in all artifacts
+
+## 086-templating-frontend: Frontend Templating Framework Training Data
+Status: plan_review | Exit: none
+Subtasks: 0/21 complete
+Pending: Research Pug/Jade form rendering patterns via web search, Research Nunjucks form rendering patterns via web search, Research Liquid form rendering patterns via web search, Research Haml form rendering patterns via web search, Research Slim form rendering patterns via web search, Create Pug/Jade index.html with comprehensive form elements, Create Pug/Jade ffm.js using vanilla JavaScript DOM methods, Create Pug/Jade training.jsonl with 10-20 training examples, Create Nunjucks index.html with comprehensive form elements, Create Nunjucks ffm.js using vanilla JavaScript DOM methods, Create Nunjucks training.jsonl with 10-20 training examples, Create Liquid index.html with comprehensive form elements, Create Liquid ffm.js using vanilla JavaScript DOM methods, Create Liquid training.jsonl with 10-20 training examples, Create Haml index.html with comprehensive form elements, Create Haml ffm.js using vanilla JavaScript DOM methods, Create Haml training.jsonl with 10-20 training examples, Create Slim index.html with comprehensive form elements, Create Slim ffm.js using vanilla JavaScript DOM methods, Create Slim training.jsonl with 10-20 training examples, Run QA validation script to verify all 24 files exist and meet criteria
+
+Use MCP tools: get_task_error_details, submit_task_fix_request, process_rdr_batch
+s[Auto-Claude RDR] Tasks needing intervention:
+
+## 071-marko: 071-marko__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 073-qwik: Qwik Framework Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 13/21 complete
+Pending: Add selection element examples to training.jsonl (15+ examples for checkboxes, radio, select), Add specialized input examples (10+ examples for date, time, file, range, color), Add edge case examples (10+ examples for disabled, hidden, multi-select, error handling), Add Qwik-specific pattern examples (5+ examples showing data-qwik-* usage, event dispatch), Validate training.jsonl format and line count (minimum 50 lines), Verify test page renders without errors and FFM loads correctly, Test FFM methods populate all form element types correctly, Execute random training examples to verify completeness
+
+## 077-shadow-component-libs: Shadow DOM Component Library Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 10/13 complete
+Pending: Cross-framework consistency check, Training data quality validation, End-to-end browser testing of all frameworks
+
+## 079-alpine-htmx-knockout: 079-alpine-htmx-knockout__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 080-svelte-aurelia: 080-svelte-aurelia__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 081-ats-major: ATS Major Platform Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 10/21 complete
+Pending: Generate Lever training.jsonl with 20+ diverse examples, Create iCIMS index.html test page with iframe-embedded traditional form, Create iCIMS ffm.js Form Fill Module with fallback for non-framework forms, Generate iCIMS training.jsonl with 20+ diverse examples, Create Taleo index.html test page with iframe-embedded multi-page form, Create Taleo ffm.js Form Fill Module with multi-step navigation, Generate Taleo training.jsonl with 20+ diverse examples, Validate all JSONL files have correct format and sufficient examples, Security validation: verify no wildcard origins in postMessage calls, Verify all FFM modules include origin validation, Manual end-to-end verification of all test pages
+
+## 082-ats-other: 082-ats-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 083-rte-major: Rich Text Editor Training Data Generation (CKEditor & Froala)
+Status: plan_review | Exit: error
+Subtasks: 0/9 complete
+Pending: Create CKEditor 5 test page (index.html), Create CKEditor Form Fill Module (ffm.js), Generate CKEditor training data (training.jsonl), Create Froala test page (index.html), Create Froala Form Fill Module (ffm.js), Generate Froala training data (training.jsonl), Validate all test pages load without errors, Validate training data consistency across all editors, Verify license compliance documentation
+
+## 084-rte-other: 084-rte-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 085-templating-backend: Server-Side Templating Framework Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 0/12 complete
+Pending: Create Jinja2 HTML test page with Django form patterns, Create Jinja2 Form Fill Module with vanilla JavaScript, Generate Jinja2 training dataset with detection patterns, Research Twig/Symfony form patterns via web search, Create Twig HTML test page with Symfony form patterns, Create Twig Form Fill Module with vanilla JavaScript, Generate Twig training dataset with detection patterns, Validate file structure and completeness for all frameworks, Validate HTML files are valid HTML5 and render correctly, Validate JavaScript FFM modules have no syntax errors, Validate JSONL files are valid JSON Lines format, Verify framework-specific patterns in all artifacts
+
+## 086-templating-frontend: Frontend Templating Framework Training Data
+Status: plan_review | Exit: none
+Subtasks: 0/21 complete
+Pending: Research Pug/Jade form rendering patterns via web search, Research Nunjucks form rendering patterns via web search, Research Liquid form rendering patterns via web search, Research Haml form rendering patterns via web search, Research Slim form rendering patterns via web search, Create Pug/Jade index.html with comprehensive form elements, Create Pug/Jade ffm.js using vanilla JavaScript DOM methods, Create Pug/Jade training.jsonl with 10-20 training examples, Create Nunjucks index.html with comprehensive form elements, Create Nunjucks ffm.js using vanilla JavaScript DOM methods, Create Nunjucks training.jsonl with 10-20 training examples, Create Liquid index.html with comprehensive form elements, Create Liquid ffm.js using vanilla JavaScript DOM methods, Create Liquid training.jsonl with 10-20 training examples, Create Haml index.html with comprehensive form elements, Create Haml ffm.js using vanilla JavaScript DOM methods, Create Haml training.jsonl with 10-20 training examples, Create Slim index.html with comprehensive form elements, Create Slim ffm.js using vanilla JavaScript DOM methods, Create Slim training.jsonl with 10-20 training examples, Run QA validation script to verify all 24 files exist and meet criteria
+
+Use MCP tools: get_task_error_details, submit_task_fix_request, process_rdr_batch
+[Auto-Claude RDR] Tasks needing intervention:
+
+## 071-marko: 071-marko__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 073-qwik: Qwik Framework Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 13/21 complete
+Pending: Add selection element examples to training.jsonl (15+ examples for checkboxes, radio, select), Add specialized input examples (10+ examples for date, time, file, range, color), Add edge case examples (10+ examples for disabled, hidden, multi-select, error handling), Add Qwik-specific pattern examples (5+ examples showing data-qwik-* usage, event dispatch), Validate training.jsonl format and line count (minimum 50 lines), Verify test page renders without errors and FFM loads correctly, Test FFM methods populate all form element types correctly, Execute random training examples to verify completeness
+
+## 077-shadow-component-libs: Shadow DOM Component Library Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 10/13 complete
+Pending: Cross-framework consistency check, Training data quality validation, End-to-end browser testing of all frameworks
+
+## 079-alpine-htmx-knockout: 079-alpine-htmx-knockout__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 080-svelte-aurelia: 080-svelte-aurelia__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 081-ats-major: ATS Major Platform Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 10/21 complete
+Pending: Generate Lever training.jsonl with 20+ diverse examples, Create iCIMS index.html test page with iframe-embedded traditional form, Create iCIMS ffm.js Form Fill Module with fallback for non-framework forms, Generate iCIMS training.jsonl with 20+ diverse examples, Create Taleo index.html test page with iframe-embedded multi-page form, Create Taleo ffm.js Form Fill Module with multi-step navigation, Generate Taleo training.jsonl with 20+ diverse examples, Validate all JSONL files have correct format and sufficient examples, Security validation: verify no wildcard origins in postMessage calls, Verify all FFM modules include origin validation, Manual end-to-end verification of all test pages
+
+## 082-ats-other: 082-ats-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 083-rte-major: Rich Text Editor Training Data Generation (CKEditor & Froala)
+Status: plan_review | Exit: error
+Subtasks: 0/9 complete
+Pending: Create CKEditor 5 test page (index.html), Create CKEditor Form Fill Module (ffm.js), Generate CKEditor training data (training.jsonl), Create Froala test page (index.html), Create Froala Form Fill Module (ffm.js), Generate Froala training data (training.jsonl), Validate all test pages load without errors, Validate training data consistency across all editors, Verify license compliance documentation
+
+## 084-rte-other: 084-rte-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 085-templating-backend: Server-Side Templating Framework Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 0/12 complete
+Pending: Create Jinja2 HTML test page with Django form patterns, Create Jinja2 Form Fill Module with vanilla JavaScript, Generate Jinja2 training dataset with detection patterns, Research Twig/Symfony form patterns via web search, Create Twig HTML test page with Symfony form patterns, Create Twig Form Fill Module with vanilla JavaScript, Generate Twig training dataset with detection patterns, Validate file structure and completeness for all frameworks, Validate HTML files are valid HTML5 and render correctly, Validate JavaScript FFM modules have no syntax errors, Validate JSONL files are valid JSON Lines format, Verify framework-specific patterns in all artifacts
+
+## 086-templating-frontend: Frontend Templating Framework Training Data
+Status: plan_review | Exit: none
+Subtasks: 0/21 complete
+Pending: Research Pug/Jade form rendering patterns via web search, Research Nunjucks form rendering patterns via web search, Research Liquid form rendering patterns via web search, Research Haml form rendering patterns via web search, Research Slim form rendering patterns via web search, Create Pug/Jade index.html with comprehensive form elements, Create Pug/Jade ffm.js using vanilla JavaScript DOM methods, Create Pug/Jade training.jsonl with 10-20 training examples, Create Nunjucks index.html with comprehensive form elements, Create Nunjucks ffm.js using vanilla JavaScript DOM methods, Create Nunjucks training.jsonl with 10-20 training examples, Create Liquid index.html with comprehensive form elements, Create Liquid ffm.js using vanilla JavaScript DOM methods, Create Liquid training.jsonl with 10-20 training examples, Create Haml index.html with comprehensive form elements, Create Haml ffm.js using vanilla JavaScript DOM methods, Create Haml training.jsonl with 10-20 training examples, Create Slim index.html with comprehensive form elements, Create Slim ffm.js using vanilla JavaScript DOM methods, Create Slim training.jsonl with 10-20 training examples, Run QA validation script to verify all 24 files exist and meet criteria
+
+Use MCP tools: get_task_error_details, submit_task_fix_request, process_rdr_batch
+D[Auto-Claude RDR] Tasks needing intervention:
+
+## 071-marko: 071-marko__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 073-qwik: Qwik Framework Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 13/21 complete
+Pending: Add selection element examples to training.jsonl (15+ examples for checkboxes, radio, select), Add specialized input examples (10+ examples for date, time, file, range, color), Add edge case examples (10+ examples for disabled, hidden, multi-select, error handling), Add Qwik-specific pattern examples (5+ examples showing data-qwik-* usage, event dispatch), Validate training.jsonl format and line count (minimum 50 lines), Verify test page renders without errors and FFM loads correctly, Test FFM methods populate all form element types correctly, Execute random training examples to verify completeness
+
+## 077-shadow-component-libs: Shadow DOM Component Library Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 10/13 complete
+Pending: Cross-framework consistency check, Training data quality validation, End-to-end browser testing of all frameworks
+
+## 079-alpine-htmx-knockout: 079-alpine-htmx-knockout__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 080-svelte-aurelia: 080-svelte-aurelia__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 081-ats-major: ATS Major Platform Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 10/21 complete
+Pending: Generate Lever training.jsonl with 20+ diverse examples, Create iCIMS index.html test page with iframe-embedded traditional form, Create iCIMS ffm.js Form Fill Module with fallback for non-framework forms, Generate iCIMS training.jsonl with 20+ diverse examples, Create Taleo index.html test page with iframe-embedded multi-page form, Create Taleo ffm.js Form Fill Module with multi-step navigation, Generate Taleo training.jsonl with 20+ diverse examples, Validate all JSONL files have correct format and sufficient examples, Security validation: verify no wildcard origins in postMessage calls, Verify all FFM modules include origin validation, Manual end-to-end verification of all test pages
+
+## 082-ats-other: 082-ats-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 083-rte-major: Rich Text Editor Training Data Generation (CKEditor & Froala)
+Status: plan_review | Exit: error
+Subtasks: 0/9 complete
+Pending: Create CKEditor 5 test page (index.html), Create CKEditor Form Fill Module (ffm.js), Generate CKEditor training data (training.jsonl), Create Froala test page (index.html), Create Froala Form Fill Module (ffm.js), Generate Froala training data (training.jsonl), Validate all test pages load without errors, Validate training data consistency across all editors, Verify license compliance documentation
+
+## 084-rte-other: 084-rte-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 085-templating-backend: Server-Side Templating Framework Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 0/12 complete
+Pending: Create Jinja2 HTML test page with Django form patterns, Create Jinja2 Form Fill Module with vanilla JavaScript, Generate Jinja2 training dataset with detection patterns, Research Twig/Symfony form patterns via web search, Create Twig HTML test page with Symfony form patterns, Create Twig Form Fill Module with vanilla JavaScript, Generate Twig training dataset with detection patterns, Validate file structure and completeness for all frameworks, Validate HTML files are valid HTML5 and render correctly, Validate JavaScript FFM modules have no syntax errors, Validate JSONL files are valid JSON Lines format, Verify framework-specific patterns in all artifacts
+
+## 086-templating-frontend: Frontend Templating Framework Training Data
+Status: plan_review | Exit: none
+Subtasks: 0/21 complete
+Pending: Research Pug/Jade form rendering patterns via web search, Research Nunjucks form rendering patterns via web search, Research Liquid form rendering patterns via web search, Research Haml form rendering patterns via web search, Research Slim form rendering patterns via web search, Create Pug/Jade index.html with comprehensive form elements, Create Pug/Jade ffm.js using vanilla JavaScript DOM methods, Create Pug/Jade training.jsonl with 10-20 training examples, Create Nunjucks index.html with comprehensive form elements, Create Nunjucks ffm.js using vanilla JavaScript DOM methods, Create Nunjucks training.jsonl with 10-20 training examples, Create Liquid index.html with comprehensive form elements, Create Liquid ffm.js using vanilla JavaScript DOM methods, Create Liquid training.jsonl with 10-20 training examples, Create Haml index.html with comprehensive form elements, Create Haml ffm.js using vanilla JavaScript DOM methods, Create Haml training.jsonl with 10-20 training examples, Create Slim index.html with comprehensive form elements, Create Slim ffm.js using vanilla JavaScript DOM methods, Create Slim training.jsonl with 10-20 training examples, Run QA validation script to verify all 24 files exist and meet criteria
+
+Use MCP tools: get_task_error_details, submit_task_fix_request, process_rdr_batch
+ [Auto-Claude RDR] Tasks needing intervention:
+
+## 071-marko: 071-marko__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 073-qwik: Qwik Framework Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 13/21 complete
+Pending: Add selection element examples to training.jsonl (15+ examples for checkboxes, radio, select), Add specialized input examples (10+ examples for date, time, file, range, color), Add edge case examples (10+ examples for disabled, hidden, multi-select, error handling), Add Qwik-specific pattern examples (5+ examples showing data-qwik-* usage, event dispatch), Validate training.jsonl format and line count (minimum 50 lines), Verify test page renders without errors and FFM loads correctly, Test FFM methods populate all form element types correctly, Execute random training examples to verify completeness
+
+## 077-shadow-component-libs: Shadow DOM Component Library Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 10/13 complete
+Pending: Cross-framework consistency check, Training data quality validation, End-to-end browser testing of all frameworks
+
+## 079-alpine-htmx-knockout: 079-alpine-htmx-knockout__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 080-svelte-aurelia: 080-svelte-aurelia__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 081-ats-major: ATS Major Platform Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 10/21 complete
+Pending: Generate Lever training.jsonl with 20+ diverse examples, Create iCIMS index.html test page with iframe-embedded traditional form, Create iCIMS ffm.js Form Fill Module with fallback for non-framework forms, Generate iCIMS training.jsonl with 20+ diverse examples, Create Taleo index.html test page with iframe-embedded multi-page form, Create Taleo ffm.js Form Fill Module with multi-step navigation, Generate Taleo training.jsonl with 20+ diverse examples, Validate all JSONL files have correct format and sufficient examples, Security validation: verify no wildcard origins in postMessage calls, Verify all FFM modules include origin validation, Manual end-to-end verification of all test pages
+
+## 082-ats-other: 082-ats-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 083-rte-major: Rich Text Editor Training Data Generation (CKEditor & Froala)
+Status: plan_review | Exit: error
+Subtasks: 0/9 complete
+Pending: Create CKEditor 5 test page (index.html), Create CKEditor Form Fill Module (ffm.js), Generate CKEditor training data (training.jsonl), Create Froala test page (index.html), Create Froala Form Fill Module (ffm.js), Generate Froala training data (training.jsonl), Validate all test pages load without errors, Validate training data consistency across all editors, Verify license compliance documentation
+
+## 084-rte-other: 084-rte-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 085-templating-backend: Server-Side Templating Framework Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 0/12 complete
+Pending: Create Jinja2 HTML test page with Django form patterns, Create Jinja2 Form Fill Module with vanilla JavaScript, Generate Jinja2 training dataset with detection patterns, Research Twig/Symfony form patterns via web search, Create Twig HTML test page with Symfony form patterns, Create Twig Form Fill Module with vanilla JavaScript, Generate Twig training dataset with detection patterns, Validate file structure and completeness for all frameworks, Validate HTML files are valid HTML5 and render correctly, Validate JavaScript FFM modules have no syntax errors, Validate JSONL files are valid JSON Lines format, Verify framework-specific patterns in all artifacts
+
+## 086-templating-frontend: Frontend Templating Framework Training Data
+Status: plan_review | Exit: none
+Subtasks: 0/21 complete
+Pending: Research Pug/Jade form rendering patterns via web search, Research Nunjucks form rendering patterns via web search, Research Liquid form rendering patterns via web search, Research Haml form rendering patterns via web search, Research Slim form rendering patterns via web search, Create Pug/Jade index.html with comprehensive form elements, Create Pug/Jade ffm.js using vanilla JavaScript DOM methods, Create Pug/Jade training.jsonl with 10-20 training examples, Create Nunjucks index.html with comprehensive form elements, Create Nunjucks ffm.js using vanilla JavaScript DOM methods, Create Nunjucks training.jsonl with 10-20 training examples, Create Liquid index.html with comprehensive form elements, Create Liquid ffm.js using vanilla JavaScript DOM methods, Create Liquid training.jsonl with 10-20 training examples, Create Haml index.html with comprehensive form elements, Create Haml ffm.js using vanilla JavaScript DOM methods, Create Haml training.jsonl with 10-20 training examples, Create Slim index.html with comprehensive form elements, Create Slim ffm.js using vanilla JavaScript DOM methods, Create Slim training.jsonl with 10-20 training examples, Run QA validation script to verify all 24 files exist and meet criteria
+
+Use MCP tools: get_task_error_details, submit_task_fix_request, process_rdr_batch
+[Auto-Claude RDR] Tasks needing intervention:
+
+## 071-marko: 071-marko__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 073-qwik: Qwik Framework Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 13/21 complete
+Pending: Add selection element examples to training.jsonl (15+ examples for checkboxes, radio, select), Add specialized input examples (10+ examples for date, time, file, range, color), Add edge case examples (10+ examples for disabled, hidden, multi-select, error handling), Add Qwik-specific pattern examples (5+ examples showing data-qwik-* usage, event dispatch), Validate training.jsonl format and line count (minimum 50 lines), Verify test page renders without errors and FFM loads correctly, Test FFM methods populate all form element types correctly, Execute random training examples to verify completeness
+
+## 077-shadow-component-libs: Shadow DOM Component Library Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 10/13 complete
+Pending: Cross-framework consistency check, Training data quality validation, End-to-end browser testing of all frameworks
+
+## 079-alpine-htmx-knockout: 079-alpine-htmx-knockout__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 080-svelte-aurelia: 080-svelte-aurelia__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 081-ats-major: ATS Major Platform Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 10/21 complete
+Pending: Generate Lever training.jsonl with 20+ diverse examples, Create iCIMS index.html test page with iframe-embedded traditional form, Create iCIMS ffm.js Form Fill Module with fallback for non-framework forms, Generate iCIMS training.jsonl with 20+ diverse examples, Create Taleo index.html test page with iframe-embedded multi-page form, Create Taleo ffm.js Form Fill Module with multi-step navigation, Generate Taleo training.jsonl with 20+ diverse examples, Validate all JSONL files have correct format and sufficient examples, Security validation: verify no wildcard origins in postMessage calls, Verify all FFM modules include origin validation, Manual end-to-end verification of all test pages
+
+## 082-ats-other: 082-ats-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 083-rte-major: Rich Text Editor Training Data Generation (CKEditor & Froala)
+Status: plan_review | Exit: error
+Subtasks: 0/9 complete
+Pending: Create CKEditor 5 test page (index.html), Create CKEditor Form Fill Module (ffm.js), Generate CKEditor training data (training.jsonl), Create Froala test page (index.html), Create Froala Form Fill Module (ffm.js), Generate Froala training data (training.jsonl), Validate all test pages load without errors, Validate training data consistency across all editors, Verify license compliance documentation
+
+## 084-rte-other: 084-rte-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 085-templating-backend: Server-Side Templating Framework Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 0/12 complete
+Pending: Create Jinja2 HTML test page with Django form patterns, Create Jinja2 Form Fill Module with vanilla JavaScript, Generate Jinja2 training dataset with detection patterns, Research Twig/Symfony form patterns via web search, Create Twig HTML test page with Symfony form patterns, Create Twig Form Fill Module with vanilla JavaScript, Generate Twig training dataset with detection patterns, Validate file structure and completeness for all frameworks, Validate HTML files are valid HTML5 and render correctly, Validate JavaScript FFM modules have no syntax errors, Validate JSONL files are valid JSON Lines format, Verify framework-specific patterns in all artifacts
+
+## 086-templating-frontend: Frontend Templating Framework Training Data
+Status: plan_review | Exit: none
+Subtasks: 0/21 complete
+Pending: Research Pug/Jade form rendering patterns via web search, Research Nunjucks form rendering patterns via web search, Research Liquid form rendering patterns via web search, Research Haml form rendering patterns via web search, Research Slim form rendering patterns via web search, Create Pug/Jade index.html with comprehensive form elements, Create Pug/Jade ffm.js using vanilla JavaScript DOM methods, Create Pug/Jade training.jsonl with 10-20 training examples, Create Nunjucks index.html with comprehensive form elements, Create Nunjucks ffm.js using vanilla JavaScript DOM methods, Create Nunjucks training.jsonl with 10-20 training examples, Create Liquid index.html with comprehensive form elements, Create Liquid ffm.js using vanilla JavaScript DOM methods, Create Liquid training.jsonl with 10-20 training examples, Create Haml index.html with comprehensive form elements, Create Haml ffm.js using vanilla JavaScript DOM methods, Create Haml training.jsonl with 10-20 training examples, Create Slim index.html with comprehensive form elements, Create Slim ffm.js using vanilla JavaScript DOM methods, Create Slim training.jsonl with 10-20 training examples, Run QA validation script to verify all 24 files exist and meet criteria
+
+Use MCP tools: get_task_error_details, submit_task_fix_request, process_rdr_batchS
+[Auto-Claude RDR] Tasks needing intervention:
+
+## 071-marko: 071-marko__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 073-qwik: Qwik Framework Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 13/21 complete
+Pending: Add selection element examples to training.jsonl (15+ examples for checkboxes, radio, select), Add specialized input examples (10+ examples for date, time, file, range, color), Add edge case examples (10+ examples for disabled, hidden, multi-select, error handling), Add Qwik-specific pattern examples (5+ examples showing data-qwik-* usage, event dispatch), Validate training.jsonl format and line count (minimum 50 lines), Verify test page renders without errors and FFM loads correctly, Test FFM methods populate all form element types correctly, Execute random training examples to verify completeness
+
+## 077-shadow-component-libs: Shadow DOM Component Library Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 10/13 complete
+Pending: Cross-framework consistency check, Training data quality validation, End-to-end browser testing of all frameworks
+
+## 079-alpine-htmx-knockout: 079-alpine-htmx-knockout__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 080-svelte-aurelia: 080-svelte-aurelia__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 081-ats-major: ATS Major Platform Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 10/21 complete
+Pending: Generate Lever training.jsonl with 20+ diverse examples, Create iCIMS index.html test page with iframe-embedded traditional form, Create iCIMS ffm.js Form Fill Module with fallback for non-framework forms, Generate iCIMS training.jsonl with 20+ diverse examples, Create Taleo index.html test page with iframe-embedded multi-page form, Create Taleo ffm.js Form Fill Module with multi-step navigation, Generate Taleo training.jsonl with 20+ diverse examples, Validate all JSONL files have correct format and sufficient examples, Security validation: verify no wildcard origins in postMessage calls, Verify all FFM modules include origin validation, Manual end-to-end verification of all test pages
+
+## 082-ats-other: 082-ats-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 083-rte-major: Rich Text Editor Training Data Generation (CKEditor & Froala)
+Status: plan_review | Exit: error
+Subtasks: 0/9 complete
+Pending: Create CKEditor 5 test page (index.html), Create CKEditor Form Fill Module (ffm.js), Generate CKEditor training data (training.jsonl), Create Froala test page (index.html), Create Froala Form Fill Module (ffm.js), Generate Froala training data (training.jsonl), Validate all test pages load without errors, Validate training data consistency across all editors, Verify license compliance documentation
+
+## 084-rte-other: 084-rte-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 085-templating-backend: Server-Side Templating Framework Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 0/12 complete
+Pending: Create Jinja2 HTML test page with Django form patterns, Create Jinja2 Form Fill Module with vanilla JavaScript, Generate Jinja2 training dataset with detection patterns, Research Twig/Symfony form patterns via web search, Create Twig HTML test page with Symfony form patterns, Create Twig Form Fill Module with vanilla JavaScript, Generate Twig training dataset with detection patterns, Validate file structure and completeness for all frameworks, Validate HTML files are valid HTML5 and render correctly, Validate JavaScript FFM modules have no syntax errors, Validate JSONL files are valid JSON Lines format, Verify framework-specific patterns in all artifacts
+
+## 086-templating-frontend: Frontend Templating Framework Training Data
+Status: plan_review | Exit: none
+Subtasks: 0/21 complete
+Pending: Research Pug/Jade form rendering patterns via web search, Research Nunjucks form rendering patterns via web search, Research Liquid form rendering patterns via web search, Research Haml form rendering patterns via web search, Research Slim form rendering patterns via web search, Create Pug/Jade index.html with comprehensive form elements, Create Pug/Jade ffm.js using vanilla JavaScript DOM methods, Create Pug/Jade training.jsonl with 10-20 training examples, Create Nunjucks index.html with comprehensive form elements, Create Nunjucks ffm.js using vanilla JavaScript DOM methods, Create Nunjucks training.jsonl with 10-20 training examples, Create Liquid index.html with comprehensive form elements, Create Liquid ffm.js using vanilla JavaScript DOM methods, Create Liquid training.jsonl with 10-20 training examples, Create Haml index.html with comprehensive form elements, Create Haml ffm.js using vanilla JavaScript DOM methods, Create Haml training.jsonl with 10-20 training examples, Create Slim index.html with comprehensive form elements, Create Slim ffm.js using vanilla JavaScript DOM methods, Create Slim training.jsonl with 10-20 training examples, Run QA validation script to verify all 24 files exist and meet criteria
+
+Use MCP tools: get_task_error_details, submit_task_fix_request, process_rdr_batch
+  [Auto-Claude RDR] Tasks needing intervention:
+
+## 071-marko: 071-marko__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 073-qwik: Qwik Framework Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 13/21 complete
+Pending: Add selection element examples to training.jsonl (15+ examples for checkboxes, radio, select), Add specialized input examples (10+ examples for date, time, file, range, color), Add edge case examples (10+ examples for disabled, hidden, multi-select, error handling), Add Qwik-specific pattern examples (5+ examples showing data-qwik-* usage, event dispatch), Validate training.jsonl format and line count (minimum 50 lines), Verify test page renders without errors and FFM loads correctly, Test FFM methods populate all form element types correctly, Execute random training examples to verify completeness
+
+## 077-shadow-component-libs: Shadow DOM Component Library Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 10/13 complete
+Pending: Cross-framework consistency check, Training data quality validation, End-to-end browser testing of all frameworks
+
+## 079-alpine-htmx-knockout: 079-alpine-htmx-knockout__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 080-svelte-aurelia: 080-svelte-aurelia__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 081-ats-major: ATS Major Platform Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 10/21 complete
+Pending: Generate Lever training.jsonl with 20+ diverse examples, Create iCIMS index.html test page with iframe-embedded traditional form, Create iCIMS ffm.js Form Fill Module with fallback for non-framework forms, Generate iCIMS training.jsonl with 20+ diverse examples, Create Taleo index.html test page with iframe-embedded multi-page form, Create Taleo ffm.js Form Fill Module with multi-step navigation, Generate Taleo training.jsonl with 20+ diverse examples, Validate all JSONL files have correct format and sufficient examples, Security validation: verify no wildcard origins in postMessage calls, Verify all FFM modules include origin validation, Manual end-to-end verification of all test pages
+
+## 082-ats-other: 082-ats-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 083-rte-major: Rich Text Editor Training Data Generation (CKEditor & Froala)
+Status: plan_review | Exit: error
+Subtasks: 0/9 complete
+Pending: Create CKEditor 5 test page (index.html), Create CKEditor Form Fill Module (ffm.js), Generate CKEditor training data (training.jsonl), Create Froala test page (index.html), Create Froala Form Fill Module (ffm.js), Generate Froala training data (training.jsonl), Validate all test pages load without errors, Validate training data consistency across all editors, Verify license compliance documentation
+
+## 084-rte-other: 084-rte-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 085-templating-backend: Server-Side Templating Framework Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 0/12 complete
+Pending: Create Jinja2 HTML test page with Django form patterns, Create Jinja2 Form Fill Module with vanilla JavaScript, Generate Jinja2 training dataset with detection patterns, Research Twig/Symfony form patterns via web search, Create Twig HTML test page with Symfony form patterns, Create Twig Form Fill Module with vanilla JavaScript, Generate Twig training dataset with detection patterns, Validate file structure and completeness for all frameworks, Validate HTML files are valid HTML5 and render correctly, Validate JavaScript FFM modules have no syntax errors, Validate JSONL files are valid JSON Lines format, Verify framework-specific patterns in all artifacts
+
+## 086-templating-frontend: Frontend Templating Framework Training Data
+Status: plan_review | Exit: none
+Subtasks: 0/21 complete
+Pending: Research Pug/Jade form rendering patterns via web search, Research Nunjucks form rendering patterns via web search, Research Liquid form rendering patterns via web search, Research Haml form rendering patterns via web search, Research Slim form rendering patterns via web search, Create Pug/Jade index.html with comprehensive form elements, Create Pug/Jade ffm.js using vanilla JavaScript DOM methods, Create Pug/Jade training.jsonl with 10-20 training examples, Create Nunjucks index.html with comprehensive form elements, Create Nunjucks ffm.js using vanilla JavaScript DOM methods, Create Nunjucks training.jsonl with 10-20 training examples, Create Liquid index.html with comprehensive form elements, Create Liquid ffm.js using vanilla JavaScript DOM methods, Create Liquid training.jsonl with 10-20 training examples, Create Haml index.html with comprehensive form elements, Create Haml ffm.js using vanilla JavaScript DOM methods, Create Haml training.jsonl with 10-20 training examples, Create Slim index.html with comprehensive form elements, Create Slim ffm.js using vanilla JavaScript DOM methods, Create Slim training.jsonl with 10-20 training examples, Run QA validation script to verify all 24 files exist and meet criteria
+
+Use MCP tools: get_task_error_details, submit_task_fix_request, process_rdr_batch
+[Auto-Claude RDR] Tasks needing intervention:
+
+## 071-marko: 071-marko__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 073-qwik: Qwik Framework Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 13/21 complete
+Pending: Add selection element examples to training.jsonl (15+ examples for checkboxes, radio, select), Add specialized input examples (10+ examples for date, time, file, range, color), Add edge case examples (10+ examples for disabled, hidden, multi-select, error handling), Add Qwik-specific pattern examples (5+ examples showing data-qwik-* usage, event dispatch), Validate training.jsonl format and line count (minimum 50 lines), Verify test page renders without errors and FFM loads correctly, Test FFM methods populate all form element types correctly, Execute random training examples to verify completeness
+
+## 077-shadow-component-libs: Shadow DOM Component Library Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 10/13 complete
+Pending: Cross-framework consistency check, Training data quality validation, End-to-end browser testing of all frameworks
+
+## 079-alpine-htmx-knockout: 079-alpine-htmx-knockout__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 080-svelte-aurelia: 080-svelte-aurelia__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 081-ats-major: ATS Major Platform Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 10/21 complete
+Pending: Generate Lever training.jsonl with 20+ diverse examples, Create iCIMS index.html test page with iframe-embedded traditional form, Create iCIMS ffm.js Form Fill Module with fallback for non-framework forms, Generate iCIMS training.jsonl with 20+ diverse examples, Create Taleo index.html test page with iframe-embedded multi-page form, Create Taleo ffm.js Form Fill Module with multi-step navigation, Generate Taleo training.jsonl with 20+ diverse examples, Validate all JSONL files have correct format and sufficient examples, Security validation: verify no wildcard origins in postMessage calls, Verify all FFM modules include origin validation, Manual end-to-end verification of all test pages
+
+## 082-ats-other: 082-ats-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 083-rte-major: Rich Text Editor Training Data Generation (CKEditor & Froala)
+Status: plan_review | Exit: error
+Subtasks: 0/9 complete
+Pending: Create CKEditor 5 test page (index.html), Create CKEditor Form Fill Module (ffm.js), Generate CKEditor training data (training.jsonl), Create Froala test page (index.html), Create Froala Form Fill Module (ffm.js), Generate Froala training data (training.jsonl), Validate all test pages load without errors, Validate training data consistency across all editors, Verify license compliance documentation
+
+## 084-rte-other: 084-rte-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 085-templating-backend: Server-Side Templating Framework Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 0/12 complete
+Pending: Create Jinja2 HTML test page with Django form patterns, Create Jinja2 Form Fill Module with vanilla JavaScript, Generate Jinja2 training dataset with detection patterns, Research Twig/Symfony form patterns via web search, Create Twig HTML test page with Symfony form patterns, Create Twig Form Fill Module with vanilla JavaScript, Generate Twig training dataset with detection patterns, Validate file structure and completeness for all frameworks, Validate HTML files are valid HTML5 and render correctly, Validate JavaScript FFM modules have no syntax errors, Validate JSONL files are valid JSON Lines format, Verify framework-specific patterns in all artifacts
+
+## 086-templating-frontend: Frontend Templating Framework Training Data
+Status: plan_review | Exit: none
+Subtasks: 0/21 complete
+Pending: Research Pug/Jade form rendering patterns via web search, Research Nunjucks form rendering patterns via web search, Research Liquid form rendering patterns via web search, Research Haml form rendering patterns via web search, Research Slim form rendering patterns via web search, Create Pug/Jade index.html with comprehensive form elements, Create Pug/Jade ffm.js using vanilla JavaScript DOM methods, Create Pug/Jade training.jsonl with 10-20 training examples, Create Nunjucks index.html with comprehensive form elements, Create Nunjucks ffm.js using vanilla JavaScript DOM methods, Create Nunjucks training.jsonl with 10-20 training examples, Create Liquid index.html with comprehensive form elements, Create Liquid ffm.js using vanilla JavaScript DOM methods, Create Liquid training.jsonl with 10-20 training examples, Create Haml index.html with comprehensive form elements, Create Haml ffm.js using vanilla JavaScript DOM methods, Create Haml training.jsonl with 10-20 training examples, Create Slim index.html with comprehensive form elements, Create Slim ffm.js using vanilla JavaScript DOM methods, Create Slim training.jsonl with 10-20 training examples, Run QA validation script to verify all 24 files exist and meet criteria
+
+Use MCP tools: get_task_error_details, submit_task_fix_request, process_rdr_batch
+
+              [Auto-Claude RDR] Tasks needing intervention:
+
+## 071-marko: 071-marko__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 073-qwik: Qwik Framework Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 13/21 complete
+Pending: Add selection element examples to training.jsonl (15+ examples for checkboxes, radio, select), Add specialized input examples (10+ examples for date, time, file, range, color), Add edge case examples (10+ examples for disabled, hidden, multi-select, error handling), Add Qwik-specific pattern examples (5+ examples showing data-qwik-* usage, event dispatch), Validate training.jsonl format and line count (minimum 50 lines), Verify test page renders without errors and FFM loads correctly, Test FFM methods populate all form element types correctly, Execute random training examples to verify completeness
+
+## 077-shadow-component-libs: Shadow DOM Component Library Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 10/13 complete
+Pending: Cross-framework consistency check, Training data quality validation, End-to-end browser testing of all frameworks
+
+## 079-alpine-htmx-knockout: 079-alpine-htmx-knockout__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 080-svelte-aurelia: 080-svelte-aurelia__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 081-ats-major: ATS Major Platform Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 10/21 complete
+Pending: Generate Lever training.jsonl with 20+ diverse examples, Create iCIMS index.html test page with iframe-embedded traditional form, Create iCIMS ffm.js Form Fill Module with fallback for non-framework forms, Generate iCIMS training.jsonl with 20+ diverse examples, Create Taleo index.html test page with iframe-embedded multi-page form, Create Taleo ffm.js Form Fill Module with multi-step navigation, Generate Taleo training.jsonl with 20+ diverse examples, Validate all JSONL files have correct format and sufficient examples, Security validation: verify no wildcard origins in postMessage calls, Verify all FFM modules include origin validation, Manual end-to-end verification of all test pages
+
+## 082-ats-other: 082-ats-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 083-rte-major: Rich Text Editor Training Data Generation (CKEditor & Froala)
+Status: plan_review | Exit: error
+Subtasks: 0/9 complete
+Pending: Create CKEditor 5 test page (index.html), Create CKEditor Form Fill Module (ffm.js), Generate CKEditor training data (training.jsonl), Create Froala test page (index.html), Create Froala Form Fill Module (ffm.js), Generate Froala training data (training.jsonl), Validate all test pages load without errors, Validate training data consistency across all editors, Verify license compliance documentation
+
+## 084-rte-other: 084-rte-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 085-templating-backend: Server-Side Templating Framework Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 0/12 complete
+Pending: Create Jinja2 HTML test page with Django form patterns, Create Jinja2 Form Fill Module with vanilla JavaScript, Generate Jinja2 training dataset with detection patterns, Research Twig/Symfony form patterns via web search, Create Twig HTML test page with Symfony form patterns, Create Twig Form Fill Module with vanilla JavaScript, Generate Twig training dataset with detection patterns, Validate file structure and completeness for all frameworks, Validate HTML files are valid HTML5 and render correctly, Validate JavaScript FFM modules have no syntax errors, Validate JSONL files are valid JSON Lines format, Verify framework-specific patterns in all artifacts
+
+## 086-templating-frontend: Frontend Templating Framework Training Data
+Status: plan_review | Exit: none
+Subtasks: 0/21 complete
+Pending: Research Pug/Jade form rendering patterns via web search, Research Nunjucks form rendering patterns via web search, Research Liquid form rendering patterns via web search, Research Haml form rendering patterns via web search, Research Slim form rendering patterns via web search, Create Pug/Jade index.html with comprehensive form elements, Create Pug/Jade ffm.js using vanilla JavaScript DOM methods, Create Pug/Jade training.jsonl with 10-20 training examples, Create Nunjucks index.html with comprehensive form elements, Create Nunjucks ffm.js using vanilla JavaScript DOM methods, Create Nunjucks training.jsonl with 10-20 training examples, Create Liquid index.html with comprehensive form elements, Create Liquid ffm.js using vanilla JavaScript DOM methods, Create Liquid training.jsonl with 10-20 training examples, Create Haml index.html with comprehensive form elements, Create Haml ffm.js using vanilla JavaScript DOM methods, Create Haml training.jsonl with 10-20 training examples, Create Slim index.html with comprehensive form elements, Create Slim ffm.js using vanilla JavaScript DOM methods, Create Slim training.jsonl with 10-20 training examples, Run QA validation script to verify all 24 files exist and meet criteria
+
+Use MCP tools: get_task_error_details, submit_task_fix_request, process_rdr_batch
+[Auto-Claude RDR] Tasks needing intervention:
+
+## 071-marko: 071-marko__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 073-qwik: Qwik Framework Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 13/21 complete
+Pending: Add selection element examples to training.jsonl (15+ examples for checkboxes, radio, select), Add specialized input examples (10+ examples for date, time, file, range, color), Add edge case examples (10+ examples for disabled, hidden, multi-select, error handling), Add Qwik-specific pattern examples (5+ examples showing data-qwik-* usage, event dispatch), Validate training.jsonl format and line count (minimum 50 lines), Verify test page renders without errors and FFM loads correctly, Test FFM methods populate all form element types correctly, Execute random training examples to verify completeness
+
+## 077-shadow-component-libs: Shadow DOM Component Library Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 10/13 complete
+Pending: Cross-framework consistency check, Training data quality validation, End-to-end browser testing of all frameworks
+
+## 079-alpine-htmx-knockout: 079-alpine-htmx-knockout__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 080-svelte-aurelia: 080-svelte-aurelia__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 081-ats-major: ATS Major Platform Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 10/21 complete
+Pending: Generate Lever training.jsonl with 20+ diverse examples, Create iCIMS index.html test page with iframe-embedded traditional form, Create iCIMS ffm.js Form Fill Module with fallback for non-framework forms, Generate iCIMS training.jsonl with 20+ diverse examples, Create Taleo index.html test page with iframe-embedded multi-page form, Create Taleo ffm.js Form Fill Module with multi-step navigation, Generate Taleo training.jsonl with 20+ diverse examples, Validate all JSONL files have correct format and sufficient examples, Security validation: verify no wildcard origins in postMessage calls, Verify all FFM modules include origin validation, Manual end-to-end verification of all test pages
+
+## 082-ats-other: 082-ats-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 083-rte-major: Rich Text Editor Training Data Generation (CKEditor & Froala)
+Status: plan_review | Exit: error
+Subtasks: 0/9 complete
+Pending: Create CKEditor 5 test page (index.html), Create CKEditor Form Fill Module (ffm.js), Generate CKEditor training data (training.jsonl), Create Froala test page (index.html), Create Froala Form Fill Module (ffm.js), Generate Froala training data (training.jsonl), Validate all test pages load without errors, Validate training data consistency across all editors, Verify license compliance documentation
+
+## 084-rte-other: 084-rte-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 085-templating-backend: Server-Side Templating Framework Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 0/12 complete
+Pending: Create Jinja2 HTML test page with Django form patterns, Create Jinja2 Form Fill Module with vanilla JavaScript, Generate Jinja2 training dataset with detection patterns, Research Twig/Symfony form patterns via web search, Create Twig HTML test page with Symfony form patterns, Create Twig Form Fill Module with vanilla JavaScript, Generate Twig training dataset with detection patterns, Validate file structure and completeness for all frameworks, Validate HTML files are valid HTML5 and render correctly, Validate JavaScript FFM modules have no syntax errors, Validate JSONL files are valid JSON Lines format, Verify framework-specific patterns in all artifacts
+
+## 086-templating-frontend: Frontend Templating Framework Training Data
+Status: plan_review | Exit: none
+Subtasks: 0/21 complete
+Pending: Research Pug/Jade form rendering patterns via web search, Research Nunjucks form rendering patterns via web search, Research Liquid form rendering patterns via web search, Research Haml form rendering patterns via web search, Research Slim form rendering patterns via web search, Create Pug/Jade index.html with comprehensive form elements, Create Pug/Jade ffm.js using vanilla JavaScript DOM methods, Create Pug/Jade training.jsonl with 10-20 training examples, Create Nunjucks index.html with comprehensive form elements, Create Nunjucks ffm.js using vanilla JavaScript DOM methods, Create Nunjucks training.jsonl with 10-20 training examples, Create Liquid index.html with comprehensive form elements, Create Liquid ffm.js using vanilla JavaScript DOM methods, Create Liquid training.jsonl with 10-20 training examples, Create Haml index.html with comprehensive form elements, Create Haml ffm.js using vanilla JavaScript DOM methods, Create Haml training.jsonl with 10-20 training examples, Create Slim index.html with comprehensive form elements, Create Slim ffm.js using vanilla JavaScript DOM methods, Create Slim training.jsonl with 10-20 training examples, Run QA validation script to verify all 24 files exist and meet criteria
+
+Use MCP tools: get_task_error_details, submit_task_fix_request, process_rdr_batch
+[Auto-Claude RDR] Tasks needing intervention:
+
+## 071-marko: 071-marko__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 073-qwik: Qwik Framework Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 13/21 complete
+Pending: Add selection element examples to training.jsonl (15+ examples for checkboxes, radio, select), Add specialized input examples (10+ examples for date, time, file, range, color), Add edge case examples (10+ examples for disabled, hidden, multi-select, error handling), Add Qwik-specific pattern examples (5+ examples showing data-qwik-* usage, event dispatch), Validate training.jsonl format and line count (minimum 50 lines), Verify test page renders without errors and FFM loads correctly, Test FFM methods populate all form element types correctly, Execute random training examples to verify completeness
+
+## 077-shadow-component-libs: Shadow DOM Component Library Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 10/13 complete
+Pending: Cross-framework consistency check, Training data quality validation, End-to-end browser testing of all frameworks
+
+## 079-alpine-htmx-knockout: 079-alpine-htmx-knockout__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 080-svelte-aurelia: 080-svelte-aurelia__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 081-ats-major: ATS Major Platform Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 10/21 complete
+Pending: Generate Lever training.jsonl with 20+ diverse examples, Create iCIMS index.html test page with iframe-embedded traditional form, Create iCIMS ffm.js Form Fill Module with fallback for non-framework forms, Generate iCIMS training.jsonl with 20+ diverse examples, Create Taleo index.html test page with iframe-embedded multi-page form, Create Taleo ffm.js Form Fill Module with multi-step navigation, Generate Taleo training.jsonl with 20+ diverse examples, Validate all JSONL files have correct format and sufficient examples, Security validation: verify no wildcard origins in postMessage calls, Verify all FFM modules include origin validation, Manual end-to-end verification of all test pages
+
+## 082-ats-other: 082-ats-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 083-rte-major: Rich Text Editor Training Data Generation (CKEditor & Froala)
+Status: plan_review | Exit: error
+Subtasks: 0/9 complete
+Pending: Create CKEditor 5 test page (index.html), Create CKEditor Form Fill Module (ffm.js), Generate CKEditor training data (training.jsonl), Create Froala test page (index.html), Create Froala Form Fill Module (ffm.js), Generate Froala training data (training.jsonl), Validate all test pages load without errors, Validate training data consistency across all editors, Verify license compliance documentation
+
+## 084-rte-other: 084-rte-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 085-templating-backend: Server-Side Templating Framework Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 0/12 complete
+Pending: Create Jinja2 HTML test page with Django form patterns, Create Jinja2 Form Fill Module with vanilla JavaScript, Generate Jinja2 training dataset with detection patterns, Research Twig/Symfony form patterns via web search, Create Twig HTML test page with Symfony form patterns, Create Twig Form Fill Module with vanilla JavaScript, Generate Twig training dataset with detection patterns, Validate file structure and completeness for all frameworks, Validate HTML files are valid HTML5 and render correctly, Validate JavaScript FFM modules have no syntax errors, Validate JSONL files are valid JSON Lines format, Verify framework-specific patterns in all artifacts
+
+## 086-templating-frontend: Frontend Templating Framework Training Data
+Status: plan_review | Exit: none
+Subtasks: 0/21 complete
+Pending: Research Pug/Jade form rendering patterns via web search, Research Nunjucks form rendering patterns via web search, Research Liquid form rendering patterns via web search, Research Haml form rendering patterns via web search, Research Slim form rendering patterns via web search, Create Pug/Jade index.html with comprehensive form elements, Create Pug/Jade ffm.js using vanilla JavaScript DOM methods, Create Pug/Jade training.jsonl with 10-20 training examples, Create Nunjucks index.html with comprehensive form elements, Create Nunjucks ffm.js using vanilla JavaScript DOM methods, Create Nunjucks training.jsonl with 10-20 training examples, Create Liquid index.html with comprehensive form elements, Create Liquid ffm.js using vanilla JavaScript DOM methods, Create Liquid training.jsonl with 10-20 training examples, Create Haml index.html with comprehensive form elements, Create Haml ffm.js using vanilla JavaScript DOM methods, Create Haml training.jsonl with 10-20 training examples, Create Slim index.html with comprehensive form elements, Create Slim ffm.js using vanilla JavaScript DOM methods, Create Slim training.jsonl with 10-20 training examples, Run QA validation script to verify all 24 files exist and meet criteria
+
+Use MCP tools: get_task_error_details, submit_task_fix_request, process_rdr_batch
+[Auto-Claude RDR] Tasks needing intervention:
+
+## 071-marko: 071-marko__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 073-qwik: Qwik Framework Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 13/21 complete
+Pending: Add selection element examples to training.jsonl (15+ examples for checkboxes, radio, select), Add specialized input examples (10+ examples for date, time, file, range, color), Add edge case examples (10+ examples for disabled, hidden, multi-select, error handling), Add Qwik-specific pattern examples (5+ examples showing data-qwik-* usage, event dispatch), Validate training.jsonl format and line count (minimum 50 lines), Verify test page renders without errors and FFM loads correctly, Test FFM methods populate all form element types correctly, Execute random training examples to verify completeness
+
+## 077-shadow-component-libs: Shadow DOM Component Library Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 10/13 complete
+Pending: Cross-framework consistency check, Training data quality validation, End-to-end browser testing of all frameworks
+
+## 079-alpine-htmx-knockout: 079-alpine-htmx-knockout__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 080-svelte-aurelia: 080-svelte-aurelia__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 081-ats-major: ATS Major Platform Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 10/21 complete
+Pending: Generate Lever training.jsonl with 20+ diverse examples, Create iCIMS index.html test page with iframe-embedded traditional form, Create iCIMS ffm.js Form Fill Module with fallback for non-framework forms, Generate iCIMS training.jsonl with 20+ diverse examples, Create Taleo index.html test page with iframe-embedded multi-page form, Create Taleo ffm.js Form Fill Module with multi-step navigation, Generate Taleo training.jsonl with 20+ diverse examples, Validate all JSONL files have correct format and sufficient examples, Security validation: verify no wildcard origins in postMessage calls, Verify all FFM modules include origin validation, Manual end-to-end verification of all test pages
+
+## 082-ats-other: 082-ats-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 083-rte-major: Rich Text Editor Training Data Generation (CKEditor & Froala)
+Status: plan_review | Exit: error
+Subtasks: 0/9 complete
+Pending: Create CKEditor 5 test page (index.html), Create CKEditor Form Fill Module (ffm.js), Generate CKEditor training data (training.jsonl), Create Froala test page (index.html), Create Froala Form Fill Module (ffm.js), Generate Froala training data (training.jsonl), Validate all test pages load without errors, Validate training data consistency across all editors, Verify license compliance documentation
+
+## 084-rte-other: 084-rte-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 085-templating-backend: Server-Side Templating Framework Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 0/12 complete
+Pending: Create Jinja2 HTML test page with Django form patterns, Create Jinja2 Form Fill Module with vanilla JavaScript, Generate Jinja2 training dataset with detection patterns, Research Twig/Symfony form patterns via web search, Create Twig HTML test page with Symfony form patterns, Create Twig Form Fill Module with vanilla JavaScript, Generate Twig training dataset with detection patterns, Validate file structure and completeness for all frameworks, Validate HTML files are valid HTML5 and render correctly, Validate JavaScript FFM modules have no syntax errors, Validate JSONL files are valid JSON Lines format, Verify framework-specific patterns in all artifacts
+
+## 086-templating-frontend: Frontend Templating Framework Training Data
+Status: plan_review | Exit: none
+Subtasks: 0/21 complete
+Pending: Research Pug/Jade form rendering patterns via web search, Research Nunjucks form rendering patterns via web search, Research Liquid form rendering patterns via web search, Research Haml form rendering patterns via web search, Research Slim form rendering patterns via web search, Create Pug/Jade index.html with comprehensive form elements, Create Pug/Jade ffm.js using vanilla JavaScript DOM methods, Create Pug/Jade training.jsonl with 10-20 training examples, Create Nunjucks index.html with comprehensive form elements, Create Nunjucks ffm.js using vanilla JavaScript DOM methods, Create Nunjucks training.jsonl with 10-20 training examples, Create Liquid index.html with comprehensive form elements, Create Liquid ffm.js using vanilla JavaScript DOM methods, Create Liquid training.jsonl with 10-20 training examples, Create Haml index.html with comprehensive form elements, Create Haml ffm.js using vanilla JavaScript DOM methods, Create Haml training.jsonl with 10-20 training examples, Create Slim index.html with comprehensive form elements, Create Slim ffm.js using vanilla JavaScript DOM methods, Create Slim training.jsonl with 10-20 training examples, Run QA validation script to verify all 24 files exist and meet criteria
+
+Use MCP tools: get_task_error_details, submit_task_fix_request, process_rdr_batch
+[Auto-Claude RDR] Tasks needing intervention:
+
+## 071-marko: 071-marko__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 073-qwik: Qwik Framework Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 13/21 complete
+Pending: Add selection element examples to training.jsonl (15+ examples for checkboxes, radio, select), Add specialized input examples (10+ examples for date, time, file, range, color), Add edge case examples (10+ examples for disabled, hidden, multi-select, error handling), Add Qwik-specific pattern examples (5+ examples showing data-qwik-* usage, event dispatch), Validate training.jsonl format and line count (minimum 50 lines), Verify test page renders without errors and FFM loads correctly, Test FFM methods populate all form element types correctly, Execute random training examples to verify completeness
+
+## 077-shadow-component-libs: Shadow DOM Component Library Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 10/13 complete
+Pending: Cross-framework consistency check, Training data quality validation, End-to-end browser testing of all frameworks
+
+## 079-alpine-htmx-knockout: 079-alpine-htmx-knockout__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 080-svelte-aurelia: 080-svelte-aurelia__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 081-ats-major: ATS Major Platform Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 10/21 complete
+Pending: Generate Lever training.jsonl with 20+ diverse examples, Create iCIMS index.html test page with iframe-embedded traditional form, Create iCIMS ffm.js Form Fill Module with fallback for non-framework forms, Generate iCIMS training.jsonl with 20+ diverse examples, Create Taleo index.html test page with iframe-embedded multi-page form, Create Taleo ffm.js Form Fill Module with multi-step navigation, Generate Taleo training.jsonl with 20+ diverse examples, Validate all JSONL files have correct format and sufficient examples, Security validation: verify no wildcard origins in postMessage calls, Verify all FFM modules include origin validation, Manual end-to-end verification of all test pages
+
+## 082-ats-other: 082-ats-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 083-rte-major: Rich Text Editor Training Data Generation (CKEditor & Froala)
+Status: plan_review | Exit: error
+Subtasks: 0/9 complete
+Pending: Create CKEditor 5 test page (index.html), Create CKEditor Form Fill Module (ffm.js), Generate CKEditor training data (training.jsonl), Create Froala test page (index.html), Create Froala Form Fill Module (ffm.js), Generate Froala training data (training.jsonl), Validate all test pages load without errors, Validate training data consistency across all editors, Verify license compliance documentation
+
+## 084-rte-other: 084-rte-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 085-templating-backend: Server-Side Templating Framework Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 0/12 complete
+Pending: Create Jinja2 HTML test page with Django form patterns, Create Jinja2 Form Fill Module with vanilla JavaScript, Generate Jinja2 training dataset with detection patterns, Research Twig/Symfony form patterns via web search, Create Twig HTML test page with Symfony form patterns, Create Twig Form Fill Module with vanilla JavaScript, Generate Twig training dataset with detection patterns, Validate file structure and completeness for all frameworks, Validate HTML files are valid HTML5 and render correctly, Validate JavaScript FFM modules have no syntax errors, Validate JSONL files are valid JSON Lines format, Verify framework-specific patterns in all artifacts
+
+## 086-templating-frontend: Frontend Templating Framework Training Data
+Status: plan_review | Exit: none
+Subtasks: 0/21 complete
+Pending: Research Pug/Jade form rendering patterns via web search, Research Nunjucks form rendering patterns via web search, Research Liquid form rendering patterns via web search, Research Haml form rendering patterns via web search, Research Slim form rendering patterns via web search, Create Pug/Jade index.html with comprehensive form elements, Create Pug/Jade ffm.js using vanilla JavaScript DOM methods, Create Pug/Jade training.jsonl with 10-20 training examples, Create Nunjucks index.html with comprehensive form elements, Create Nunjucks ffm.js using vanilla JavaScript DOM methods, Create Nunjucks training.jsonl with 10-20 training examples, Create Liquid index.html with comprehensive form elements, Create Liquid ffm.js using vanilla JavaScript DOM methods, Create Liquid training.jsonl with 10-20 training examples, Create Haml index.html with comprehensive form elements, Create Haml ffm.js using vanilla JavaScript DOM methods, Create Haml training.jsonl with 10-20 training examples, Create Slim index.html with comprehensive form elements, Create Slim ffm.js using vanilla JavaScript DOM methods, Create Slim training.jsonl with 10-20 training examples, Run QA validation script to verify all 24 files exist and meet criteria
+
+Use MCP tools: get_task_error_details, submit_task_fix_request, process_rdr_batch
+[Auto-Claude RDR] Tasks needing intervention:
+
+## 071-marko: 071-marko__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 073-qwik: Qwik Framework Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 13/21 complete
+Pending: Add selection element examples to training.jsonl (15+ examples for checkboxes, radio, select), Add specialized input examples (10+ examples for date, time, file, range, color), Add edge case examples (10+ examples for disabled, hidden, multi-select, error handling), Add Qwik-specific pattern examples (5+ examples showing data-qwik-* usage, event dispatch), Validate training.jsonl format and line count (minimum 50 lines), Verify test page renders without errors and FFM loads correctly, Test FFM methods populate all form element types correctly, Execute random training examples to verify completeness
+
+## 077-shadow-component-libs: Shadow DOM Component Library Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 10/13 complete
+Pending: Cross-framework consistency check, Training data quality validation, End-to-end browser testing of all frameworks
+
+## 079-alpine-htmx-knockout: 079-alpine-htmx-knockout__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 080-svelte-aurelia: 080-svelte-aurelia__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 081-ats-major: ATS Major Platform Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 10/21 complete
+Pending: Generate Lever training.jsonl with 20+ diverse examples, Create iCIMS index.html test page with iframe-embedded traditional form, Create iCIMS ffm.js Form Fill Module with fallback for non-framework forms, Generate iCIMS training.jsonl with 20+ diverse examples, Create Taleo index.html test page with iframe-embedded multi-page form, Create Taleo ffm.js Form Fill Module with multi-step navigation, Generate Taleo training.jsonl with 20+ diverse examples, Validate all JSONL files have correct format and sufficient examples, Security validation: verify no wildcard origins in postMessage calls, Verify all FFM modules include origin validation, Manual end-to-end verification of all test pages
+
+## 082-ats-other: 082-ats-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 083-rte-major: Rich Text Editor Training Data Generation (CKEditor & Froala)
+Status: plan_review | Exit: error
+Subtasks: 0/9 complete
+Pending: Create CKEditor 5 test page (index.html), Create CKEditor Form Fill Module (ffm.js), Generate CKEditor training data (training.jsonl), Create Froala test page (index.html), Create Froala Form Fill Module (ffm.js), Generate Froala training data (training.jsonl), Validate all test pages load without errors, Validate training data consistency across all editors, Verify license compliance documentation
+
+## 084-rte-other: 084-rte-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 085-templating-backend: Server-Side Templating Framework Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 0/12 complete
+Pending: Create Jinja2 HTML test page with Django form patterns, Create Jinja2 Form Fill Module with vanilla JavaScript, Generate Jinja2 training dataset with detection patterns, Research Twig/Symfony form patterns via web search, Create Twig HTML test page with Symfony form patterns, Create Twig Form Fill Module with vanilla JavaScript, Generate Twig training dataset with detection patterns, Validate file structure and completeness for all frameworks, Validate HTML files are valid HTML5 and render correctly, Validate JavaScript FFM modules have no syntax errors, Validate JSONL files are valid JSON Lines format, Verify framework-specific patterns in all artifacts
+
+## 086-templating-frontend: Frontend Templating Framework Training Data
+Status: plan_review | Exit: none
+Subtasks: 0/21 complete
+Pending: Research Pug/Jade form rendering patterns via web search, Research Nunjucks form rendering patterns via web search, Research Liquid form rendering patterns via web search, Research Haml form rendering patterns via web search, Research Slim form rendering patterns via web search, Create Pug/Jade index.html with comprehensive form elements, Create Pug/Jade ffm.js using vanilla JavaScript DOM methods, Create Pug/Jade training.jsonl with 10-20 training examples, Create Nunjucks index.html with comprehensive form elements, Create Nunjucks ffm.js using vanilla JavaScript DOM methods, Create Nunjucks training.jsonl with 10-20 training examples, Create Liquid index.html with comprehensive form elements, Create Liquid ffm.js using vanilla JavaScript DOM methods, Create Liquid training.jsonl with 10-20 training examples, Create Haml index.html with comprehensive form elements, Create Haml ffm.js using vanilla JavaScript DOM methods, Create Haml training.jsonl with 10-20 training examples, Create Slim index.html with comprehensive form elements, Create Slim ffm.js using vanilla JavaScript DOM methods, Create Slim training.jsonl with 10-20 training examples, Run QA validation script to verify all 24 files exist and meet criteria
+
+Use MCP tools: get_task_error_details, submit_task_fix_request, process_rdr_batch
+[Auto-Claude RDR] Tasks needing intervention:
+
+## 071-marko: 071-marko__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 073-qwik: Qwik Framework Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 13/21 complete
+Pending: Add selection element examples to training.jsonl (15+ examples for checkboxes, radio, select), Add specialized input examples (10+ examples for date, time, file, range, color), Add edge case examples (10+ examples for disabled, hidden, multi-select, error handling), Add Qwik-specific pattern examples (5+ examples showing data-qwik-* usage, event dispatch), Validate training.jsonl format and line count (minimum 50 lines), Verify test page renders without errors and FFM loads correctly, Test FFM methods populate all form element types correctly, Execute random training examples to verify completeness
+
+## 077-shadow-component-libs: Shadow DOM Component Library Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 10/13 complete
+Pending: Cross-framework consistency check, Training data quality validation, End-to-end browser testing of all frameworks
+
+## 079-alpine-htmx-knockout: 079-alpine-htmx-knockout__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 080-svelte-aurelia: 080-svelte-aurelia__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 081-ats-major: ATS Major Platform Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 10/21 complete
+Pending: Generate Lever training.jsonl with 20+ diverse examples, Create iCIMS index.html test page with iframe-embedded traditional form, Create iCIMS ffm.js Form Fill Module with fallback for non-framework forms, Generate iCIMS training.jsonl with 20+ diverse examples, Create Taleo index.html test page with iframe-embedded multi-page form, Create Taleo ffm.js Form Fill Module with multi-step navigation, Generate Taleo training.jsonl with 20+ diverse examples, Validate all JSONL files have correct format and sufficient examples, Security validation: verify no wildcard origins in postMessage calls, Verify all FFM modules include origin validation, Manual end-to-end verification of all test pages
+
+## 082-ats-other: 082-ats-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 083-rte-major: Rich Text Editor Training Data Generation (CKEditor & Froala)
+Status: plan_review | Exit: error
+Subtasks: 0/9 complete
+Pending: Create CKEditor 5 test page (index.html), Create CKEditor Form Fill Module (ffm.js), Generate CKEditor training data (training.jsonl), Create Froala test page (index.html), Create Froala Form Fill Module (ffm.js), Generate Froala training data (training.jsonl), Validate all test pages load without errors, Validate training data consistency across all editors, Verify license compliance documentation
+
+## 084-rte-other: 084-rte-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 085-templating-backend: Server-Side Templating Framework Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 0/12 complete
+Pending: Create Jinja2 HTML test page with Django form patterns, Create Jinja2 Form Fill Module with vanilla JavaScript, Generate Jinja2 training dataset with detection patterns, Research Twig/Symfony form patterns via web search, Create Twig HTML test page with Symfony form patterns, Create Twig Form Fill Module with vanilla JavaScript, Generate Twig training dataset with detection patterns, Validate file structure and completeness for all frameworks, Validate HTML files are valid HTML5 and render correctly, Validate JavaScript FFM modules have no syntax errors, Validate JSONL files are valid JSON Lines format, Verify framework-specific patterns in all artifacts
+
+## 086-templating-frontend: Frontend Templating Framework Training Data
+Status: plan_review | Exit: none
+Subtasks: 0/21 complete
+Pending: Research Pug/Jade form rendering patterns via web search, Research Nunjucks form rendering patterns via web search, Research Liquid form rendering patterns via web search, Research Haml form rendering patterns via web search, Research Slim form rendering patterns via web search, Create Pug/Jade index.html with comprehensive form elements, Create Pug/Jade ffm.js using vanilla JavaScript DOM methods, Create Pug/Jade training.jsonl with 10-20 training examples, Create Nunjucks index.html with comprehensive form elements, Create Nunjucks ffm.js using vanilla JavaScript DOM methods, Create Nunjucks training.jsonl with 10-20 training examples, Create Liquid index.html with comprehensive form elements, Create Liquid ffm.js using vanilla JavaScript DOM methods, Create Liquid training.jsonl with 10-20 training examples, Create Haml index.html with comprehensive form elements, Create Haml ffm.js using vanilla JavaScript DOM methods, Create Haml training.jsonl with 10-20 training examples, Create Slim index.html with comprehensive form elements, Create Slim ffm.js using vanilla JavaScript DOM methods, Create Slim training.jsonl with 10-20 training examples, Run QA validation script to verify all 24 files exist and meet criteria
+
+Use MCP tools: get_task_error_details, submit_task_fix_request, process_rdr_batch 
+[Auto-Claude RDR] Tasks needing intervention:
+
+## 071-marko: 071-marko__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 073-qwik: Qwik Framework Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 13/21 complete
+Pending: Add selection element examples to training.jsonl (15+ examples for checkboxes, radio, select), Add specialized input examples (10+ examples for date, time, file, range, color), Add edge case examples (10+ examples for disabled, hidden, multi-select, error handling), Add Qwik-specific pattern examples (5+ examples showing data-qwik-* usage, event dispatch), Validate training.jsonl format and line count (minimum 50 lines), Verify test page renders without errors and FFM loads correctly, Test FFM methods populate all form element types correctly, Execute random training examples to verify completeness
+
+## 077-shadow-component-libs: Shadow DOM Component Library Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 10/13 complete
+Pending: Cross-framework consistency check, Training data quality validation, End-to-end browser testing of all frameworks
+
+## 079-alpine-htmx-knockout: 079-alpine-htmx-knockout__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 080-svelte-aurelia: 080-svelte-aurelia__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 081-ats-major: ATS Major Platform Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 10/21 complete
+Pending: Generate Lever training.jsonl with 20+ diverse examples, Create iCIMS index.html test page with iframe-embedded traditional form, Create iCIMS ffm.js Form Fill Module with fallback for non-framework forms, Generate iCIMS training.jsonl with 20+ diverse examples, Create Taleo index.html test page with iframe-embedded multi-page form, Create Taleo ffm.js Form Fill Module with multi-step navigation, Generate Taleo training.jsonl with 20+ diverse examples, Validate all JSONL files have correct format and sufficient examples, Security validation: verify no wildcard origins in postMessage calls, Verify all FFM modules include origin validation, Manual end-to-end verification of all test pages
+
+## 082-ats-other: 082-ats-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 083-rte-major: Rich Text Editor Training Data Generation (CKEditor & Froala)
+Status: plan_review | Exit: error
+Subtasks: 0/9 complete
+Pending: Create CKEditor 5 test page (index.html), Create CKEditor Form Fill Module (ffm.js), Generate CKEditor training data (training.jsonl), Create Froala test page (index.html), Create Froala Form Fill Module (ffm.js), Generate Froala training data (training.jsonl), Validate all test pages load without errors, Validate training data consistency across all editors, Verify license compliance documentation
+
+## 084-rte-other: 084-rte-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 085-templating-backend: Server-Side Templating Framework Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 0/12 complete
+Pending: Create Jinja2 HTML test page with Django form patterns, Create Jinja2 Form Fill Module with vanilla JavaScript, Generate Jinja2 training dataset with detection patterns, Research Twig/Symfony form patterns via web search, Create Twig HTML test page with Symfony form patterns, Create Twig Form Fill Module with vanilla JavaScript, Generate Twig training dataset with detection patterns, Validate file structure and completeness for all frameworks, Validate HTML files are valid HTML5 and render correctly, Validate JavaScript FFM modules have no syntax errors, Validate JSONL files are valid JSON Lines format, Verify framework-specific patterns in all artifacts
+
+## 086-templating-frontend: Frontend Templating Framework Training Data
+Status: plan_review | Exit: none
+Subtasks: 0/21 complete
+Pending: Research Pug/Jade form rendering patterns via web search, Research Nunjucks form rendering patterns via web search, Research Liquid form rendering patterns via web search, Research Haml form rendering patterns via web search, Research Slim form rendering patterns via web search, Create Pug/Jade index.html with comprehensive form elements, Create Pug/Jade ffm.js using vanilla JavaScript DOM methods, Create Pug/Jade training.jsonl with 10-20 training examples, Create Nunjucks index.html with comprehensive form elements, Create Nunjucks ffm.js using vanilla JavaScript DOM methods, Create Nunjucks training.jsonl with 10-20 training examples, Create Liquid index.html with comprehensive form elements, Create Liquid ffm.js using vanilla JavaScript DOM methods, Create Liquid training.jsonl with 10-20 training examples, Create Haml index.html with comprehensive form elements, Create Haml ffm.js using vanilla JavaScript DOM methods, Create Haml training.jsonl with 10-20 training examples, Create Slim index.html with comprehensive form elements, Create Slim ffm.js using vanilla JavaScript DOM methods, Create Slim training.jsonl with 10-20 training examples, Run QA validation script to verify all 24 files exist and meet criteria
+
+Use MCP tools: get_task_error_details, submit_task_fix_request, process_rdr_batch
+  [Auto-Claude RDR] Tasks needing intervention:
+
+## 071-marko: 071-marko__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 073-qwik: Qwik Framework Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 13/21 complete
+Pending: Add selection element examples to training.jsonl (15+ examples for checkboxes, radio, select), Add specialized input examples (10+ examples for date, time, file, range, color), Add edge case examples (10+ examples for disabled, hidden, multi-select, error handling), Add Qwik-specific pattern examples (5+ examples showing data-qwik-* usage, event dispatch), Validate training.jsonl format and line count (minimum 50 lines), Verify test page renders without errors and FFM loads correctly, Test FFM methods populate all form element types correctly, Execute random training examples to verify completeness
+
+## 077-shadow-component-libs: Shadow DOM Component Library Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 10/13 complete
+Pending: Cross-framework consistency check, Training data quality validation, End-to-end browser testing of all frameworks
+
+## 079-alpine-htmx-knockout: 079-alpine-htmx-knockout__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 080-svelte-aurelia: 080-svelte-aurelia__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 081-ats-major: ATS Major Platform Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 10/21 complete
+Pending: Generate Lever training.jsonl with 20+ diverse examples, Create iCIMS index.html test page with iframe-embedded traditional form, Create iCIMS ffm.js Form Fill Module with fallback for non-framework forms, Generate iCIMS training.jsonl with 20+ diverse examples, Create Taleo index.html test page with iframe-embedded multi-page form, Create Taleo ffm.js Form Fill Module with multi-step navigation, Generate Taleo training.jsonl with 20+ diverse examples, Validate all JSONL files have correct format and sufficient examples, Security validation: verify no wildcard origins in postMessage calls, Verify all FFM modules include origin validation, Manual end-to-end verification of all test pages
+
+## 082-ats-other: 082-ats-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 083-rte-major: Rich Text Editor Training Data Generation (CKEditor & Froala)
+Status: plan_review | Exit: error
+Subtasks: 0/9 complete
+Pending: Create CKEditor 5 test page (index.html), Create CKEditor Form Fill Module (ffm.js), Generate CKEditor training data (training.jsonl), Create Froala test page (index.html), Create Froala Form Fill Module (ffm.js), Generate Froala training data (training.jsonl), Validate all test pages load without errors, Validate training data consistency across all editors, Verify license compliance documentation
+
+## 084-rte-other: 084-rte-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 085-templating-backend: Server-Side Templating Framework Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 0/12 complete
+Pending: Create Jinja2 HTML test page with Django form patterns, Create Jinja2 Form Fill Module with vanilla JavaScript, Generate Jinja2 training dataset with detection patterns, Research Twig/Symfony form patterns via web search, Create Twig HTML test page with Symfony form patterns, Create Twig Form Fill Module with vanilla JavaScript, Generate Twig training dataset with detection patterns, Validate file structure and completeness for all frameworks, Validate HTML files are valid HTML5 and render correctly, Validate JavaScript FFM modules have no syntax errors, Validate JSONL files are valid JSON Lines format, Verify framework-specific patterns in all artifacts
+
+## 086-templating-frontend: Frontend Templating Framework Training Data
+Status: plan_review | Exit: none
+Subtasks: 0/21 complete
+Pending: Research Pug/Jade form rendering patterns via web search, Research Nunjucks form rendering patterns via web search, Research Liquid form rendering patterns via web search, Research Haml form rendering patterns via web search, Research Slim form rendering patterns via web search, Create Pug/Jade index.html with comprehensive form elements, Create Pug/Jade ffm.js using vanilla JavaScript DOM methods, Create Pug/Jade training.jsonl with 10-20 training examples, Create Nunjucks index.html with comprehensive form elements, Create Nunjucks ffm.js using vanilla JavaScript DOM methods, Create Nunjucks training.jsonl with 10-20 training examples, Create Liquid index.html with comprehensive form elements, Create Liquid ffm.js using vanilla JavaScript DOM methods, Create Liquid training.jsonl with 10-20 training examples, Create Haml index.html with comprehensive form elements, Create Haml ffm.js using vanilla JavaScript DOM methods, Create Haml training.jsonl with 10-20 training examples, Create Slim index.html with comprehensive form elements, Create Slim ffm.js using vanilla JavaScript DOM methods, Create Slim training.jsonl with 10-20 training examples, Run QA validation script to verify all 24 files exist and meet criteria
+
+Use MCP tools: get_task_error_details, submit_task_fix_request, process_rdr_batch
+  [Auto-Claude RDR] Tasks needing intervention:
+
+## 071-marko: 071-marko__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 073-qwik: Qwik Framework Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 13/21 complete
+Pending: Add selection element examples to training.jsonl (15+ examples for checkboxes, radio, select), Add specialized input examples (10+ examples for date, time, file, range, color), Add edge case examples (10+ examples for disabled, hidden, multi-select, error handling), Add Qwik-specific pattern examples (5+ examples showing data-qwik-* usage, event dispatch), Validate training.jsonl format and line count (minimum 50 lines), Verify test page renders without errors and FFM loads correctly, Test FFM methods populate all form element types correctly, Execute random training examples to verify completeness
+
+## 077-shadow-component-libs: Shadow DOM Component Library Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 10/13 complete
+Pending: Cross-framework consistency check, Training data quality validation, End-to-end browser testing of all frameworks
+
+## 079-alpine-htmx-knockout: 079-alpine-htmx-knockout__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 080-svelte-aurelia: 080-svelte-aurelia__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 081-ats-major: ATS Major Platform Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 10/21 complete
+Pending: Generate Lever training.jsonl with 20+ diverse examples, Create iCIMS index.html test page with iframe-embedded traditional form, Create iCIMS ffm.js Form Fill Module with fallback for non-framework forms, Generate iCIMS training.jsonl with 20+ diverse examples, Create Taleo index.html test page with iframe-embedded multi-page form, Create Taleo ffm.js Form Fill Module with multi-step navigation, Generate Taleo training.jsonl with 20+ diverse examples, Validate all JSONL files have correct format and sufficient examples, Security validation: verify no wildcard origins in postMessage calls, Verify all FFM modules include origin validation, Manual end-to-end verification of all test pages
+
+## 082-ats-other: 082-ats-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 083-rte-major: Rich Text Editor Training Data Generation (CKEditor & Froala)
+Status: plan_review | Exit: error
+Subtasks: 0/9 complete
+Pending: Create CKEditor 5 test page (index.html), Create CKEditor Form Fill Module (ffm.js), Generate CKEditor training data (training.jsonl), Create Froala test page (index.html), Create Froala Form Fill Module (ffm.js), Generate Froala training data (training.jsonl), Validate all test pages load without errors, Validate training data consistency across all editors, Verify license compliance documentation
+
+## 084-rte-other: 084-rte-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 085-templating-backend: Server-Side Templating Framework Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 0/12 complete
+Pending: Create Jinja2 HTML test page with Django form patterns, Create Jinja2 Form Fill Module with vanilla JavaScript, Generate Jinja2 training dataset with detection patterns, Research Twig/Symfony form patterns via web search, Create Twig HTML test page with Symfony form patterns, Create Twig Form Fill Module with vanilla JavaScript, Generate Twig training dataset with detection patterns, Validate file structure and completeness for all frameworks, Validate HTML files are valid HTML5 and render correctly, Validate JavaScript FFM modules have no syntax errors, Validate JSONL files are valid JSON Lines format, Verify framework-specific patterns in all artifacts
+
+## 086-templating-frontend: Frontend Templating Framework Training Data
+Status: plan_review | Exit: none
+Subtasks: 0/21 complete
+Pending: Research Pug/Jade form rendering patterns via web search, Research Nunjucks form rendering patterns via web search, Research Liquid form rendering patterns via web search, Research Haml form rendering patterns via web search, Research Slim form rendering patterns via web search, Create Pug/Jade index.html with comprehensive form elements, Create Pug/Jade ffm.js using vanilla JavaScript DOM methods, Create Pug/Jade training.jsonl with 10-20 training examples, Create Nunjucks index.html with comprehensive form elements, Create Nunjucks ffm.js using vanilla JavaScript DOM methods, Create Nunjucks training.jsonl with 10-20 training examples, Create Liquid index.html with comprehensive form elements, Create Liquid ffm.js using vanilla JavaScript DOM methods, Create Liquid training.jsonl with 10-20 training examples, Create Haml index.html with comprehensive form elements, Create Haml ffm.js using vanilla JavaScript DOM methods, Create Haml training.jsonl with 10-20 training examples, Create Slim index.html with comprehensive form elements, Create Slim ffm.js using vanilla JavaScript DOM methods, Create Slim training.jsonl with 10-20 training examples, Run QA validation script to verify all 24 files exist and meet criteria
+
+Use MCP tools: get_task_error_details, submit_task_fix_request, process_rdr_batch
+[Auto-Claude RDR] Tasks needing intervention:
+
+## 071-marko: 071-marko__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 073-qwik: Qwik Framework Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 13/21 complete
+Pending: Add selection element examples to training.jsonl (15+ examples for checkboxes, radio, select), Add specialized input examples (10+ examples for date, time, file, range, color), Add edge case examples (10+ examples for disabled, hidden, multi-select, error handling), Add Qwik-specific pattern examples (5+ examples showing data-qwik-* usage, event dispatch), Validate training.jsonl format and line count (minimum 50 lines), Verify test page renders without errors and FFM loads correctly, Test FFM methods populate all form element types correctly, Execute random training examples to verify completeness
+
+## 077-shadow-component-libs: Shadow DOM Component Library Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 10/13 complete
+Pending: Cross-framework consistency check, Training data quality validation, End-to-end browser testing of all frameworks
+
+## 079-alpine-htmx-knockout: 079-alpine-htmx-knockout__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 080-svelte-aurelia: 080-svelte-aurelia__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 081-ats-major: ATS Major Platform Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 10/21 complete
+Pending: Generate Lever training.jsonl with 20+ diverse examples, Create iCIMS index.html test page with iframe-embedded traditional form, Create iCIMS ffm.js Form Fill Module with fallback for non-framework forms, Generate iCIMS training.jsonl with 20+ diverse examples, Create Taleo index.html test page with iframe-embedded multi-page form, Create Taleo ffm.js Form Fill Module with multi-step navigation, Generate Taleo training.jsonl with 20+ diverse examples, Validate all JSONL files have correct format and sufficient examples, Security validation: verify no wildcard origins in postMessage calls, Verify all FFM modules include origin validation, Manual end-to-end verification of all test pages
+
+## 082-ats-other: 082-ats-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 083-rte-major: Rich Text Editor Training Data Generation (CKEditor & Froala)
+Status: plan_review | Exit: error
+Subtasks: 0/9 complete
+Pending: Create CKEditor 5 test page (index.html), Create CKEditor Form Fill Module (ffm.js), Generate CKEditor training data (training.jsonl), Create Froala test page (index.html), Create Froala Form Fill Module (ffm.js), Generate Froala training data (training.jsonl), Validate all test pages load without errors, Validate training data consistency across all editors, Verify license compliance documentation
+
+## 084-rte-other: 084-rte-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 085-templating-backend: Server-Side Templating Framework Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 0/12 complete
+Pending: Create Jinja2 HTML test page with Django form patterns, Create Jinja2 Form Fill Module with vanilla JavaScript, Generate Jinja2 training dataset with detection patterns, Research Twig/Symfony form patterns via web search, Create Twig HTML test page with Symfony form patterns, Create Twig Form Fill Module with vanilla JavaScript, Generate Twig training dataset with detection patterns, Validate file structure and completeness for all frameworks, Validate HTML files are valid HTML5 and render correctly, Validate JavaScript FFM modules have no syntax errors, Validate JSONL files are valid JSON Lines format, Verify framework-specific patterns in all artifacts
+
+## 086-templating-frontend: Frontend Templating Framework Training Data
+Status: plan_review | Exit: none
+Subtasks: 0/21 complete
+Pending: Research Pug/Jade form rendering patterns via web search, Research Nunjucks form rendering patterns via web search, Research Liquid form rendering patterns via web search, Research Haml form rendering patterns via web search, Research Slim form rendering patterns via web search, Create Pug/Jade index.html with comprehensive form elements, Create Pug/Jade ffm.js using vanilla JavaScript DOM methods, Create Pug/Jade training.jsonl with 10-20 training examples, Create Nunjucks index.html with comprehensive form elements, Create Nunjucks ffm.js using vanilla JavaScript DOM methods, Create Nunjucks training.jsonl with 10-20 training examples, Create Liquid index.html with comprehensive form elements, Create Liquid ffm.js using vanilla JavaScript DOM methods, Create Liquid training.jsonl with 10-20 training examples, Create Haml index.html with comprehensive form elements, Create Haml ffm.js using vanilla JavaScript DOM methods, Create Haml training.jsonl with 10-20 training examples, Create Slim index.html with comprehensive form elements, Create Slim ffm.js using vanilla JavaScript DOM methods, Create Slim training.jsonl with 10-20 training examples, Run QA validation script to verify all 24 files exist and meet criteria
+
+Use MCP tools: get_task_error_details, submit_task_fix_request, process_rdr_batch
+[Auto-Claude RDR] Tasks needing intervention:
+
+## 071-marko: 071-marko__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 073-qwik: Qwik Framework Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 13/21 complete
+Pending: Add selection element examples to training.jsonl (15+ examples for checkboxes, radio, select), Add specialized input examples (10+ examples for date, time, file, range, color), Add edge case examples (10+ examples for disabled, hidden, multi-select, error handling), Add Qwik-specific pattern examples (5+ examples showing data-qwik-* usage, event dispatch), Validate training.jsonl format and line count (minimum 50 lines), Verify test page renders without errors and FFM loads correctly, Test FFM methods populate all form element types correctly, Execute random training examples to verify completeness
+
+## 077-shadow-component-libs: Shadow DOM Component Library Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 10/13 complete
+Pending: Cross-framework consistency check, Training data quality validation, End-to-end browser testing of all frameworks
+
+## 079-alpine-htmx-knockout: 079-alpine-htmx-knockout__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 080-svelte-aurelia: 080-svelte-aurelia__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 081-ats-major: ATS Major Platform Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 10/21 complete
+Pending: Generate Lever training.jsonl with 20+ diverse examples, Create iCIMS index.html test page with iframe-embedded traditional form, Create iCIMS ffm.js Form Fill Module with fallback for non-framework forms, Generate iCIMS training.jsonl with 20+ diverse examples, Create Taleo index.html test page with iframe-embedded multi-page form, Create Taleo ffm.js Form Fill Module with multi-step navigation, Generate Taleo training.jsonl with 20+ diverse examples, Validate all JSONL files have correct format and sufficient examples, Security validation: verify no wildcard origins in postMessage calls, Verify all FFM modules include origin validation, Manual end-to-end verification of all test pages
+
+## 082-ats-other: 082-ats-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 083-rte-major: Rich Text Editor Training Data Generation (CKEditor & Froala)
+Status: plan_review | Exit: error
+Subtasks: 0/9 complete
+Pending: Create CKEditor 5 test page (index.html), Create CKEditor Form Fill Module (ffm.js), Generate CKEditor training data (training.jsonl), Create Froala test page (index.html), Create Froala Form Fill Module (ffm.js), Generate Froala training data (training.jsonl), Validate all test pages load without errors, Validate training data consistency across all editors, Verify license compliance documentation
+
+## 084-rte-other: 084-rte-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 085-templating-backend: Server-Side Templating Framework Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 0/12 complete
+Pending: Create Jinja2 HTML test page with Django form patterns, Create Jinja2 Form Fill Module with vanilla JavaScript, Generate Jinja2 training dataset with detection patterns, Research Twig/Symfony form patterns via web search, Create Twig HTML test page with Symfony form patterns, Create Twig Form Fill Module with vanilla JavaScript, Generate Twig training dataset with detection patterns, Validate file structure and completeness for all frameworks, Validate HTML files are valid HTML5 and render correctly, Validate JavaScript FFM modules have no syntax errors, Validate JSONL files are valid JSON Lines format, Verify framework-specific patterns in all artifacts
+
+## 086-templating-frontend: Frontend Templating Framework Training Data
+Status: plan_review | Exit: none
+Subtasks: 0/21 complete
+Pending: Research Pug/Jade form rendering patterns via web search, Research Nunjucks form rendering patterns via web search, Research Liquid form rendering patterns via web search, Research Haml form rendering patterns via web search, Research Slim form rendering patterns via web search, Create Pug/Jade index.html with comprehensive form elements, Create Pug/Jade ffm.js using vanilla JavaScript DOM methods, Create Pug/Jade training.jsonl with 10-20 training examples, Create Nunjucks index.html with comprehensive form elements, Create Nunjucks ffm.js using vanilla JavaScript DOM methods, Create Nunjucks training.jsonl with 10-20 training examples, Create Liquid index.html with comprehensive form elements, Create Liquid ffm.js using vanilla JavaScript DOM methods, Create Liquid training.jsonl with 10-20 training examples, Create Haml index.html with comprehensive form elements, Create Haml ffm.js using vanilla JavaScript DOM methods, Create Haml training.jsonl with 10-20 training examples, Create Slim index.html with comprehensive form elements, Create Slim ffm.js using vanilla JavaScript DOM methods, Create Slim training.jsonl with 10-20 training examples, Run QA validation script to verify all 24 files exist and meet criteria
+
+Use MCP tools: get_task_error_details, submit_task_fix_request, process_rdr_batch
+[Auto-Claude RDR] Tasks needing intervention:
+
+## 071-marko: 071-marko__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 073-qwik: Qwik Framework Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 13/21 complete
+Pending: Add selection element examples to training.jsonl (15+ examples for checkboxes, radio, select), Add specialized input examples (10+ examples for date, time, file, range, color), Add edge case examples (10+ examples for disabled, hidden, multi-select, error handling), Add Qwik-specific pattern examples (5+ examples showing data-qwik-* usage, event dispatch), Validate training.jsonl format and line count (minimum 50 lines), Verify test page renders without errors and FFM loads correctly, Test FFM methods populate all form element types correctly, Execute random training examples to verify completeness
+
+## 077-shadow-component-libs: Shadow DOM Component Library Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 10/13 complete
+Pending: Cross-framework consistency check, Training data quality validation, End-to-end browser testing of all frameworks
+
+## 079-alpine-htmx-knockout: 079-alpine-htmx-knockout__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 080-svelte-aurelia: 080-svelte-aurelia__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 081-ats-major: ATS Major Platform Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 10/21 complete
+Pending: Generate Lever training.jsonl with 20+ diverse examples, Create iCIMS index.html test page with iframe-embedded traditional form, Create iCIMS ffm.js Form Fill Module with fallback for non-framework forms, Generate iCIMS training.jsonl with 20+ diverse examples, Create Taleo index.html test page with iframe-embedded multi-page form, Create Taleo ffm.js Form Fill Module with multi-step navigation, Generate Taleo training.jsonl with 20+ diverse examples, Validate all JSONL files have correct format and sufficient examples, Security validation: verify no wildcard origins in postMessage calls, Verify all FFM modules include origin validation, Manual end-to-end verification of all test pages
+
+## 082-ats-other: 082-ats-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 083-rte-major: Rich Text Editor Training Data Generation (CKEditor & Froala)
+Status: plan_review | Exit: error
+Subtasks: 0/9 complete
+Pending: Create CKEditor 5 test page (index.html), Create CKEditor Form Fill Module (ffm.js), Generate CKEditor training data (training.jsonl), Create Froala test page (index.html), Create Froala Form Fill Module (ffm.js), Generate Froala training data (training.jsonl), Validate all test pages load without errors, Validate training data consistency across all editors, Verify license compliance documentation
+
+## 084-rte-other: 084-rte-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 085-templating-backend: Server-Side Templating Framework Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 0/12 complete
+Pending: Create Jinja2 HTML test page with Django form patterns, Create Jinja2 Form Fill Module with vanilla JavaScript, Generate Jinja2 training dataset with detection patterns, Research Twig/Symfony form patterns via web search, Create Twig HTML test page with Symfony form patterns, Create Twig Form Fill Module with vanilla JavaScript, Generate Twig training dataset with detection patterns, Validate file structure and completeness for all frameworks, Validate HTML files are valid HTML5 and render correctly, Validate JavaScript FFM modules have no syntax errors, Validate JSONL files are valid JSON Lines format, Verify framework-specific patterns in all artifacts
+
+## 086-templating-frontend: Frontend Templating Framework Training Data
+Status: plan_review | Exit: none
+Subtasks: 0/21 complete
+Pending: Research Pug/Jade form rendering patterns via web search, Research Nunjucks form rendering patterns via web search, Research Liquid form rendering patterns via web search, Research Haml form rendering patterns via web search, Research Slim form rendering patterns via web search, Create Pug/Jade index.html with comprehensive form elements, Create Pug/Jade ffm.js using vanilla JavaScript DOM methods, Create Pug/Jade training.jsonl with 10-20 training examples, Create Nunjucks index.html with comprehensive form elements, Create Nunjucks ffm.js using vanilla JavaScript DOM methods, Create Nunjucks training.jsonl with 10-20 training examples, Create Liquid index.html with comprehensive form elements, Create Liquid ffm.js using vanilla JavaScript DOM methods, Create Liquid training.jsonl with 10-20 training examples, Create Haml index.html with comprehensive form elements, Create Haml ffm.js using vanilla JavaScript DOM methods, Create Haml training.jsonl with 10-20 training examples, Create Slim index.html with comprehensive form elements, Create Slim ffm.js using vanilla JavaScript DOM methods, Create Slim training.jsonl with 10-20 training examples, Run QA validation script to verify all 24 files exist and meet criteria
+
+Use MCP tools: get_task_error_details, submit_task_fix_request, process_rdr_batch
+[Auto-Claude RDR] Tasks needing intervention:
+
+## 071-marko: 071-marko__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 073-qwik: Qwik Framework Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 13/21 complete
+Pending: Add selection element examples to training.jsonl (15+ examples for checkboxes, radio, select), Add specialized input examples (10+ examples for date, time, file, range, color), Add edge case examples (10+ examples for disabled, hidden, multi-select, error handling), Add Qwik-specific pattern examples (5+ examples showing data-qwik-* usage, event dispatch), Validate training.jsonl format and line count (minimum 50 lines), Verify test page renders without errors and FFM loads correctly, Test FFM methods populate all form element types correctly, Execute random training examples to verify completeness
+
+## 077-shadow-component-libs: Shadow DOM Component Library Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 10/13 complete
+Pending: Cross-framework consistency check, Training data quality validation, End-to-end browser testing of all frameworks
+
+## 079-alpine-htmx-knockout: 079-alpine-htmx-knockout__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 080-svelte-aurelia: 080-svelte-aurelia__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 081-ats-major: ATS Major Platform Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 10/21 complete
+Pending: Generate Lever training.jsonl with 20+ diverse examples, Create iCIMS index.html test page with iframe-embedded traditional form, Create iCIMS ffm.js Form Fill Module with fallback for non-framework forms, Generate iCIMS training.jsonl with 20+ diverse examples, Create Taleo index.html test page with iframe-embedded multi-page form, Create Taleo ffm.js Form Fill Module with multi-step navigation, Generate Taleo training.jsonl with 20+ diverse examples, Validate all JSONL files have correct format and sufficient examples, Security validation: verify no wildcard origins in postMessage calls, Verify all FFM modules include origin validation, Manual end-to-end verification of all test pages
+
+## 082-ats-other: 082-ats-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 083-rte-major: Rich Text Editor Training Data Generation (CKEditor & Froala)
+Status: plan_review | Exit: error
+Subtasks: 0/9 complete
+Pending: Create CKEditor 5 test page (index.html), Create CKEditor Form Fill Module (ffm.js), Generate CKEditor training data (training.jsonl), Create Froala test page (index.html), Create Froala Form Fill Module (ffm.js), Generate Froala training data (training.jsonl), Validate all test pages load without errors, Validate training data consistency across all editors, Verify license compliance documentation
+
+## 084-rte-other: 084-rte-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 085-templating-backend: Server-Side Templating Framework Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 0/12 complete
+Pending: Create Jinja2 HTML test page with Django form patterns, Create Jinja2 Form Fill Module with vanilla JavaScript, Generate Jinja2 training dataset with detection patterns, Research Twig/Symfony form patterns via web search, Create Twig HTML test page with Symfony form patterns, Create Twig Form Fill Module with vanilla JavaScript, Generate Twig training dataset with detection patterns, Validate file structure and completeness for all frameworks, Validate HTML files are valid HTML5 and render correctly, Validate JavaScript FFM modules have no syntax errors, Validate JSONL files are valid JSON Lines format, Verify framework-specific patterns in all artifacts
+
+## 086-templating-frontend: Frontend Templating Framework Training Data
+Status: plan_review | Exit: none
+Subtasks: 0/21 complete
+Pending: Research Pug/Jade form rendering patterns via web search, Research Nunjucks form rendering patterns via web search, Research Liquid form rendering patterns via web search, Research Haml form rendering patterns via web search, Research Slim form rendering patterns via web search, Create Pug/Jade index.html with comprehensive form elements, Create Pug/Jade ffm.js using vanilla JavaScript DOM methods, Create Pug/Jade training.jsonl with 10-20 training examples, Create Nunjucks index.html with comprehensive form elements, Create Nunjucks ffm.js using vanilla JavaScript DOM methods, Create Nunjucks training.jsonl with 10-20 training examples, Create Liquid index.html with comprehensive form elements, Create Liquid ffm.js using vanilla JavaScript DOM methods, Create Liquid training.jsonl with 10-20 training examples, Create Haml index.html with comprehensive form elements, Create Haml ffm.js using vanilla JavaScript DOM methods, Create Haml training.jsonl with 10-20 training examples, Create Slim index.html with comprehensive form elements, Create Slim ffm.js using vanilla JavaScript DOM methods, Create Slim training.jsonl with 10-20 training examples, Run QA validation script to verify all 24 files exist and meet criteria
+
+Use MCP tools: get_task_error_details, submit_task_fix_request, process_rdr_batch
+[Auto-Claude RDR] Tasks needing intervention:
+
+## 071-marko: 071-marko__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 073-qwik: Qwik Framework Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 13/21 complete
+Pending: Add selection element examples to training.jsonl (15+ examples for checkboxes, radio, select), Add specialized input examples (10+ examples for date, time, file, range, color), Add edge case examples (10+ examples for disabled, hidden, multi-select, error handling), Add Qwik-specific pattern examples (5+ examples showing data-qwik-* usage, event dispatch), Validate training.jsonl format and line count (minimum 50 lines), Verify test page renders without errors and FFM loads correctly, Test FFM methods populate all form element types correctly, Execute random training examples to verify completeness
+
+## 077-shadow-component-libs: Shadow DOM Component Library Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 10/13 complete
+Pending: Cross-framework consistency check, Training data quality validation, End-to-end browser testing of all frameworks
+
+## 079-alpine-htmx-knockout: 079-alpine-htmx-knockout__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 080-svelte-aurelia: 080-svelte-aurelia__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 081-ats-major: ATS Major Platform Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 10/21 complete
+Pending: Generate Lever training.jsonl with 20+ diverse examples, Create iCIMS index.html test page with iframe-embedded traditional form, Create iCIMS ffm.js Form Fill Module with fallback for non-framework forms, Generate iCIMS training.jsonl with 20+ diverse examples, Create Taleo index.html test page with iframe-embedded multi-page form, Create Taleo ffm.js Form Fill Module with multi-step navigation, Generate Taleo training.jsonl with 20+ diverse examples, Validate all JSONL files have correct format and sufficient examples, Security validation: verify no wildcard origins in postMessage calls, Verify all FFM modules include origin validation, Manual end-to-end verification of all test pages
+
+## 082-ats-other: 082-ats-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 083-rte-major: Rich Text Editor Training Data Generation (CKEditor & Froala)
+Status: plan_review | Exit: error
+Subtasks: 0/9 complete
+Pending: Create CKEditor 5 test page (index.html), Create CKEditor Form Fill Module (ffm.js), Generate CKEditor training data (training.jsonl), Create Froala test page (index.html), Create Froala Form Fill Module (ffm.js), Generate Froala training data (training.jsonl), Validate all test pages load without errors, Validate training data consistency across all editors, Verify license compliance documentation
+
+## 084-rte-other: 084-rte-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 085-templating-backend: Server-Side Templating Framework Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 0/12 complete
+Pending: Create Jinja2 HTML test page with Django form patterns, Create Jinja2 Form Fill Module with vanilla JavaScript, Generate Jinja2 training dataset with detection patterns, Research Twig/Symfony form patterns via web search, Create Twig HTML test page with Symfony form patterns, Create Twig Form Fill Module with vanilla JavaScript, Generate Twig training dataset with detection patterns, Validate file structure and completeness for all frameworks, Validate HTML files are valid HTML5 and render correctly, Validate JavaScript FFM modules have no syntax errors, Validate JSONL files are valid JSON Lines format, Verify framework-specific patterns in all artifacts
+
+## 086-templating-frontend: Frontend Templating Framework Training Data
+Status: plan_review | Exit: none
+Subtasks: 0/21 complete
+Pending: Research Pug/Jade form rendering patterns via web search, Research Nunjucks form rendering patterns via web search, Research Liquid form rendering patterns via web search, Research Haml form rendering patterns via web search, Research Slim form rendering patterns via web search, Create Pug/Jade index.html with comprehensive form elements, Create Pug/Jade ffm.js using vanilla JavaScript DOM methods, Create Pug/Jade training.jsonl with 10-20 training examples, Create Nunjucks index.html with comprehensive form elements, Create Nunjucks ffm.js using vanilla JavaScript DOM methods, Create Nunjucks training.jsonl with 10-20 training examples, Create Liquid index.html with comprehensive form elements, Create Liquid ffm.js using vanilla JavaScript DOM methods, Create Liquid training.jsonl with 10-20 training examples, Create Haml index.html with comprehensive form elements, Create Haml ffm.js using vanilla JavaScript DOM methods, Create Haml training.jsonl with 10-20 training examples, Create Slim index.html with comprehensive form elements, Create Slim ffm.js using vanilla JavaScript DOM methods, Create Slim training.jsonl with 10-20 training examples, Run QA validation script to verify all 24 files exist and meet criteria
+
+Use MCP tools: get_task_error_details, submit_task_fix_request, process_rdr_batch
+[Auto-Claude RDR] Tasks needing intervention:
+
+## 071-marko: 071-marko__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 073-qwik: Qwik Framework Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 13/21 complete
+Pending: Add selection element examples to training.jsonl (15+ examples for checkboxes, radio, select), Add specialized input examples (10+ examples for date, time, file, range, color), Add edge case examples (10+ examples for disabled, hidden, multi-select, error handling), Add Qwik-specific pattern examples (5+ examples showing data-qwik-* usage, event dispatch), Validate training.jsonl format and line count (minimum 50 lines), Verify test page renders without errors and FFM loads correctly, Test FFM methods populate all form element types correctly, Execute random training examples to verify completeness
+
+## 077-shadow-component-libs: Shadow DOM Component Library Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 10/13 complete
+Pending: Cross-framework consistency check, Training data quality validation, End-to-end browser testing of all frameworks
+
+## 079-alpine-htmx-knockout: 079-alpine-htmx-knockout__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 080-svelte-aurelia: 080-svelte-aurelia__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 081-ats-major: ATS Major Platform Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 10/21 complete
+Pending: Generate Lever training.jsonl with 20+ diverse examples, Create iCIMS index.html test page with iframe-embedded traditional form, Create iCIMS ffm.js Form Fill Module with fallback for non-framework forms, Generate iCIMS training.jsonl with 20+ diverse examples, Create Taleo index.html test page with iframe-embedded multi-page form, Create Taleo ffm.js Form Fill Module with multi-step navigation, Generate Taleo training.jsonl with 20+ diverse examples, Validate all JSONL files have correct format and sufficient examples, Security validation: verify no wildcard origins in postMessage calls, Verify all FFM modules include origin validation, Manual end-to-end verification of all test pages
+
+## 082-ats-other: 082-ats-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 083-rte-major: Rich Text Editor Training Data Generation (CKEditor & Froala)
+Status: plan_review | Exit: error
+Subtasks: 0/9 complete
+Pending: Create CKEditor 5 test page (index.html), Create CKEditor Form Fill Module (ffm.js), Generate CKEditor training data (training.jsonl), Create Froala test page (index.html), Create Froala Form Fill Module (ffm.js), Generate Froala training data (training.jsonl), Validate all test pages load without errors, Validate training data consistency across all editors, Verify license compliance documentation
+
+## 084-rte-other: 084-rte-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 085-templating-backend: Server-Side Templating Framework Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 0/12 complete
+Pending: Create Jinja2 HTML test page with Django form patterns, Create Jinja2 Form Fill Module with vanilla JavaScript, Generate Jinja2 training dataset with detection patterns, Research Twig/Symfony form patterns via web search, Create Twig HTML test page with Symfony form patterns, Create Twig Form Fill Module with vanilla JavaScript, Generate Twig training dataset with detection patterns, Validate file structure and completeness for all frameworks, Validate HTML files are valid HTML5 and render correctly, Validate JavaScript FFM modules have no syntax errors, Validate JSONL files are valid JSON Lines format, Verify framework-specific patterns in all artifacts
+
+## 086-templating-frontend: Frontend Templating Framework Training Data
+Status: plan_review | Exit: none
+Subtasks: 0/21 complete
+Pending: Research Pug/Jade form rendering patterns via web search, Research Nunjucks form rendering patterns via web search, Research Liquid form rendering patterns via web search, Research Haml form rendering patterns via web search, Research Slim form rendering patterns via web search, Create Pug/Jade index.html with comprehensive form elements, Create Pug/Jade ffm.js using vanilla JavaScript DOM methods, Create Pug/Jade training.jsonl with 10-20 training examples, Create Nunjucks index.html with comprehensive form elements, Create Nunjucks ffm.js using vanilla JavaScript DOM methods, Create Nunjucks training.jsonl with 10-20 training examples, Create Liquid index.html with comprehensive form elements, Create Liquid ffm.js using vanilla JavaScript DOM methods, Create Liquid training.jsonl with 10-20 training examples, Create Haml index.html with comprehensive form elements, Create Haml ffm.js using vanilla JavaScript DOM methods, Create Haml training.jsonl with 10-20 training examples, Create Slim index.html with comprehensive form elements, Create Slim ffm.js using vanilla JavaScript DOM methods, Create Slim training.jsonl with 10-20 training examples, Run QA validation script to verify all 24 files exist and meet criteria
+
+Use MCP tools: get_task_error_details, submit_task_fix_request, process_rdr_batch
+[Auto-Claude RDR] Tasks needing intervention:
+
+## 071-marko: 071-marko__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 073-qwik: Qwik Framework Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 13/21 complete
+Pending: Add selection element examples to training.jsonl (15+ examples for checkboxes, radio, select), Add specialized input examples (10+ examples for date, time, file, range, color), Add edge case examples (10+ examples for disabled, hidden, multi-select, error handling), Add Qwik-specific pattern examples (5+ examples showing data-qwik-* usage, event dispatch), Validate training.jsonl format and line count (minimum 50 lines), Verify test page renders without errors and FFM loads correctly, Test FFM methods populate all form element types correctly, Execute random training examples to verify completeness
+
+## 077-shadow-component-libs: Shadow DOM Component Library Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 10/13 complete
+Pending: Cross-framework consistency check, Training data quality validation, End-to-end browser testing of all frameworks
+
+## 079-alpine-htmx-knockout: 079-alpine-htmx-knockout__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 080-svelte-aurelia: 080-svelte-aurelia__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 081-ats-major: ATS Major Platform Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 10/21 complete
+Pending: Generate Lever training.jsonl with 20+ diverse examples, Create iCIMS index.html test page with iframe-embedded traditional form, Create iCIMS ffm.js Form Fill Module with fallback for non-framework forms, Generate iCIMS training.jsonl with 20+ diverse examples, Create Taleo index.html test page with iframe-embedded multi-page form, Create Taleo ffm.js Form Fill Module with multi-step navigation, Generate Taleo training.jsonl with 20+ diverse examples, Validate all JSONL files have correct format and sufficient examples, Security validation: verify no wildcard origins in postMessage calls, Verify all FFM modules include origin validation, Manual end-to-end verification of all test pages
+
+## 082-ats-other: 082-ats-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 083-rte-major: Rich Text Editor Training Data Generation (CKEditor & Froala)
+Status: plan_review | Exit: error
+Subtasks: 0/9 complete
+Pending: Create CKEditor 5 test page (index.html), Create CKEditor Form Fill Module (ffm.js), Generate CKEditor training data (training.jsonl), Create Froala test page (index.html), Create Froala Form Fill Module (ffm.js), Generate Froala training data (training.jsonl), Validate all test pages load without errors, Validate training data consistency across all editors, Verify license compliance documentation
+
+## 084-rte-other: 084-rte-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 085-templating-backend: Server-Side Templating Framework Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 0/12 complete
+Pending: Create Jinja2 HTML test page with Django form patterns, Create Jinja2 Form Fill Module with vanilla JavaScript, Generate Jinja2 training dataset with detection patterns, Research Twig/Symfony form patterns via web search, Create Twig HTML test page with Symfony form patterns, Create Twig Form Fill Module with vanilla JavaScript, Generate Twig training dataset with detection patterns, Validate file structure and completeness for all frameworks, Validate HTML files are valid HTML5 and render correctly, Validate JavaScript FFM modules have no syntax errors, Validate JSONL files are valid JSON Lines format, Verify framework-specific patterns in all artifacts
+
+## 086-templating-frontend: Frontend Templating Framework Training Data
+Status: plan_review | Exit: none
+Subtasks: 0/21 complete
+Pending: Research Pug/Jade form rendering patterns via web search, Research Nunjucks form rendering patterns via web search, Research Liquid form rendering patterns via web search, Research Haml form rendering patterns via web search, Research Slim form rendering patterns via web search, Create Pug/Jade index.html with comprehensive form elements, Create Pug/Jade ffm.js using vanilla JavaScript DOM methods, Create Pug/Jade training.jsonl with 10-20 training examples, Create Nunjucks index.html with comprehensive form elements, Create Nunjucks ffm.js using vanilla JavaScript DOM methods, Create Nunjucks training.jsonl with 10-20 training examples, Create Liquid index.html with comprehensive form elements, Create Liquid ffm.js using vanilla JavaScript DOM methods, Create Liquid training.jsonl with 10-20 training examples, Create Haml index.html with comprehensive form elements, Create Haml ffm.js using vanilla JavaScript DOM methods, Create Haml training.jsonl with 10-20 training examples, Create Slim index.html with comprehensive form elements, Create Slim ffm.js using vanilla JavaScript DOM methods, Create Slim training.jsonl with 10-20 training examples, Run QA validation script to verify all 24 files exist and meet criteria
+
+Use MCP tools: get_task_error_details, submit_task_fix_request, process_rdr_batch
+[Auto-Claude RDR] Tasks needing intervention:
+
+## 071-marko: 071-marko__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 073-qwik: Qwik Framework Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 13/21 complete
+Pending: Add selection element examples to training.jsonl (15+ examples for checkboxes, radio, select), Add specialized input examples (10+ examples for date, time, file, range, color), Add edge case examples (10+ examples for disabled, hidden, multi-select, error handling), Add Qwik-specific pattern examples (5+ examples showing data-qwik-* usage, event dispatch), Validate training.jsonl format and line count (minimum 50 lines), Verify test page renders without errors and FFM loads correctly, Test FFM methods populate all form element types correctly, Execute random training examples to verify completeness
+
+## 077-shadow-component-libs: Shadow DOM Component Library Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 10/13 complete
+Pending: Cross-framework consistency check, Training data quality validation, End-to-end browser testing of all frameworks
+
+## 079-alpine-htmx-knockout: 079-alpine-htmx-knockout__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 080-svelte-aurelia: 080-svelte-aurelia__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 081-ats-major: ATS Major Platform Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 10/21 complete
+Pending: Generate Lever training.jsonl with 20+ diverse examples, Create iCIMS index.html test page with iframe-embedded traditional form, Create iCIMS ffm.js Form Fill Module with fallback for non-framework forms, Generate iCIMS training.jsonl with 20+ diverse examples, Create Taleo index.html test page with iframe-embedded multi-page form, Create Taleo ffm.js Form Fill Module with multi-step navigation, Generate Taleo training.jsonl with 20+ diverse examples, Validate all JSONL files have correct format and sufficient examples, Security validation: verify no wildcard origins in postMessage calls, Verify all FFM modules include origin validation, Manual end-to-end verification of all test pages
+
+## 082-ats-other: 082-ats-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 083-rte-major: Rich Text Editor Training Data Generation (CKEditor & Froala)
+Status: plan_review | Exit: error
+Subtasks: 0/9 complete
+Pending: Create CKEditor 5 test page (index.html), Create CKEditor Form Fill Module (ffm.js), Generate CKEditor training data (training.jsonl), Create Froala test page (index.html), Create Froala Form Fill Module (ffm.js), Generate Froala training data (training.jsonl), Validate all test pages load without errors, Validate training data consistency across all editors, Verify license compliance documentation
+
+## 084-rte-other: 084-rte-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 085-templating-backend: Server-Side Templating Framework Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 0/12 complete
+Pending: Create Jinja2 HTML test page with Django form patterns, Create Jinja2 Form Fill Module with vanilla JavaScript, Generate Jinja2 training dataset with detection patterns, Research Twig/Symfony form patterns via web search, Create Twig HTML test page with Symfony form patterns, Create Twig Form Fill Module with vanilla JavaScript, Generate Twig training dataset with detection patterns, Validate file structure and completeness for all frameworks, Validate HTML files are valid HTML5 and render correctly, Validate JavaScript FFM modules have no syntax errors, Validate JSONL files are valid JSON Lines format, Verify framework-specific patterns in all artifacts
+
+## 086-templating-frontend: Frontend Templating Framework Training Data
+Status: plan_review | Exit: none
+Subtasks: 0/21 complete
+Pending: Research Pug/Jade form rendering patterns via web search, Research Nunjucks form rendering patterns via web search, Research Liquid form rendering patterns via web search, Research Haml form rendering patterns via web search, Research Slim form rendering patterns via web search, Create Pug/Jade index.html with comprehensive form elements, Create Pug/Jade ffm.js using vanilla JavaScript DOM methods, Create Pug/Jade training.jsonl with 10-20 training examples, Create Nunjucks index.html with comprehensive form elements, Create Nunjucks ffm.js using vanilla JavaScript DOM methods, Create Nunjucks training.jsonl with 10-20 training examples, Create Liquid index.html with comprehensive form elements, Create Liquid ffm.js using vanilla JavaScript DOM methods, Create Liquid training.jsonl with 10-20 training examples, Create Haml index.html with comprehensive form elements, Create Haml ffm.js using vanilla JavaScript DOM methods, Create Haml training.jsonl with 10-20 training examples, Create Slim index.html with comprehensive form elements, Create Slim ffm.js using vanilla JavaScript DOM methods, Create Slim training.jsonl with 10-20 training examples, Run QA validation script to verify all 24 files exist and meet criteria
+
+Use MCP tools: get_task_error_details, submit_task_fix_request, process_rdr_batch
+W[Auto-Claude RDR] Tasks needing intervention:
+
+## 071-marko: 071-marko__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 073-qwik: Qwik Framework Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 13/21 complete
+Pending: Add selection element examples to training.jsonl (15+ examples for checkboxes, radio, select), Add specialized input examples (10+ examples for date, time, file, range, color), Add edge case examples (10+ examples for disabled, hidden, multi-select, error handling), Add Qwik-specific pattern examples (5+ examples showing data-qwik-* usage, event dispatch), Validate training.jsonl format and line count (minimum 50 lines), Verify test page renders without errors and FFM loads correctly, Test FFM methods populate all form element types correctly, Execute random training examples to verify completeness
+
+## 077-shadow-component-libs: Shadow DOM Component Library Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 10/13 complete
+Pending: Cross-framework consistency check, Training data quality validation, End-to-end browser testing of all frameworks
+
+## 079-alpine-htmx-knockout: 079-alpine-htmx-knockout__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 080-svelte-aurelia: 080-svelte-aurelia__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 081-ats-major: ATS Major Platform Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 10/21 complete
+Pending: Generate Lever training.jsonl with 20+ diverse examples, Create iCIMS index.html test page with iframe-embedded traditional form, Create iCIMS ffm.js Form Fill Module with fallback for non-framework forms, Generate iCIMS training.jsonl with 20+ diverse examples, Create Taleo index.html test page with iframe-embedded multi-page form, Create Taleo ffm.js Form Fill Module with multi-step navigation, Generate Taleo training.jsonl with 20+ diverse examples, Validate all JSONL files have correct format and sufficient examples, Security validation: verify no wildcard origins in postMessage calls, Verify all FFM modules include origin validation, Manual end-to-end verification of all test pages
+
+## 082-ats-other: 082-ats-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 083-rte-major: Rich Text Editor Training Data Generation (CKEditor & Froala)
+Status: plan_review | Exit: error
+Subtasks: 0/9 complete
+Pending: Create CKEditor 5 test page (index.html), Create CKEditor Form Fill Module (ffm.js), Generate CKEditor training data (training.jsonl), Create Froala test page (index.html), Create Froala Form Fill Module (ffm.js), Generate Froala training data (training.jsonl), Validate all test pages load without errors, Validate training data consistency across all editors, Verify license compliance documentation
+
+## 084-rte-other: 084-rte-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 085-templating-backend: Server-Side Templating Framework Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 0/12 complete
+Pending: Create Jinja2 HTML test page with Django form patterns, Create Jinja2 Form Fill Module with vanilla JavaScript, Generate Jinja2 training dataset with detection patterns, Research Twig/Symfony form patterns via web search, Create Twig HTML test page with Symfony form patterns, Create Twig Form Fill Module with vanilla JavaScript, Generate Twig training dataset with detection patterns, Validate file structure and completeness for all frameworks, Validate HTML files are valid HTML5 and render correctly, Validate JavaScript FFM modules have no syntax errors, Validate JSONL files are valid JSON Lines format, Verify framework-specific patterns in all artifacts
+
+## 086-templating-frontend: Frontend Templating Framework Training Data
+Status: plan_review | Exit: none
+Subtasks: 0/21 complete
+Pending: Research Pug/Jade form rendering patterns via web search, Research Nunjucks form rendering patterns via web search, Research Liquid form rendering patterns via web search, Research Haml form rendering patterns via web search, Research Slim form rendering patterns via web search, Create Pug/Jade index.html with comprehensive form elements, Create Pug/Jade ffm.js using vanilla JavaScript DOM methods, Create Pug/Jade training.jsonl with 10-20 training examples, Create Nunjucks index.html with comprehensive form elements, Create Nunjucks ffm.js using vanilla JavaScript DOM methods, Create Nunjucks training.jsonl with 10-20 training examples, Create Liquid index.html with comprehensive form elements, Create Liquid ffm.js using vanilla JavaScript DOM methods, Create Liquid training.jsonl with 10-20 training examples, Create Haml index.html with comprehensive form elements, Create Haml ffm.js using vanilla JavaScript DOM methods, Create Haml training.jsonl with 10-20 training examples, Create Slim index.html with comprehensive form elements, Create Slim ffm.js using vanilla JavaScript DOM methods, Create Slim training.jsonl with 10-20 training examples, Run QA validation script to verify all 24 files exist and meet criteria
+
+Use MCP tools: get_task_error_details, submit_task_fix_request, process_rdr_batch
+[Auto-Claude RDR] Tasks needing intervention:
+
+## 071-marko: 071-marko__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 073-qwik: Qwik Framework Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 13/21 complete
+Pending: Add selection element examples to training.jsonl (15+ examples for checkboxes, radio, select), Add specialized input examples (10+ examples for date, time, file, range, color), Add edge case examples (10+ examples for disabled, hidden, multi-select, error handling), Add Qwik-specific pattern examples (5+ examples showing data-qwik-* usage, event dispatch), Validate training.jsonl format and line count (minimum 50 lines), Verify test page renders without errors and FFM loads correctly, Test FFM methods populate all form element types correctly, Execute random training examples to verify completeness
+
+## 077-shadow-component-libs: Shadow DOM Component Library Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 10/13 complete
+Pending: Cross-framework consistency check, Training data quality validation, End-to-end browser testing of all frameworks
+
+## 079-alpine-htmx-knockout: 079-alpine-htmx-knockout__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 080-svelte-aurelia: 080-svelte-aurelia__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 081-ats-major: ATS Major Platform Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 10/21 complete
+Pending: Generate Lever training.jsonl with 20+ diverse examples, Create iCIMS index.html test page with iframe-embedded traditional form, Create iCIMS ffm.js Form Fill Module with fallback for non-framework forms, Generate iCIMS training.jsonl with 20+ diverse examples, Create Taleo index.html test page with iframe-embedded multi-page form, Create Taleo ffm.js Form Fill Module with multi-step navigation, Generate Taleo training.jsonl with 20+ diverse examples, Validate all JSONL files have correct format and sufficient examples, Security validation: verify no wildcard origins in postMessage calls, Verify all FFM modules include origin validation, Manual end-to-end verification of all test pages
+
+## 082-ats-other: 082-ats-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 083-rte-major: Rich Text Editor Training Data Generation (CKEditor & Froala)
+Status: plan_review | Exit: error
+Subtasks: 0/9 complete
+Pending: Create CKEditor 5 test page (index.html), Create CKEditor Form Fill Module (ffm.js), Generate CKEditor training data (training.jsonl), Create Froala test page (index.html), Create Froala Form Fill Module (ffm.js), Generate Froala training data (training.jsonl), Validate all test pages load without errors, Validate training data consistency across all editors, Verify license compliance documentation
+
+## 084-rte-other: 084-rte-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 085-templating-backend: Server-Side Templating Framework Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 0/12 complete
+Pending: Create Jinja2 HTML test page with Django form patterns, Create Jinja2 Form Fill Module with vanilla JavaScript, Generate Jinja2 training dataset with detection patterns, Research Twig/Symfony form patterns via web search, Create Twig HTML test page with Symfony form patterns, Create Twig Form Fill Module with vanilla JavaScript, Generate Twig training dataset with detection patterns, Validate file structure and completeness for all frameworks, Validate HTML files are valid HTML5 and render correctly, Validate JavaScript FFM modules have no syntax errors, Validate JSONL files are valid JSON Lines format, Verify framework-specific patterns in all artifacts
+
+## 086-templating-frontend: Frontend Templating Framework Training Data
+Status: plan_review | Exit: none
+Subtasks: 0/21 complete
+Pending: Research Pug/Jade form rendering patterns via web search, Research Nunjucks form rendering patterns via web search, Research Liquid form rendering patterns via web search, Research Haml form rendering patterns via web search, Research Slim form rendering patterns via web search, Create Pug/Jade index.html with comprehensive form elements, Create Pug/Jade ffm.js using vanilla JavaScript DOM methods, Create Pug/Jade training.jsonl with 10-20 training examples, Create Nunjucks index.html with comprehensive form elements, Create Nunjucks ffm.js using vanilla JavaScript DOM methods, Create Nunjucks training.jsonl with 10-20 training examples, Create Liquid index.html with comprehensive form elements, Create Liquid ffm.js using vanilla JavaScript DOM methods, Create Liquid training.jsonl with 10-20 training examples, Create Haml index.html with comprehensive form elements, Create Haml ffm.js using vanilla JavaScript DOM methods, Create Haml training.jsonl with 10-20 training examples, Create Slim index.html with comprehensive form elements, Create Slim ffm.js using vanilla JavaScript DOM methods, Create Slim training.jsonl with 10-20 training examples, Run QA validation script to verify all 24 files exist and meet criteria
+
+Use MCP tools: get_task_error_details, submit_task_fix_request, process_rdr_batch
+[Auto-Claude RDR] Tasks needing intervention:
+
+## 071-marko: 071-marko__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 073-qwik: Qwik Framework Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 13/21 complete
+Pending: Add selection element examples to training.jsonl (15+ examples for checkboxes, radio, select), Add specialized input examples (10+ examples for date, time, file, range, color), Add edge case examples (10+ examples for disabled, hidden, multi-select, error handling), Add Qwik-specific pattern examples (5+ examples showing data-qwik-* usage, event dispatch), Validate training.jsonl format and line count (minimum 50 lines), Verify test page renders without errors and FFM loads correctly, Test FFM methods populate all form element types correctly, Execute random training examples to verify completeness
+
+## 077-shadow-component-libs: Shadow DOM Component Library Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 10/13 complete
+Pending: Cross-framework consistency check, Training data quality validation, End-to-end browser testing of all frameworks
+
+## 079-alpine-htmx-knockout: 079-alpine-htmx-knockout__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 080-svelte-aurelia: 080-svelte-aurelia__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 081-ats-major: ATS Major Platform Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 10/21 complete
+Pending: Generate Lever training.jsonl with 20+ diverse examples, Create iCIMS index.html test page with iframe-embedded traditional form, Create iCIMS ffm.js Form Fill Module with fallback for non-framework forms, Generate iCIMS training.jsonl with 20+ diverse examples, Create Taleo index.html test page with iframe-embedded multi-page form, Create Taleo ffm.js Form Fill Module with multi-step navigation, Generate Taleo training.jsonl with 20+ diverse examples, Validate all JSONL files have correct format and sufficient examples, Security validation: verify no wildcard origins in postMessage calls, Verify all FFM modules include origin validation, Manual end-to-end verification of all test pages
+
+## 082-ats-other: 082-ats-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 083-rte-major: Rich Text Editor Training Data Generation (CKEditor & Froala)
+Status: plan_review | Exit: error
+Subtasks: 0/9 complete
+Pending: Create CKEditor 5 test page (index.html), Create CKEditor Form Fill Module (ffm.js), Generate CKEditor training data (training.jsonl), Create Froala test page (index.html), Create Froala Form Fill Module (ffm.js), Generate Froala training data (training.jsonl), Validate all test pages load without errors, Validate training data consistency across all editors, Verify license compliance documentation
+
+## 084-rte-other: 084-rte-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 085-templating-backend: Server-Side Templating Framework Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 0/12 complete
+Pending: Create Jinja2 HTML test page with Django form patterns, Create Jinja2 Form Fill Module with vanilla JavaScript, Generate Jinja2 training dataset with detection patterns, Research Twig/Symfony form patterns via web search, Create Twig HTML test page with Symfony form patterns, Create Twig Form Fill Module with vanilla JavaScript, Generate Twig training dataset with detection patterns, Validate file structure and completeness for all frameworks, Validate HTML files are valid HTML5 and render correctly, Validate JavaScript FFM modules have no syntax errors, Validate JSONL files are valid JSON Lines format, Verify framework-specific patterns in all artifacts
+
+## 086-templating-frontend: Frontend Templating Framework Training Data
+Status: plan_review | Exit: none
+Subtasks: 0/21 complete
+Pending: Research Pug/Jade form rendering patterns via web search, Research Nunjucks form rendering patterns via web search, Research Liquid form rendering patterns via web search, Research Haml form rendering patterns via web search, Research Slim form rendering patterns via web search, Create Pug/Jade index.html with comprehensive form elements, Create Pug/Jade ffm.js using vanilla JavaScript DOM methods, Create Pug/Jade training.jsonl with 10-20 training examples, Create Nunjucks index.html with comprehensive form elements, Create Nunjucks ffm.js using vanilla JavaScript DOM methods, Create Nunjucks training.jsonl with 10-20 training examples, Create Liquid index.html with comprehensive form elements, Create Liquid ffm.js using vanilla JavaScript DOM methods, Create Liquid training.jsonl with 10-20 training examples, Create Haml index.html with comprehensive form elements, Create Haml ffm.js using vanilla JavaScript DOM methods, Create Haml training.jsonl with 10-20 training examples, Create Slim index.html with comprehensive form elements, Create Slim ffm.js using vanilla JavaScript DOM methods, Create Slim training.jsonl with 10-20 training examples, Run QA validation script to verify all 24 files exist and meet criteria
+
+Use MCP tools: get_task_error_details, submit_task_fix_request, process_rdr_batchW
+[Auto-Claude RDR] Tasks needing intervention:
+
+## 071-marko: 071-marko__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 073-qwik: Qwik Framework Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 13/21 complete
+Pending: Add selection element examples to training.jsonl (15+ examples for checkboxes, radio, select), Add specialized input examples (10+ examples for date, time, file, range, color), Add edge case examples (10+ examples for disabled, hidden, multi-select, error handling), Add Qwik-specific pattern examples (5+ examples showing data-qwik-* usage, event dispatch), Validate training.jsonl format and line count (minimum 50 lines), Verify test page renders without errors and FFM loads correctly, Test FFM methods populate all form element types correctly, Execute random training examples to verify completeness
+
+## 077-shadow-component-libs: Shadow DOM Component Library Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 10/13 complete
+Pending: Cross-framework consistency check, Training data quality validation, End-to-end browser testing of all frameworks
+
+## 079-alpine-htmx-knockout: 079-alpine-htmx-knockout__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 080-svelte-aurelia: 080-svelte-aurelia__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 081-ats-major: ATS Major Platform Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 10/21 complete
+Pending: Generate Lever training.jsonl with 20+ diverse examples, Create iCIMS index.html test page with iframe-embedded traditional form, Create iCIMS ffm.js Form Fill Module with fallback for non-framework forms, Generate iCIMS training.jsonl with 20+ diverse examples, Create Taleo index.html test page with iframe-embedded multi-page form, Create Taleo ffm.js Form Fill Module with multi-step navigation, Generate Taleo training.jsonl with 20+ diverse examples, Validate all JSONL files have correct format and sufficient examples, Security validation: verify no wildcard origins in postMessage calls, Verify all FFM modules include origin validation, Manual end-to-end verification of all test pages
+
+## 082-ats-other: 082-ats-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 083-rte-major: Rich Text Editor Training Data Generation (CKEditor & Froala)
+Status: plan_review | Exit: error
+Subtasks: 0/9 complete
+Pending: Create CKEditor 5 test page (index.html), Create CKEditor Form Fill Module (ffm.js), Generate CKEditor training data (training.jsonl), Create Froala test page (index.html), Create Froala Form Fill Module (ffm.js), Generate Froala training data (training.jsonl), Validate all test pages load without errors, Validate training data consistency across all editors, Verify license compliance documentation
+
+## 084-rte-other: 084-rte-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 085-templating-backend: Server-Side Templating Framework Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 0/12 complete
+Pending: Create Jinja2 HTML test page with Django form patterns, Create Jinja2 Form Fill Module with vanilla JavaScript, Generate Jinja2 training dataset with detection patterns, Research Twig/Symfony form patterns via web search, Create Twig HTML test page with Symfony form patterns, Create Twig Form Fill Module with vanilla JavaScript, Generate Twig training dataset with detection patterns, Validate file structure and completeness for all frameworks, Validate HTML files are valid HTML5 and render correctly, Validate JavaScript FFM modules have no syntax errors, Validate JSONL files are valid JSON Lines format, Verify framework-specific patterns in all artifacts
+
+## 086-templating-frontend: Frontend Templating Framework Training Data
+Status: plan_review | Exit: none
+Subtasks: 0/21 complete
+Pending: Research Pug/Jade form rendering patterns via web search, Research Nunjucks form rendering patterns via web search, Research Liquid form rendering patterns via web search, Research Haml form rendering patterns via web search, Research Slim form rendering patterns via web search, Create Pug/Jade index.html with comprehensive form elements, Create Pug/Jade ffm.js using vanilla JavaScript DOM methods, Create Pug/Jade training.jsonl with 10-20 training examples, Create Nunjucks index.html with comprehensive form elements, Create Nunjucks ffm.js using vanilla JavaScript DOM methods, Create Nunjucks training.jsonl with 10-20 training examples, Create Liquid index.html with comprehensive form elements, Create Liquid ffm.js using vanilla JavaScript DOM methods, Create Liquid training.jsonl with 10-20 training examples, Create Haml index.html with comprehensive form elements, Create Haml ffm.js using vanilla JavaScript DOM methods, Create Haml training.jsonl with 10-20 training examples, Create Slim index.html with comprehensive form elements, Create Slim ffm.js using vanilla JavaScript DOM methods, Create Slim training.jsonl with 10-20 training examples, Run QA validation script to verify all 24 files exist and meet criteria
+
+Use MCP tools: get_task_error_details, submit_task_fix_request, process_rdr_batch
+  [Auto-Claude RDR] Tasks needing intervention:
+
+## 071-marko: 071-marko__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 073-qwik: Qwik Framework Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 13/21 complete
+Pending: Add selection element examples to training.jsonl (15+ examples for checkboxes, radio, select), Add specialized input examples (10+ examples for date, time, file, range, color), Add edge case examples (10+ examples for disabled, hidden, multi-select, error handling), Add Qwik-specific pattern examples (5+ examples showing data-qwik-* usage, event dispatch), Validate training.jsonl format and line count (minimum 50 lines), Verify test page renders without errors and FFM loads correctly, Test FFM methods populate all form element types correctly, Execute random training examples to verify completeness
+
+## 077-shadow-component-libs: Shadow DOM Component Library Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 10/13 complete
+Pending: Cross-framework consistency check, Training data quality validation, End-to-end browser testing of all frameworks
+
+## 079-alpine-htmx-knockout: 079-alpine-htmx-knockout__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 080-svelte-aurelia: 080-svelte-aurelia__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 081-ats-major: ATS Major Platform Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 10/21 complete
+Pending: Generate Lever training.jsonl with 20+ diverse examples, Create iCIMS index.html test page with iframe-embedded traditional form, Create iCIMS ffm.js Form Fill Module with fallback for non-framework forms, Generate iCIMS training.jsonl with 20+ diverse examples, Create Taleo index.html test page with iframe-embedded multi-page form, Create Taleo ffm.js Form Fill Module with multi-step navigation, Generate Taleo training.jsonl with 20+ diverse examples, Validate all JSONL files have correct format and sufficient examples, Security validation: verify no wildcard origins in postMessage calls, Verify all FFM modules include origin validation, Manual end-to-end verification of all test pages
+
+## 082-ats-other: 082-ats-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 083-rte-major: Rich Text Editor Training Data Generation (CKEditor & Froala)
+Status: plan_review | Exit: error
+Subtasks: 0/9 complete
+Pending: Create CKEditor 5 test page (index.html), Create CKEditor Form Fill Module (ffm.js), Generate CKEditor training data (training.jsonl), Create Froala test page (index.html), Create Froala Form Fill Module (ffm.js), Generate Froala training data (training.jsonl), Validate all test pages load without errors, Validate training data consistency across all editors, Verify license compliance documentation
+
+## 084-rte-other: 084-rte-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 085-templating-backend: Server-Side Templating Framework Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 0/12 complete
+Pending: Create Jinja2 HTML test page with Django form patterns, Create Jinja2 Form Fill Module with vanilla JavaScript, Generate Jinja2 training dataset with detection patterns, Research Twig/Symfony form patterns via web search, Create Twig HTML test page with Symfony form patterns, Create Twig Form Fill Module with vanilla JavaScript, Generate Twig training dataset with detection patterns, Validate file structure and completeness for all frameworks, Validate HTML files are valid HTML5 and render correctly, Validate JavaScript FFM modules have no syntax errors, Validate JSONL files are valid JSON Lines format, Verify framework-specific patterns in all artifacts
+
+## 086-templating-frontend: Frontend Templating Framework Training Data
+Status: plan_review | Exit: none
+Subtasks: 0/21 complete
+Pending: Research Pug/Jade form rendering patterns via web search, Research Nunjucks form rendering patterns via web search, Research Liquid form rendering patterns via web search, Research Haml form rendering patterns via web search, Research Slim form rendering patterns via web search, Create Pug/Jade index.html with comprehensive form elements, Create Pug/Jade ffm.js using vanilla JavaScript DOM methods, Create Pug/Jade training.jsonl with 10-20 training examples, Create Nunjucks index.html with comprehensive form elements, Create Nunjucks ffm.js using vanilla JavaScript DOM methods, Create Nunjucks training.jsonl with 10-20 training examples, Create Liquid index.html with comprehensive form elements, Create Liquid ffm.js using vanilla JavaScript DOM methods, Create Liquid training.jsonl with 10-20 training examples, Create Haml index.html with comprehensive form elements, Create Haml ffm.js using vanilla JavaScript DOM methods, Create Haml training.jsonl with 10-20 training examples, Create Slim index.html with comprehensive form elements, Create Slim ffm.js using vanilla JavaScript DOM methods, Create Slim training.jsonl with 10-20 training examples, Run QA validation script to verify all 24 files exist and meet criteria
+
+Use MCP tools: get_task_error_details, submit_task_fix_request, process_rdr_batch
+[Auto-Claude RDR] Tasks needing intervention:
+
+## 071-marko: 071-marko__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 073-qwik: Qwik Framework Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 13/21 complete
+Pending: Add selection element examples to training.jsonl (15+ examples for checkboxes, radio, select), Add specialized input examples (10+ examples for date, time, file, range, color), Add edge case examples (10+ examples for disabled, hidden, multi-select, error handling), Add Qwik-specific pattern examples (5+ examples showing data-qwik-* usage, event dispatch), Validate training.jsonl format and line count (minimum 50 lines), Verify test page renders without errors and FFM loads correctly, Test FFM methods populate all form element types correctly, Execute random training examples to verify completeness
+
+## 077-shadow-component-libs: Shadow DOM Component Library Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 10/13 complete
+Pending: Cross-framework consistency check, Training data quality validation, End-to-end browser testing of all frameworks
+
+## 079-alpine-htmx-knockout: 079-alpine-htmx-knockout__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 080-svelte-aurelia: 080-svelte-aurelia__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 081-ats-major: ATS Major Platform Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 10/21 complete
+Pending: Generate Lever training.jsonl with 20+ diverse examples, Create iCIMS index.html test page with iframe-embedded traditional form, Create iCIMS ffm.js Form Fill Module with fallback for non-framework forms, Generate iCIMS training.jsonl with 20+ diverse examples, Create Taleo index.html test page with iframe-embedded multi-page form, Create Taleo ffm.js Form Fill Module with multi-step navigation, Generate Taleo training.jsonl with 20+ diverse examples, Validate all JSONL files have correct format and sufficient examples, Security validation: verify no wildcard origins in postMessage calls, Verify all FFM modules include origin validation, Manual end-to-end verification of all test pages
+
+## 082-ats-other: 082-ats-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 083-rte-major: Rich Text Editor Training Data Generation (CKEditor & Froala)
+Status: plan_review | Exit: error
+Subtasks: 0/9 complete
+Pending: Create CKEditor 5 test page (index.html), Create CKEditor Form Fill Module (ffm.js), Generate CKEditor training data (training.jsonl), Create Froala test page (index.html), Create Froala Form Fill Module (ffm.js), Generate Froala training data (training.jsonl), Validate all test pages load without errors, Validate training data consistency across all editors, Verify license compliance documentation
+
+## 084-rte-other: 084-rte-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 085-templating-backend: Server-Side Templating Framework Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 0/12 complete
+Pending: Create Jinja2 HTML test page with Django form patterns, Create Jinja2 Form Fill Module with vanilla JavaScript, Generate Jinja2 training dataset with detection patterns, Research Twig/Symfony form patterns via web search, Create Twig HTML test page with Symfony form patterns, Create Twig Form Fill Module with vanilla JavaScript, Generate Twig training dataset with detection patterns, Validate file structure and completeness for all frameworks, Validate HTML files are valid HTML5 and render correctly, Validate JavaScript FFM modules have no syntax errors, Validate JSONL files are valid JSON Lines format, Verify framework-specific patterns in all artifacts
+
+## 086-templating-frontend: Frontend Templating Framework Training Data
+Status: plan_review | Exit: none
+Subtasks: 0/21 complete
+Pending: Research Pug/Jade form rendering patterns via web search, Research Nunjucks form rendering patterns via web search, Research Liquid form rendering patterns via web search, Research Haml form rendering patterns via web search, Research Slim form rendering patterns via web search, Create Pug/Jade index.html with comprehensive form elements, Create Pug/Jade ffm.js using vanilla JavaScript DOM methods, Create Pug/Jade training.jsonl with 10-20 training examples, Create Nunjucks index.html with comprehensive form elements, Create Nunjucks ffm.js using vanilla JavaScript DOM methods, Create Nunjucks training.jsonl with 10-20 training examples, Create Liquid index.html with comprehensive form elements, Create Liquid ffm.js using vanilla JavaScript DOM methods, Create Liquid training.jsonl with 10-20 training examples, Create Haml index.html with comprehensive form elements, Create Haml ffm.js using vanilla JavaScript DOM methods, Create Haml training.jsonl with 10-20 training examples, Create Slim index.html with comprehensive form elements, Create Slim ffm.js using vanilla JavaScript DOM methods, Create Slim training.jsonl with 10-20 training examples, Run QA validation script to verify all 24 files exist and meet criteria
+
+Use MCP tools: get_task_error_details, submit_task_fix_request, process_rdr_batch
+[Auto-Claude RDR] Tasks needing intervention:
+
+## 071-marko: 071-marko__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 073-qwik: Qwik Framework Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 13/21 complete
+Pending: Add selection element examples to training.jsonl (15+ examples for checkboxes, radio, select), Add specialized input examples (10+ examples for date, time, file, range, color), Add edge case examples (10+ examples for disabled, hidden, multi-select, error handling), Add Qwik-specific pattern examples (5+ examples showing data-qwik-* usage, event dispatch), Validate training.jsonl format and line count (minimum 50 lines), Verify test page renders without errors and FFM loads correctly, Test FFM methods populate all form element types correctly, Execute random training examples to verify completeness
+
+## 077-shadow-component-libs: Shadow DOM Component Library Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 10/13 complete
+Pending: Cross-framework consistency check, Training data quality validation, End-to-end browser testing of all frameworks
+
+## 079-alpine-htmx-knockout: 079-alpine-htmx-knockout__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 080-svelte-aurelia: 080-svelte-aurelia__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 081-ats-major: ATS Major Platform Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 10/21 complete
+Pending: Generate Lever training.jsonl with 20+ diverse examples, Create iCIMS index.html test page with iframe-embedded traditional form, Create iCIMS ffm.js Form Fill Module with fallback for non-framework forms, Generate iCIMS training.jsonl with 20+ diverse examples, Create Taleo index.html test page with iframe-embedded multi-page form, Create Taleo ffm.js Form Fill Module with multi-step navigation, Generate Taleo training.jsonl with 20+ diverse examples, Validate all JSONL files have correct format and sufficient examples, Security validation: verify no wildcard origins in postMessage calls, Verify all FFM modules include origin validation, Manual end-to-end verification of all test pages
+
+## 082-ats-other: 082-ats-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 083-rte-major: Rich Text Editor Training Data Generation (CKEditor & Froala)
+Status: plan_review | Exit: error
+Subtasks: 0/9 complete
+Pending: Create CKEditor 5 test page (index.html), Create CKEditor Form Fill Module (ffm.js), Generate CKEditor training data (training.jsonl), Create Froala test page (index.html), Create Froala Form Fill Module (ffm.js), Generate Froala training data (training.jsonl), Validate all test pages load without errors, Validate training data consistency across all editors, Verify license compliance documentation
+
+## 084-rte-other: 084-rte-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 085-templating-backend: Server-Side Templating Framework Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 0/12 complete
+Pending: Create Jinja2 HTML test page with Django form patterns, Create Jinja2 Form Fill Module with vanilla JavaScript, Generate Jinja2 training dataset with detection patterns, Research Twig/Symfony form patterns via web search, Create Twig HTML test page with Symfony form patterns, Create Twig Form Fill Module with vanilla JavaScript, Generate Twig training dataset with detection patterns, Validate file structure and completeness for all frameworks, Validate HTML files are valid HTML5 and render correctly, Validate JavaScript FFM modules have no syntax errors, Validate JSONL files are valid JSON Lines format, Verify framework-specific patterns in all artifacts
+
+## 086-templating-frontend: Frontend Templating Framework Training Data
+Status: plan_review | Exit: none
+Subtasks: 0/21 complete
+Pending: Research Pug/Jade form rendering patterns via web search, Research Nunjucks form rendering patterns via web search, Research Liquid form rendering patterns via web search, Research Haml form rendering patterns via web search, Research Slim form rendering patterns via web search, Create Pug/Jade index.html with comprehensive form elements, Create Pug/Jade ffm.js using vanilla JavaScript DOM methods, Create Pug/Jade training.jsonl with 10-20 training examples, Create Nunjucks index.html with comprehensive form elements, Create Nunjucks ffm.js using vanilla JavaScript DOM methods, Create Nunjucks training.jsonl with 10-20 training examples, Create Liquid index.html with comprehensive form elements, Create Liquid ffm.js using vanilla JavaScript DOM methods, Create Liquid training.jsonl with 10-20 training examples, Create Haml index.html with comprehensive form elements, Create Haml ffm.js using vanilla JavaScript DOM methods, Create Haml training.jsonl with 10-20 training examples, Create Slim index.html with comprehensive form elements, Create Slim ffm.js using vanilla JavaScript DOM methods, Create Slim training.jsonl with 10-20 training examples, Run QA validation script to verify all 24 files exist and meet criteria
+
+Use MCP tools: get_task_error_details, submit_task_fix_request, process_rdr_batch
+[Auto-Claude RDR] Tasks needing intervention:
+
+## 071-marko: 071-marko__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 073-qwik: Qwik Framework Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 13/21 complete
+Pending: Add selection element examples to training.jsonl (15+ examples for checkboxes, radio, select), Add specialized input examples (10+ examples for date, time, file, range, color), Add edge case examples (10+ examples for disabled, hidden, multi-select, error handling), Add Qwik-specific pattern examples (5+ examples showing data-qwik-* usage, event dispatch), Validate training.jsonl format and line count (minimum 50 lines), Verify test page renders without errors and FFM loads correctly, Test FFM methods populate all form element types correctly, Execute random training examples to verify completeness
+
+## 077-shadow-component-libs: Shadow DOM Component Library Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 10/13 complete
+Pending: Cross-framework consistency check, Training data quality validation, End-to-end browser testing of all frameworks
+
+## 079-alpine-htmx-knockout: 079-alpine-htmx-knockout__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 080-svelte-aurelia: 080-svelte-aurelia__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 081-ats-major: ATS Major Platform Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 10/21 complete
+Pending: Generate Lever training.jsonl with 20+ diverse examples, Create iCIMS index.html test page with iframe-embedded traditional form, Create iCIMS ffm.js Form Fill Module with fallback for non-framework forms, Generate iCIMS training.jsonl with 20+ diverse examples, Create Taleo index.html test page with iframe-embedded multi-page form, Create Taleo ffm.js Form Fill Module with multi-step navigation, Generate Taleo training.jsonl with 20+ diverse examples, Validate all JSONL files have correct format and sufficient examples, Security validation: verify no wildcard origins in postMessage calls, Verify all FFM modules include origin validation, Manual end-to-end verification of all test pages
+
+## 082-ats-other: 082-ats-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 083-rte-major: Rich Text Editor Training Data Generation (CKEditor & Froala)
+Status: plan_review | Exit: error
+Subtasks: 0/9 complete
+Pending: Create CKEditor 5 test page (index.html), Create CKEditor Form Fill Module (ffm.js), Generate CKEditor training data (training.jsonl), Create Froala test page (index.html), Create Froala Form Fill Module (ffm.js), Generate Froala training data (training.jsonl), Validate all test pages load without errors, Validate training data consistency across all editors, Verify license compliance documentation
+
+## 084-rte-other: 084-rte-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 085-templating-backend: Server-Side Templating Framework Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 0/12 complete
+Pending: Create Jinja2 HTML test page with Django form patterns, Create Jinja2 Form Fill Module with vanilla JavaScript, Generate Jinja2 training dataset with detection patterns, Research Twig/Symfony form patterns via web search, Create Twig HTML test page with Symfony form patterns, Create Twig Form Fill Module with vanilla JavaScript, Generate Twig training dataset with detection patterns, Validate file structure and completeness for all frameworks, Validate HTML files are valid HTML5 and render correctly, Validate JavaScript FFM modules have no syntax errors, Validate JSONL files are valid JSON Lines format, Verify framework-specific patterns in all artifacts
+
+## 086-templating-frontend: Frontend Templating Framework Training Data
+Status: plan_review | Exit: none
+Subtasks: 0/21 complete
+Pending: Research Pug/Jade form rendering patterns via web search, Research Nunjucks form rendering patterns via web search, Research Liquid form rendering patterns via web search, Research Haml form rendering patterns via web search, Research Slim form rendering patterns via web search, Create Pug/Jade index.html with comprehensive form elements, Create Pug/Jade ffm.js using vanilla JavaScript DOM methods, Create Pug/Jade training.jsonl with 10-20 training examples, Create Nunjucks index.html with comprehensive form elements, Create Nunjucks ffm.js using vanilla JavaScript DOM methods, Create Nunjucks training.jsonl with 10-20 training examples, Create Liquid index.html with comprehensive form elements, Create Liquid ffm.js using vanilla JavaScript DOM methods, Create Liquid training.jsonl with 10-20 training examples, Create Haml index.html with comprehensive form elements, Create Haml ffm.js using vanilla JavaScript DOM methods, Create Haml training.jsonl with 10-20 training examples, Create Slim index.html with comprehensive form elements, Create Slim ffm.js using vanilla JavaScript DOM methods, Create Slim training.jsonl with 10-20 training examples, Run QA validation script to verify all 24 files exist and meet criteria
+
+Use MCP tools: get_task_error_details, submit_task_fix_request, process_rdr_batch
+[Auto-Claude RDR] Tasks needing intervention:
+
+## 071-marko: 071-marko__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 073-qwik: Qwik Framework Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 13/21 complete
+Pending: Add selection element examples to training.jsonl (15+ examples for checkboxes, radio, select), Add specialized input examples (10+ examples for date, time, file, range, color), Add edge case examples (10+ examples for disabled, hidden, multi-select, error handling), Add Qwik-specific pattern examples (5+ examples showing data-qwik-* usage, event dispatch), Validate training.jsonl format and line count (minimum 50 lines), Verify test page renders without errors and FFM loads correctly, Test FFM methods populate all form element types correctly, Execute random training examples to verify completeness
+
+## 077-shadow-component-libs: Shadow DOM Component Library Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 10/13 complete
+Pending: Cross-framework consistency check, Training data quality validation, End-to-end browser testing of all frameworks
+
+## 079-alpine-htmx-knockout: 079-alpine-htmx-knockout__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 080-svelte-aurelia: 080-svelte-aurelia__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 081-ats-major: ATS Major Platform Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 10/21 complete
+Pending: Generate Lever training.jsonl with 20+ diverse examples, Create iCIMS index.html test page with iframe-embedded traditional form, Create iCIMS ffm.js Form Fill Module with fallback for non-framework forms, Generate iCIMS training.jsonl with 20+ diverse examples, Create Taleo index.html test page with iframe-embedded multi-page form, Create Taleo ffm.js Form Fill Module with multi-step navigation, Generate Taleo training.jsonl with 20+ diverse examples, Validate all JSONL files have correct format and sufficient examples, Security validation: verify no wildcard origins in postMessage calls, Verify all FFM modules include origin validation, Manual end-to-end verification of all test pages
+
+## 082-ats-other: 082-ats-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 083-rte-major: Rich Text Editor Training Data Generation (CKEditor & Froala)
+Status: plan_review | Exit: error
+Subtasks: 0/9 complete
+Pending: Create CKEditor 5 test page (index.html), Create CKEditor Form Fill Module (ffm.js), Generate CKEditor training data (training.jsonl), Create Froala test page (index.html), Create Froala Form Fill Module (ffm.js), Generate Froala training data (training.jsonl), Validate all test pages load without errors, Validate training data consistency across all editors, Verify license compliance documentation
+
+## 084-rte-other: 084-rte-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 085-templating-backend: Server-Side Templating Framework Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 0/12 complete
+Pending: Create Jinja2 HTML test page with Django form patterns, Create Jinja2 Form Fill Module with vanilla JavaScript, Generate Jinja2 training dataset with detection patterns, Research Twig/Symfony form patterns via web search, Create Twig HTML test page with Symfony form patterns, Create Twig Form Fill Module with vanilla JavaScript, Generate Twig training dataset with detection patterns, Validate file structure and completeness for all frameworks, Validate HTML files are valid HTML5 and render correctly, Validate JavaScript FFM modules have no syntax errors, Validate JSONL files are valid JSON Lines format, Verify framework-specific patterns in all artifacts
+
+## 086-templating-frontend: Frontend Templating Framework Training Data
+Status: plan_review | Exit: none
+Subtasks: 0/21 complete
+Pending: Research Pug/Jade form rendering patterns via web search, Research Nunjucks form rendering patterns via web search, Research Liquid form rendering patterns via web search, Research Haml form rendering patterns via web search, Research Slim form rendering patterns via web search, Create Pug/Jade index.html with comprehensive form elements, Create Pug/Jade ffm.js using vanilla JavaScript DOM methods, Create Pug/Jade training.jsonl with 10-20 training examples, Create Nunjucks index.html with comprehensive form elements, Create Nunjucks ffm.js using vanilla JavaScript DOM methods, Create Nunjucks training.jsonl with 10-20 training examples, Create Liquid index.html with comprehensive form elements, Create Liquid ffm.js using vanilla JavaScript DOM methods, Create Liquid training.jsonl with 10-20 training examples, Create Haml index.html with comprehensive form elements, Create Haml ffm.js using vanilla JavaScript DOM methods, Create Haml training.jsonl with 10-20 training examples, Create Slim index.html with comprehensive form elements, Create Slim ffm.js using vanilla JavaScript DOM methods, Create Slim training.jsonl with 10-20 training examples, Run QA validation script to verify all 24 files exist and meet criteria
+
+Use MCP tools: get_task_error_details, submit_task_fix_request, process_rdr_batch
+[Auto-Claude RDR] Tasks needing intervention:
+
+## 071-marko: 071-marko__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 073-qwik: Qwik Framework Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 13/21 complete
+Pending: Add selection element examples to training.jsonl (15+ examples for checkboxes, radio, select), Add specialized input examples (10+ examples for date, time, file, range, color), Add edge case examples (10+ examples for disabled, hidden, multi-select, error handling), Add Qwik-specific pattern examples (5+ examples showing data-qwik-* usage, event dispatch), Validate training.jsonl format and line count (minimum 50 lines), Verify test page renders without errors and FFM loads correctly, Test FFM methods populate all form element types correctly, Execute random training examples to verify completeness
+
+## 077-shadow-component-libs: Shadow DOM Component Library Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 10/13 complete
+Pending: Cross-framework consistency check, Training data quality validation, End-to-end browser testing of all frameworks
+
+## 079-alpine-htmx-knockout: 079-alpine-htmx-knockout__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 080-svelte-aurelia: 080-svelte-aurelia__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 081-ats-major: ATS Major Platform Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 10/21 complete
+Pending: Generate Lever training.jsonl with 20+ diverse examples, Create iCIMS index.html test page with iframe-embedded traditional form, Create iCIMS ffm.js Form Fill Module with fallback for non-framework forms, Generate iCIMS training.jsonl with 20+ diverse examples, Create Taleo index.html test page with iframe-embedded multi-page form, Create Taleo ffm.js Form Fill Module with multi-step navigation, Generate Taleo training.jsonl with 20+ diverse examples, Validate all JSONL files have correct format and sufficient examples, Security validation: verify no wildcard origins in postMessage calls, Verify all FFM modules include origin validation, Manual end-to-end verification of all test pages
+
+## 082-ats-other: 082-ats-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 083-rte-major: Rich Text Editor Training Data Generation (CKEditor & Froala)
+Status: plan_review | Exit: error
+Subtasks: 0/9 complete
+Pending: Create CKEditor 5 test page (index.html), Create CKEditor Form Fill Module (ffm.js), Generate CKEditor training data (training.jsonl), Create Froala test page (index.html), Create Froala Form Fill Module (ffm.js), Generate Froala training data (training.jsonl), Validate all test pages load without errors, Validate training data consistency across all editors, Verify license compliance documentation
+
+## 084-rte-other: 084-rte-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 085-templating-backend: Server-Side Templating Framework Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 0/12 complete
+Pending: Create Jinja2 HTML test page with Django form patterns, Create Jinja2 Form Fill Module with vanilla JavaScript, Generate Jinja2 training dataset with detection patterns, Research Twig/Symfony form patterns via web search, Create Twig HTML test page with Symfony form patterns, Create Twig Form Fill Module with vanilla JavaScript, Generate Twig training dataset with detection patterns, Validate file structure and completeness for all frameworks, Validate HTML files are valid HTML5 and render correctly, Validate JavaScript FFM modules have no syntax errors, Validate JSONL files are valid JSON Lines format, Verify framework-specific patterns in all artifacts
+
+## 086-templating-frontend: Frontend Templating Framework Training Data
+Status: plan_review | Exit: none
+Subtasks: 0/21 complete
+Pending: Research Pug/Jade form rendering patterns via web search, Research Nunjucks form rendering patterns via web search, Research Liquid form rendering patterns via web search, Research Haml form rendering patterns via web search, Research Slim form rendering patterns via web search, Create Pug/Jade index.html with comprehensive form elements, Create Pug/Jade ffm.js using vanilla JavaScript DOM methods, Create Pug/Jade training.jsonl with 10-20 training examples, Create Nunjucks index.html with comprehensive form elements, Create Nunjucks ffm.js using vanilla JavaScript DOM methods, Create Nunjucks training.jsonl with 10-20 training examples, Create Liquid index.html with comprehensive form elements, Create Liquid ffm.js using vanilla JavaScript DOM methods, Create Liquid training.jsonl with 10-20 training examples, Create Haml index.html with comprehensive form elements, Create Haml ffm.js using vanilla JavaScript DOM methods, Create Haml training.jsonl with 10-20 training examples, Create Slim index.html with comprehensive form elements, Create Slim ffm.js using vanilla JavaScript DOM methods, Create Slim training.jsonl with 10-20 training examples, Run QA validation script to verify all 24 files exist and meet criteria
+
+Use MCP tools: get_task_error_details, submit_task_fix_request, process_rdr_batch
+[Auto-Claude RDR] Tasks needing intervention:
+
+## 071-marko: 071-marko__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 073-qwik: Qwik Framework Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 13/21 complete
+Pending: Add selection element examples to training.jsonl (15+ examples for checkboxes, radio, select), Add specialized input examples (10+ examples for date, time, file, range, color), Add edge case examples (10+ examples for disabled, hidden, multi-select, error handling), Add Qwik-specific pattern examples (5+ examples showing data-qwik-* usage, event dispatch), Validate training.jsonl format and line count (minimum 50 lines), Verify test page renders without errors and FFM loads correctly, Test FFM methods populate all form element types correctly, Execute random training examples to verify completeness
+
+## 077-shadow-component-libs: Shadow DOM Component Library Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 10/13 complete
+Pending: Cross-framework consistency check, Training data quality validation, End-to-end browser testing of all frameworks
+
+## 079-alpine-htmx-knockout: 079-alpine-htmx-knockout__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 080-svelte-aurelia: 080-svelte-aurelia__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 081-ats-major: ATS Major Platform Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 10/21 complete
+Pending: Generate Lever training.jsonl with 20+ diverse examples, Create iCIMS index.html test page with iframe-embedded traditional form, Create iCIMS ffm.js Form Fill Module with fallback for non-framework forms, Generate iCIMS training.jsonl with 20+ diverse examples, Create Taleo index.html test page with iframe-embedded multi-page form, Create Taleo ffm.js Form Fill Module with multi-step navigation, Generate Taleo training.jsonl with 20+ diverse examples, Validate all JSONL files have correct format and sufficient examples, Security validation: verify no wildcard origins in postMessage calls, Verify all FFM modules include origin validation, Manual end-to-end verification of all test pages
+
+## 082-ats-other: 082-ats-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 083-rte-major: Rich Text Editor Training Data Generation (CKEditor & Froala)
+Status: plan_review | Exit: error
+Subtasks: 0/9 complete
+Pending: Create CKEditor 5 test page (index.html), Create CKEditor Form Fill Module (ffm.js), Generate CKEditor training data (training.jsonl), Create Froala test page (index.html), Create Froala Form Fill Module (ffm.js), Generate Froala training data (training.jsonl), Validate all test pages load without errors, Validate training data consistency across all editors, Verify license compliance documentation
+
+## 084-rte-other: 084-rte-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 085-templating-backend: Server-Side Templating Framework Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 0/12 complete
+Pending: Create Jinja2 HTML test page with Django form patterns, Create Jinja2 Form Fill Module with vanilla JavaScript, Generate Jinja2 training dataset with detection patterns, Research Twig/Symfony form patterns via web search, Create Twig HTML test page with Symfony form patterns, Create Twig Form Fill Module with vanilla JavaScript, Generate Twig training dataset with detection patterns, Validate file structure and completeness for all frameworks, Validate HTML files are valid HTML5 and render correctly, Validate JavaScript FFM modules have no syntax errors, Validate JSONL files are valid JSON Lines format, Verify framework-specific patterns in all artifacts
+
+## 086-templating-frontend: Frontend Templating Framework Training Data
+Status: plan_review | Exit: none
+Subtasks: 0/21 complete
+Pending: Research Pug/Jade form rendering patterns via web search, Research Nunjucks form rendering patterns via web search, Research Liquid form rendering patterns via web search, Research Haml form rendering patterns via web search, Research Slim form rendering patterns via web search, Create Pug/Jade index.html with comprehensive form elements, Create Pug/Jade ffm.js using vanilla JavaScript DOM methods, Create Pug/Jade training.jsonl with 10-20 training examples, Create Nunjucks index.html with comprehensive form elements, Create Nunjucks ffm.js using vanilla JavaScript DOM methods, Create Nunjucks training.jsonl with 10-20 training examples, Create Liquid index.html with comprehensive form elements, Create Liquid ffm.js using vanilla JavaScript DOM methods, Create Liquid training.jsonl with 10-20 training examples, Create Haml index.html with comprehensive form elements, Create Haml ffm.js using vanilla JavaScript DOM methods, Create Haml training.jsonl with 10-20 training examples, Create Slim index.html with comprehensive form elements, Create Slim ffm.js using vanilla JavaScript DOM methods, Create Slim training.jsonl with 10-20 training examples, Run QA validation script to verify all 24 files exist and meet criteria
+
+Use MCP tools: get_task_error_details, submit_task_fix_request, process_rdr_batch
+[Auto-Claude RDR] Tasks needing intervention:
+
+## 071-marko: 071-marko__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 073-qwik: Qwik Framework Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 13/21 complete
+Pending: Add selection element examples to training.jsonl (15+ examples for checkboxes, radio, select), Add specialized input examples (10+ examples for date, time, file, range, color), Add edge case examples (10+ examples for disabled, hidden, multi-select, error handling), Add Qwik-specific pattern examples (5+ examples showing data-qwik-* usage, event dispatch), Validate training.jsonl format and line count (minimum 50 lines), Verify test page renders without errors and FFM loads correctly, Test FFM methods populate all form element types correctly, Execute random training examples to verify completeness
+
+## 077-shadow-component-libs: Shadow DOM Component Library Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 10/13 complete
+Pending: Cross-framework consistency check, Training data quality validation, End-to-end browser testing of all frameworks
+
+## 079-alpine-htmx-knockout: 079-alpine-htmx-knockout__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 080-svelte-aurelia: 080-svelte-aurelia__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 081-ats-major: ATS Major Platform Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 10/21 complete
+Pending: Generate Lever training.jsonl with 20+ diverse examples, Create iCIMS index.html test page with iframe-embedded traditional form, Create iCIMS ffm.js Form Fill Module with fallback for non-framework forms, Generate iCIMS training.jsonl with 20+ diverse examples, Create Taleo index.html test page with iframe-embedded multi-page form, Create Taleo ffm.js Form Fill Module with multi-step navigation, Generate Taleo training.jsonl with 20+ diverse examples, Validate all JSONL files have correct format and sufficient examples, Security validation: verify no wildcard origins in postMessage calls, Verify all FFM modules include origin validation, Manual end-to-end verification of all test pages
+
+## 082-ats-other: 082-ats-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 083-rte-major: Rich Text Editor Training Data Generation (CKEditor & Froala)
+Status: plan_review | Exit: error
+Subtasks: 0/9 complete
+Pending: Create CKEditor 5 test page (index.html), Create CKEditor Form Fill Module (ffm.js), Generate CKEditor training data (training.jsonl), Create Froala test page (index.html), Create Froala Form Fill Module (ffm.js), Generate Froala training data (training.jsonl), Validate all test pages load without errors, Validate training data consistency across all editors, Verify license compliance documentation
+
+## 084-rte-other: 084-rte-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 085-templating-backend: Server-Side Templating Framework Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 0/12 complete
+Pending: Create Jinja2 HTML test page with Django form patterns, Create Jinja2 Form Fill Module with vanilla JavaScript, Generate Jinja2 training dataset with detection patterns, Research Twig/Symfony form patterns via web search, Create Twig HTML test page with Symfony form patterns, Create Twig Form Fill Module with vanilla JavaScript, Generate Twig training dataset with detection patterns, Validate file structure and completeness for all frameworks, Validate HTML files are valid HTML5 and render correctly, Validate JavaScript FFM modules have no syntax errors, Validate JSONL files are valid JSON Lines format, Verify framework-specific patterns in all artifacts
+
+## 086-templating-frontend: Frontend Templating Framework Training Data
+Status: plan_review | Exit: none
+Subtasks: 0/21 complete
+Pending: Research Pug/Jade form rendering patterns via web search, Research Nunjucks form rendering patterns via web search, Research Liquid form rendering patterns via web search, Research Haml form rendering patterns via web search, Research Slim form rendering patterns via web search, Create Pug/Jade index.html with comprehensive form elements, Create Pug/Jade ffm.js using vanilla JavaScript DOM methods, Create Pug/Jade training.jsonl with 10-20 training examples, Create Nunjucks index.html with comprehensive form elements, Create Nunjucks ffm.js using vanilla JavaScript DOM methods, Create Nunjucks training.jsonl with 10-20 training examples, Create Liquid index.html with comprehensive form elements, Create Liquid ffm.js using vanilla JavaScript DOM methods, Create Liquid training.jsonl with 10-20 training examples, Create Haml index.html with comprehensive form elements, Create Haml ffm.js using vanilla JavaScript DOM methods, Create Haml training.jsonl with 10-20 training examples, Create Slim index.html with comprehensive form elements, Create Slim ffm.js using vanilla JavaScript DOM methods, Create Slim training.jsonl with 10-20 training examples, Run QA validation script to verify all 24 files exist and meet criteria
+
+Use MCP tools: get_task_error_details, submit_task_fix_request, process_rdr_batch
+[Auto-Claude RDR] Tasks needing intervention:
+
+## 071-marko: 071-marko__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 073-qwik: Qwik Framework Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 13/21 complete
+Pending: Add selection element examples to training.jsonl (15+ examples for checkboxes, radio, select), Add specialized input examples (10+ examples for date, time, file, range, color), Add edge case examples (10+ examples for disabled, hidden, multi-select, error handling), Add Qwik-specific pattern examples (5+ examples showing data-qwik-* usage, event dispatch), Validate training.jsonl format and line count (minimum 50 lines), Verify test page renders without errors and FFM loads correctly, Test FFM methods populate all form element types correctly, Execute random training examples to verify completeness
+
+## 077-shadow-component-libs: Shadow DOM Component Library Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 10/13 complete
+Pending: Cross-framework consistency check, Training data quality validation, End-to-end browser testing of all frameworks
+
+## 079-alpine-htmx-knockout: 079-alpine-htmx-knockout__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 080-svelte-aurelia: 080-svelte-aurelia__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 081-ats-major: ATS Major Platform Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 10/21 complete
+Pending: Generate Lever training.jsonl with 20+ diverse examples, Create iCIMS index.html test page with iframe-embedded traditional form, Create iCIMS ffm.js Form Fill Module with fallback for non-framework forms, Generate iCIMS training.jsonl with 20+ diverse examples, Create Taleo index.html test page with iframe-embedded multi-page form, Create Taleo ffm.js Form Fill Module with multi-step navigation, Generate Taleo training.jsonl with 20+ diverse examples, Validate all JSONL files have correct format and sufficient examples, Security validation: verify no wildcard origins in postMessage calls, Verify all FFM modules include origin validation, Manual end-to-end verification of all test pages
+
+## 082-ats-other: 082-ats-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 083-rte-major: Rich Text Editor Training Data Generation (CKEditor & Froala)
+Status: plan_review | Exit: error
+Subtasks: 0/9 complete
+Pending: Create CKEditor 5 test page (index.html), Create CKEditor Form Fill Module (ffm.js), Generate CKEditor training data (training.jsonl), Create Froala test page (index.html), Create Froala Form Fill Module (ffm.js), Generate Froala training data (training.jsonl), Validate all test pages load without errors, Validate training data consistency across all editors, Verify license compliance documentation
+
+## 084-rte-other: 084-rte-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 085-templating-backend: Server-Side Templating Framework Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 0/12 complete
+Pending: Create Jinja2 HTML test page with Django form patterns, Create Jinja2 Form Fill Module with vanilla JavaScript, Generate Jinja2 training dataset with detection patterns, Research Twig/Symfony form patterns via web search, Create Twig HTML test page with Symfony form patterns, Create Twig Form Fill Module with vanilla JavaScript, Generate Twig training dataset with detection patterns, Validate file structure and completeness for all frameworks, Validate HTML files are valid HTML5 and render correctly, Validate JavaScript FFM modules have no syntax errors, Validate JSONL files are valid JSON Lines format, Verify framework-specific patterns in all artifacts
+
+## 086-templating-frontend: Frontend Templating Framework Training Data
+Status: plan_review | Exit: none
+Subtasks: 0/21 complete
+Pending: Research Pug/Jade form rendering patterns via web search, Research Nunjucks form rendering patterns via web search, Research Liquid form rendering patterns via web search, Research Haml form rendering patterns via web search, Research Slim form rendering patterns via web search, Create Pug/Jade index.html with comprehensive form elements, Create Pug/Jade ffm.js using vanilla JavaScript DOM methods, Create Pug/Jade training.jsonl with 10-20 training examples, Create Nunjucks index.html with comprehensive form elements, Create Nunjucks ffm.js using vanilla JavaScript DOM methods, Create Nunjucks training.jsonl with 10-20 training examples, Create Liquid index.html with comprehensive form elements, Create Liquid ffm.js using vanilla JavaScript DOM methods, Create Liquid training.jsonl with 10-20 training examples, Create Haml index.html with comprehensive form elements, Create Haml ffm.js using vanilla JavaScript DOM methods, Create Haml training.jsonl with 10-20 training examples, Create Slim index.html with comprehensive form elements, Create Slim ffm.js using vanilla JavaScript DOM methods, Create Slim training.jsonl with 10-20 training examples, Run QA validation script to verify all 24 files exist and meet criteria
+
+Use MCP tools: get_task_error_details, submit_task_fix_request, process_rdr_batch
+[Auto-Claude RDR] Tasks needing intervention:
+
+## 071-marko: 071-marko__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 073-qwik: Qwik Framework Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 13/21 complete
+Pending: Add selection element examples to training.jsonl (15+ examples for checkboxes, radio, select), Add specialized input examples (10+ examples for date, time, file, range, color), Add edge case examples (10+ examples for disabled, hidden, multi-select, error handling), Add Qwik-specific pattern examples (5+ examples showing data-qwik-* usage, event dispatch), Validate training.jsonl format and line count (minimum 50 lines), Verify test page renders without errors and FFM loads correctly, Test FFM methods populate all form element types correctly, Execute random training examples to verify completeness
+
+## 077-shadow-component-libs: Shadow DOM Component Library Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 10/13 complete
+Pending: Cross-framework consistency check, Training data quality validation, End-to-end browser testing of all frameworks
+
+## 079-alpine-htmx-knockout: 079-alpine-htmx-knockout__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 080-svelte-aurelia: 080-svelte-aurelia__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 081-ats-major: ATS Major Platform Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 10/21 complete
+Pending: Generate Lever training.jsonl with 20+ diverse examples, Create iCIMS index.html test page with iframe-embedded traditional form, Create iCIMS ffm.js Form Fill Module with fallback for non-framework forms, Generate iCIMS training.jsonl with 20+ diverse examples, Create Taleo index.html test page with iframe-embedded multi-page form, Create Taleo ffm.js Form Fill Module with multi-step navigation, Generate Taleo training.jsonl with 20+ diverse examples, Validate all JSONL files have correct format and sufficient examples, Security validation: verify no wildcard origins in postMessage calls, Verify all FFM modules include origin validation, Manual end-to-end verification of all test pages
+
+## 082-ats-other: 082-ats-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 083-rte-major: Rich Text Editor Training Data Generation (CKEditor & Froala)
+Status: plan_review | Exit: error
+Subtasks: 0/9 complete
+Pending: Create CKEditor 5 test page (index.html), Create CKEditor Form Fill Module (ffm.js), Generate CKEditor training data (training.jsonl), Create Froala test page (index.html), Create Froala Form Fill Module (ffm.js), Generate Froala training data (training.jsonl), Validate all test pages load without errors, Validate training data consistency across all editors, Verify license compliance documentation
+
+## 084-rte-other: 084-rte-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 085-templating-backend: Server-Side Templating Framework Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 0/12 complete
+Pending: Create Jinja2 HTML test page with Django form patterns, Create Jinja2 Form Fill Module with vanilla JavaScript, Generate Jinja2 training dataset with detection patterns, Research Twig/Symfony form patterns via web search, Create Twig HTML test page with Symfony form patterns, Create Twig Form Fill Module with vanilla JavaScript, Generate Twig training dataset with detection patterns, Validate file structure and completeness for all frameworks, Validate HTML files are valid HTML5 and render correctly, Validate JavaScript FFM modules have no syntax errors, Validate JSONL files are valid JSON Lines format, Verify framework-specific patterns in all artifacts
+
+## 086-templating-frontend: Frontend Templating Framework Training Data
+Status: plan_review | Exit: none
+Subtasks: 0/21 complete
+Pending: Research Pug/Jade form rendering patterns via web search, Research Nunjucks form rendering patterns via web search, Research Liquid form rendering patterns via web search, Research Haml form rendering patterns via web search, Research Slim form rendering patterns via web search, Create Pug/Jade index.html with comprehensive form elements, Create Pug/Jade ffm.js using vanilla JavaScript DOM methods, Create Pug/Jade training.jsonl with 10-20 training examples, Create Nunjucks index.html with comprehensive form elements, Create Nunjucks ffm.js using vanilla JavaScript DOM methods, Create Nunjucks training.jsonl with 10-20 training examples, Create Liquid index.html with comprehensive form elements, Create Liquid ffm.js using vanilla JavaScript DOM methods, Create Liquid training.jsonl with 10-20 training examples, Create Haml index.html with comprehensive form elements, Create Haml ffm.js using vanilla JavaScript DOM methods, Create Haml training.jsonl with 10-20 training examples, Create Slim index.html with comprehensive form elements, Create Slim ffm.js using vanilla JavaScript DOM methods, Create Slim training.jsonl with 10-20 training examples, Run QA validation script to verify all 24 files exist and meet criteria
+
+Use MCP tools: get_task_error_details, submit_task_fix_request, process_rdr_batch
+[Auto-Claude RDR] Tasks needing intervention:
+
+## 071-marko: 071-marko__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 073-qwik: Qwik Framework Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 13/21 complete
+Pending: Add selection element examples to training.jsonl (15+ examples for checkboxes, radio, select), Add specialized input examples (10+ examples for date, time, file, range, color), Add edge case examples (10+ examples for disabled, hidden, multi-select, error handling), Add Qwik-specific pattern examples (5+ examples showing data-qwik-* usage, event dispatch), Validate training.jsonl format and line count (minimum 50 lines), Verify test page renders without errors and FFM loads correctly, Test FFM methods populate all form element types correctly, Execute random training examples to verify completeness
+
+## 077-shadow-component-libs: Shadow DOM Component Library Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 10/13 complete
+Pending: Cross-framework consistency check, Training data quality validation, End-to-end browser testing of all frameworks
+
+## 079-alpine-htmx-knockout: 079-alpine-htmx-knockout__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 080-svelte-aurelia: 080-svelte-aurelia__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 081-ats-major: ATS Major Platform Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 10/21 complete
+Pending: Generate Lever training.jsonl with 20+ diverse examples, Create iCIMS index.html test page with iframe-embedded traditional form, Create iCIMS ffm.js Form Fill Module with fallback for non-framework forms, Generate iCIMS training.jsonl with 20+ diverse examples, Create Taleo index.html test page with iframe-embedded multi-page form, Create Taleo ffm.js Form Fill Module with multi-step navigation, Generate Taleo training.jsonl with 20+ diverse examples, Validate all JSONL files have correct format and sufficient examples, Security validation: verify no wildcard origins in postMessage calls, Verify all FFM modules include origin validation, Manual end-to-end verification of all test pages
+
+## 082-ats-other: 082-ats-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 083-rte-major: Rich Text Editor Training Data Generation (CKEditor & Froala)
+Status: plan_review | Exit: error
+Subtasks: 0/9 complete
+Pending: Create CKEditor 5 test page (index.html), Create CKEditor Form Fill Module (ffm.js), Generate CKEditor training data (training.jsonl), Create Froala test page (index.html), Create Froala Form Fill Module (ffm.js), Generate Froala training data (training.jsonl), Validate all test pages load without errors, Validate training data consistency across all editors, Verify license compliance documentation
+
+## 084-rte-other: 084-rte-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 085-templating-backend: Server-Side Templating Framework Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 0/12 complete
+Pending: Create Jinja2 HTML test page with Django form patterns, Create Jinja2 Form Fill Module with vanilla JavaScript, Generate Jinja2 training dataset with detection patterns, Research Twig/Symfony form patterns via web search, Create Twig HTML test page with Symfony form patterns, Create Twig Form Fill Module with vanilla JavaScript, Generate Twig training dataset with detection patterns, Validate file structure and completeness for all frameworks, Validate HTML files are valid HTML5 and render correctly, Validate JavaScript FFM modules have no syntax errors, Validate JSONL files are valid JSON Lines format, Verify framework-specific patterns in all artifacts
+
+## 086-templating-frontend: Frontend Templating Framework Training Data
+Status: plan_review | Exit: none
+Subtasks: 0/21 complete
+Pending: Research Pug/Jade form rendering patterns via web search, Research Nunjucks form rendering patterns via web search, Research Liquid form rendering patterns via web search, Research Haml form rendering patterns via web search, Research Slim form rendering patterns via web search, Create Pug/Jade index.html with comprehensive form elements, Create Pug/Jade ffm.js using vanilla JavaScript DOM methods, Create Pug/Jade training.jsonl with 10-20 training examples, Create Nunjucks index.html with comprehensive form elements, Create Nunjucks ffm.js using vanilla JavaScript DOM methods, Create Nunjucks training.jsonl with 10-20 training examples, Create Liquid index.html with comprehensive form elements, Create Liquid ffm.js using vanilla JavaScript DOM methods, Create Liquid training.jsonl with 10-20 training examples, Create Haml index.html with comprehensive form elements, Create Haml ffm.js using vanilla JavaScript DOM methods, Create Haml training.jsonl with 10-20 training examples, Create Slim index.html with comprehensive form elements, Create Slim ffm.js using vanilla JavaScript DOM methods, Create Slim training.jsonl with 10-20 training examples, Run QA validation script to verify all 24 files exist and meet criteria
+
+Use MCP tools: get_task_error_details, submit_task_fix_request, process_rdr_batch
+[Auto-Claude RDR] Tasks needing intervention:
+
+## 071-marko: 071-marko__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 073-qwik: Qwik Framework Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 13/21 complete
+Pending: Add selection element examples to training.jsonl (15+ examples for checkboxes, radio, select), Add specialized input examples (10+ examples for date, time, file, range, color), Add edge case examples (10+ examples for disabled, hidden, multi-select, error handling), Add Qwik-specific pattern examples (5+ examples showing data-qwik-* usage, event dispatch), Validate training.jsonl format and line count (minimum 50 lines), Verify test page renders without errors and FFM loads correctly, Test FFM methods populate all form element types correctly, Execute random training examples to verify completeness
+
+## 077-shadow-component-libs: Shadow DOM Component Library Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 10/13 complete
+Pending: Cross-framework consistency check, Training data quality validation, End-to-end browser testing of all frameworks
+
+## 079-alpine-htmx-knockout: 079-alpine-htmx-knockout__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 080-svelte-aurelia: 080-svelte-aurelia__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 081-ats-major: ATS Major Platform Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 10/21 complete
+Pending: Generate Lever training.jsonl with 20+ diverse examples, Create iCIMS index.html test page with iframe-embedded traditional form, Create iCIMS ffm.js Form Fill Module with fallback for non-framework forms, Generate iCIMS training.jsonl with 20+ diverse examples, Create Taleo index.html test page with iframe-embedded multi-page form, Create Taleo ffm.js Form Fill Module with multi-step navigation, Generate Taleo training.jsonl with 20+ diverse examples, Validate all JSONL files have correct format and sufficient examples, Security validation: verify no wildcard origins in postMessage calls, Verify all FFM modules include origin validation, Manual end-to-end verification of all test pages
+
+## 082-ats-other: 082-ats-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 083-rte-major: Rich Text Editor Training Data Generation (CKEditor & Froala)
+Status: plan_review | Exit: error
+Subtasks: 0/9 complete
+Pending: Create CKEditor 5 test page (index.html), Create CKEditor Form Fill Module (ffm.js), Generate CKEditor training data (training.jsonl), Create Froala test page (index.html), Create Froala Form Fill Module (ffm.js), Generate Froala training data (training.jsonl), Validate all test pages load without errors, Validate training data consistency across all editors, Verify license compliance documentation
+
+## 084-rte-other: 084-rte-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 085-templating-backend: Server-Side Templating Framework Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 0/12 complete
+Pending: Create Jinja2 HTML test page with Django form patterns, Create Jinja2 Form Fill Module with vanilla JavaScript, Generate Jinja2 training dataset with detection patterns, Research Twig/Symfony form patterns via web search, Create Twig HTML test page with Symfony form patterns, Create Twig Form Fill Module with vanilla JavaScript, Generate Twig training dataset with detection patterns, Validate file structure and completeness for all frameworks, Validate HTML files are valid HTML5 and render correctly, Validate JavaScript FFM modules have no syntax errors, Validate JSONL files are valid JSON Lines format, Verify framework-specific patterns in all artifacts
+
+## 086-templating-frontend: Frontend Templating Framework Training Data
+Status: plan_review | Exit: none
+Subtasks: 0/21 complete
+Pending: Research Pug/Jade form rendering patterns via web search, Research Nunjucks form rendering patterns via web search, Research Liquid form rendering patterns via web search, Research Haml form rendering patterns via web search, Research Slim form rendering patterns via web search, Create Pug/Jade index.html with comprehensive form elements, Create Pug/Jade ffm.js using vanilla JavaScript DOM methods, Create Pug/Jade training.jsonl with 10-20 training examples, Create Nunjucks index.html with comprehensive form elements, Create Nunjucks ffm.js using vanilla JavaScript DOM methods, Create Nunjucks training.jsonl with 10-20 training examples, Create Liquid index.html with comprehensive form elements, Create Liquid ffm.js using vanilla JavaScript DOM methods, Create Liquid training.jsonl with 10-20 training examples, Create Haml index.html with comprehensive form elements, Create Haml ffm.js using vanilla JavaScript DOM methods, Create Haml training.jsonl with 10-20 training examples, Create Slim index.html with comprehensive form elements, Create Slim ffm.js using vanilla JavaScript DOM methods, Create Slim training.jsonl with 10-20 training examples, Run QA validation script to verify all 24 files exist and meet criteria
+
+Use MCP tools: get_task_error_details, submit_task_fix_request, process_rdr_batch
+[Auto-Claude RDR] Tasks needing intervention:
+
+## 071-marko: 071-marko__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 073-qwik: Qwik Framework Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 13/21 complete
+Pending: Add selection element examples to training.jsonl (15+ examples for checkboxes, radio, select), Add specialized input examples (10+ examples for date, time, file, range, color), Add edge case examples (10+ examples for disabled, hidden, multi-select, error handling), Add Qwik-specific pattern examples (5+ examples showing data-qwik-* usage, event dispatch), Validate training.jsonl format and line count (minimum 50 lines), Verify test page renders without errors and FFM loads correctly, Test FFM methods populate all form element types correctly, Execute random training examples to verify completeness
+
+## 077-shadow-component-libs: Shadow DOM Component Library Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 10/13 complete
+Pending: Cross-framework consistency check, Training data quality validation, End-to-end browser testing of all frameworks
+
+## 079-alpine-htmx-knockout: 079-alpine-htmx-knockout__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 080-svelte-aurelia: 080-svelte-aurelia__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 081-ats-major: ATS Major Platform Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 10/21 complete
+Pending: Generate Lever training.jsonl with 20+ diverse examples, Create iCIMS index.html test page with iframe-embedded traditional form, Create iCIMS ffm.js Form Fill Module with fallback for non-framework forms, Generate iCIMS training.jsonl with 20+ diverse examples, Create Taleo index.html test page with iframe-embedded multi-page form, Create Taleo ffm.js Form Fill Module with multi-step navigation, Generate Taleo training.jsonl with 20+ diverse examples, Validate all JSONL files have correct format and sufficient examples, Security validation: verify no wildcard origins in postMessage calls, Verify all FFM modules include origin validation, Manual end-to-end verification of all test pages
+
+## 082-ats-other: 082-ats-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 083-rte-major: Rich Text Editor Training Data Generation (CKEditor & Froala)
+Status: plan_review | Exit: error
+Subtasks: 0/9 complete
+Pending: Create CKEditor 5 test page (index.html), Create CKEditor Form Fill Module (ffm.js), Generate CKEditor training data (training.jsonl), Create Froala test page (index.html), Create Froala Form Fill Module (ffm.js), Generate Froala training data (training.jsonl), Validate all test pages load without errors, Validate training data consistency across all editors, Verify license compliance documentation
+
+## 084-rte-other: 084-rte-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 085-templating-backend: Server-Side Templating Framework Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 0/12 complete
+Pending: Create Jinja2 HTML test page with Django form patterns, Create Jinja2 Form Fill Module with vanilla JavaScript, Generate Jinja2 training dataset with detection patterns, Research Twig/Symfony form patterns via web search, Create Twig HTML test page with Symfony form patterns, Create Twig Form Fill Module with vanilla JavaScript, Generate Twig training dataset with detection patterns, Validate file structure and completeness for all frameworks, Validate HTML files are valid HTML5 and render correctly, Validate JavaScript FFM modules have no syntax errors, Validate JSONL files are valid JSON Lines format, Verify framework-specific patterns in all artifacts
+
+## 086-templating-frontend: Frontend Templating Framework Training Data
+Status: plan_review | Exit: none
+Subtasks: 0/21 complete
+Pending: Research Pug/Jade form rendering patterns via web search, Research Nunjucks form rendering patterns via web search, Research Liquid form rendering patterns via web search, Research Haml form rendering patterns via web search, Research Slim form rendering patterns via web search, Create Pug/Jade index.html with comprehensive form elements, Create Pug/Jade ffm.js using vanilla JavaScript DOM methods, Create Pug/Jade training.jsonl with 10-20 training examples, Create Nunjucks index.html with comprehensive form elements, Create Nunjucks ffm.js using vanilla JavaScript DOM methods, Create Nunjucks training.jsonl with 10-20 training examples, Create Liquid index.html with comprehensive form elements, Create Liquid ffm.js using vanilla JavaScript DOM methods, Create Liquid training.jsonl with 10-20 training examples, Create Haml index.html with comprehensive form elements, Create Haml ffm.js using vanilla JavaScript DOM methods, Create Haml training.jsonl with 10-20 training examples, Create Slim index.html with comprehensive form elements, Create Slim ffm.js using vanilla JavaScript DOM methods, Create Slim training.jsonl with 10-20 training examples, Run QA validation script to verify all 24 files exist and meet criteria
+
+Use MCP tools: get_task_error_details, submit_task_fix_request, process_rdr_batch
+[Auto-Claude RDR] Tasks needing intervention:
+
+## 071-marko: 071-marko__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 073-qwik: Qwik Framework Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 13/21 complete
+Pending: Add selection element examples to training.jsonl (15+ examples for checkboxes, radio, select), Add specialized input examples (10+ examples for date, time, file, range, color), Add edge case examples (10+ examples for disabled, hidden, multi-select, error handling), Add Qwik-specific pattern examples (5+ examples showing data-qwik-* usage, event dispatch), Validate training.jsonl format and line count (minimum 50 lines), Verify test page renders without errors and FFM loads correctly, Test FFM methods populate all form element types correctly, Execute random training examples to verify completeness
+
+## 077-shadow-component-libs: Shadow DOM Component Library Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 10/13 complete
+Pending: Cross-framework consistency check, Training data quality validation, End-to-end browser testing of all frameworks
+
+## 079-alpine-htmx-knockout: 079-alpine-htmx-knockout__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 080-svelte-aurelia: 080-svelte-aurelia__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 081-ats-major: ATS Major Platform Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 10/21 complete
+Pending: Generate Lever training.jsonl with 20+ diverse examples, Create iCIMS index.html test page with iframe-embedded traditional form, Create iCIMS ffm.js Form Fill Module with fallback for non-framework forms, Generate iCIMS training.jsonl with 20+ diverse examples, Create Taleo index.html test page with iframe-embedded multi-page form, Create Taleo ffm.js Form Fill Module with multi-step navigation, Generate Taleo training.jsonl with 20+ diverse examples, Validate all JSONL files have correct format and sufficient examples, Security validation: verify no wildcard origins in postMessage calls, Verify all FFM modules include origin validation, Manual end-to-end verification of all test pages
+
+## 082-ats-other: 082-ats-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 083-rte-major: Rich Text Editor Training Data Generation (CKEditor & Froala)
+Status: plan_review | Exit: error
+Subtasks: 0/9 complete
+Pending: Create CKEditor 5 test page (index.html), Create CKEditor Form Fill Module (ffm.js), Generate CKEditor training data (training.jsonl), Create Froala test page (index.html), Create Froala Form Fill Module (ffm.js), Generate Froala training data (training.jsonl), Validate all test pages load without errors, Validate training data consistency across all editors, Verify license compliance documentation
+
+## 084-rte-other: 084-rte-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 085-templating-backend: Server-Side Templating Framework Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 0/12 complete
+Pending: Create Jinja2 HTML test page with Django form patterns, Create Jinja2 Form Fill Module with vanilla JavaScript, Generate Jinja2 training dataset with detection patterns, Research Twig/Symfony form patterns via web search, Create Twig HTML test page with Symfony form patterns, Create Twig Form Fill Module with vanilla JavaScript, Generate Twig training dataset with detection patterns, Validate file structure and completeness for all frameworks, Validate HTML files are valid HTML5 and render correctly, Validate JavaScript FFM modules have no syntax errors, Validate JSONL files are valid JSON Lines format, Verify framework-specific patterns in all artifacts
+
+## 086-templating-frontend: Frontend Templating Framework Training Data
+Status: plan_review | Exit: none
+Subtasks: 0/21 complete
+Pending: Research Pug/Jade form rendering patterns via web search, Research Nunjucks form rendering patterns via web search, Research Liquid form rendering patterns via web search, Research Haml form rendering patterns via web search, Research Slim form rendering patterns via web search, Create Pug/Jade index.html with comprehensive form elements, Create Pug/Jade ffm.js using vanilla JavaScript DOM methods, Create Pug/Jade training.jsonl with 10-20 training examples, Create Nunjucks index.html with comprehensive form elements, Create Nunjucks ffm.js using vanilla JavaScript DOM methods, Create Nunjucks training.jsonl with 10-20 training examples, Create Liquid index.html with comprehensive form elements, Create Liquid ffm.js using vanilla JavaScript DOM methods, Create Liquid training.jsonl with 10-20 training examples, Create Haml index.html with comprehensive form elements, Create Haml ffm.js using vanilla JavaScript DOM methods, Create Haml training.jsonl with 10-20 training examples, Create Slim index.html with comprehensive form elements, Create Slim ffm.js using vanilla JavaScript DOM methods, Create Slim training.jsonl with 10-20 training examples, Run QA validation script to verify all 24 files exist and meet criteria
+
+Use MCP tools: get_task_error_details, submit_task_fix_request, process_rdr_batch
+[Auto-Claude RDR] Tasks needing intervention:
+
+## 071-marko: 071-marko__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 073-qwik: Qwik Framework Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 13/21 complete
+Pending: Add selection element examples to training.jsonl (15+ examples for checkboxes, radio, select), Add specialized input examples (10+ examples for date, time, file, range, color), Add edge case examples (10+ examples for disabled, hidden, multi-select, error handling), Add Qwik-specific pattern examples (5+ examples showing data-qwik-* usage, event dispatch), Validate training.jsonl format and line count (minimum 50 lines), Verify test page renders without errors and FFM loads correctly, Test FFM methods populate all form element types correctly, Execute random training examples to verify completeness
+
+## 077-shadow-component-libs: Shadow DOM Component Library Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 10/13 complete
+Pending: Cross-framework consistency check, Training data quality validation, End-to-end browser testing of all frameworks
+
+## 079-alpine-htmx-knockout: 079-alpine-htmx-knockout__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 080-svelte-aurelia: 080-svelte-aurelia__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 081-ats-major: ATS Major Platform Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 10/21 complete
+Pending: Generate Lever training.jsonl with 20+ diverse examples, Create iCIMS index.html test page with iframe-embedded traditional form, Create iCIMS ffm.js Form Fill Module with fallback for non-framework forms, Generate iCIMS training.jsonl with 20+ diverse examples, Create Taleo index.html test page with iframe-embedded multi-page form, Create Taleo ffm.js Form Fill Module with multi-step navigation, Generate Taleo training.jsonl with 20+ diverse examples, Validate all JSONL files have correct format and sufficient examples, Security validation: verify no wildcard origins in postMessage calls, Verify all FFM modules include origin validation, Manual end-to-end verification of all test pages
+
+## 082-ats-other: 082-ats-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 083-rte-major: Rich Text Editor Training Data Generation (CKEditor & Froala)
+Status: plan_review | Exit: error
+Subtasks: 0/9 complete
+Pending: Create CKEditor 5 test page (index.html), Create CKEditor Form Fill Module (ffm.js), Generate CKEditor training data (training.jsonl), Create Froala test page (index.html), Create Froala Form Fill Module (ffm.js), Generate Froala training data (training.jsonl), Validate all test pages load without errors, Validate training data consistency across all editors, Verify license compliance documentation
+
+## 084-rte-other: 084-rte-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 085-templating-backend: Server-Side Templating Framework Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 0/12 complete
+Pending: Create Jinja2 HTML test page with Django form patterns, Create Jinja2 Form Fill Module with vanilla JavaScript, Generate Jinja2 training dataset with detection patterns, Research Twig/Symfony form patterns via web search, Create Twig HTML test page with Symfony form patterns, Create Twig Form Fill Module with vanilla JavaScript, Generate Twig training dataset with detection patterns, Validate file structure and completeness for all frameworks, Validate HTML files are valid HTML5 and render correctly, Validate JavaScript FFM modules have no syntax errors, Validate JSONL files are valid JSON Lines format, Verify framework-specific patterns in all artifacts
+
+## 086-templating-frontend: Frontend Templating Framework Training Data
+Status: plan_review | Exit: none
+Subtasks: 0/21 complete
+Pending: Research Pug/Jade form rendering patterns via web search, Research Nunjucks form rendering patterns via web search, Research Liquid form rendering patterns via web search, Research Haml form rendering patterns via web search, Research Slim form rendering patterns via web search, Create Pug/Jade index.html with comprehensive form elements, Create Pug/Jade ffm.js using vanilla JavaScript DOM methods, Create Pug/Jade training.jsonl with 10-20 training examples, Create Nunjucks index.html with comprehensive form elements, Create Nunjucks ffm.js using vanilla JavaScript DOM methods, Create Nunjucks training.jsonl with 10-20 training examples, Create Liquid index.html with comprehensive form elements, Create Liquid ffm.js using vanilla JavaScript DOM methods, Create Liquid training.jsonl with 10-20 training examples, Create Haml index.html with comprehensive form elements, Create Haml ffm.js using vanilla JavaScript DOM methods, Create Haml training.jsonl with 10-20 training examples, Create Slim index.html with comprehensive form elements, Create Slim ffm.js using vanilla JavaScript DOM methods, Create Slim training.jsonl with 10-20 training examples, Run QA validation script to verify all 24 files exist and meet criteria
+
+Use MCP tools: get_task_error_details, submit_task_fix_request, process_rdr_batch
+[Auto-Claude RDR] Tasks needing intervention:
+
+## 071-marko: 071-marko__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 073-qwik: Qwik Framework Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 13/21 complete
+Pending: Add selection element examples to training.jsonl (15+ examples for checkboxes, radio, select), Add specialized input examples (10+ examples for date, time, file, range, color), Add edge case examples (10+ examples for disabled, hidden, multi-select, error handling), Add Qwik-specific pattern examples (5+ examples showing data-qwik-* usage, event dispatch), Validate training.jsonl format and line count (minimum 50 lines), Verify test page renders without errors and FFM loads correctly, Test FFM methods populate all form element types correctly, Execute random training examples to verify completeness
+
+## 077-shadow-component-libs: Shadow DOM Component Library Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 10/13 complete
+Pending: Cross-framework consistency check, Training data quality validation, End-to-end browser testing of all frameworks
+
+## 079-alpine-htmx-knockout: 079-alpine-htmx-knockout__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 080-svelte-aurelia: 080-svelte-aurelia__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 081-ats-major: ATS Major Platform Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 10/21 complete
+Pending: Generate Lever training.jsonl with 20+ diverse examples, Create iCIMS index.html test page with iframe-embedded traditional form, Create iCIMS ffm.js Form Fill Module with fallback for non-framework forms, Generate iCIMS training.jsonl with 20+ diverse examples, Create Taleo index.html test page with iframe-embedded multi-page form, Create Taleo ffm.js Form Fill Module with multi-step navigation, Generate Taleo training.jsonl with 20+ diverse examples, Validate all JSONL files have correct format and sufficient examples, Security validation: verify no wildcard origins in postMessage calls, Verify all FFM modules include origin validation, Manual end-to-end verification of all test pages
+
+## 082-ats-other: 082-ats-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 083-rte-major: Rich Text Editor Training Data Generation (CKEditor & Froala)
+Status: plan_review | Exit: error
+Subtasks: 0/9 complete
+Pending: Create CKEditor 5 test page (index.html), Create CKEditor Form Fill Module (ffm.js), Generate CKEditor training data (training.jsonl), Create Froala test page (index.html), Create Froala Form Fill Module (ffm.js), Generate Froala training data (training.jsonl), Validate all test pages load without errors, Validate training data consistency across all editors, Verify license compliance documentation
+
+## 084-rte-other: 084-rte-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 085-templating-backend: Server-Side Templating Framework Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 0/12 complete
+Pending: Create Jinja2 HTML test page with Django form patterns, Create Jinja2 Form Fill Module with vanilla JavaScript, Generate Jinja2 training dataset with detection patterns, Research Twig/Symfony form patterns via web search, Create Twig HTML test page with Symfony form patterns, Create Twig Form Fill Module with vanilla JavaScript, Generate Twig training dataset with detection patterns, Validate file structure and completeness for all frameworks, Validate HTML files are valid HTML5 and render correctly, Validate JavaScript FFM modules have no syntax errors, Validate JSONL files are valid JSON Lines format, Verify framework-specific patterns in all artifacts
+
+## 086-templating-frontend: Frontend Templating Framework Training Data
+Status: plan_review | Exit: none
+Subtasks: 0/21 complete
+Pending: Research Pug/Jade form rendering patterns via web search, Research Nunjucks form rendering patterns via web search, Research Liquid form rendering patterns via web search, Research Haml form rendering patterns via web search, Research Slim form rendering patterns via web search, Create Pug/Jade index.html with comprehensive form elements, Create Pug/Jade ffm.js using vanilla JavaScript DOM methods, Create Pug/Jade training.jsonl with 10-20 training examples, Create Nunjucks index.html with comprehensive form elements, Create Nunjucks ffm.js using vanilla JavaScript DOM methods, Create Nunjucks training.jsonl with 10-20 training examples, Create Liquid index.html with comprehensive form elements, Create Liquid ffm.js using vanilla JavaScript DOM methods, Create Liquid training.jsonl with 10-20 training examples, Create Haml index.html with comprehensive form elements, Create Haml ffm.js using vanilla JavaScript DOM methods, Create Haml training.jsonl with 10-20 training examples, Create Slim index.html with comprehensive form elements, Create Slim ffm.js using vanilla JavaScript DOM methods, Create Slim training.jsonl with 10-20 training examples, Run QA validation script to verify all 24 files exist and meet criteria
+
+Use MCP tools: get_task_error_details, submit_task_fix_request, process_rdr_batch
+[Auto-Claude RDR] Tasks needing intervention:
+
+## 071-marko: 071-marko__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 073-qwik: Qwik Framework Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 13/21 complete
+Pending: Add selection element examples to training.jsonl (15+ examples for checkboxes, radio, select), Add specialized input examples (10+ examples for date, time, file, range, color), Add edge case examples (10+ examples for disabled, hidden, multi-select, error handling), Add Qwik-specific pattern examples (5+ examples showing data-qwik-* usage, event dispatch), Validate training.jsonl format and line count (minimum 50 lines), Verify test page renders without errors and FFM loads correctly, Test FFM methods populate all form element types correctly, Execute random training examples to verify completeness
+
+## 077-shadow-component-libs: Shadow DOM Component Library Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 10/13 complete
+Pending: Cross-framework consistency check, Training data quality validation, End-to-end browser testing of all frameworks
+
+## 079-alpine-htmx-knockout: 079-alpine-htmx-knockout__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 080-svelte-aurelia: 080-svelte-aurelia__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 081-ats-major: ATS Major Platform Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 10/21 complete
+Pending: Generate Lever training.jsonl with 20+ diverse examples, Create iCIMS index.html test page with iframe-embedded traditional form, Create iCIMS ffm.js Form Fill Module with fallback for non-framework forms, Generate iCIMS training.jsonl with 20+ diverse examples, Create Taleo index.html test page with iframe-embedded multi-page form, Create Taleo ffm.js Form Fill Module with multi-step navigation, Generate Taleo training.jsonl with 20+ diverse examples, Validate all JSONL files have correct format and sufficient examples, Security validation: verify no wildcard origins in postMessage calls, Verify all FFM modules include origin validation, Manual end-to-end verification of all test pages
+
+## 082-ats-other: 082-ats-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 083-rte-major: Rich Text Editor Training Data Generation (CKEditor & Froala)
+Status: plan_review | Exit: error
+Subtasks: 0/9 complete
+Pending: Create CKEditor 5 test page (index.html), Create CKEditor Form Fill Module (ffm.js), Generate CKEditor training data (training.jsonl), Create Froala test page (index.html), Create Froala Form Fill Module (ffm.js), Generate Froala training data (training.jsonl), Validate all test pages load without errors, Validate training data consistency across all editors, Verify license compliance documentation
+
+## 084-rte-other: 084-rte-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 085-templating-backend: Server-Side Templating Framework Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 0/12 complete
+Pending: Create Jinja2 HTML test page with Django form patterns, Create Jinja2 Form Fill Module with vanilla JavaScript, Generate Jinja2 training dataset with detection patterns, Research Twig/Symfony form patterns via web search, Create Twig HTML test page with Symfony form patterns, Create Twig Form Fill Module with vanilla JavaScript, Generate Twig training dataset with detection patterns, Validate file structure and completeness for all frameworks, Validate HTML files are valid HTML5 and render correctly, Validate JavaScript FFM modules have no syntax errors, Validate JSONL files are valid JSON Lines format, Verify framework-specific patterns in all artifacts
+
+## 086-templating-frontend: Frontend Templating Framework Training Data
+Status: plan_review | Exit: none
+Subtasks: 0/21 complete
+Pending: Research Pug/Jade form rendering patterns via web search, Research Nunjucks form rendering patterns via web search, Research Liquid form rendering patterns via web search, Research Haml form rendering patterns via web search, Research Slim form rendering patterns via web search, Create Pug/Jade index.html with comprehensive form elements, Create Pug/Jade ffm.js using vanilla JavaScript DOM methods, Create Pug/Jade training.jsonl with 10-20 training examples, Create Nunjucks index.html with comprehensive form elements, Create Nunjucks ffm.js using vanilla JavaScript DOM methods, Create Nunjucks training.jsonl with 10-20 training examples, Create Liquid index.html with comprehensive form elements, Create Liquid ffm.js using vanilla JavaScript DOM methods, Create Liquid training.jsonl with 10-20 training examples, Create Haml index.html with comprehensive form elements, Create Haml ffm.js using vanilla JavaScript DOM methods, Create Haml training.jsonl with 10-20 training examples, Create Slim index.html with comprehensive form elements, Create Slim ffm.js using vanilla JavaScript DOM methods, Create Slim training.jsonl with 10-20 training examples, Run QA validation script to verify all 24 files exist and meet criteria
+
+Use MCP tools: get_task_error_details, submit_task_fix_request, process_rdr_batch
+[Auto-Claude RDR] Tasks needing intervention:
+
+## 071-marko: 071-marko__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 073-qwik: Qwik Framework Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 13/21 complete
+Pending: Add selection element examples to training.jsonl (15+ examples for checkboxes, radio, select), Add specialized input examples (10+ examples for date, time, file, range, color), Add edge case examples (10+ examples for disabled, hidden, multi-select, error handling), Add Qwik-specific pattern examples (5+ examples showing data-qwik-* usage, event dispatch), Validate training.jsonl format and line count (minimum 50 lines), Verify test page renders without errors and FFM loads correctly, Test FFM methods populate all form element types correctly, Execute random training examples to verify completeness
+
+## 077-shadow-component-libs: Shadow DOM Component Library Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 10/13 complete
+Pending: Cross-framework consistency check, Training data quality validation, End-to-end browser testing of all frameworks
+
+## 079-alpine-htmx-knockout: 079-alpine-htmx-knockout__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 080-svelte-aurelia: 080-svelte-aurelia__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 081-ats-major: ATS Major Platform Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 10/21 complete
+Pending: Generate Lever training.jsonl with 20+ diverse examples, Create iCIMS index.html test page with iframe-embedded traditional form, Create iCIMS ffm.js Form Fill Module with fallback for non-framework forms, Generate iCIMS training.jsonl with 20+ diverse examples, Create Taleo index.html test page with iframe-embedded multi-page form, Create Taleo ffm.js Form Fill Module with multi-step navigation, Generate Taleo training.jsonl with 20+ diverse examples, Validate all JSONL files have correct format and sufficient examples, Security validation: verify no wildcard origins in postMessage calls, Verify all FFM modules include origin validation, Manual end-to-end verification of all test pages
+
+## 082-ats-other: 082-ats-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 083-rte-major: Rich Text Editor Training Data Generation (CKEditor & Froala)
+Status: plan_review | Exit: error
+Subtasks: 0/9 complete
+Pending: Create CKEditor 5 test page (index.html), Create CKEditor Form Fill Module (ffm.js), Generate CKEditor training data (training.jsonl), Create Froala test page (index.html), Create Froala Form Fill Module (ffm.js), Generate Froala training data (training.jsonl), Validate all test pages load without errors, Validate training data consistency across all editors, Verify license compliance documentation
+
+## 084-rte-other: 084-rte-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 085-templating-backend: Server-Side Templating Framework Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 0/12 complete
+Pending: Create Jinja2 HTML test page with Django form patterns, Create Jinja2 Form Fill Module with vanilla JavaScript, Generate Jinja2 training dataset with detection patterns, Research Twig/Symfony form patterns via web search, Create Twig HTML test page with Symfony form patterns, Create Twig Form Fill Module with vanilla JavaScript, Generate Twig training dataset with detection patterns, Validate file structure and completeness for all frameworks, Validate HTML files are valid HTML5 and render correctly, Validate JavaScript FFM modules have no syntax errors, Validate JSONL files are valid JSON Lines format, Verify framework-specific patterns in all artifacts
+
+## 086-templating-frontend: Frontend Templating Framework Training Data
+Status: plan_review | Exit: none
+Subtasks: 0/21 complete
+Pending: Research Pug/Jade form rendering patterns via web search, Research Nunjucks form rendering patterns via web search, Research Liquid form rendering patterns via web search, Research Haml form rendering patterns via web search, Research Slim form rendering patterns via web search, Create Pug/Jade index.html with comprehensive form elements, Create Pug/Jade ffm.js using vanilla JavaScript DOM methods, Create Pug/Jade training.jsonl with 10-20 training examples, Create Nunjucks index.html with comprehensive form elements, Create Nunjucks ffm.js using vanilla JavaScript DOM methods, Create Nunjucks training.jsonl with 10-20 training examples, Create Liquid index.html with comprehensive form elements, Create Liquid ffm.js using vanilla JavaScript DOM methods, Create Liquid training.jsonl with 10-20 training examples, Create Haml index.html with comprehensive form elements, Create Haml ffm.js using vanilla JavaScript DOM methods, Create Haml training.jsonl with 10-20 training examples, Create Slim index.html with comprehensive form elements, Create Slim ffm.js using vanilla JavaScript DOM methods, Create Slim training.jsonl with 10-20 training examples, Run QA validation script to verify all 24 files exist and meet criteria
+
+Use MCP tools: get_task_error_details, submit_task_fix_request, process_rdr_batch
+[Auto-Claude RDR] Tasks needing intervention:
+
+## 071-marko: 071-marko__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 073-qwik: Qwik Framework Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 13/21 complete
+Pending: Add selection element examples to training.jsonl (15+ examples for checkboxes, radio, select), Add specialized input examples (10+ examples for date, time, file, range, color), Add edge case examples (10+ examples for disabled, hidden, multi-select, error handling), Add Qwik-specific pattern examples (5+ examples showing data-qwik-* usage, event dispatch), Validate training.jsonl format and line count (minimum 50 lines), Verify test page renders without errors and FFM loads correctly, Test FFM methods populate all form element types correctly, Execute random training examples to verify completeness
+
+## 077-shadow-component-libs: Shadow DOM Component Library Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 10/13 complete
+Pending: Cross-framework consistency check, Training data quality validation, End-to-end browser testing of all frameworks
+
+## 079-alpine-htmx-knockout: 079-alpine-htmx-knockout__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 080-svelte-aurelia: 080-svelte-aurelia__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 081-ats-major: ATS Major Platform Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 10/21 complete
+Pending: Generate Lever training.jsonl with 20+ diverse examples, Create iCIMS index.html test page with iframe-embedded traditional form, Create iCIMS ffm.js Form Fill Module with fallback for non-framework forms, Generate iCIMS training.jsonl with 20+ diverse examples, Create Taleo index.html test page with iframe-embedded multi-page form, Create Taleo ffm.js Form Fill Module with multi-step navigation, Generate Taleo training.jsonl with 20+ diverse examples, Validate all JSONL files have correct format and sufficient examples, Security validation: verify no wildcard origins in postMessage calls, Verify all FFM modules include origin validation, Manual end-to-end verification of all test pages
+
+## 082-ats-other: 082-ats-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 083-rte-major: Rich Text Editor Training Data Generation (CKEditor & Froala)
+Status: plan_review | Exit: error
+Subtasks: 0/9 complete
+Pending: Create CKEditor 5 test page (index.html), Create CKEditor Form Fill Module (ffm.js), Generate CKEditor training data (training.jsonl), Create Froala test page (index.html), Create Froala Form Fill Module (ffm.js), Generate Froala training data (training.jsonl), Validate all test pages load without errors, Validate training data consistency across all editors, Verify license compliance documentation
+
+## 084-rte-other: 084-rte-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 085-templating-backend: Server-Side Templating Framework Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 0/12 complete
+Pending: Create Jinja2 HTML test page with Django form patterns, Create Jinja2 Form Fill Module with vanilla JavaScript, Generate Jinja2 training dataset with detection patterns, Research Twig/Symfony form patterns via web search, Create Twig HTML test page with Symfony form patterns, Create Twig Form Fill Module with vanilla JavaScript, Generate Twig training dataset with detection patterns, Validate file structure and completeness for all frameworks, Validate HTML files are valid HTML5 and render correctly, Validate JavaScript FFM modules have no syntax errors, Validate JSONL files are valid JSON Lines format, Verify framework-specific patterns in all artifacts
+
+## 086-templating-frontend: Frontend Templating Framework Training Data
+Status: plan_review | Exit: none
+Subtasks: 0/21 complete
+Pending: Research Pug/Jade form rendering patterns via web search, Research Nunjucks form rendering patterns via web search, Research Liquid form rendering patterns via web search, Research Haml form rendering patterns via web search, Research Slim form rendering patterns via web search, Create Pug/Jade index.html with comprehensive form elements, Create Pug/Jade ffm.js using vanilla JavaScript DOM methods, Create Pug/Jade training.jsonl with 10-20 training examples, Create Nunjucks index.html with comprehensive form elements, Create Nunjucks ffm.js using vanilla JavaScript DOM methods, Create Nunjucks training.jsonl with 10-20 training examples, Create Liquid index.html with comprehensive form elements, Create Liquid ffm.js using vanilla JavaScript DOM methods, Create Liquid training.jsonl with 10-20 training examples, Create Haml index.html with comprehensive form elements, Create Haml ffm.js using vanilla JavaScript DOM methods, Create Haml training.jsonl with 10-20 training examples, Create Slim index.html with comprehensive form elements, Create Slim ffm.js using vanilla JavaScript DOM methods, Create Slim training.jsonl with 10-20 training examples, Run QA validation script to verify all 24 files exist and meet criteria
+
+Use MCP tools: get_task_error_details, submit_task_fix_request, process_rdr_batch
+[Auto-Claude RDR] Tasks needing intervention:
+
+## 071-marko: 071-marko__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 073-qwik: Qwik Framework Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 13/21 complete
+Pending: Add selection element examples to training.jsonl (15+ examples for checkboxes, radio, select), Add specialized input examples (10+ examples for date, time, file, range, color), Add edge case examples (10+ examples for disabled, hidden, multi-select, error handling), Add Qwik-specific pattern examples (5+ examples showing data-qwik-* usage, event dispatch), Validate training.jsonl format and line count (minimum 50 lines), Verify test page renders without errors and FFM loads correctly, Test FFM methods populate all form element types correctly, Execute random training examples to verify completeness
+
+## 077-shadow-component-libs: Shadow DOM Component Library Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 10/13 complete
+Pending: Cross-framework consistency check, Training data quality validation, End-to-end browser testing of all frameworks
+
+## 079-alpine-htmx-knockout: 079-alpine-htmx-knockout__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 080-svelte-aurelia: 080-svelte-aurelia__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 081-ats-major: ATS Major Platform Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 10/21 complete
+Pending: Generate Lever training.jsonl with 20+ diverse examples, Create iCIMS index.html test page with iframe-embedded traditional form, Create iCIMS ffm.js Form Fill Module with fallback for non-framework forms, Generate iCIMS training.jsonl with 20+ diverse examples, Create Taleo index.html test page with iframe-embedded multi-page form, Create Taleo ffm.js Form Fill Module with multi-step navigation, Generate Taleo training.jsonl with 20+ diverse examples, Validate all JSONL files have correct format and sufficient examples, Security validation: verify no wildcard origins in postMessage calls, Verify all FFM modules include origin validation, Manual end-to-end verification of all test pages
+
+## 082-ats-other: 082-ats-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 083-rte-major: Rich Text Editor Training Data Generation (CKEditor & Froala)
+Status: plan_review | Exit: error
+Subtasks: 0/9 complete
+Pending: Create CKEditor 5 test page (index.html), Create CKEditor Form Fill Module (ffm.js), Generate CKEditor training data (training.jsonl), Create Froala test page (index.html), Create Froala Form Fill Module (ffm.js), Generate Froala training data (training.jsonl), Validate all test pages load without errors, Validate training data consistency across all editors, Verify license compliance documentation
+
+## 084-rte-other: 084-rte-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 085-templating-backend: Server-Side Templating Framework Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 0/12 complete
+Pending: Create Jinja2 HTML test page with Django form patterns, Create Jinja2 Form Fill Module with vanilla JavaScript, Generate Jinja2 training dataset with detection patterns, Research Twig/Symfony form patterns via web search, Create Twig HTML test page with Symfony form patterns, Create Twig Form Fill Module with vanilla JavaScript, Generate Twig training dataset with detection patterns, Validate file structure and completeness for all frameworks, Validate HTML files are valid HTML5 and render correctly, Validate JavaScript FFM modules have no syntax errors, Validate JSONL files are valid JSON Lines format, Verify framework-specific patterns in all artifacts
+
+## 086-templating-frontend: Frontend Templating Framework Training Data
+Status: plan_review | Exit: none
+Subtasks: 0/21 complete
+Pending: Research Pug/Jade form rendering patterns via web search, Research Nunjucks form rendering patterns via web search, Research Liquid form rendering patterns via web search, Research Haml form rendering patterns via web search, Research Slim form rendering patterns via web search, Create Pug/Jade index.html with comprehensive form elements, Create Pug/Jade ffm.js using vanilla JavaScript DOM methods, Create Pug/Jade training.jsonl with 10-20 training examples, Create Nunjucks index.html with comprehensive form elements, Create Nunjucks ffm.js using vanilla JavaScript DOM methods, Create Nunjucks training.jsonl with 10-20 training examples, Create Liquid index.html with comprehensive form elements, Create Liquid ffm.js using vanilla JavaScript DOM methods, Create Liquid training.jsonl with 10-20 training examples, Create Haml index.html with comprehensive form elements, Create Haml ffm.js using vanilla JavaScript DOM methods, Create Haml training.jsonl with 10-20 training examples, Create Slim index.html with comprehensive form elements, Create Slim ffm.js using vanilla JavaScript DOM methods, Create Slim training.jsonl with 10-20 training examples, Run QA validation script to verify all 24 files exist and meet criteria
+
+Use MCP tools: get_task_error_details, submit_task_fix_request, process_rdr_batch
+[Auto-Claude RDR] Tasks needing intervention:
+
+## 071-marko: 071-marko__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 073-qwik: Qwik Framework Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 13/21 complete
+Pending: Add selection element examples to training.jsonl (15+ examples for checkboxes, radio, select), Add specialized input examples (10+ examples for date, time, file, range, color), Add edge case examples (10+ examples for disabled, hidden, multi-select, error handling), Add Qwik-specific pattern examples (5+ examples showing data-qwik-* usage, event dispatch), Validate training.jsonl format and line count (minimum 50 lines), Verify test page renders without errors and FFM loads correctly, Test FFM methods populate all form element types correctly, Execute random training examples to verify completeness
+
+## 077-shadow-component-libs: Shadow DOM Component Library Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 10/13 complete
+Pending: Cross-framework consistency check, Training data quality validation, End-to-end browser testing of all frameworks
+
+## 079-alpine-htmx-knockout: 079-alpine-htmx-knockout__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 080-svelte-aurelia: 080-svelte-aurelia__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 081-ats-major: ATS Major Platform Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 10/21 complete
+Pending: Generate Lever training.jsonl with 20+ diverse examples, Create iCIMS index.html test page with iframe-embedded traditional form, Create iCIMS ffm.js Form Fill Module with fallback for non-framework forms, Generate iCIMS training.jsonl with 20+ diverse examples, Create Taleo index.html test page with iframe-embedded multi-page form, Create Taleo ffm.js Form Fill Module with multi-step navigation, Generate Taleo training.jsonl with 20+ diverse examples, Validate all JSONL files have correct format and sufficient examples, Security validation: verify no wildcard origins in postMessage calls, Verify all FFM modules include origin validation, Manual end-to-end verification of all test pages
+
+## 082-ats-other: 082-ats-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 083-rte-major: Rich Text Editor Training Data Generation (CKEditor & Froala)
+Status: plan_review | Exit: error
+Subtasks: 0/9 complete
+Pending: Create CKEditor 5 test page (index.html), Create CKEditor Form Fill Module (ffm.js), Generate CKEditor training data (training.jsonl), Create Froala test page (index.html), Create Froala Form Fill Module (ffm.js), Generate Froala training data (training.jsonl), Validate all test pages load without errors, Validate training data consistency across all editors, Verify license compliance documentation
+
+## 084-rte-other: 084-rte-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 085-templating-backend: Server-Side Templating Framework Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 0/12 complete
+Pending: Create Jinja2 HTML test page with Django form patterns, Create Jinja2 Form Fill Module with vanilla JavaScript, Generate Jinja2 training dataset with detection patterns, Research Twig/Symfony form patterns via web search, Create Twig HTML test page with Symfony form patterns, Create Twig Form Fill Module with vanilla JavaScript, Generate Twig training dataset with detection patterns, Validate file structure and completeness for all frameworks, Validate HTML files are valid HTML5 and render correctly, Validate JavaScript FFM modules have no syntax errors, Validate JSONL files are valid JSON Lines format, Verify framework-specific patterns in all artifacts
+
+## 086-templating-frontend: Frontend Templating Framework Training Data
+Status: plan_review | Exit: none
+Subtasks: 0/21 complete
+Pending: Research Pug/Jade form rendering patterns via web search, Research Nunjucks form rendering patterns via web search, Research Liquid form rendering patterns via web search, Research Haml form rendering patterns via web search, Research Slim form rendering patterns via web search, Create Pug/Jade index.html with comprehensive form elements, Create Pug/Jade ffm.js using vanilla JavaScript DOM methods, Create Pug/Jade training.jsonl with 10-20 training examples, Create Nunjucks index.html with comprehensive form elements, Create Nunjucks ffm.js using vanilla JavaScript DOM methods, Create Nunjucks training.jsonl with 10-20 training examples, Create Liquid index.html with comprehensive form elements, Create Liquid ffm.js using vanilla JavaScript DOM methods, Create Liquid training.jsonl with 10-20 training examples, Create Haml index.html with comprehensive form elements, Create Haml ffm.js using vanilla JavaScript DOM methods, Create Haml training.jsonl with 10-20 training examples, Create Slim index.html with comprehensive form elements, Create Slim ffm.js using vanilla JavaScript DOM methods, Create Slim training.jsonl with 10-20 training examples, Run QA validation script to verify all 24 files exist and meet criteria
+
+Use MCP tools: get_task_error_details, submit_task_fix_request, process_rdr_batch
+[Auto-Claude RDR] Tasks needing intervention:
+
+## 071-marko: 071-marko__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 073-qwik: Qwik Framework Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 13/21 complete
+Pending: Add selection element examples to training.jsonl (15+ examples for checkboxes, radio, select), Add specialized input examples (10+ examples for date, time, file, range, color), Add edge case examples (10+ examples for disabled, hidden, multi-select, error handling), Add Qwik-specific pattern examples (5+ examples showing data-qwik-* usage, event dispatch), Validate training.jsonl format and line count (minimum 50 lines), Verify test page renders without errors and FFM loads correctly, Test FFM methods populate all form element types correctly, Execute random training examples to verify completeness
+
+## 077-shadow-component-libs: Shadow DOM Component Library Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 10/13 complete
+Pending: Cross-framework consistency check, Training data quality validation, End-to-end browser testing of all frameworks
+
+## 079-alpine-htmx-knockout: 079-alpine-htmx-knockout__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 080-svelte-aurelia: 080-svelte-aurelia__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 081-ats-major: ATS Major Platform Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 10/21 complete
+Pending: Generate Lever training.jsonl with 20+ diverse examples, Create iCIMS index.html test page with iframe-embedded traditional form, Create iCIMS ffm.js Form Fill Module with fallback for non-framework forms, Generate iCIMS training.jsonl with 20+ diverse examples, Create Taleo index.html test page with iframe-embedded multi-page form, Create Taleo ffm.js Form Fill Module with multi-step navigation, Generate Taleo training.jsonl with 20+ diverse examples, Validate all JSONL files have correct format and sufficient examples, Security validation: verify no wildcard origins in postMessage calls, Verify all FFM modules include origin validation, Manual end-to-end verification of all test pages
+
+## 082-ats-other: 082-ats-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 083-rte-major: Rich Text Editor Training Data Generation (CKEditor & Froala)
+Status: plan_review | Exit: error
+Subtasks: 0/9 complete
+Pending: Create CKEditor 5 test page (index.html), Create CKEditor Form Fill Module (ffm.js), Generate CKEditor training data (training.jsonl), Create Froala test page (index.html), Create Froala Form Fill Module (ffm.js), Generate Froala training data (training.jsonl), Validate all test pages load without errors, Validate training data consistency across all editors, Verify license compliance documentation
+
+## 084-rte-other: 084-rte-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 085-templating-backend: Server-Side Templating Framework Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 0/12 complete
+Pending: Create Jinja2 HTML test page with Django form patterns, Create Jinja2 Form Fill Module with vanilla JavaScript, Generate Jinja2 training dataset with detection patterns, Research Twig/Symfony form patterns via web search, Create Twig HTML test page with Symfony form patterns, Create Twig Form Fill Module with vanilla JavaScript, Generate Twig training dataset with detection patterns, Validate file structure and completeness for all frameworks, Validate HTML files are valid HTML5 and render correctly, Validate JavaScript FFM modules have no syntax errors, Validate JSONL files are valid JSON Lines format, Verify framework-specific patterns in all artifacts
+
+## 086-templating-frontend: Frontend Templating Framework Training Data
+Status: plan_review | Exit: none
+Subtasks: 0/21 complete
+Pending: Research Pug/Jade form rendering patterns via web search, Research Nunjucks form rendering patterns via web search, Research Liquid form rendering patterns via web search, Research Haml form rendering patterns via web search, Research Slim form rendering patterns via web search, Create Pug/Jade index.html with comprehensive form elements, Create Pug/Jade ffm.js using vanilla JavaScript DOM methods, Create Pug/Jade training.jsonl with 10-20 training examples, Create Nunjucks index.html with comprehensive form elements, Create Nunjucks ffm.js using vanilla JavaScript DOM methods, Create Nunjucks training.jsonl with 10-20 training examples, Create Liquid index.html with comprehensive form elements, Create Liquid ffm.js using vanilla JavaScript DOM methods, Create Liquid training.jsonl with 10-20 training examples, Create Haml index.html with comprehensive form elements, Create Haml ffm.js using vanilla JavaScript DOM methods, Create Haml training.jsonl with 10-20 training examples, Create Slim index.html with comprehensive form elements, Create Slim ffm.js using vanilla JavaScript DOM methods, Create Slim training.jsonl with 10-20 training examples, Run QA validation script to verify all 24 files exist and meet criteria
+
+Use MCP tools: get_task_error_details, submit_task_fix_request, process_rdr_batch
+[Auto-Claude RDR] Tasks needing intervention:
+
+## 071-marko: 071-marko__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 073-qwik: Qwik Framework Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 13/21 complete
+Pending: Add selection element examples to training.jsonl (15+ examples for checkboxes, radio, select), Add specialized input examples (10+ examples for date, time, file, range, color), Add edge case examples (10+ examples for disabled, hidden, multi-select, error handling), Add Qwik-specific pattern examples (5+ examples showing data-qwik-* usage, event dispatch), Validate training.jsonl format and line count (minimum 50 lines), Verify test page renders without errors and FFM loads correctly, Test FFM methods populate all form element types correctly, Execute random training examples to verify completeness
+
+## 077-shadow-component-libs: Shadow DOM Component Library Training Data Generation
+Status: plan_review | Exit: none
+Subtasks: 10/13 complete
+Pending: Cross-framework consistency check, Training data quality validation, End-to-end browser testing of all frameworks
+
+## 079-alpine-htmx-knockout: 079-alpine-htmx-knockout__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 080-svelte-aurelia: 080-svelte-aurelia__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 081-ats-major: ATS Major Platform Training Data Creation
+Status: plan_review | Exit: none
+Subtasks: 10/21 complete
+Pending: Generate Lever training.jsonl with 20+ diverse examples, Create iCIMS index.html test page with iframe-embedded traditional form, Create iCIMS ffm.js Form Fill Module with fallback for non-framework forms, Generate iCIMS training.jsonl with 20+ diverse examples, Create Taleo index.html test page with iframe-embedded multi-page form, Create Taleo ffm.js Form Fill Module with multi-step navigation, Generate Taleo training.jsonl with 20+ diverse examples, Validate all JSONL files have correct format and sufficient examples, Security validation: verify no wildcard origins in postMessage calls, Verify all FFM modules include origin validation, Manual end-to-end verification of all test pages
+
+## 082-ats-other: 082-ats-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 083-rte-major: 083-rte-major__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+## 084-rte-other: 084-rte-other__JSON_ERROR_SUFFIX__
+Status: errors | Exit: none
+Error: Task failed during execution
+
+Use MCP tools: get_task_error_details, submit_task_fix_request, process_rdr_batch

@@ -80,8 +80,9 @@ interface RdrProcessingSummary {
   jsonFixed: number;
   fixSubmitted: number;
   queuedForMcp: number;
-  results: RdrProcessResult[];
+  results?: RdrProcessResult[];
   batches: Array<{ type: string; count: number }>;
+  message?: string;  // Optional status message for queued tasks
 }
 
 /**
@@ -600,6 +601,8 @@ export function queueTaskForRdr(projectId: string, task: TaskInfo): void {
  */
 async function checkClaudeCodeBusy(): Promise<boolean> {
   try {
+    console.log('[RDR] 🔍 Checking if Claude Code is busy...');
+
     // PRIMARY: Check if Claude is at prompt OR processing (NOT idle)
     if (outputMonitor) {
       // Update state by reading latest JSONL transcript
@@ -611,16 +614,21 @@ async function checkClaudeCodeBusy(): Promise<boolean> {
         const stateDescription = state === 'AT_PROMPT'
           ? 'at prompt (waiting for input)'
           : 'processing (thinking/using tools)';
-        console.log(`[RDR] BUSY: Claude Code is ${stateDescription}`);
+        console.log(`[RDR] ⏸️  BUSY: Claude Code is ${stateDescription}`);
 
         const diagnostics = await outputMonitor.getDiagnostics();
-        console.log('[RDR]    Details:', {
+        console.log('[RDR]    📊 Diagnostics:', {
           state: diagnostics.state,
           timeSinceStateChange: `${diagnostics.timeSinceStateChange}ms`,
-          recentOutputFiles: diagnostics.recentOutputFiles
+          recentOutputFiles: diagnostics.recentOutputFiles,
+          timestamp: new Date().toISOString()
         });
-        return true; // BUSY - don't send!
+        return true; // BUSY - reschedule!
+      } else {
+        console.log(`[RDR] ✅ Output Monitor: Claude is IDLE (state: ${state})`);
       }
+    } else {
+      console.warn('[RDR] ⚠️  Output Monitor not available');
     }
 
     // SECONDARY: Check MCP connection activity (dynamically load if on Windows)
@@ -628,26 +636,29 @@ async function checkClaudeCodeBusy(): Promise<boolean> {
       try {
         const { mcpMonitor } = await import('../mcp-server');
         if (mcpMonitor && mcpMonitor.isBusy()) {
-          console.log('[RDR] BUSY: Claude Code is busy (MCP connection active)');
+          console.log('[RDR] ⏸️  BUSY: MCP connection active');
           const status = mcpMonitor.getStatus();
-          console.log('[RDR]    Details:', {
+          console.log('[RDR]    📊 MCP Status:', {
             activeToolName: status.activeToolName,
-            timeSinceLastRequest: `${status.timeSinceLastRequest}ms`
+            timeSinceLastRequest: `${status.timeSinceLastRequest}ms`,
+            timestamp: new Date().toISOString()
           });
           return true;
+        } else {
+          console.log('[RDR] ✅ MCP Monitor: No active connections');
         }
       } catch (error) {
-        console.warn('[RDR] MCP monitor check skipped:', error);
+        console.warn('[RDR] ⚠️  MCP monitor check skipped:', error);
         // Continue - don't fail the whole check
       }
     }
 
     // All checks passed - Claude is truly idle
-    console.log('[RDR] IDLE: Claude Code is idle (safe to send)');
+    console.log('[RDR] ✅ ALL CHECKS PASSED: Claude Code is IDLE (safe to send)');
     return false;
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error('[RDR] ERROR: Failed to check busy state:', errorMessage);
+    console.error('[RDR] ❌ ERROR: Failed to check busy state:', errorMessage);
     console.error('[RDR]        Failing safe - assuming BUSY to prevent interrupting active session');
     // FAIL SAFE: Assume busy on error to prevent interrupting ongoing work
     return true;
@@ -668,16 +679,21 @@ async function processPendingTasks(): Promise<void> {
   // CRITICAL: Check if Claude Code is busy before processing
   const isBusy = await checkClaudeCodeBusy();
   if (isBusy) {
-    console.log(`[RDR] ⏸️  Claude Code is busy - rescheduling ${pendingTasks.length} tasks for later`);
+    console.log(`[RDR] ⏸️  Claude Code is BUSY - rescheduling ${pendingTasks.length} tasks for 60s later`);
+    console.log(`[RDR]    ⏰ Next retry at: ${new Date(Date.now() + 60000).toISOString()}`);
+
     // Reschedule for later (retry in 60 seconds)
     if (batchTimer) {
       clearTimeout(batchTimer);
     }
     batchTimer = setTimeout(async () => {
+      console.log('[RDR] ⏰ RETRY: Attempting to process pending tasks again...');
       await processPendingTasks();
     }, 60000); // Retry in 60 seconds
     return;
   }
+
+  console.log(`[RDR] ✅ Claude is IDLE - proceeding to process ${pendingTasks.length} tasks`);
 
   // Group tasks by project
   const tasksByProject = new Map<string, TaskInfo[]>();
@@ -777,17 +793,7 @@ export function registerRdrHandlers(): void {
   ipcMain.handle(
     IPC_CHANNELS.TRIGGER_RDR_PROCESSING,
     async (event, projectId: string, taskIds: string[]): Promise<IPCResult<RdrProcessingSummary>> => {
-      console.log(`[RDR] Manual trigger - processing ${taskIds.length} tasks for project ${projectId}`);
-
-      // CRITICAL: Check if Claude Code is busy before processing
-      const isBusy = await checkClaudeCodeBusy();
-      if (isBusy) {
-        console.log(`[RDR] ⏸️  Skipping manual trigger - Claude Code is busy`);
-        return {
-          success: false,
-          error: 'Claude Code is currently busy (at prompt or processing). Please wait and try again.'
-        };
-      }
+      console.log(`[RDR] Manual trigger - queueing ${taskIds.length} tasks for project ${projectId}`);
 
       // Get project path
       const project = projectStore.getProject(projectId);
@@ -799,9 +805,6 @@ export function registerRdrHandlers(): void {
         };
       }
 
-      // Get main window for sending events
-      const mainWindow = BrowserWindow.getAllWindows()[0] || null;
-
       // Get all task info
       const tasks = getAllTaskInfo(projectId, taskIds);
       if (tasks.length === 0) {
@@ -811,91 +814,42 @@ export function registerRdrHandlers(): void {
         };
       }
 
-      // Categorize tasks into batches
-      const batches = categorizeTasks(tasks);
-      console.log(`[RDR] Categorized into ${batches.length} batches`);
-
-      // Increment RDR attempt counter for all tasks being processed
-      const allTaskIds = batches.flatMap(b => b.taskIds);
-      if (allTaskIds.length > 0) {
-        incrementRdrAttempts(project.path, allTaskIds);
+      // CRITICAL FIX: Queue tasks instead of processing immediately
+      // This allows retry when Claude becomes idle
+      console.log(`[RDR] Queueing ${tasks.length} tasks for batched processing with busy detection`);
+      for (const task of tasks) {
+        queueTaskForRdr(projectId, task);
       }
 
-      // Process each batch
-      const allResults: RdrProcessResult[] = [];
-      let jsonFixedCount = 0;
-      let fixSubmittedCount = 0;
-      let queuedForMcpCount = 0;
-      const batchSummaries: Array<{ type: string; count: number }> = [];
-
-      // Collect MCP batches to write signal file once (not per-batch)
-      const mcpBatches: RdrBatch[] = batches.filter(b => b.type === 'qa_rejected' || b.type === 'errors');
-
-      for (const batch of batches) {
-        let results: RdrProcessResult[] = [];
-
-        switch (batch.type) {
-          case 'json_error':
-            // Auto-fix JSON errors
-            results = await processJsonErrorBatch(batch, project.path, mainWindow, projectId);
-            jsonFixedCount += results.filter(r => r.action === 'json_fixed').length;
-            break;
-
-          case 'incomplete':
-            // Auto-submit Request Changes for incomplete tasks
-            results = await processIncompleteBatch(batch, project.path, mainWindow, projectId);
-            fixSubmittedCount += results.filter(r => r.action === 'fix_submitted').length;
-            break;
-
-          case 'qa_rejected':
-          case 'errors':
-            // Queue for MCP/Claude Code analysis
-            // Pass all MCP batches so signal file includes all of them
-            results = await processMcpBatch(batch, project.path, mainWindow, projectId, mcpBatches);
-            queuedForMcpCount += results.length;
-            break;
-        }
-
-        allResults.push(...results);
-        batchSummaries.push({ type: batch.type, count: results.length });
-
-        // Emit batch processed event
-        if (mainWindow) {
-          mainWindow.webContents.send(IPC_CHANNELS.RDR_BATCH_PROCESSED, {
-            projectId,
-            batchType: batch.type,
-            results
-          });
-        }
+      // Check if Claude Code is busy
+      const isBusy = await checkClaudeCodeBusy();
+      if (isBusy) {
+        console.log(`[RDR] ⏸️  Claude Code is BUSY - tasks queued and will be processed when idle`);
+        return {
+          success: true,
+          data: {
+            processed: 0,
+            jsonFixed: 0,
+            fixSubmitted: 0,
+            queuedForMcp: tasks.length,
+            batches: [{ type: 'queued', count: tasks.length }],
+            message: `Tasks queued - will be processed when Claude Code is idle (currently ${isBusy ? 'busy' : 'idle'})`
+          }
+        };
       }
 
-      // Emit completion event
-      if (mainWindow) {
-        mainWindow.webContents.send(IPC_CHANNELS.RDR_PROCESSING_COMPLETE, {
-          projectId,
-          processed: taskIds.length,
-          jsonFixed: jsonFixedCount,
-          fixSubmitted: fixSubmittedCount,
-          queuedForMcp: queuedForMcpCount,
-          batches: batchSummaries,
-          results: allResults
-        });
-      }
-
-      console.log(`[RDR] Processing complete: ${taskIds.length} tasks`);
-      console.log(`[RDR]   - JSON fixed: ${jsonFixedCount}`);
-      console.log(`[RDR]   - Fix submitted (incomplete): ${fixSubmittedCount}`);
-      console.log(`[RDR]   - Queued for MCP: ${queuedForMcpCount}`);
+      // If Claude is idle, processPendingTasks will be called by the timer
+      console.log(`[RDR] ✅ Claude is IDLE - timer will process tasks in ${BATCH_COLLECTION_WINDOW_MS}ms`);
 
       return {
         success: true,
         data: {
-          processed: taskIds.length,
-          jsonFixed: jsonFixedCount,
-          fixSubmitted: fixSubmittedCount,
-          queuedForMcp: queuedForMcpCount,
-          results: allResults,
-          batches: batchSummaries
+          processed: 0,
+          jsonFixed: 0,
+          fixSubmitted: 0,
+          queuedForMcp: tasks.length,
+          batches: [{ type: 'queued', count: tasks.length }],
+          message: `Tasks queued for processing in ${BATCH_COLLECTION_WINDOW_MS}ms`
         }
       };
     }
@@ -1203,6 +1157,78 @@ export function registerRdrHandlers(): void {
       } catch (error) {
         console.error('[RDR] Error checking busy state:', error);
         return { success: false, error: String(error) };
+      }
+    }
+  );
+
+  // Auto-recover all tasks with status="start_requested" (programmatic recover button press)
+  ipcMain.handle(
+    IPC_CHANNELS.AUTO_RECOVER_ALL_TASKS,
+    async (event, projectId: string): Promise<IPCResult<{ recovered: number; taskIds: string[] }>> => {
+      try {
+        console.log('[RDR] Auto-recovering ALL tasks (setting status to start_requested)');
+
+        // Get all tasks for the project (use projectStore singleton)
+        const tasks = projectStore.getTasks(projectId);
+
+        if (tasks.length === 0) {
+          console.log('[RDR] No tasks found in project');
+          return { success: true, data: { recovered: 0, taskIds: [] } };
+        }
+
+        console.log(`[RDR] Processing ${tasks.length} tasks for auto-recovery`);
+
+        console.log(`[RDR] Tasks to recover:`, tasks.map(t => t.specId).join(', '));
+
+        // Get project to access path
+        const project = projectStore.getProject(projectId);
+        if (!project) {
+          return { success: false, error: 'Project not found' };
+        }
+
+        // Priority 1: Update status to "start_requested" in implementation_plan.json
+        // This triggers the file watcher which auto-starts tasks
+        const recovered: string[] = [];
+        for (const task of tasks) {
+          try {
+            const planPath = getPlanPath(project.path, task.specId);
+
+            if (!existsSync(planPath)) {
+              console.warn(`[RDR] ⚠️  Plan not found: ${planPath}`);
+              continue;
+            }
+
+            // Read current plan
+            const planContent = readFileSync(planPath, 'utf-8');
+            const plan = JSON.parse(planContent);
+
+            // Update status to trigger auto-restart
+            plan.status = 'start_requested';
+            plan.updated_at = new Date().toISOString();
+
+            // Write back
+            writeFileSync(planPath, JSON.stringify(plan, null, 2), 'utf-8');
+
+            console.log(`[RDR] ✅ Auto-recovered task: ${task.specId} (status → start_requested)`);
+            recovered.push(task.specId);
+          } catch (error) {
+            console.error(`[RDR] ❌ Error auto-recovering ${task.specId}:`, error);
+          }
+        }
+
+        console.log(`[RDR] Auto-recovery complete: ${recovered.length}/${tasks.length} tasks recovered`);
+        console.log(`[RDR] File watcher will detect changes and auto-start tasks within 2-3 seconds`);
+
+        return {
+          success: true,
+          data: { recovered: recovered.length, taskIds: recovered }
+        };
+      } catch (error) {
+        console.error('[RDR] Auto-recovery failed:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : String(error)
+        };
       }
     }
   );
