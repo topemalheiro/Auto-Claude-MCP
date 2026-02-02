@@ -182,24 +182,52 @@ export const TaskCard = memo(function TaskCard({
 
   // Wrapped status change handler that unarchives task first if needed
   const handleStatusChangeWithUnarchive = useCallback(async (newStatus: TaskStatus) => {
+    console.log('[TaskCard] ===== ARCHIVE MODE STATUS CHANGE =====');
+    console.log('[TaskCard] Moving task:', task.id);
+    console.log('[TaskCard] From status:', task.status, '→ To status:', newStatus);
+    console.log('[TaskCard] Task projectId:', task.projectId);
+    console.log('[TaskCard] Task archivedAt:', task.metadata?.archivedAt);
+    console.log('[TaskCard] Currently in archive mode:', showArchived);
+
     // Check if task is archived
     if (task.metadata?.archivedAt) {
-      // Unarchive first
-      await window.electron.ipcRenderer.invoke('TASK_UNARCHIVE', {
-        projectId: task.projectId,
-        taskIds: [task.id]
-      });
+      try {
+        console.log('[TaskCard] 🗂️  Unarchiving task...');
+        const result = await window.electronAPI.unarchiveTasks(task.projectId, [task.id]);
+        console.log('[TaskCard] ✅ Unarchive result:', result);
 
-      // Exit archive mode to show task in active view
-      if (showArchived) {
-        setShowArchived(false);
+        // Exit archive mode to show task in active view
+        if (showArchived) {
+          console.log('[TaskCard] 🚪 Exiting archive mode...');
+          setShowArchived(false);
+          console.log('[TaskCard] ✅ Archive mode exited');
+        } else {
+          console.log('[TaskCard] ℹ️  Not in archive mode, no need to exit');
+        }
+      } catch (error) {
+        console.error('[TaskCard] ❌ Unarchive failed:', error);
+        console.error('[TaskCard] Error details:', {
+          name: error?.name,
+          message: error?.message,
+          stack: error?.stack
+        });
+        // Don't proceed with status change if unarchive failed
+        return;
       }
+    } else {
+      console.log('[TaskCard] ℹ️  Task not archived, proceeding with normal status change');
     }
 
     // Then change status
+    console.log('[TaskCard] 🔄 Calling onStatusChange...');
     if (onStatusChange) {
       onStatusChange(newStatus);
+      console.log('[TaskCard] ✅ Status change called');
+    } else {
+      console.warn('[TaskCard] ⚠️  onStatusChange is not defined!');
     }
+
+    console.log('[TaskCard] ===== ARCHIVE MODE STATUS CHANGE COMPLETE =====');
   }, [task.metadata?.archivedAt, task.projectId, task.id, showArchived, setShowArchived, onStatusChange]);
 
   // Memoize status menu items to avoid recreating on every render
