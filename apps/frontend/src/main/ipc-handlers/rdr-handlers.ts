@@ -635,10 +635,14 @@ async function checkClaudeCodeBusy(): Promise<boolean> {
 
       // NEW: Require minimum idle time before considering truly idle
       // This prevents interrupting during active work sessions (plan mode, coding, etc.)
+      // EXCEPTION: Skip wait if IDLE due to aged-out session (no recent files)
       const diagnostics = await outputMonitor.getDiagnostics();
       const MINIMUM_IDLE_TIME_MS = 30000; // 30 seconds
 
-      if (diagnostics.timeSinceStateChange < MINIMUM_IDLE_TIME_MS) {
+      // If no recent files, session is genuinely abandoned - no need to wait
+      if (diagnostics.recentOutputFiles === 0) {
+        console.log('[RDR] ✅ No recent output files - session abandoned, skipping idle wait');
+      } else if (diagnostics.timeSinceStateChange < MINIMUM_IDLE_TIME_MS) {
         console.log(`[RDR] ⏸️  Recently active (${diagnostics.timeSinceStateChange}ms ago) - waiting for ${MINIMUM_IDLE_TIME_MS}ms idle time`);
         console.log('[RDR]    📊 Diagnostics:', {
           state: diagnostics.state,
