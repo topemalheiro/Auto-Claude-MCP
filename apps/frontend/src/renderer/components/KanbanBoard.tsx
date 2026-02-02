@@ -771,7 +771,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     }
   }, [tasks, taskOrder, projectId, setTaskOrder, saveTaskOrder]);
 
-  const handleDragEnd = (event: DragEndEvent) => {
+  const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
     setActiveTask(null);
     setOverColumnId(null);
@@ -781,10 +781,25 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     const activeTaskId = active.id as string;
     const overId = over.id as string;
 
+    // Find the task being dragged
+    const task = tasks.find((t) => t.id === activeTaskId);
+
+    // If dragging an archived task, unarchive it first
+    if (task?.metadata?.archivedAt) {
+      await window.electron.ipcRenderer.invoke('TASK_UNARCHIVE', {
+        projectId,
+        taskIds: [task.id]
+      });
+
+      // Exit archive mode to show task in active view
+      if (showArchived) {
+        toggleShowArchived();
+      }
+    }
+
     // Check if dropped on a column
     if (isValidDropColumn(overId)) {
       const newStatus = overId;
-      const task = tasks.find((t) => t.id === activeTaskId);
 
       if (task && task.status !== newStatus) {
         // Move task to top of target column's order array
@@ -1466,14 +1481,44 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
           </Button>
         )}
       </div>
-      {/* Kanban columns */}
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCorners}
-        onDragStart={handleDragStart}
-        onDragOver={handleDragOver}
-        onDragEnd={handleDragEnd}
-      >
+
+      {/* Archive List View - Show when in archive mode */}
+      {showArchived ? (
+        <div className="flex flex-1 flex-col p-6 overflow-hidden">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-2xl font-semibold">{t('tasks:archivedTasks')}</h2>
+            <Button onClick={toggleShowArchived} variant="outline">
+              {t('tasks:exitArchiveMode')}
+            </Button>
+          </div>
+          <ScrollArea className="flex-1 h-full pr-4">
+            <div className="flex flex-col gap-3 pb-4">
+              {filteredTasks.filter(t => t.metadata?.archivedAt).length === 0 ? (
+                <div className="text-center text-muted-foreground py-12">
+                  {t('tasks:noArchivedTasks')}
+                </div>
+              ) : (
+                filteredTasks.filter(t => t.metadata?.archivedAt).map(task => (
+                  <TaskCard
+                    key={task.id}
+                    task={task}
+                    onClick={() => onTaskClick?.(task)}
+                    onStatusChange={(newStatus) => handleStatusChange(task.id, newStatus, task)}
+                  />
+                ))
+              )}
+            </div>
+          </ScrollArea>
+        </div>
+      ) : (
+        /* Kanban columns */
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCorners}
+          onDragStart={handleDragStart}
+          onDragOver={handleDragOver}
+          onDragEnd={handleDragEnd}
+        >
         <div className="flex flex-1 gap-4 overflow-x-auto p-6">
           {TASK_STATUS_COLUMNS.map((status) => (
             <DroppableColumn
@@ -1505,6 +1550,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
           ) : null}
         </DragOverlay>
       </DndContext>
+      )}
 
       {selectedTaskIds.size > 0 && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">

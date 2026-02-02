@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback, memo, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useViewState } from '../contexts/ViewStateContext';
 import { Play, Square, Clock, Zap, Target, Shield, Gauge, Palette, FileCode, Bug, Wrench, Loader2, AlertTriangle, RotateCcw, Archive, GitPullRequest, MoreVertical } from 'lucide-react';
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
@@ -134,6 +135,7 @@ export const TaskCard = memo(function TaskCard({
   onToggleSelect
 }: TaskCardProps) {
   const { t } = useTranslation(['tasks', 'errors']);
+  const { showArchived, setShowArchived } = useViewState();
   const [isStuck, setIsStuck] = useState(false);
   const [isRecovering, setIsRecovering] = useState(false);
   const [rdrDisabled, setRdrDisabled] = useState(task.metadata?.rdrDisabled ?? false);
@@ -178,18 +180,40 @@ export const TaskCard = memo(function TaskCard({
     [task.updatedAt]
   );
 
+  // Wrapped status change handler that unarchives task first if needed
+  const handleStatusChangeWithUnarchive = useCallback(async (newStatus: TaskStatus) => {
+    // Check if task is archived
+    if (task.metadata?.archivedAt) {
+      // Unarchive first
+      await window.electron.ipcRenderer.invoke('TASK_UNARCHIVE', {
+        projectId: task.projectId,
+        taskIds: [task.id]
+      });
+
+      // Exit archive mode to show task in active view
+      if (showArchived) {
+        setShowArchived(false);
+      }
+    }
+
+    // Then change status
+    if (onStatusChange) {
+      onStatusChange(newStatus);
+    }
+  }, [task.metadata?.archivedAt, task.projectId, task.id, showArchived, setShowArchived, onStatusChange]);
+
   // Memoize status menu items to avoid recreating on every render
   const statusMenuItems = useMemo(() => {
     if (!onStatusChange) return null;
     return TASK_STATUS_COLUMNS.filter(status => status !== task.status).map((status) => (
       <DropdownMenuItem
         key={status}
-        onClick={() => onStatusChange(status)}
+        onClick={() => handleStatusChangeWithUnarchive(status)}
       >
         {t(TASK_STATUS_LABELS[status])}
       </DropdownMenuItem>
     ));
-  }, [task.status, onStatusChange, t]);
+  }, [task.status, handleStatusChangeWithUnarchive, t]);
 
   // Memoized stuck check function to avoid recreating on every render
   const performStuckCheck = useCallback(() => {
