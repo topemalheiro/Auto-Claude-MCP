@@ -616,12 +616,10 @@ async function checkClaudeCodeBusy(): Promise<boolean> {
       await outputMonitor.isAtPrompt(); // This updates internal state
       const state = outputMonitor.getCurrentState();
 
-      // Block RDR if Claude is at prompt OR actively processing
-      if (state === 'AT_PROMPT' || state === 'PROCESSING') {
-        const stateDescription = state === 'AT_PROMPT'
-          ? 'at prompt (waiting for input)'
-          : 'processing (thinking/using tools)';
-        console.log(`[RDR] ⏸️  BUSY: Claude Code is ${stateDescription}`);
+      // Block RDR ONLY if Claude is actively processing (thinking/using tools)
+      // AT_PROMPT (waiting for input) is fine - RDR notification is just another input
+      if (state === 'PROCESSING') {
+        console.log('[RDR] ⏸️  BUSY: Claude Code is processing (thinking/using tools)');
 
         const diagnostics = await outputMonitor.getDiagnostics();
         console.log('[RDR]    📊 Diagnostics:', {
@@ -633,27 +631,14 @@ async function checkClaudeCodeBusy(): Promise<boolean> {
         return true; // BUSY - reschedule!
       }
 
-      // NEW: Require minimum idle time before considering truly idle
-      // This prevents interrupting during active work sessions (plan mode, coding, etc.)
-      // EXCEPTION: Skip wait if IDLE due to aged-out session (no recent files)
-      const diagnostics = await outputMonitor.getDiagnostics();
-      const MINIMUM_IDLE_TIME_MS = 30000; // 30 seconds
-
-      // If no recent files, session is genuinely abandoned - no need to wait
-      if (diagnostics.recentOutputFiles === 0) {
-        console.log('[RDR] ✅ No recent output files - session abandoned, skipping idle wait');
-      } else if (diagnostics.timeSinceStateChange < MINIMUM_IDLE_TIME_MS) {
-        console.log(`[RDR] ⏸️  Recently active (${diagnostics.timeSinceStateChange}ms ago) - waiting for ${MINIMUM_IDLE_TIME_MS}ms idle time`);
-        console.log('[RDR]    📊 Diagnostics:', {
-          state: diagnostics.state,
-          timeSinceStateChange: `${diagnostics.timeSinceStateChange}ms`,
-          recentOutputFiles: diagnostics.recentOutputFiles,
-          timestamp: new Date().toISOString()
-        });
-        return true; // Still too recent - treat as busy
+      // AT_PROMPT or IDLE is fine for RDR notifications
+      if (state === 'AT_PROMPT') {
+        console.log('[RDR] ✅ Output Monitor: Claude is AT_PROMPT (waiting for input - OK for RDR)');
       }
 
-      console.log(`[RDR] ✅ Output Monitor: Claude is IDLE (state: ${state}, idle for ${diagnostics.timeSinceStateChange}ms)`);
+      // OutputMonitor determines IDLE state - trust it immediately
+      // No additional wait time needed - OutputMonitor already checks for genuine idle state
+      console.log('[RDR] ✅ Output Monitor: Claude is IDLE - proceeding with RDR');
     } else {
       console.warn('[RDR] ⚠️  Output Monitor not available');
     }
