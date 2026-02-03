@@ -239,36 +239,6 @@ export function GeneralSettings({ settings, onSettingsChange, section }: General
               )}
             </div>
 
-            {/* Auto-Refresh on Task Changes */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between max-w-md">
-                <div className="space-y-1">
-                  <Label htmlFor="autoRefreshOnTaskChanges" className="text-sm font-medium text-foreground">
-                    Auto-Refresh on Task Changes
-                  </Label>
-                  <p className="text-sm text-muted-foreground">
-                    Automatically refresh task list when files change (MCP, unarchive, status changes)
-                  </p>
-                </div>
-                <Switch
-                  id="autoRefreshOnTaskChanges"
-                  checked={settings.autoRefreshOnTaskChanges?.enabled ?? true}
-                  onCheckedChange={(checked) =>
-                    onSettingsChange({
-                      ...settings,
-                      autoRefreshOnTaskChanges: {
-                        ...(settings.autoRefreshOnTaskChanges || {
-                          debounceMs: 500,
-                          refreshDelayMs: 100
-                        }),
-                        enabled: checked
-                      }
-                    })
-                  }
-                />
-              </div>
-            </div>
-
             {/* Feature Model Configuration */}
             <div className="space-y-4 pt-4 border-t border-border">
               <div className="space-y-1">

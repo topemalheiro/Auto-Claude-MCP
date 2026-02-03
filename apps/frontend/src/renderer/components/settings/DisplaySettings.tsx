@@ -3,6 +3,7 @@ import { Monitor, ZoomIn, ZoomOut, RotateCcw, Check } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
 import { Label } from '../ui/label';
+import { Switch } from '../ui/switch';
 import { SettingsSection } from './SettingsSection';
 import { useSettingsStore } from '../../stores/settings-store';
 import { UI_SCALE_MIN, UI_SCALE_MAX, UI_SCALE_DEFAULT, UI_SCALE_STEP } from '../../../shared/constants';
