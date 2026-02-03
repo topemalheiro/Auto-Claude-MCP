@@ -147,7 +147,9 @@ export const TaskCard = memo(function TaskCard({
     interval: null
   });
 
-  const isRunning = task.status === 'in_progress';
+  // Include ai_review in stuck detection to match TaskDetailModal behavior
+  // This ensures recovery indicators persist when closing the detail modal
+  const isRunning = task.status === 'in_progress' || task.status === 'ai_review';
   const executionPhase = task.executionProgress?.phase;
   const hasActiveExecution = executionPhase && executionPhase !== 'idle' && executionPhase !== 'complete' && executionPhase !== 'failed';
 
@@ -445,8 +447,8 @@ export const TaskCard = memo(function TaskCard({
     <Card
       className={cn(
         'card-surface task-card-enhanced cursor-pointer',
-        isRunning && !isStuck && 'ring-2 ring-primary border-primary task-running-pulse',
-        isStuck && 'ring-2 ring-warning border-warning task-stuck-pulse',
+        isRunning && !isStuck && !isIncomplete && 'ring-2 ring-primary border-primary task-running-pulse',
+        (isStuck || isIncomplete) && 'ring-2 ring-warning border-warning task-stuck-pulse',
         isArchived && 'opacity-60 hover:opacity-80',
         isSelectable && isSelected && 'ring-2 ring-ring border-ring bg-accent/10'
       )}

@@ -1027,7 +1027,9 @@ export function getTaskByGitHubIssue(issueNumber: number): Task | undefined {
  * and should be resumed rather than reviewed.
  */
 export function isIncompleteHumanReview(task: Task): boolean {
-  if (task.status !== 'human_review') return false;
+  // Expand to check BOTH human_review AND ai_review status
+  // This ensures recovery indicators show for incomplete tasks in AI Review board
+  if (task.status !== 'human_review' && task.status !== 'ai_review') return false;
 
   // JSON error tasks are intentionally in human_review with no subtasks - not incomplete
   if (task.reviewReason === 'errors') return false;
