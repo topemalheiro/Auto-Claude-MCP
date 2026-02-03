@@ -1067,7 +1067,9 @@ export function registerRdrHandlers(): void {
 
           // 2. Error exit reason → NEEDS INTERVENTION
           // exitReason is the field that indicates WHY the task stopped
-          if (task.exitReason === 'error' || task.exitReason === 'prompt_loop') {
+          // Expanded to include "stuck" and "timeout" which also indicate abnormal termination
+          if (task.exitReason === 'error' || task.exitReason === 'prompt_loop' ||
+              task.exitReason === 'stuck' || task.exitReason === 'timeout') {
             console.log(`[RDR] ✅ Task ${task.specId} needs intervention: exitReason=${task.exitReason}`);
             return true;
           }
@@ -1087,6 +1089,13 @@ export function registerRdrHandlers(): void {
               console.log(`[RDR] ✅ Task ${task.specId} needs intervention: Stuck in_progress (${hoursSinceUpdate.toFixed(1)}h since last update)`);
               return true;
             }
+
+            // 4c. Check reviewReason for in_progress tasks
+            // reviewReason: "incomplete_work" means Auto-Claude stopped mid-task
+            if (task.reviewReason === 'incomplete_work' || task.reviewReason === 'errors') {
+              console.log(`[RDR] ✅ Task ${task.specId} needs intervention: in_progress with reviewReason=${task.reviewReason}`);
+              return true;
+            }
           }
 
           // 4b. Stuck ai_review tasks (no subtask progress >1 hour)
@@ -1095,6 +1104,13 @@ export function registerRdrHandlers(): void {
             const hoursSinceUpdate = (Date.now() - lastSubtaskUpdate) / (1000 * 60 * 60);
             if (hoursSinceUpdate > 1) {
               console.log(`[RDR] ✅ Task ${task.specId} needs intervention: Stuck in ai_review (${hoursSinceUpdate.toFixed(1)}h since last update)`);
+              return true;
+            }
+
+            // 4d. Check reviewReason for ai_review tasks
+            // reviewReason: "incomplete_work" or "errors" means the task needs intervention
+            if (task.reviewReason === 'incomplete_work' || task.reviewReason === 'errors') {
+              console.log(`[RDR] ✅ Task ${task.specId} needs intervention: ai_review with reviewReason=${task.reviewReason}`);
               return true;
             }
           }

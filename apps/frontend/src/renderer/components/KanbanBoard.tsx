@@ -921,6 +921,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
    * This gives Claude Code all the info it needs to act directly
    */
   const buildRdrMessage = useCallback((data: {
+    projectId: string;
     batches: Array<{ type: string; taskIds: string[]; taskCount: number }>;
     taskDetails: Array<{
       specId: string;
@@ -934,6 +935,21 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     }>;
   }): string => {
     const lines: string[] = ['[Auto-Claude RDR] Tasks needing intervention:'];
+    lines.push('');
+    lines.push(`**Project UUID:** ${data.projectId}`);
+    lines.push('');
+
+    // Summary: Show batch categorization
+    if (data.batches && data.batches.length > 0) {
+      lines.push('**Recovery Batches:**');
+      for (const batch of data.batches) {
+        const taskList = batch.taskIds.join(', ');
+        lines.push(`- **${batch.type}** (${batch.taskCount} tasks): ${taskList}`);
+      }
+      lines.push('');
+    }
+
+    lines.push('**Task Details:**');
     lines.push('');
 
     for (const task of data.taskDetails) {
@@ -956,7 +972,39 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       lines.push('');
     }
 
-    lines.push('Use MCP tools: get_task_error_details, submit_task_fix_request, process_rdr_batch');
+    lines.push('---');
+    lines.push('**Recovery Instructions:**');
+    lines.push('');
+    lines.push(`Project UUID: \`${data.projectId}\``);
+    lines.push('');
+    lines.push('**Step 1: Get batch details**');
+    lines.push('```typescript');
+    lines.push(`const batches = await get_rdr_batches("${data.projectId}");`);
+    lines.push('```');
+    lines.push('');
+    lines.push('**Step 2: Process each batch type**');
+    lines.push('```typescript');
+    if (data.batches && data.batches.length > 0) {
+      for (const batch of data.batches) {
+        lines.push(`// ${batch.type}: ${batch.taskIds.join(', ')}`);
+        lines.push(`await process_rdr_batch("${data.projectId}", "${batch.type}", [`);
+        for (const taskId of batch.taskIds) {
+          lines.push(`  { taskId: "${taskId}" },`);
+        }
+        lines.push(']);');
+        lines.push('');
+      }
+    } else {
+      lines.push('// Use process_rdr_batch for each batch type');
+      lines.push(`await process_rdr_batch("${data.projectId}", "incomplete", fixes);`);
+    }
+    lines.push('```');
+    lines.push('');
+    lines.push('**Available MCP Tools:**');
+    lines.push('- `get_rdr_batches(projectId)` - Get all recovery batches');
+    lines.push('- `process_rdr_batch(projectId, batchType, fixes)` - Auto-recover batch');
+    lines.push('- `get_task_error_details(projectId, taskId)` - Get detailed error logs');
+    lines.push('- `submit_task_fix_request(projectId, taskId, feedback)` - Manual fix request');
 
     return lines.join('\n');
   }, []);
@@ -1019,7 +1067,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       }
 
       // Build detailed message
-      const message = buildRdrMessage(result.data);
+      const message = buildRdrMessage({ ...result.data, projectId });
       console.log(`[RDR] Sending detailed message with ${result.data.taskDetails.length} tasks`);
 
       // Mark message as in-flight
@@ -1243,7 +1291,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
         let message: string;
 
         if (batchResult.success && batchResult.data?.taskDetails?.length) {
-          message = buildRdrMessage(batchResult.data);
+          message = buildRdrMessage({ ...batchResult.data, projectId });
         } else {
           // Fallback to simple message if no detailed info available
           message = 'Check RDR batches and fix errored tasks';

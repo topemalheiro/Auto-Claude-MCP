@@ -261,8 +261,17 @@ class ClaudeOutputMonitor {
       // Check what the message contains
       const lastContent = this.getLastTextContent(lastMessage);
 
+      // CRITICAL: Check message age FIRST before checking for questions
+      // Old messages with questions are completed sessions, not active prompts
+      const messageAge = this.getMessageAge(lastMessage);
+      const isOldMessage = messageAge > 30000; // 30 seconds
+
       // Does it end with a question to the user?
       if (this.endsWithQuestion(lastContent)) {
+        if (isOldMessage) {
+          console.log(`[OutputMonitor] Message ends with question BUT is old (${Math.floor(messageAge / 1000)}s) - treating as completed session`);
+          return 'IDLE';
+        }
         console.log('[OutputMonitor] Message ends with question - waiting for user answer');
         return 'AT_PROMPT';
       }
