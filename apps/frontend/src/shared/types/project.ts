@@ -40,6 +40,12 @@ export interface ProjectSettings {
    * This is a per-project setting.
    */
   rdrEnabled?: boolean;
+  /**
+   * Enable/disable LLM Manager (Claude Code) control of builds and restarts
+   * When disabled, Auto-Build is initialized but MCP tools won't trigger builds
+   * (default: true when Auto-Build is initialized)
+   */
+  llmManagerEnabled?: boolean;
 }
 
 export interface NotificationSettings {

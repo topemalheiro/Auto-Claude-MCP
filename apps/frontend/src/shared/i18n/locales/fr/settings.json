@@ -235,8 +235,8 @@
     "autoNameTerminalsDescription": "Utiliser l'IA pour générer des noms descriptifs pour les onglets de terminal en fonction de leur activité",
     "autoResumeAfterRateLimit": "Reprise automatique après limite de taux",
     "autoResumeAfterRateLimitDescription": "Quand une tâche est mise en pause en raison d'une limite de taux, la reprendre automatiquement quand la limite est réinitialisée. Si désactivé, les tâches vont en Révision Humaine et nécessitent un redémarrage manuel.",
-    "autoRestartOnFailure": "Redémarrage automatique en cas de boucle/crash",
-    "autoRestartOnFailureDescription": "Recompile et redémarre automatiquement lorsqu'une boucle d'invite ou un crash est détecté. Permet un fonctionnement sans surveillance.",
+    "autoRestartOnFailure": "Démarrage automatique en cas de crash ou si requis",
+    "autoRestartOnFailureDescription": "Redémarre automatiquement lors d'un crash ou si l'agent nécessite une intervention. Permet un fonctionnement sans surveillance.",
     "buildCommand": "Commande de compilation",
     "buildCommandPlaceholder": "npm run build"
   },
@@ -339,7 +339,9 @@
       "title": "Général",
       "description": "Auto-Build et configuration de l'agent",
       "useClaudeMd": "Utiliser CLAUDE.md",
-      "useClaudeMdDescription": "Inclure les instructions CLAUDE.md dans le contexte de l'agent"
+      "useClaudeMdDescription": "Inclure les instructions CLAUDE.md dans le contexte de l'agent",
+      "llmManagerControl": "Activer le contrôle du gestionnaire LLM",
+      "llmManagerControlDescription": "Autoriser Claude Code à déclencher des builds et redémarrer ce projet"
     },
     "claude": {
       "title": "Auth Claude",

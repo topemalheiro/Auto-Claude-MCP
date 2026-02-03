@@ -86,15 +86,15 @@ export function GeneralSettings({
             </div>
           </div>
         ) : (
-          <div className="rounded-lg border border-success/50 bg-success/5 p-4 space-y-3">
+          <div className="rounded-lg border border-border bg-muted/50 p-4 space-y-3">
             <div className="flex items-start justify-between gap-4">
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="h-4 w-4 text-success" />
-                  <span className="text-sm font-medium text-success">Enabled</span>
+                  <span className="text-sm font-medium text-foreground">Auto-Build Initialized</span>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Claude Code can trigger builds and restart Auto-Claude
+                  Project is configured for Auto-Build tasks
                 </p>
               </div>
               <code className="text-xs bg-background px-2 py-1 rounded shrink-0">
@@ -107,6 +107,25 @@ export function GeneralSettings({
                 Checking status...
               </div>
             )}
+
+            {/* LLM Manager Control Toggle */}
+            <Separator />
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label className="font-normal text-foreground">
+                  Enable LLM Manager Control
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Allow Claude Code to trigger builds and restart this project
+                </p>
+              </div>
+              <Switch
+                checked={settings.llmManagerEnabled ?? true}
+                onCheckedChange={(checked) =>
+                  setSettings({ ...settings, llmManagerEnabled: checked })
+                }
+              />
+            </div>
           </div>
         )}
       </section>
