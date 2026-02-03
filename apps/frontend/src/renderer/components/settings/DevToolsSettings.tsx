@@ -365,6 +365,33 @@ export function DevToolsSettings({ settings, onSettingsChange }: DevToolsSetting
           )}
         </div>
 
+        {/* Crash Recovery Toggle */}
+        <div className="space-y-3 pt-6 border-t border-border">
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label htmlFor="crash-recovery" className="text-sm font-medium">
+                {t('devtools.crashRecovery.label', 'Crash Recovery')}
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                {t('devtools.crashRecovery.description', 'Automatically restart Auto Claude when crashes are detected (via external watchdog)')}
+              </p>
+            </div>
+            <Switch
+              id="crash-recovery"
+              checked={settings.crashRecovery?.enabled ?? false}
+              onCheckedChange={(checked) => {
+                onSettingsChange({
+                  ...settings,
+                  crashRecovery: {
+                    ...(settings.crashRecovery || { autoRestart: true, maxRestarts: 3, restartCooldown: 60000 }),
+                    enabled: checked
+                  }
+                });
+              }}
+            />
+          </div>
+        </div>
+
         {/* Auto-name Claude Terminals Toggle */}
         <div className="space-y-3 pt-2 border-t border-border">
           <div className="flex items-center justify-between">

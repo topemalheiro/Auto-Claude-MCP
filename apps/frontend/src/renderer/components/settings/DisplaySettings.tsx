@@ -240,6 +240,33 @@ export function DisplaySettings({ settings, onSettingsChange }: DisplaySettingsP
             <span>{UI_SCALE_MAX}%</span>
           </div>
         </div>
+
+        {/* Auto-Refresh Toggle */}
+        <div className="space-y-3 pt-6 border-t border-border">
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label htmlFor="auto-refresh" className="text-sm font-medium">
+                {t('display.autoRefresh.label', 'Auto-Refresh on Task Changes')}
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                {t('display.autoRefresh.description', 'Automatically refresh task list when files change (MCP, unarchive, status changes)')}
+              </p>
+            </div>
+            <Switch
+              id="auto-refresh"
+              checked={settings.autoRefreshOnTaskChanges?.enabled ?? true}
+              onCheckedChange={(checked) => {
+                onSettingsChange({
+                  ...settings,
+                  autoRefreshOnTaskChanges: {
+                    ...(settings.autoRefreshOnTaskChanges || { debounceMs: 500, refreshDelayMs: 100 }),
+                    enabled: checked
+                  }
+                });
+              }}
+            />
+          </div>
+        </div>
       </div>
     </SettingsSection>
   );

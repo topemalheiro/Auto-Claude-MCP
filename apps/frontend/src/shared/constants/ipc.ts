@@ -617,5 +617,6 @@ export const IPC_CHANNELS = {
 
   // Auto-Restart on Loop/Crash
   RESTART_TRIGGER_AUTO_RESTART: 'restart:triggerAutoRestart',  // Trigger build and restart
-  RESTART_CHECK_COOLDOWN: 'restart:checkCooldown'              // Check if restart is allowed
+  RESTART_CHECK_COOLDOWN: 'restart:checkCooldown',             // Check if restart is allowed
+  RESTART_GRACEFUL: 'restart:graceful'                         // Graceful restart (from MCP or user)
 } as const;

@@ -185,6 +185,12 @@
     "comfortable": "Confortable",
     "large": "Grand"
   },
+  "display": {
+    "autoRefresh": {
+      "label": "Actualisation automatique lors des changements de tâche",
+      "description": "Actualiser automatiquement la liste des tâches lorsque les fichiers changent (MCP, désarchivage, changements de statut)"
+    }
+  },
   "general": {
     "otherAgentSettings": "Autres paramètres de l'agent",
     "otherAgentSettingsDescription": "Options de configuration supplémentaires de l'agent",
@@ -272,6 +278,10 @@
       "label": "Nommer automatiquement les terminaux Claude",
       "description": "Utiliser l'IA pour générer un nom descriptif pour les terminaux Claude basé sur votre premier message"
     },
+    "crashRecovery": {
+      "label": "Récupération après plantage",
+      "description": "Redémarrer automatiquement Auto Claude lorsque des plantages sont détectés (via watchdog externe)"
+    },
     "yoloMode": {
       "label": "Mode YOLO",
       "description": "Démarrer Claude avec le flag --dangerously-skip-permissions, contournant toutes les invites de sécurité. À utiliser avec une extrême prudence.",
@@ -300,6 +310,8 @@
     "autoUpdateProjectsDescription": "Mettre à jour automatiquement Auto Claude dans les projets quand une nouvelle version est disponible",
     "betaUpdates": "Mises à jour bêta",
     "betaUpdatesDescription": "Recevoir les versions bêta pré-release avec de nouvelles fonctionnalités (peut être moins stable)",
+    "crashRecovery": "Récupération après plantage",
+    "crashRecoveryDescription": "Redémarrer automatiquement Auto Claude lorsque des plantages sont détectés (via watchdog externe)",
     "stableDowngradeAvailable": "Version stable disponible",
     "stableDowngradeDescription": "Vous êtes actuellement sur une version bêta. Comme vous avez désactivé les mises à jour bêta, vous pouvez passer à la dernière version stable.",
     "stableVersion": "Version stable",

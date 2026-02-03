@@ -185,6 +185,12 @@
     "comfortable": "Comfortable",
     "large": "Large"
   },
+  "display": {
+    "autoRefresh": {
+      "label": "Auto-Refresh on Task Changes",
+      "description": "Automatically refresh task list when files change (MCP, unarchive, status changes)"
+    }
+  },
   "general": {
     "otherAgentSettings": "Other Agent Settings",
     "otherAgentSettingsDescription": "Additional agent configuration options",
@@ -272,6 +278,10 @@
       "label": "Auto-name Claude terminals",
       "description": "Use AI to generate a descriptive name for Claude terminals based on your first message"
     },
+    "crashRecovery": {
+      "label": "Crash Recovery",
+      "description": "Automatically restart Auto Claude when crashes are detected (via external watchdog)"
+    },
     "yoloMode": {
       "label": "YOLO Mode",
       "description": "Start Claude with --dangerously-skip-permissions flag, bypassing all safety prompts. Use with extreme caution.",
@@ -300,6 +310,8 @@
     "autoUpdateProjectsDescription": "Automatically update Auto Claude in projects when a new version is available",
     "betaUpdates": "Beta Updates",
     "betaUpdatesDescription": "Receive pre-release beta versions with new features (may be less stable)",
+    "crashRecovery": "Crash Recovery",
+    "crashRecoveryDescription": "Automatically restart Auto Claude when crashes are detected (via external watchdog)",
     "stableDowngradeAvailable": "Stable Version Available",
     "stableDowngradeDescription": "You're currently on a beta version. Since you've disabled beta updates, you can switch to the latest stable release.",
     "stableVersion": "Stable Version",

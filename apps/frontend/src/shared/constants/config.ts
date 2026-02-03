@@ -72,6 +72,13 @@ export const DEFAULT_APP_SETTINGS = {
     enabled: true,
     debounceMs: 500,
     refreshDelayMs: 100
+  },
+  // Crash recovery via external watchdog (disabled by default for stability)
+  crashRecovery: {
+    enabled: false,        // When enabled: auto-restart via watchdog; when disabled: do nothing
+    autoRestart: true,     // Auto-restart after crash (if enabled is true)
+    maxRestarts: 3,        // Maximum restarts within cooldown period
+    restartCooldown: 60000 // Cooldown period in ms (1 minute)
   }
 };
 

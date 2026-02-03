@@ -81,6 +81,7 @@ import { initSentryMain } from './sentry';
 import { checkAndHandleRestart, resumeTasksAfterRestart } from './ipc-handlers/restart-handlers';
 import { preWarmToolCache } from './cli-tool-manager';
 import { initializeClaudeProfileManager } from './claude-profile-manager';
+import { checkAndNotifyCrash } from './crash-recovery-handler';
 import type { AppSettings } from '../shared/types';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -231,6 +232,13 @@ function createWindow(): void {
   // Show window when ready to avoid visual flash
   mainWindow.on('ready-to-show', () => {
     mainWindow?.show();
+
+    // Check for crash flag and notify Claude Code if app was restarted after crash
+    if (mainWindow) {
+      checkAndNotifyCrash(mainWindow).catch((error) => {
+        console.error('[main] Failed to check crash flag:', error);
+      });
+    }
 
     // Pre-warm CLI cache AFTER window shows (hides any cmd.exe flashes on Windows)
     setImmediate(() => {

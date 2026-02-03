@@ -1,4 +1,4 @@
-import { ipcMain, app } from 'electron';
+import { ipcMain, app, BrowserWindow } from 'electron';
 import { spawn } from 'child_process';
 import { readFileSync, writeFileSync, existsSync, unlinkSync } from 'fs';
 import * as path from 'path';
@@ -7,6 +7,7 @@ import type { IPCResult } from '../../shared/types';
 import type { AgentManager } from '../agent/agent-manager';
 import { readSettingsFile } from '../settings-utils';
 import { projectStore } from '../project-store';
+import { performGracefulRestart, restoreAppState } from './graceful-restart-handler';
 
 const RESTART_STATE_FILE = path.join(
   app.getPath('userData'),
@@ -283,6 +284,25 @@ export function registerRestartHandlers(agentManager: AgentManager) {
     const settings = readSettingsFile();
     const cooldownCheck = checkCooldown(settings);
     return { success: true, data: cooldownCheck };
+  });
+
+  // Graceful restart (from MCP or user request)
+  ipcMain.handle(IPC_CHANNELS.RESTART_GRACEFUL, async (_, options: {
+    reason: 'prompt_loop' | 'memory_leak' | 'manual' | 'settings_change' | 'recovery';
+    saveState?: boolean;
+    delay?: number;
+  }) => {
+    try {
+      const mainWindow = BrowserWindow.getAllWindows()[0];
+      await performGracefulRestart(mainWindow, options);
+      return { success: true };
+    } catch (error) {
+      console.error('[RestartHandlers] Graceful restart failed:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
   });
 }
 

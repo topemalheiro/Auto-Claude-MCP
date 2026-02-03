@@ -309,6 +309,15 @@ export interface AppSettings {
     debounceMs?: number;      // Default: 500ms (debounce rapid changes)
     refreshDelayMs?: number;  // Default: 100ms (wait after file stabilizes)
   };
+  // Crash recovery system - External watchdog for auto-restart
+  // When enabled, external watchdog monitors Auto-Claude and automatically restarts after crashes
+  // When disabled, crashes are not detected and no restart occurs
+  crashRecovery?: {
+    enabled: boolean;          // Enable/disable entire crash recovery system
+    autoRestart: boolean;      // Auto-restart after crash (if false, just log crash)
+    maxRestarts: number;       // Max restarts within cooldown period (default: 3)
+    restartCooldown: number;   // Cooldown period in ms (default: 60000 = 1 minute)
+  };
 }
 
 // Auto-Claude Source Environment Configuration (for auto-claude repo .env)
