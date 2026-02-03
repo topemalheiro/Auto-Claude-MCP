@@ -279,8 +279,8 @@
       "description": "Use AI to generate a descriptive name for Claude terminals based on your first message"
     },
     "autoRestartOnFailure": {
-      "label": "Auto-Restart on Crash or If Required",
-      "description": "Automatically restart when a task pauses due to rate limit, automatically resume it when the limit resets. If disabled, tasks go to Human Review and require manual restart."
+      "label": "LLM Manager Auto-Restart",
+      "description": "Allow Claude Code (via MCP) to trigger Auto-Claude restarts when intervention is needed. Also handles Claude process crashes. Enables unattended operation."
     },
     "buildCommand": {
       "label": "Build Command"

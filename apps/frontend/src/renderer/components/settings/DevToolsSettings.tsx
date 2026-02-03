@@ -370,7 +370,7 @@ export function DevToolsSettings({ settings, onSettingsChange }: DevToolsSetting
           <div>
             <h3 className="text-sm font-semibold text-foreground">Auto-Claude MCP System</h3>
             <p className="text-xs text-muted-foreground mt-1">
-              Configure Auto-Claude restart and recovery behavior
+              LLM Manager restart control and crash recovery settings
             </p>
           </div>
 

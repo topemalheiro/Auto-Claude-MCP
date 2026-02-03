@@ -294,8 +294,10 @@ export interface AppSettings {
   // RDR (Recover Debug Resend) - Auto-recover stuck/errored tasks
   // When enabled, automatically recovers stuck tasks, analyzes errors, and submits fix requests
   rdrEnabled?: boolean;
-  // Auto-restart on prompt loop or crash
-  // When enabled, automatically rebuilds and restarts when a prompt loop or crash is detected
+  // LLM Manager Auto-Restart Control
+  // Allows Claude Code (via MCP) to trigger Auto-Claude restarts when intervention is needed
+  // Also handles Claude process crashes (not app-level crashes - see crashRecovery)
+  // When disabled, tasks go to Human Review and require manual restart
   autoRestartOnFailure?: {
     enabled: boolean;
     buildCommand: string;     // Default: "npm run build"

@@ -279,8 +279,8 @@
       "description": "Utiliser l'IA pour générer un nom descriptif pour les terminaux Claude basé sur votre premier message"
     },
     "autoRestartOnFailure": {
-      "label": "Redémarrage automatique en cas de plantage ou si nécessaire",
-      "description": "Redémarrer automatiquement lorsqu'une tâche est en pause en raison d'une limite de débit, la reprendre automatiquement lorsque la limite se réinitialise. Si désactivé, les tâches vont à Human Review et nécessitent un redémarrage manuel."
+      "label": "Redémarrage automatique par LLM Manager",
+      "description": "Autoriser Claude Code (via MCP) à déclencher des redémarrages d'Auto-Claude lorsqu'une intervention est nécessaire. Gère également les plantages de processus Claude. Permet un fonctionnement non supervisé."
     },
     "buildCommand": {
       "label": "Commande de build"
