@@ -60,6 +60,7 @@ interface TaskCardProps {
   task: Task;
   onClick: () => void;
   onStatusChange?: (newStatus: TaskStatus) => unknown;
+  onRefresh?: () => Promise<void>;  // Callback to refresh task list after operations
   // Optional selectable mode props for multi-selection
   isSelectable?: boolean;
   isSelected?: boolean;
@@ -76,6 +77,7 @@ function taskCardPropsAreEqual(prevProps: TaskCardProps, nextProps: TaskCardProp
     prevTask === nextTask &&
     prevProps.onClick === nextProps.onClick &&
     prevProps.onStatusChange === nextProps.onStatusChange &&
+    prevProps.onRefresh === nextProps.onRefresh &&
     prevProps.isSelectable === nextProps.isSelectable &&
     prevProps.isSelected === nextProps.isSelected &&
     prevProps.onToggleSelect === nextProps.onToggleSelect
@@ -130,6 +132,7 @@ export const TaskCard = memo(function TaskCard({
   task,
   onClick,
   onStatusChange,
+  onRefresh,
   isSelectable,
   isSelected,
   onToggleSelect
@@ -204,6 +207,15 @@ export const TaskCard = memo(function TaskCard({
         } else {
           console.log('[TaskCard] ℹ️  Not in archive mode, no need to exit');
         }
+
+        // Trigger refresh to show task in new board
+        if (onRefresh) {
+          console.log('[TaskCard] 🔄 Triggering UI refresh...');
+          await onRefresh();
+          console.log('[TaskCard] ✅ UI refresh complete');
+        } else {
+          console.log('[TaskCard] ℹ️  No onRefresh callback provided');
+        }
       } catch (error) {
         console.error('[TaskCard] ❌ Unarchive failed:', error);
         console.error('[TaskCard] Error details:', {
@@ -228,7 +240,7 @@ export const TaskCard = memo(function TaskCard({
     }
 
     console.log('[TaskCard] ===== ARCHIVE MODE STATUS CHANGE COMPLETE =====');
-  }, [task.metadata?.archivedAt, task.projectId, task.id, showArchived, setShowArchived, onStatusChange]);
+  }, [task.metadata?.archivedAt, task.projectId, task.id, task.status, showArchived, setShowArchived, onStatusChange, onRefresh]);
 
   // Memoize status menu items to avoid recreating on every render
   const statusMenuItems = useMemo(() => {

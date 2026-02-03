@@ -588,6 +588,48 @@ export function App() {
     }
   };
 
+  // Listen for auto-refresh triggers from file watcher
+  useEffect(() => {
+    let debounceTimer: NodeJS.Timeout | null = null;
+
+    const cleanup = window.electronAPI.onTaskAutoRefresh((data: { reason: string; projectId: string; specId: string }) => {
+      // Check if auto-refresh is enabled in settings
+      if (!settings.autoRefreshOnTaskChanges?.enabled) {
+        console.log('[App] Auto-refresh disabled, skipping refresh');
+        return;
+      }
+
+      const debounceMs = settings.autoRefreshOnTaskChanges?.debounceMs ?? 500;
+
+      // Clear existing timer to debounce rapid changes
+      if (debounceTimer) {
+        clearTimeout(debounceTimer);
+      }
+
+      // Debounce to handle multiple rapid file changes
+      debounceTimer = setTimeout(() => {
+        console.log('[App] Auto-refresh triggered by:', data.reason);
+        console.log('[App] Project:', data.projectId, 'Spec:', data.specId);
+
+        // Only refresh if the event is for the current project
+        const currentProjectId = activeProjectId || selectedProjectId;
+        if (currentProjectId && data.projectId === currentProjectId) {
+          console.log('[App] Refreshing tasks for current project');
+          handleRefreshTasks();
+        } else {
+          console.log('[App] Skipping refresh - event for different project');
+        }
+      }, debounceMs);
+    });
+
+    return () => {
+      if (debounceTimer) {
+        clearTimeout(debounceTimer);
+      }
+      cleanup();
+    };
+  }, [settings.autoRefreshOnTaskChanges, activeProjectId, selectedProjectId, handleRefreshTasks]);
+
   const handleCloseTaskDetail = () => {
     setSelectedTask(null);
   };

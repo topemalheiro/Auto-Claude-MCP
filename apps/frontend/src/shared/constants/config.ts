@@ -66,6 +66,12 @@ export const DEFAULT_APP_SETTINGS = {
     buildCommand: 'npm run build',
     maxRestartsPerHour: 3,
     cooldownMinutes: 5
+  },
+  // Auto-refresh on task changes (enabled by default for better UX)
+  autoRefreshOnTaskChanges: {
+    enabled: true,
+    debounceMs: 500,
+    refreshDelayMs: 100
   }
 };
 

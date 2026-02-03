@@ -302,6 +302,13 @@ export interface AppSettings {
     maxRestartsPerHour: number; // Default: 3 (prevent infinite loops)
     cooldownMinutes: number;   // Default: 5 (wait between restarts)
   };
+  // Auto-refresh on task changes
+  // When enabled, automatically refreshes task list when files change (MCP, unarchive, status changes)
+  autoRefreshOnTaskChanges?: {
+    enabled: boolean;
+    debounceMs?: number;      // Default: 500ms (debounce rapid changes)
+    refreshDelayMs?: number;  // Default: 100ms (wait after file stabilizes)
+  };
 }
 
 // Auto-Claude Source Environment Configuration (for auto-claude repo .env)

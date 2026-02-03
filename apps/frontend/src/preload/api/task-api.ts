@@ -366,6 +366,22 @@ export const createTaskAPI = (): TaskAPI => ({
     };
   },
 
+  // Auto-refresh trigger (from file watcher)
+  onTaskAutoRefresh: (
+    callback: (data: { reason: string; projectId: string; specId: string }) => void
+  ): (() => void) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      data: { reason: string; projectId: string; specId: string }
+    ): void => {
+      callback(data);
+    };
+    ipcRenderer.on(IPC_CHANNELS.TASK_AUTO_REFRESH_TRIGGER, handler);
+    return () => {
+      ipcRenderer.removeListener(IPC_CHANNELS.TASK_AUTO_REFRESH_TRIGGER, handler);
+    };
+  },
+
   // Task Phase Logs
   getTaskLogs: (projectId: string, specId: string): Promise<IPCResult<TaskLogs | null>> =>
     ipcRenderer.invoke(IPC_CHANNELS.TASK_LOGS_GET, projectId, specId),

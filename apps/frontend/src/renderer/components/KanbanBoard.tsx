@@ -68,6 +68,7 @@ interface DroppableColumnProps {
   tasks: Task[];
   onTaskClick: (task: Task) => void;
   onStatusChange: (taskId: string, newStatus: TaskStatus) => unknown;
+  onRefresh?: () => void;
   isOver: boolean;
   onAddClick?: () => void;
   onArchiveAll?: () => void;
@@ -117,6 +118,7 @@ function droppableColumnPropsAreEqual(
   if (prevProps.isOver !== nextProps.isOver) return false;
   if (prevProps.onTaskClick !== nextProps.onTaskClick) return false;
   if (prevProps.onStatusChange !== nextProps.onStatusChange) return false;
+  if (prevProps.onRefresh !== nextProps.onRefresh) return false;
   if (prevProps.onAddClick !== nextProps.onAddClick) return false;
   if (prevProps.onArchiveAll !== nextProps.onArchiveAll) return false;
   if (prevProps.archivedCount !== nextProps.archivedCount) return false;
@@ -189,7 +191,7 @@ const getEmptyStateContent = (status: TaskStatus, t: (key: string) => string): {
   }
 };
 
-const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskClick, onStatusChange, isOver, onAddClick, onArchiveAll, archivedCount, showArchived, onToggleArchived, selectedTaskIds, onSelectAll, onDeselectAll, onToggleSelect }: DroppableColumnProps) {
+const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskClick, onStatusChange, onRefresh, isOver, onAddClick, onArchiveAll, archivedCount, showArchived, onToggleArchived, selectedTaskIds, onSelectAll, onDeselectAll, onToggleSelect }: DroppableColumnProps) {
   const { t } = useTranslation(['tasks', 'common']);
   const { setNodeRef } = useDroppable({
     id: status
@@ -259,6 +261,7 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
         task={task}
         onClick={onClickHandlers.get(task.id)!}
         onStatusChange={onStatusChangeHandlers.get(task.id)}
+        onRefresh={onRefresh}
         isSelectable={isSelectable}
         isSelected={isSelectable ? selectedTaskIds?.has(task.id) : undefined}
         onToggleSelect={onToggleSelectHandlers?.get(task.id)}
@@ -1504,6 +1507,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
                     task={task}
                     onClick={() => onTaskClick?.(task)}
                     onStatusChange={(newStatus) => handleStatusChange(task.id, newStatus, task)}
+                    onRefresh={onRefresh}
                   />
                 ))
               )}
@@ -1527,6 +1531,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
               tasks={tasksByStatus[status]}
               onTaskClick={onTaskClick}
               onStatusChange={handleStatusChange}
+              onRefresh={onRefresh}
               isOver={overColumnId === status}
               onAddClick={status === 'backlog' ? onNewTaskClick : undefined}
               onArchiveAll={status === 'done' ? handleArchiveAll : undefined}

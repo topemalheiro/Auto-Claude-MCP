@@ -502,6 +502,14 @@ export function registerAgenteventsHandlers(
     // Notify renderer to refresh task list
     console.log(`[AgentEvents] Sending TASK_LIST_REFRESH to renderer for project ${data.projectId}`);
     safeSendToRenderer(getMainWindow, IPC_CHANNELS.TASK_LIST_REFRESH, data.projectId);
+
+    // Trigger auto-refresh if enabled in settings
+    console.log(`[AgentEvents] Sending TASK_AUTO_REFRESH_TRIGGER for specs-changed`);
+    safeSendToRenderer(getMainWindow, IPC_CHANNELS.TASK_AUTO_REFRESH_TRIGGER, {
+      reason: 'specs-changed',
+      projectId: data.projectId,
+      specId: data.specId
+    });
   });
 
   // Handle MCP-requested task starts (task-start-requested event from file watcher)
@@ -517,6 +525,14 @@ export function registerAgenteventsHandlers(
     // The renderer will call TASK_START IPC to begin execution
     console.log(`[AgentEvents] Sending TASK_AUTO_START to renderer for task ${data.specId}`);
     safeSendToRenderer(getMainWindow, IPC_CHANNELS.TASK_AUTO_START, data.projectId, data.specId);
+
+    // Trigger auto-refresh if enabled in settings
+    console.log(`[AgentEvents] Sending TASK_AUTO_REFRESH_TRIGGER for task-start-requested`);
+    safeSendToRenderer(getMainWindow, IPC_CHANNELS.TASK_AUTO_REFRESH_TRIGGER, {
+      reason: 'task-start-requested',
+      projectId: data.projectId,
+      specId: data.specId
+    });
   });
 
   // Handle task status changes from file watcher (for RDR auto-recovery)
@@ -538,6 +554,14 @@ export function registerAgenteventsHandlers(
     // Notify renderer to refresh task list with animation
     console.log(`[AgentEvents] Sending TASK_STATUS_CHANGED to renderer`);
     safeSendToRenderer(getMainWindow, IPC_CHANNELS.TASK_STATUS_CHANGED, data);
+
+    // Trigger auto-refresh if enabled in settings
+    console.log(`[AgentEvents] Sending TASK_AUTO_REFRESH_TRIGGER for task-status-changed`);
+    safeSendToRenderer(getMainWindow, IPC_CHANNELS.TASK_AUTO_REFRESH_TRIGGER, {
+      reason: 'task-status-changed',
+      projectId: data.projectId,
+      specId: data.specId
+    });
   });
 
   // Start watching specs directories for all existing projects
