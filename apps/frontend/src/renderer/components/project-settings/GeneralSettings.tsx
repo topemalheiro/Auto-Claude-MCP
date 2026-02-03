@@ -49,7 +49,12 @@ export function GeneralSettings({
     <>
       {/* Auto-Build Integration */}
       <section className="space-y-4">
-        <h3 className="text-sm font-semibold text-foreground">Auto-Build Integration</h3>
+        <div>
+          <h3 className="text-sm font-semibold text-foreground">LLM Manager Build & Restart</h3>
+          <p className="text-xs text-muted-foreground mt-1">
+            Allow Claude Code to trigger builds and restart Auto-Claude via MCP
+          </p>
+        </div>
         {!project.autoBuildPath ? (
           <div className="rounded-lg border border-border bg-muted/50 p-4">
             <div className="flex items-start gap-3">
@@ -57,7 +62,7 @@ export function GeneralSettings({
               <div className="flex-1">
                 <p className="text-sm font-medium text-foreground">Not Initialized</p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Initialize Auto-Build to enable task creation and agent workflows.
+                  Initialize to enable LLM Manager control of builds and restarts.
                 </p>
                 <Button
                   size="sm"
@@ -81,24 +86,25 @@ export function GeneralSettings({
             </div>
           </div>
         ) : (
-          <div className="rounded-lg border border-border bg-muted/50 p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 text-success" />
-                <span className="text-sm font-medium text-foreground">Initialized</span>
+          <div className="rounded-lg border border-success/50 bg-success/5 p-4 space-y-3">
+            <div className="flex items-start justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-success" />
+                  <span className="text-sm font-medium text-success">Enabled</span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Claude Code can trigger builds and restart Auto-Claude
+                </p>
               </div>
-              <code className="text-xs bg-background px-2 py-1 rounded">
+              <code className="text-xs bg-background px-2 py-1 rounded shrink-0">
                 {project.autoBuildPath}
               </code>
             </div>
-            {isCheckingVersion ? (
+            {isCheckingVersion && (
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <Loader2 className="h-3 w-3 animate-spin" />
                 Checking status...
-              </div>
-            ) : versionInfo && (
-              <div className="text-xs text-muted-foreground">
-                {versionInfo.isInitialized ? 'Initialized' : 'Not initialized'}
               </div>
             )}
           </div>
