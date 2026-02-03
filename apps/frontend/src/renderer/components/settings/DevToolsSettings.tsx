@@ -365,30 +365,95 @@ export function DevToolsSettings({ settings, onSettingsChange }: DevToolsSetting
           )}
         </div>
 
-        {/* Crash Recovery Toggle */}
-        <div className="space-y-3 pt-6 border-t border-border">
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label htmlFor="crash-recovery" className="text-sm font-medium">
-                {t('devtools.crashRecovery.label', 'Crash Recovery')}
-              </Label>
-              <p className="text-xs text-muted-foreground">
-                {t('devtools.crashRecovery.description', 'Automatically restart Auto Claude when crashes are detected (via external watchdog)')}
-              </p>
+        {/* Auto-Claude MCP System Section */}
+        <div className="space-y-4 pt-6 border-t border-border">
+          <div>
+            <h3 className="text-sm font-semibold text-foreground">Auto-Claude MCP System</h3>
+            <p className="text-xs text-muted-foreground mt-1">
+              Configure Auto-Claude restart and recovery behavior
+            </p>
+          </div>
+
+          {/* Auto-Restart on Crash or If Required */}
+          <div className="space-y-3 ml-4">
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label htmlFor="auto-restart-on-failure" className="text-sm font-medium">
+                  {t('devtools.autoRestartOnFailure.label', 'Auto-Restart on Crash or If Required')}
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  {t('devtools.autoRestartOnFailure.description', 'Automatically restart when a task pauses due to rate limit, automatically resume it when the limit resets. If disabled, tasks go to Human Review and require manual restart.')}
+                </p>
+              </div>
+              <Switch
+                id="auto-restart-on-failure"
+                checked={settings.autoRestartOnFailure?.enabled ?? false}
+                onCheckedChange={(checked) =>
+                  onSettingsChange({
+                    ...settings,
+                    autoRestartOnFailure: {
+                      ...(settings.autoRestartOnFailure || {
+                        buildCommand: 'npm run build',
+                        maxRestartsPerHour: 3,
+                        cooldownMinutes: 5
+                      }),
+                      enabled: checked
+                    }
+                  })
+                }
+              />
             </div>
-            <Switch
-              id="crash-recovery"
-              checked={settings.crashRecovery?.enabled ?? false}
-              onCheckedChange={(checked) => {
-                onSettingsChange({
-                  ...settings,
-                  crashRecovery: {
-                    ...(settings.crashRecovery || { autoRestart: true, maxRestarts: 3, restartCooldown: 60000 }),
-                    enabled: checked
+
+            {/* Build Command Input (shown when enabled) */}
+            {settings.autoRestartOnFailure?.enabled && (
+              <div className="ml-4 space-y-2">
+                <Label htmlFor="buildCommand" className="text-sm font-medium text-foreground">
+                  {t('devtools.buildCommand.label', 'Build Command')}
+                </Label>
+                <Input
+                  id="buildCommand"
+                  value={settings.autoRestartOnFailure?.buildCommand ?? 'npm run build'}
+                  onChange={(e) =>
+                    onSettingsChange({
+                      ...settings,
+                      autoRestartOnFailure: {
+                        ...settings.autoRestartOnFailure!,
+                        buildCommand: e.target.value
+                      }
+                    })
                   }
-                });
-              }}
-            />
+                  placeholder="npm run build"
+                  className="max-w-md"
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Crash Recovery */}
+          <div className="space-y-3 ml-4">
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label htmlFor="crash-recovery" className="text-sm font-medium">
+                  {t('devtools.crashRecovery.label', 'Crash Recovery')}
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  {t('devtools.crashRecovery.description', 'Automatically restart Auto Claude when crashes are detected (via external watchdog)')}
+                </p>
+              </div>
+              <Switch
+                id="crash-recovery"
+                checked={settings.crashRecovery?.enabled ?? false}
+                onCheckedChange={(checked) => {
+                  onSettingsChange({
+                    ...settings,
+                    crashRecovery: {
+                      ...(settings.crashRecovery || { autoRestart: true, maxRestarts: 3, restartCooldown: 60000 }),
+                      enabled: checked
+                    }
+                  });
+                }}
+              />
+            </div>
           </div>
         </div>
 
