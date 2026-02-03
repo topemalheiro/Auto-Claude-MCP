@@ -341,7 +341,7 @@
       "useClaudeMd": "Use CLAUDE.md",
       "useClaudeMdDescription": "Include CLAUDE.md instructions in agent context",
       "llmManagerControl": "Enable LLM Manager Control",
-      "llmManagerControlDescription": "Allow Claude Code to trigger builds and restart this project"
+      "llmManagerControlDescription": "Allow Claude Code to trigger builds and restart Auto-Claude"
     },
     "claude": {
       "title": "Claude Auth",

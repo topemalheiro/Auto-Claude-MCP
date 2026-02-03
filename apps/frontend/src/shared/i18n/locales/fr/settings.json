@@ -341,7 +341,7 @@
       "useClaudeMd": "Utiliser CLAUDE.md",
       "useClaudeMdDescription": "Inclure les instructions CLAUDE.md dans le contexte de l'agent",
       "llmManagerControl": "Activer le contrôle du gestionnaire LLM",
-      "llmManagerControlDescription": "Autoriser Claude Code à déclencher des builds et redémarrer ce projet"
+      "llmManagerControlDescription": "Autoriser Claude Code à déclencher des builds et redémarrer Auto-Claude"
     },
     "claude": {
       "title": "Auth Claude",
