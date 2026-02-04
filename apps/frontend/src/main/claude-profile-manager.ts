@@ -329,13 +329,6 @@ export class ClaudeProfileManager {
       // Fallback to default
       const defaultProfile = this.data.profiles.find(p => p.isDefault);
       if (defaultProfile) {
-        if (process.env.DEBUG === 'true') {
-          console.warn('[ClaudeProfileManager] getActiveProfile - using default:', {
-            id: defaultProfile.id,
-            name: defaultProfile.name,
-            email: defaultProfile.email
-          });
-        }
         return defaultProfile;
       }
       // If somehow no default exists, return first profile

@@ -567,13 +567,27 @@ The SDK will run invoked agents in parallel automatically.
                 )
 
                 # Check for stream processing errors
-                if stream_result.get("error"):
-                    logger.error(
-                        f"[ParallelFollowup] SDK stream failed: {stream_result['error']}"
-                    )
-                    raise RuntimeError(
-                        f"SDK stream processing failed: {stream_result['error']}"
-                    )
+                stream_error = stream_result.get("error")
+                if stream_error:
+                    # Don't raise for structured_output_validation_failed - use text fallback instead
+                    if stream_error == "structured_output_validation_failed":
+                        logger.warning(
+                            "[ParallelFollowup] Structured output validation failed after retries. "
+                            "Will use text fallback to extract findings."
+                        )
+                        safe_print(
+                            "[ParallelFollowup] Structured output failed - using text fallback",
+                            flush=True,
+                        )
+                        # Clear structured_output to ensure fallback is used
+                        stream_result["structured_output"] = None
+                    else:
+                        logger.error(
+                            f"[ParallelFollowup] SDK stream failed: {stream_error}"
+                        )
+                        raise RuntimeError(
+                            f"SDK stream processing failed: {stream_error}"
+                        )
 
                 result_text = stream_result["result_text"]
                 structured_output = stream_result["structured_output"]

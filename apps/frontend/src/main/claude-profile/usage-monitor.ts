@@ -90,60 +90,22 @@ const PROVIDER_USAGE_ENDPOINTS: readonly ProviderUsageEndpoint[] = [
 export function getUsageEndpoint(provider: ApiProvider, baseUrl: string): string | null {
   const isDebug = process.env.DEBUG === 'true';
 
-  if (isDebug) {
-    console.warn('[UsageMonitor:ENDPOINT_CONSTRUCTION] Constructing usage endpoint:', {
-      provider,
-      baseUrl
-    });
-  }
-
   const endpointConfig = PROVIDER_USAGE_ENDPOINTS.find(e => e.provider === provider);
   if (!endpointConfig) {
-    if (isDebug) {
-      console.warn('[UsageMonitor:ENDPOINT_CONSTRUCTION] Unknown provider - no endpoint configured:', {
-        provider,
-        availableProviders: PROVIDER_USAGE_ENDPOINTS.map(e => e.provider)
-      });
-    }
     return null;
-  }
-
-  if (isDebug) {
-    console.warn('[UsageMonitor:ENDPOINT_CONSTRUCTION] Found endpoint config for provider:', {
-      provider,
-      usagePath: endpointConfig.usagePath
-    });
   }
 
   try {
     const url = new URL(baseUrl);
-    const originalPath = url.pathname;
     // Replace the path with the usage endpoint path
     url.pathname = endpointConfig.usagePath;
 
     // Note: quota/limit endpoint doesn't require query parameters
     // The model-usage and tool-usage endpoints would need time windows, but we're using quota/limit
 
-    const finalUrl = url.toString();
-
-    if (isDebug) {
-      console.warn('[UsageMonitor:ENDPOINT_CONSTRUCTION] Successfully constructed endpoint:', {
-        provider,
-        originalPath,
-        newPath: endpointConfig.usagePath,
-        finalUrl
-      });
-    }
-
-    return finalUrl;
+    return url.toString();
   } catch (error) {
     console.error('[UsageMonitor] Invalid baseUrl for usage endpoint:', baseUrl);
-    if (isDebug) {
-      console.warn('[UsageMonitor:ENDPOINT_CONSTRUCTION] URL construction failed:', {
-        baseUrl,
-        error: error instanceof Error ? error.message : String(error)
-      });
-    }
     return null;
   }
 }
@@ -163,18 +125,7 @@ export function getUsageEndpoint(provider: ApiProvider, baseUrl: string): string
  */
 export function detectProvider(baseUrl: string): ApiProvider {
   // Wrapper around shared detectProvider with debug logging for main process
-  const isDebug = process.env.DEBUG === 'true';
-
-  const provider = sharedDetectProvider(baseUrl);
-
-  if (isDebug) {
-    console.warn('[UsageMonitor:PROVIDER_DETECTION] Detected provider:', {
-      baseUrl,
-      provider
-    });
-  }
-
-  return provider;
+  return sharedDetectProvider(baseUrl);
 }
 
 /**
@@ -844,18 +795,12 @@ export class UsageMonitor extends EventEmitter {
       // Fallback: Try direct keychain read (e.g., if refresh token unavailable)
       const keychainCreds = getCredentialsFromKeychain(activeProfile.configDir);
       if (keychainCreds.token) {
-        this.debugLog('[UsageMonitor:TRACE] Using fallback OAuth token from Keychain for profile: ' + activeProfile.name, {
-          tokenFingerprint: getCredentialFingerprint(keychainCreds.token)
-        });
         return keychainCreds.token;
       }
 
       // Keychain read also failed
       if (keychainCreds.error) {
         this.debugLog('[UsageMonitor] Keychain access failed:', keychainCreds.error);
-      } else {
-        this.debugLog('[UsageMonitor:TRACE] No token in Keychain for profile: ' + activeProfile.name +
-          ' - user may need to re-authenticate with claude /login');
       }
 
       // Mark profile as needing re-authentication since credentials are missing
@@ -863,7 +808,6 @@ export class UsageMonitor extends EventEmitter {
     }
 
     // No credential available
-    this.debugLog('[UsageMonitor:TRACE] No credential available (no API or OAuth profile active)');
     return undefined;
   }
 

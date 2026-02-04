@@ -616,15 +616,6 @@ function getCredentialsFromMacOSKeychain(configDir?: string, forceRefresh = fals
   if (!forceRefresh && cached) {
     const ttl = cached.credentials.error ? ERROR_CACHE_TTL_MS : CACHE_TTL_MS;
     if ((now - cached.timestamp) < ttl) {
-      if (isDebug) {
-        const cacheAge = now - cached.timestamp;
-        console.warn('[CredentialUtils:macOS:CACHE] Returning cached credentials:', {
-          serviceName,
-          hasToken: !!cached.credentials.token,
-          tokenFingerprint: getTokenFingerprint(cached.credentials.token),
-          cacheAge: Math.round(cacheAge / 1000) + 's'
-        });
-      }
       return cached.credentials;
     }
   }

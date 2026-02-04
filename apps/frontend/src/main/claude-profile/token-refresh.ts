@@ -319,12 +319,6 @@ export async function ensureValidToken(
     ? configDir.replace(/^~/, homedir())
     : configDir;
 
-  if (isDebug) {
-    console.warn('[TokenRefresh:ensureValidToken] Checking token validity', {
-      configDir: expandedConfigDir || 'default'
-    });
-  }
-
   // Step 1: Read full credentials from keychain
   const creds = getFullCredentialsFromKeychain(expandedConfigDir);
 

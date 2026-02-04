@@ -377,23 +377,12 @@ export class TerminalSessionStore {
       todaySessions[projectPath] = [];
     }
 
-    // Debug: Log incoming outputBuffer info
-    const incomingBufferLen = session.outputBuffer?.length ?? 0;
-    debugLog('[TerminalSessionStore] Updating session in memory:', session.id,
-      'incoming outputBuffer:', incomingBufferLen, 'bytes',
-      'isClaudeMode:', session.isClaudeMode);
-
     // Update existing or add new
     const existingIndex = todaySessions[projectPath].findIndex(s => s.id === session.id);
     if (existingIndex >= 0) {
       // Preserve displayOrder from existing session if not provided in incoming session
       // This prevents periodic saves (which don't include displayOrder) from losing tab order
       const existingSession = todaySessions[projectPath][existingIndex];
-      const existingBufferLen = existingSession.outputBuffer?.length ?? 0;
-      const truncatedLen = session.outputBuffer.slice(-MAX_OUTPUT_BUFFER).length;
-      debugLog('[TerminalSessionStore] Updating existing session:', session.id,
-        'existing outputBuffer:', existingBufferLen, 'bytes',
-        'new outputBuffer (after truncation):', truncatedLen, 'bytes');
 
       todaySessions[projectPath][existingIndex] = {
         ...session,
@@ -404,10 +393,6 @@ export class TerminalSessionStore {
         displayOrder: session.displayOrder ?? existingSession.displayOrder,
       };
     } else {
-      const truncatedLen = session.outputBuffer.slice(-MAX_OUTPUT_BUFFER).length;
-      debugLog('[TerminalSessionStore] Creating new session:', session.id,
-        'outputBuffer (after truncation):', truncatedLen, 'bytes');
-
       todaySessions[projectPath].push({
         ...session,
         outputBuffer: session.outputBuffer.slice(-MAX_OUTPUT_BUFFER),

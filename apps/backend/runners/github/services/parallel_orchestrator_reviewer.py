@@ -526,14 +526,27 @@ Report findings with specific file paths, line numbers, and code evidence.
 
                 error = stream_result.get("error")
                 if error:
-                    logger.error(
-                        f"[Specialist:{config.name}] SDK stream failed: {error}"
-                    )
-                    safe_print(
-                        f"[Specialist:{config.name}] Analysis failed: {error}",
-                        flush=True,
-                    )
-                    return (config.name, [])
+                    # Don't bail out for structured_output_validation_failed - use text fallback
+                    if error == "structured_output_validation_failed":
+                        logger.warning(
+                            f"[Specialist:{config.name}] Structured output validation failed. "
+                            "Using text fallback."
+                        )
+                        safe_print(
+                            f"[Specialist:{config.name}] Structured output failed - using text fallback",
+                            flush=True,
+                        )
+                        # Clear structured_output to ensure fallback is used
+                        stream_result["structured_output"] = None
+                    else:
+                        logger.error(
+                            f"[Specialist:{config.name}] SDK stream failed: {error}"
+                        )
+                        safe_print(
+                            f"[Specialist:{config.name}] Analysis failed: {error}",
+                            flush=True,
+                        )
+                        return (config.name, [])
 
                 # Parse structured output
                 structured_output = stream_result.get("structured_output")
@@ -1780,25 +1793,34 @@ For EACH finding above:
 
                     error = stream_result.get("error")
                     if error:
-                        # Check for specific error types that warrant retry
-                        error_str = str(error).lower()
-                        is_retryable = (
-                            "400" in error_str
-                            or "concurrency" in error_str
-                            or "circuit breaker" in error_str
-                            or "tool_use" in error_str
-                        )
-
-                        if is_retryable and attempt < MAX_VALIDATION_RETRIES:
+                        # Handle structured output validation failure - use text fallback
+                        if error == "structured_output_validation_failed":
                             logger.warning(
-                                f"[PRReview] Retryable validation error: {error}"
+                                "[PRReview:FindingValidator] Structured output validation failed. "
+                                "Will use text fallback to parse validation results."
                             )
-                            last_error = Exception(error)
-                            continue  # Retry
+                            # Clear structured_output to trigger text parsing below
+                            stream_result["structured_output"] = None
+                        else:
+                            # Check for specific error types that warrant retry
+                            error_str = str(error).lower()
+                            is_retryable = (
+                                "400" in error_str
+                                or "concurrency" in error_str
+                                or "circuit breaker" in error_str
+                                or "tool_use" in error_str
+                            )
 
-                        logger.error(f"[PRReview] Validation failed: {error}")
-                        # Fail-safe: return original findings
-                        return findings
+                            if is_retryable and attempt < MAX_VALIDATION_RETRIES:
+                                logger.warning(
+                                    f"[PRReview] Retryable validation error: {error}"
+                                )
+                                last_error = Exception(error)
+                                continue  # Retry
+
+                            logger.error(f"[PRReview] Validation failed: {error}")
+                            # Fail-safe: return original findings
+                            return findings
 
                     structured_output = stream_result.get("structured_output")
 
