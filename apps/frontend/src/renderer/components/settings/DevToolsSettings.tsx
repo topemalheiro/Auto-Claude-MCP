@@ -374,9 +374,167 @@ export function DevToolsSettings({ settings, onSettingsChange }: DevToolsSetting
             </p>
           </div>
 
+          {/* Build Type */}
+          <div className="space-y-2 ml-4">
+            <Label htmlFor="build-type" className="text-sm font-medium">
+              {t('devtools.buildType.label', 'Build Type')}
+            </Label>
+            <Select
+              value={settings.autoRestartOnFailure?.buildType ?? 'production'}
+              onValueChange={(value: 'production' | 'development') => {
+                const buildCommand = value === 'production' ? 'npm run build' : 'npm run dev';
+                onSettingsChange({
+                  ...settings,
+                  autoRestartOnFailure: {
+                    ...(settings.autoRestartOnFailure || {
+                      enabled: false,
+                      buildCommand: 'npm run build',
+                      maxRestartsPerHour: 3,
+                      cooldownMinutes: 5
+                    }),
+                    buildType: value,
+                    buildCommand
+                  }
+                });
+              }}
+            >
+              <SelectTrigger id="build-type" className="max-w-md">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="production">
+                  {t('devtools.buildType.production', 'Production (Optimized)')}
+                </SelectItem>
+                <SelectItem value="development">
+                  {t('devtools.buildType.development', 'Development (Fast Build)')}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              {t('devtools.buildType.description', 'Choose build optimization level')}
+            </p>
+          </div>
+
+          {/* Auto-Claude Directory */}
+          <div className="space-y-2 ml-4">
+            <Label htmlFor="auto-claude-directory" className="text-sm font-medium">
+              {t('devtools.autoClaudeDirectory.label', 'Auto-Claude Directory')}
+            </Label>
+            <div className="flex gap-2">
+              <Input
+                id="auto-claude-directory"
+                value={settings.autoRestartOnFailure?.autoClaudeDirectory || ''}
+                onChange={(e) =>
+                  onSettingsChange({
+                    ...settings,
+                    autoRestartOnFailure: {
+                      ...(settings.autoRestartOnFailure || {
+                        enabled: false,
+                        buildCommand: 'npm run build',
+                        maxRestartsPerHour: 3,
+                        cooldownMinutes: 5
+                      }),
+                      autoClaudeDirectory: e.target.value
+                    }
+                  })
+                }
+                placeholder={t('devtools.autoClaudeDirectory.placeholder', 'Leave empty for current directory')}
+                className="flex-1 max-w-md"
+              />
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={async () => {
+                  const result = await window.electronAPI.selectDirectory();
+                  if (result) {
+                    onSettingsChange({
+                      ...settings,
+                      autoRestartOnFailure: {
+                        ...(settings.autoRestartOnFailure || {
+                          enabled: false,
+                          buildCommand: 'npm run build',
+                          maxRestartsPerHour: 3,
+                          cooldownMinutes: 5
+                        }),
+                        autoClaudeDirectory: result
+                      }
+                    });
+                  }
+                }}
+                aria-label="Browse directory"
+              >
+                <FolderOpen className="h-4 w-4" />
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {t('devtools.autoClaudeDirectory.description', 'Path to Auto-Claude installation to modify and restart')}
+            </p>
+          </div>
+
+          {/* Show Terminal on Restart */}
+          <div className="space-y-3 ml-4">
+            <div className="flex items-center justify-between max-w-md">
+              <div className="space-y-0.5">
+                <Label htmlFor="show-terminal-on-restart" className="text-sm font-medium">
+                  {t('devtools.showTerminalOnRestart.label', 'Show Terminal on Restart')}
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  {t('devtools.showTerminalOnRestart.description', 'Display terminal window when LLM Manager restarts Auto-Claude')}
+                </p>
+              </div>
+              <Switch
+                id="show-terminal-on-restart"
+                checked={settings.autoRestartOnFailure?.showTerminalOnRestart ?? false}
+                onCheckedChange={(checked) =>
+                  onSettingsChange({
+                    ...settings,
+                    autoRestartOnFailure: {
+                      ...(settings.autoRestartOnFailure || {
+                        enabled: false,
+                        buildCommand: 'npm run build',
+                        maxRestartsPerHour: 3,
+                        cooldownMinutes: 5
+                      }),
+                      showTerminalOnRestart: checked
+                    }
+                  })
+                }
+              />
+            </div>
+          </div>
+
+          {/* Build Command (moved outside toggle) */}
+          <div className="space-y-2 ml-4">
+            <Label htmlFor="build-command" className="text-sm font-medium text-foreground">
+              {t('devtools.buildCommand.label', 'Build Command')}
+            </Label>
+            <Input
+              id="build-command"
+              value={settings.autoRestartOnFailure?.buildCommand ?? 'npm run build'}
+              onChange={(e) =>
+                onSettingsChange({
+                  ...settings,
+                  autoRestartOnFailure: {
+                    ...(settings.autoRestartOnFailure || {
+                      enabled: false,
+                      maxRestartsPerHour: 3,
+                      cooldownMinutes: 5
+                    }),
+                    buildCommand: e.target.value
+                  }
+                })
+              }
+              placeholder="npm run build"
+              className="max-w-md"
+            />
+            <p className="text-xs text-muted-foreground">
+              {t('devtools.buildCommand.description', 'Command to build Auto-Claude (auto-filled based on Build Type)')}
+            </p>
+          </div>
+
           {/* Auto-Restart on Crash or If Required */}
           <div className="space-y-3 ml-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between max-w-md">
               <div className="space-y-0.5">
                 <Label htmlFor="auto-restart-on-failure" className="text-sm font-medium">
                   {t('devtools.autoRestartOnFailure.label', 'Auto-Restart on Crash or If Required')}
@@ -403,30 +561,6 @@ export function DevToolsSettings({ settings, onSettingsChange }: DevToolsSetting
                 }
               />
             </div>
-
-            {/* Build Command Input (shown when enabled) */}
-            {settings.autoRestartOnFailure?.enabled && (
-              <div className="ml-4 space-y-2">
-                <Label htmlFor="buildCommand" className="text-sm font-medium text-foreground">
-                  {t('devtools.buildCommand.label', 'Build Command')}
-                </Label>
-                <Input
-                  id="buildCommand"
-                  value={settings.autoRestartOnFailure?.buildCommand ?? 'npm run build'}
-                  onChange={(e) =>
-                    onSettingsChange({
-                      ...settings,
-                      autoRestartOnFailure: {
-                        ...settings.autoRestartOnFailure!,
-                        buildCommand: e.target.value
-                      }
-                    })
-                  }
-                  placeholder="npm run build"
-                  className="max-w-md"
-                />
-              </div>
-            )}
           </div>
 
           {/* Crash Recovery */}

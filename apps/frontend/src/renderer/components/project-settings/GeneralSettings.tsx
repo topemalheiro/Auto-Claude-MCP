@@ -52,7 +52,7 @@ export function GeneralSettings({
         <div>
           <h3 className="text-sm font-semibold text-foreground">LLM Manager Build & Restart</h3>
           <p className="text-xs text-muted-foreground mt-1">
-            Allow Claude Code to trigger builds and restart Auto-Claude via MCP
+            Allow LLM Manager to change Auto-Claude code, build and restart if needed by this project
           </p>
         </div>
         {!project.autoBuildPath ? (
@@ -113,10 +113,10 @@ export function GeneralSettings({
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
                 <Label className="font-normal text-foreground">
-                  Enable LLM Manager Control
+                  Auto-Build
                 </Label>
                 <p className="text-xs text-muted-foreground">
-                  Allow Claude Code to trigger builds and restart this project
+                  Enable LLM Manager to modify Auto-Claude, build and restart
                 </p>
               </div>
               <Switch

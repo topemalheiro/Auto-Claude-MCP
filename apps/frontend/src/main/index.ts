@@ -41,13 +41,18 @@ import { accessSync, readFileSync, writeFileSync, rmSync } from 'fs';
 import { optimizer } from '@electron-toolkit/utils';
 
 // Custom safe implementation to avoid module-level electron.app access
+// Using object property with function to avoid bundler getter transformation
+function isDev(): boolean {
+  try {
+    return !app.isPackaged;
+  } catch {
+    return true; // Default to dev mode if app not ready
+  }
+}
+
 const is = {
   get dev() {
-    try {
-      return !app.isPackaged;
-    } catch {
-      return true; // Default to dev mode if app not ready
-    }
+    return isDev();
   }
 };
 

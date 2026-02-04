@@ -278,12 +278,28 @@
       "label": "Nommer automatiquement les terminaux Claude",
       "description": "Utiliser l'IA pour générer un nom descriptif pour les terminaux Claude basé sur votre premier message"
     },
+    "buildType": {
+      "label": "Type de build",
+      "description": "Choisir le niveau d'optimisation",
+      "production": "Production (Optimisé)",
+      "development": "Développement (Build rapide)"
+    },
+    "autoClaudeDirectory": {
+      "label": "Répertoire Auto-Claude",
+      "description": "Chemin vers l'installation Auto-Claude à modifier et redémarrer",
+      "placeholder": "Laisser vide pour le répertoire actuel"
+    },
+    "showTerminalOnRestart": {
+      "label": "Afficher le terminal au redémarrage",
+      "description": "Afficher la fenêtre du terminal lorsque LLM Manager redémarre Auto-Claude"
+    },
     "autoRestartOnFailure": {
       "label": "Redémarrage automatique par LLM Manager",
       "description": "Autoriser Claude Code (via MCP) à déclencher des redémarrages d'Auto-Claude lorsqu'une intervention est nécessaire. Gère également les plantages de processus Claude. Permet un fonctionnement non supervisé."
     },
     "buildCommand": {
-      "label": "Commande de build"
+      "label": "Commande de build",
+      "description": "Commande pour compiler Auto-Claude (rempli automatiquement selon le type de build)"
     },
     "crashRecovery": {
       "label": "Récupération après plantage",
