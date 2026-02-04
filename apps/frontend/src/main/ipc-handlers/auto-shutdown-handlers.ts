@@ -266,11 +266,12 @@ ipcMain.handle(
         }
 
         // Spawn monitoring process
-        // Use shell: true for Windows (required for npx.cmd) with windowsHide to minimize visibility
+        // Use node directly without shell to avoid terminal window on Windows
+        // shell: true causes cmd.exe window to appear even with windowsHide: true
         const monitorProcess = spawn(
-          'npx',
+          process.execPath,  // Full path to node.exe - no shell needed
           [
-            'tsx',
+            '--import', 'tsx',  // Use tsx as ESM loader (replaces npx tsx)
             scriptPath,
             '--project-path', projectPath,
             '--task-ids', activeTaskIds.join(','),
@@ -280,8 +281,7 @@ ipcMain.handle(
             cwd: projectPath,
             detached: true,
             stdio: ['ignore', 'pipe', 'pipe'],
-            shell: true,
-            windowsHide: true,
+            windowsHide: true,  // Works properly without shell
             env: { ...process.env }
           }
         );
