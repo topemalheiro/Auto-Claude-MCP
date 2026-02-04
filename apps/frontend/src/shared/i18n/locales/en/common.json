@@ -490,8 +490,7 @@
     "clickToOpenSettings": "Click to open Settings →",
     "sessionShort": "5-hour session usage",
     "weeklyShort": "7-day weekly usage",
-    "swap": "Swap",
-    "account": "Account"
+    "swap": "Swap"
   },
   "oauth": {
     "enterCode": "Manual Code Entry (Fallback)",
