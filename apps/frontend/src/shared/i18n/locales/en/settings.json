@@ -289,7 +289,7 @@
     },
     "autoRestartOnFailure": {
       "label": "LLM Manager Auto-Restart",
-      "description": "Allow LLM Manager to trigger Auto-Claude restarts when intervention is needed detected through AC MCP. Enables unattended operation."
+      "description": "Allow LLM Manager to trigger Auto-Claude restarts when intervention is needed, detected through AC MCP. Enables unattended operation."
     },
     "crashRecovery": {
       "label": "Crash Recovery",

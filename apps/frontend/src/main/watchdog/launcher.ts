@@ -112,8 +112,36 @@ process.on('uncaughtException', (error) => {
     console.log('[Launcher] Starting watchdog...');
     await watchdog.start(electronPath, appPath);
 
+    const status = watchdog.getStatus();
+
+    // Check if watchdog actually started (crash recovery might be disabled)
+    if (!status.running) {
+      console.log('[Launcher] Crash recovery is disabled in settings');
+      console.log('[Launcher] Starting Electron directly without monitoring...');
+
+      // Start Electron directly using spawn
+      const { spawn } = await import('child_process');
+      const electronProcess = spawn(electronPath, [appPath], {
+        stdio: 'inherit',
+        detached: false,
+        env: { ...process.env }
+      });
+
+      electronProcess.on('exit', (code) => {
+        console.log('[Launcher] Electron exited with code:', code);
+        process.exit(code || 0);
+      });
+
+      electronProcess.on('error', (err) => {
+        console.error('[Launcher] Failed to start Electron:', err);
+        process.exit(1);
+      });
+
+      return;
+    }
+
     console.log('[Launcher] Watchdog started successfully');
-    console.log('[Launcher] Status:', watchdog.getStatus());
+    console.log('[Launcher] Status:', status);
     console.log('');
     console.log('Press Ctrl+C to stop');
     console.log('='.repeat(80));

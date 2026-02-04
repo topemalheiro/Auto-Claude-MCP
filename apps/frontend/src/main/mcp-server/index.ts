@@ -36,6 +36,9 @@ import {
 } from './utils.js';
 import { projectStore } from '../project-store.js';
 import { readAndClearSignalFile } from '../ipc-handlers/rdr-handlers.js';
+import { existsSync, readFileSync, unlinkSync } from 'fs';
+import { join } from 'path';
+import { homedir } from 'os';
 import type {
   TaskOptions,
   TaskCategory,
@@ -1320,6 +1323,147 @@ server.tool(
 );
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Crash Notification Polling
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Get the crash notification file path based on OS
+ */
+function getCrashNotificationPath(): string {
+  const appDataPath = process.env.APPDATA ||
+    (process.platform === 'darwin'
+      ? join(homedir(), 'Library', 'Application Support')
+      : join(homedir(), '.config'));
+  return join(appDataPath, 'auto-claude', 'crash-notification.json');
+}
+
+/**
+ * Check for crash notification file and send to Claude Code if found
+ * This runs periodically to detect crashes reported by the external watchdog
+ */
+async function checkCrashNotification(): Promise<void> {
+  const notificationPath = getCrashNotificationPath();
+
+  if (!existsSync(notificationPath)) {
+    return;
+  }
+
+  try {
+    const content = readFileSync(notificationPath, 'utf-8');
+    const notification = JSON.parse(content);
+
+    console.warn('[MCP] 🚨 Crash notification found!');
+    console.warn('[MCP] Type:', notification.type);
+    console.warn('[MCP] Timestamp:', notification.timestamp);
+
+    // Build the crash message for Claude Code
+    const isCrashLoop = notification.type === 'crash_loop';
+    const lines: string[] = [];
+
+    if (isCrashLoop) {
+      lines.push('[Auto-Claude Crash Recovery] 🔥 CRASH LOOP DETECTED');
+      lines.push('');
+      lines.push(`**Crash Count:** ${notification.crashCount} crashes in rapid succession`);
+      lines.push(`**Restart Attempts:** ${notification.restartCount}`);
+      lines.push('**Status:** Restart attempts stopped to prevent infinite loop');
+      lines.push('');
+      lines.push('**⚠️ IMMEDIATE ACTION REQUIRED:**');
+      lines.push('1. Check recent logs below for error patterns');
+      lines.push('2. Investigate root cause of crashes');
+      lines.push('3. Fix underlying issue before restarting');
+      lines.push('4. Manually restart Auto-Claude after fixing the issue');
+    } else {
+      lines.push('[Auto-Claude Crash Recovery] ⚠️ APP CRASHED');
+      lines.push('');
+      lines.push(`**Exit Code:** ${notification.exitCode ?? 'N/A'}`);
+      lines.push(`**Signal:** ${notification.signal ?? 'N/A'}`);
+      lines.push(`**Timestamp:** ${notification.timestamp}`);
+      lines.push(`**Auto-Restart:** ${notification.autoRestart ? 'Yes (restarting in 2s)' : 'No'}`);
+      lines.push(`**Restart Attempt:** ${notification.restartCount}`);
+    }
+
+    lines.push('');
+    lines.push('---');
+    lines.push('');
+    lines.push('**Recent Logs (Last 20 lines):**');
+    lines.push('```');
+    if (notification.logs && Array.isArray(notification.logs)) {
+      notification.logs.slice(-20).forEach((log: string) => lines.push(log));
+    } else {
+      lines.push('No logs available');
+    }
+    lines.push('```');
+    lines.push('');
+    lines.push('---');
+    lines.push('');
+    lines.push('**Recovery Actions:**');
+    if (isCrashLoop) {
+      lines.push('- ❌ Auto-restart disabled due to crash loop');
+      lines.push('- 🔍 Investigate the root cause in the logs above');
+      lines.push('- 🔧 Fix the issue in Auto-Claude code');
+      lines.push('- 🔄 Use Priority 5 (Build & Restart) if needed');
+    } else {
+      lines.push('- ✅ Auto-Claude should restart automatically');
+      lines.push('- 🔍 Use RDR to check task status and resume interrupted tasks');
+      lines.push('- 📋 Check if any tasks were in progress when crash occurred');
+    }
+    lines.push('');
+    lines.push('**Settings Location:**');
+    lines.push('- Windows: `%APPDATA%\\auto-claude\\settings.json`');
+    lines.push('- macOS: `~/Library/Application Support/auto-claude/settings.json`');
+    lines.push('- Linux: `~/.config/auto-claude/settings.json`');
+
+    const message = lines.join('\n');
+
+    // Log the full message to stderr so it appears in Claude Code's MCP logs
+    console.warn('[MCP] Crash notification content:');
+    console.warn(message);
+
+    // Send as a server notification (if the SDK supports it)
+    // For now, we'll log it and the message will be visible in MCP logs
+    // The user can also use get_rdr_batches which will show crash info
+
+    // Delete the notification file after processing
+    unlinkSync(notificationPath);
+    console.warn('[MCP] ✅ Crash notification processed and deleted');
+
+  } catch (error) {
+    console.error('[MCP] Failed to process crash notification:', error);
+    // Try to delete the file even on error to avoid repeated failures
+    try {
+      unlinkSync(notificationPath);
+    } catch {
+      // Ignore deletion errors
+    }
+  }
+}
+
+/**
+ * Start polling for crash notifications
+ */
+let crashPollInterval: ReturnType<typeof setInterval> | null = null;
+
+function startCrashNotificationPolling(): void {
+  // Check immediately on startup
+  checkCrashNotification().catch(console.error);
+
+  // Then poll every 10 seconds
+  crashPollInterval = setInterval(() => {
+    checkCrashNotification().catch(console.error);
+  }, 10000);
+
+  console.warn('[MCP] Crash notification polling started (every 10s)');
+}
+
+function stopCrashNotificationPolling(): void {
+  if (crashPollInterval) {
+    clearInterval(crashPollInterval);
+    crashPollInterval = null;
+    console.warn('[MCP] Crash notification polling stopped');
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Start Server
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -1332,15 +1476,20 @@ async function main() {
 
   console.warn('[MCP] Auto-Claude MCP Server connected via stdio');
 
+  // Start crash notification polling for LLM Manager
+  startCrashNotificationPolling();
+
   // Handle graceful shutdown
   process.on('SIGINT', async () => {
     console.warn('[MCP] Received SIGINT, shutting down...');
+    stopCrashNotificationPolling();
     await server.close();
     process.exit(0);
   });
 
   process.on('SIGTERM', async () => {
     console.warn('[MCP] Received SIGTERM, shutting down...');
+    stopCrashNotificationPolling();
     await server.close();
     process.exit(0);
   });

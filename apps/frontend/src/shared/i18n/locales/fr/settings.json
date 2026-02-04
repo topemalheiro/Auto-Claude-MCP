@@ -289,7 +289,7 @@
     },
     "autoRestartOnFailure": {
       "label": "Redémarrage automatique par LLM Manager",
-      "description": "Autoriser LLM Manager à déclencher des redémarrages d'Auto-Claude lorsqu'une intervention est nécessaire détectée via AC MCP. Permet un fonctionnement non supervisé."
+      "description": "Autoriser LLM Manager à déclencher des redémarrages d'Auto-Claude lorsqu'une intervention est nécessaire, détectée via AC MCP. Permet un fonctionnement non supervisé."
     },
     "crashRecovery": {
       "label": "Récupération après plantage",

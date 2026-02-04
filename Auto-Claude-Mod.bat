@@ -1,8 +1,9 @@
 @echo off
 cd /d "C:\Users\topem\source\repos\Auto-Claude Mod\apps\frontend"
-call npx electron .
-if %errorlevel% neq 0 (
-    echo.
-    echo ERROR: Failed to start. Press any key to close...
-    pause >nul
-)
+echo Starting Auto-Claude with crash recovery watchdog...
+echo.
+call npx tsx src/main/watchdog/launcher.ts ..\..\node_modules\.bin\electron out/main/index.js
+echo.
+echo Launcher exited with code: %errorlevel%
+echo Press any key to close...
+pause >nul

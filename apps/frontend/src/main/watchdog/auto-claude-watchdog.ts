@@ -65,10 +65,10 @@ export class AutoClaudeWatchdog extends EventEmitter {
         const content = fs.readFileSync(this.settingsPath, 'utf-8');
         const appSettings = JSON.parse(content);
 
-        // Extract crash recovery settings
+        // Extract crash recovery settings (enabled by default)
         if (appSettings.crashRecovery) {
           return {
-            enabled: appSettings.crashRecovery.enabled ?? false,
+            enabled: appSettings.crashRecovery.enabled ?? true,
             autoRestart: appSettings.crashRecovery.autoRestart ?? true,
             maxRestarts: appSettings.crashRecovery.maxRestarts ?? 3,
             restartCooldown: appSettings.crashRecovery.restartCooldown ?? 60000
@@ -79,9 +79,9 @@ export class AutoClaudeWatchdog extends EventEmitter {
       console.error('[Watchdog] Failed to load settings:', error);
     }
 
-    // Default: crash recovery disabled
+    // Default: crash recovery ENABLED (users can disable in settings)
     return {
-      enabled: false,
+      enabled: true,
       autoRestart: true,
       maxRestarts: 3,
       restartCooldown: 60000
@@ -110,10 +110,28 @@ export class AutoClaudeWatchdog extends EventEmitter {
     console.log('[Watchdog] App path:', appPath);
     console.log('[Watchdog] Settings:', this.settings);
 
+    // Resolve the electron path to absolute
+    const resolvedElectronPath = path.resolve(electronPath);
+    const resolvedAppPath = path.resolve(appPath);
+
+    console.log('[Watchdog] Resolved electron path:', resolvedElectronPath);
+    console.log('[Watchdog] Resolved app path:', resolvedAppPath);
+
     // Launch Auto-Claude main process
-    this.process = spawn(electronPath, [appPath, ...args], {
+    // On Windows, we need to quote paths with spaces when using shell: true
+    const isWindows = process.platform === 'win32';
+    const quotedElectronPath = isWindows ? `"${resolvedElectronPath}"` : resolvedElectronPath;
+    const quotedAppPath = isWindows ? `"${resolvedAppPath}"` : resolvedAppPath;
+
+    console.log('[Watchdog] Quoted electron path:', quotedElectronPath);
+    console.log('[Watchdog] Quoted app path:', quotedAppPath);
+
+    // Launch Auto-Claude main process
+    // Use shell: true on Windows to handle .cmd files
+    this.process = spawn(quotedElectronPath, [quotedAppPath, ...args], {
       stdio: ['inherit', 'pipe', 'pipe'],
       detached: false,
+      shell: isWindows,
       env: {
         ...process.env,
         WATCHDOG_ENABLED: 'true'
@@ -215,6 +233,9 @@ export class AutoClaudeWatchdog extends EventEmitter {
         );
         console.error('[Watchdog] Stopping restart attempts to prevent infinite loop');
 
+        // Write crash loop notification for Claude Code
+        this.writeCrashLoopNotification(recentCrashes.length, crashInfo);
+
         this.emit('crash-loop', {
           crashCount: recentCrashes.length,
           crashInfo
@@ -264,12 +285,96 @@ export class AutoClaudeWatchdog extends EventEmitter {
       const appDataPath = process.env.APPDATA ||
                           (process.platform === 'darwin' ? path.join(process.env.HOME!, 'Library', 'Application Support') :
                            path.join(process.env.HOME!, '.config'));
-      const flagPath = path.join(appDataPath, 'auto-claude', 'crash-flag.json');
+      const flagDir = path.join(appDataPath, 'auto-claude');
+      const flagPath = path.join(flagDir, 'crash-flag.json');
+
+      // Ensure directory exists
+      if (!fs.existsSync(flagDir)) {
+        fs.mkdirSync(flagDir, { recursive: true });
+      }
 
       fs.writeFileSync(flagPath, JSON.stringify(crashInfo, null, 2), 'utf-8');
       console.log('[Watchdog] Crash flag written:', flagPath);
+
+      // Also write crash notification for Claude Code's MCP server to poll
+      this.writeCrashNotification(crashInfo);
     } catch (error) {
       console.error('[Watchdog] Failed to write crash flag:', error);
+    }
+  }
+
+  /**
+   * Write crash notification file for Claude Code's MCP server to poll
+   * This file-based approach works even when Electron is crashed/dead
+   * MCP server polls this file and sends notification to all connected Claude Code sessions
+   */
+  private writeCrashNotification(crashInfo: CrashInfo): void {
+    try {
+      const appDataPath = process.env.APPDATA ||
+                          (process.platform === 'darwin' ? path.join(process.env.HOME!, 'Library', 'Application Support') :
+                           path.join(process.env.HOME!, '.config'));
+
+      const notificationDir = path.join(appDataPath, 'auto-claude');
+      const notificationPath = path.join(notificationDir, 'crash-notification.json');
+
+      // Ensure directory exists
+      if (!fs.existsSync(notificationDir)) {
+        fs.mkdirSync(notificationDir, { recursive: true });
+      }
+
+      const notification = {
+        type: 'crash_detected',
+        timestamp: new Date().toISOString(),
+        exitCode: crashInfo.exitCode,
+        signal: crashInfo.signal,
+        logs: crashInfo.logs,
+        autoRestart: this.settings.autoRestart,
+        restartCount: this.restartCount,
+        message: `Auto-Claude crashed at ${new Date(crashInfo.timestamp).toISOString()}. ${
+          this.settings.autoRestart ? 'Auto-restart enabled, restarting in 2 seconds...' : 'Auto-restart disabled.'
+        }`
+      };
+
+      fs.writeFileSync(notificationPath, JSON.stringify(notification, null, 2), 'utf-8');
+      console.log('[Watchdog] Crash notification written for Claude Code:', notificationPath);
+    } catch (error) {
+      console.error('[Watchdog] Failed to write crash notification:', error);
+    }
+  }
+
+  /**
+   * Write crash loop notification for Claude Code
+   */
+  public writeCrashLoopNotification(crashCount: number, crashInfo: CrashInfo): void {
+    try {
+      const appDataPath = process.env.APPDATA ||
+                          (process.platform === 'darwin' ? path.join(process.env.HOME!, 'Library', 'Application Support') :
+                           path.join(process.env.HOME!, '.config'));
+
+      const notificationDir = path.join(appDataPath, 'auto-claude');
+      const notificationPath = path.join(notificationDir, 'crash-notification.json');
+
+      // Ensure directory exists
+      if (!fs.existsSync(notificationDir)) {
+        fs.mkdirSync(notificationDir, { recursive: true });
+      }
+
+      const notification = {
+        type: 'crash_loop',
+        timestamp: new Date().toISOString(),
+        exitCode: crashInfo.exitCode,
+        signal: crashInfo.signal,
+        logs: crashInfo.logs,
+        crashCount,
+        autoRestart: false,
+        restartCount: this.restartCount,
+        message: `Auto-Claude crash loop detected: ${crashCount} crashes in ${this.settings.restartCooldown / 1000}s. Restart attempts stopped.`
+      };
+
+      fs.writeFileSync(notificationPath, JSON.stringify(notification, null, 2), 'utf-8');
+      console.log('[Watchdog] Crash LOOP notification written for Claude Code:', notificationPath);
+    } catch (error) {
+      console.error('[Watchdog] Failed to write crash loop notification:', error);
     }
   }
 
