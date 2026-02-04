@@ -97,6 +97,9 @@ type InterventionType = 'recovery' | 'resume' | 'stuck' | 'incomplete';
  * Calculate task progress from phases/subtasks
  * Returns percentage of completed subtasks (0-100)
  * Reused from auto-shutdown-handlers logic
+ *
+ * NOTE: Handles both 'subtasks' and 'chunks' naming conventions
+ * (some implementation_plan.json files use 'chunks' instead of 'subtasks')
  */
 function calculateTaskProgress(task: TaskInfo): number {
   if (!task.phases || task.phases.length === 0) {
@@ -104,8 +107,9 @@ function calculateTaskProgress(task: TaskInfo): number {
   }
 
   // Flatten all subtasks from all phases
+  // Handle both 'subtasks' and 'chunks' naming conventions (Bug fix)
   const allSubtasks = task.phases.flatMap(phase =>
-    phase.subtasks || []
+    phase.subtasks || (phase as { chunks?: Array<{ status: string }> }).chunks || []
   ).filter(Boolean);
 
   if (allSubtasks.length === 0) {
@@ -166,12 +170,13 @@ function determineInterventionType(task: TaskInfo): InterventionType | null {
   }
 
   // RESUME: Rate limited or paused mid-task (incomplete_work)
+  // NOTE: Removed human_review exclusion - incomplete_work ALWAYS means needs resume
   if (task.exitReason === 'rate_limit_crash' ||
-      (task.reviewReason === 'incomplete_work' && task.status !== 'human_review')) {
+      task.reviewReason === 'incomplete_work') {
     return 'resume';
   }
 
-  // STUCK: In human_review with incomplete subtasks but no clear exit reason
+  // STUCK: In human_review with incomplete subtasks or problematic reviewReason
   if (task.status === 'human_review') {
     const progress = calculateTaskProgress(task);
     if (progress < 100) {
@@ -180,6 +185,12 @@ function determineInterventionType(task: TaskInfo): InterventionType | null {
         return 'resume';  // Can be resumed
       }
       return 'stuck';  // Bounced without clear reason
+    }
+    // NEW: Also flag if 100% but reviewReason indicates a problem
+    // (e.g., errors, qa_rejected, or other non-'completed' reasons)
+    if (task.reviewReason && task.reviewReason !== 'completed' && task.reviewReason !== 'plan_review') {
+      console.log(`[RDR] Task ${task.specId} at 100% but has problematic reviewReason: ${task.reviewReason}`);
+      return 'stuck';  // Completed but marked with issue
     }
   }
 
@@ -1487,10 +1498,12 @@ export function registerRdrHandlers(): void {
         reviewReason?: string;
         exitReason?: string;
         interventionType?: InterventionType | null;  // Type of intervention needed
-        progress?: {                                  // Progress info
+        progress?: {                                  // Progress info with last subtask
           completed: number;
           total: number;
           percentage: number;
+          lastSubtaskName?: string;
+          lastSubtaskIndex?: number;
         };
         subtasks?: Array<{ name: string; status: string }>;
         errorSummary?: string;
@@ -1509,20 +1522,30 @@ export function registerRdrHandlers(): void {
          * Tasks at 100% completion + passed AI review = NOT flagged (legitimate human review)
          */
         const needsIntervention = (task: TaskInfo): boolean => {
+          // DEBUG: Log data flow for each task
+          const progress = calculateTaskProgress(task);
+          const phaseCount = task.phases?.length || 0;
+          const subtaskCount = task.phases?.flatMap(p =>
+            p.subtasks || (p as { chunks?: Array<{ status: string }> }).chunks || []
+          ).length || 0;
+          console.log(`[RDR] Task ${task.specId}: status=${task.status}, phases=${phaseCount}, subtasks=${subtaskCount}, progress=${progress}%, reviewReason=${task.reviewReason || 'none'}`);
+
           const interventionType = determineInterventionType(task);
 
           if (interventionType) {
-            const progress = calculateTaskProgress(task);
-            console.log(`[RDR] ✅ Task ${task.specId} needs intervention: type=${interventionType}, progress=${progress}%, status=${task.status}, reviewReason=${task.reviewReason || 'none'}`);
+            console.log(`[RDR] ✅ Task ${task.specId} needs intervention: type=${interventionType}`);
             return true;
           }
 
-          // Log why task was skipped
-          const progress = calculateTaskProgress(task);
-          if (progress === 100) {
-            console.log(`[RDR] ⏭️  Skipping task ${task.specId} - 100% complete (legitimate human review)`);
+          // Log why task was skipped - be more accurate about the reason
+          if (progress === 100 && task.reviewReason === 'completed') {
+            console.log(`[RDR] ⏭️  Skipping task ${task.specId} - 100% complete, awaiting merge approval`);
+          } else if (progress === 100) {
+            console.log(`[RDR] ⏭️  Skipping task ${task.specId} - 100% but reviewReason=${task.reviewReason || 'none'} (should have been caught)`);
           } else if (task.status === 'done' || task.status === 'pr_created' || task.status === 'backlog') {
             console.log(`[RDR] ⏭️  Skipping task ${task.specId} - status=${task.status}`);
+          } else {
+            console.log(`[RDR] ⏭️  Skipping task ${task.specId} - no intervention needed (progress=${progress}%)`);
           }
 
           return false;
@@ -1585,6 +1608,17 @@ export function registerRdrHandlers(): void {
           const completed = allSubtasks.filter((s: any) => s.status === 'completed').length;
           const total = allSubtasks.length;
 
+          // Find last completed subtask
+          let lastSubtaskName: string | undefined;
+          let lastSubtaskIndex: number | undefined;
+          for (let i = allSubtasks.length - 1; i >= 0; i--) {
+            if (allSubtasks[i].status === 'completed') {
+              lastSubtaskName = allSubtasks[i].name || allSubtasks[i].description?.substring(0, 50) || allSubtasks[i].title;
+              lastSubtaskIndex = i + 1;
+              break;
+            }
+          }
+
           // Determine intervention type using centralized function
           const interventionType = determineInterventionType(taskInfo);
 
@@ -1595,11 +1629,13 @@ export function registerRdrHandlers(): void {
             status: task.status,
             reviewReason: task.reviewReason,
             exitReason: task.exitReason,
-            interventionType,  // NEW: Type of intervention needed
-            progress: {        // NEW: Progress info
+            interventionType,  // Type of intervention needed
+            progress: {        // Progress info with last subtask
               completed,
               total,
-              percentage: total > 0 ? Math.round((completed / total) * 100) : 0
+              percentage: total > 0 ? Math.round((completed / total) * 100) : 0,
+              lastSubtaskName,
+              lastSubtaskIndex
             },
             subtasks: task.subtasks?.map((s) => ({
               name: s.title || s.id,
