@@ -91,7 +91,8 @@ watchdog.on('restart-needed', async () => {
 watchdog.on('normal-exit', (data) => {
   console.log('[Launcher] ✅ Auto-Claude closed normally');
   console.log('[Launcher] Exit code:', data.exitCode);
-  console.log('[Launcher] Exiting launcher (terminal will close)...');
+  // Exit with code 0 - the batch file will close immediately on normal exit
+  // (only pauses on non-zero exit codes for crash visibility)
   process.exit(0);
 });
 
