@@ -143,21 +143,27 @@ export class AutoClaudeWatchdog extends EventEmitter {
       this.handleProcessExit(code, signal);
     });
 
-    // Monitor stdout for logs
+    // Monitor stdout for logs - forward to console for developer visibility
     if (this.process.stdout) {
       this.process.stdout.on('data', (data) => {
         const line = data.toString().trim();
-        this.addLog(line);
-        this.checkForCrashIndicators(line);
+        if (line) {
+          console.log(line); // Forward Electron logs to watchdog terminal
+          this.addLog(line);
+          this.checkForCrashIndicators(line);
+        }
       });
     }
 
-    // Monitor stderr for errors
+    // Monitor stderr for errors - forward to console for developer visibility
     if (this.process.stderr) {
       this.process.stderr.on('data', (data) => {
         const line = data.toString().trim();
-        this.addLog(`[ERROR] ${line}`);
-        this.checkForCrashIndicators(line);
+        if (line) {
+          console.error(line); // Forward Electron errors to watchdog terminal
+          this.addLog(`[ERROR] ${line}`);
+          this.checkForCrashIndicators(line);
+        }
       });
     }
 
