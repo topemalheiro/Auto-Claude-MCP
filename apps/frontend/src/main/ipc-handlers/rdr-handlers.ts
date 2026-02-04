@@ -158,6 +158,14 @@ function determineInterventionType(task: TaskInfo): InterventionType | null {
     return null;
   }
 
+  // CRITICAL: Skip tasks that are 100% complete - they're done regardless of status/exit
+  // This must be checked BEFORE error/exit checks to prevent flagging completed tasks
+  const progress = calculateTaskProgress(task);
+  if (progress === 100) {
+    console.log(`[RDR] ⏭️  Task ${task.specId} at 100% complete - no intervention needed`);
+    return null;
+  }
+
   // Check if this is legitimate human review (don't flag)
   if (task.status === 'human_review' && isLegitimateHumanReview(task)) {
     return null;
