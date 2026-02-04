@@ -280,7 +280,7 @@
     },
     "reopenCommand": {
       "label": "Reopen Command",
-      "description": "Command to start Auto-Claude after restart (OS-specific)",
+      "description": "Command to start Auto-Claude after restart (OS-specific and IDE/CLI specific sometimes)",
       "placeholder": "e.g., open -a \"Auto-Claude\" (macOS)"
     },
     "buildCommand": {
@@ -289,7 +289,7 @@
     },
     "autoRestartOnFailure": {
       "label": "LLM Manager Auto-Restart",
-      "description": "Allow Claude Code (via MCP) to trigger Auto-Claude restarts when intervention is needed. Also handles Claude process crashes. Enables unattended operation."
+      "description": "Allow LLM Manager to trigger Auto-Claude restarts when intervention is needed detected through AC MCP. Enables unattended operation."
     },
     "crashRecovery": {
       "label": "Crash Recovery",

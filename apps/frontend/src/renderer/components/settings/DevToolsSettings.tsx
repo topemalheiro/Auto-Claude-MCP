@@ -400,7 +400,7 @@ export function DevToolsSettings({ settings, onSettingsChange }: DevToolsSetting
               className="max-w-md font-mono text-xs"
             />
             <p className="text-xs text-muted-foreground">
-              {t('devtools.reopenCommand.description', 'Command to start Auto-Claude after restart (OS-specific)')}
+              {t('devtools.reopenCommand.description', 'Command to start Auto-Claude after restart (OS-specific and IDE/CLI specific sometimes)')}
             </p>
           </div>
 
