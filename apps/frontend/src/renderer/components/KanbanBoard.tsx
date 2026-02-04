@@ -19,7 +19,7 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy
 } from '@dnd-kit/sortable';
-import { Plus, Inbox, Loader2, Eye, CheckCircle2, Archive, RefreshCw, GitPullRequest, X, Zap, Monitor } from 'lucide-react';
+import { Plus, Inbox, Loader2, Eye, CheckCircle2, Archive, RefreshCw, GitPullRequest, X, Zap } from 'lucide-react';
 import { Checkbox } from './ui/checkbox';
 import { ScrollArea } from './ui/scroll-area';
 import { Button } from './ui/button';
@@ -1419,102 +1419,104 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
             </TooltipContent>
           </Tooltip>
 
-          {/* Toggle 2: RDR - Recover Debug Resend */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div className="flex items-center gap-1.5">
-                <Switch
-                  id="kanban-auto-rdr"
-                  checked={rdrEnabled}
-                  onCheckedChange={handleRdrToggle}
-                  className="scale-90"
-                />
-                <div className="flex flex-col text-[10px] leading-tight text-muted-foreground">
-                  <span className="font-medium">RDR</span>
-                  <span className="text-muted-foreground/70">Recover</span>
-                  <span className="text-muted-foreground/70">Debug</span>
-                  <span className="text-muted-foreground/70">Resend</span>
-                </div>
-              </div>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" className="max-w-xs">
-              <p>{t('kanban.rdrTooltip')}</p>
-            </TooltipContent>
-          </Tooltip>
-
-          {/* Section Header - between RDR and dropdown */}
-          <div className="flex items-center gap-1">
-            <Monitor className="h-4 w-4 text-muted-foreground/70" />
-            <span className="text-[10px] uppercase tracking-wider text-muted-foreground/70">
+          {/* RDR Section with accent border */}
+          <div className="relative border border-primary/30 rounded-lg px-3 py-2 mt-1">
+            {/* Legend-style label - positioned above border */}
+            <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-background px-2 text-[10px] uppercase tracking-wider text-primary whitespace-nowrap">
               {t('kanban.autoResumeHeader')}
             </span>
-          </div>
 
-          {/* VS Code Window Selector for RDR */}
-          <div className="flex items-center gap-1">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={loadVsCodeWindows}
-                  disabled={isLoadingWindows}
-                  className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+            <div className="flex items-center gap-2">
+              {/* Toggle: RDR - Recover Debug Resend */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex items-center gap-1.5">
+                    <Switch
+                      id="kanban-auto-rdr"
+                      checked={rdrEnabled}
+                      onCheckedChange={handleRdrToggle}
+                      className="scale-90"
+                    />
+                    <div className="flex flex-col text-[10px] leading-tight text-muted-foreground">
+                      <span className="font-medium">RDR</span>
+                      <span className="text-muted-foreground/70">Recover</span>
+                      <span className="text-muted-foreground/70">Debug</span>
+                      <span className="text-muted-foreground/70">Resend</span>
+                    </div>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-xs">
+                  <p>{t('kanban.rdrTooltip')}</p>
+                </TooltipContent>
+              </Tooltip>
+
+              {/* VS Code Window Selector for RDR */}
+              <div className="flex items-center gap-1">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={loadVsCodeWindows}
+                      disabled={isLoadingWindows}
+                      className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+                    >
+                      <RefreshCw className={cn("h-3 w-3", isLoadingWindows && "animate-spin")} />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    <p>{t('kanban.rdrRefreshWindows')}</p>
+                  </TooltipContent>
+                </Tooltip>
+
+                <Select
+                  value={selectedWindowHandle?.toString() ?? ''}
+                  onValueChange={(value) => setSelectedWindowHandle(value ? parseInt(value, 10) : null)}
                 >
-                  <RefreshCw className={cn("h-3 w-3", isLoadingWindows && "animate-spin")} />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">
-                <p>{t('kanban.rdrRefreshWindows')}</p>
-              </TooltipContent>
-            </Tooltip>
+                  <SelectTrigger className="h-7 w-[140px] text-xs">
+                    <SelectValue placeholder={t('kanban.rdrSelectWindow')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {vsCodeWindows.map((win) => (
+                      <SelectItem key={win.handle} value={win.handle.toString()}>
+                        <span className="truncate max-w-[120px]" title={win.title}>
+                          {win.title.length > 25 ? `${win.title.substring(0, 25)}...` : win.title}
+                        </span>
+                      </SelectItem>
+                    ))}
+                    {vsCodeWindows.length === 0 && (
+                      <SelectItem value="none" disabled>
+                        {t('kanban.rdrNoWindows')}
+                      </SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
 
-            <Select
-              value={selectedWindowHandle?.toString() ?? ''}
-              onValueChange={(value) => setSelectedWindowHandle(value ? parseInt(value, 10) : null)}
-            >
-              <SelectTrigger className="h-7 w-[140px] text-xs">
-                <SelectValue placeholder={t('kanban.rdrSelectWindow')} />
-              </SelectTrigger>
-              <SelectContent>
-                {vsCodeWindows.map((win) => (
-                  <SelectItem key={win.handle} value={win.handle.toString()}>
-                    <span className="truncate max-w-[120px]" title={win.title}>
-                      {win.title.length > 25 ? `${win.title.substring(0, 25)}...` : win.title}
-                    </span>
-                  </SelectItem>
-                ))}
-                {vsCodeWindows.length === 0 && (
-                  <SelectItem value="none" disabled>
-                    {t('kanban.rdrNoWindows')}
-                  </SelectItem>
-                )}
-              </SelectContent>
-            </Select>
+              {/* Manual Ping RDR Button */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handlePingRdr}
+                    disabled={!selectedWindowHandle}
+                    className={cn(
+                      "h-7 w-7 p-0",
+                      selectedWindowHandle
+                        ? "text-yellow-500 hover:text-yellow-400"
+                        : "text-muted-foreground/50"
+                    )}
+                  >
+                    <Zap className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-xs">
+                  <p>{selectedWindowHandle ? t('kanban.rdrPingTooltip') : t('kanban.rdrSelectWindowFirst')}</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
           </div>
-
-          {/* Manual Ping RDR Button */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handlePingRdr}
-                disabled={!selectedWindowHandle}
-                className={cn(
-                  "h-7 w-7 p-0",
-                  selectedWindowHandle
-                    ? "text-yellow-500 hover:text-yellow-400"
-                    : "text-muted-foreground/50"
-                )}
-              >
-                <Zap className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" className="max-w-xs">
-              <p>{selectedWindowHandle ? t('kanban.rdrPingTooltip') : t('kanban.rdrSelectWindowFirst')}</p>
-            </TooltipContent>
-          </Tooltip>
         </div>
 
         {/* Refresh Button */}
