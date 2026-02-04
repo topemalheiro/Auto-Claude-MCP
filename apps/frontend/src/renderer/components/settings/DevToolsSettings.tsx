@@ -382,7 +382,6 @@ export function DevToolsSettings({ settings, onSettingsChange }: DevToolsSetting
             <Select
               value={settings.autoRestartOnFailure?.buildType ?? 'production'}
               onValueChange={(value: 'production' | 'development') => {
-                const buildCommand = value === 'production' ? 'npm run build' : 'npm run dev';
                 onSettingsChange({
                   ...settings,
                   autoRestartOnFailure: {
@@ -392,8 +391,7 @@ export function DevToolsSettings({ settings, onSettingsChange }: DevToolsSetting
                       maxRestartsPerHour: 3,
                       cooldownMinutes: 5
                     }),
-                    buildType: value,
-                    buildCommand
+                    buildType: value
                   }
                 });
               }}

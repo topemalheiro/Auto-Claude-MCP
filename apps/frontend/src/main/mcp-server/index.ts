@@ -1257,19 +1257,12 @@ server.tool(
       const { app } = await import('electron');
       const path = await import('path');
 
-      const settings = readSettingsFile();
+      const settings = readSettingsFile() || {};
 
-      if (!settings.autoRestartOnFailure?.enabled) {
-        return {
-          content: [{
-            type: 'text' as const,
-            text: JSON.stringify({
-              success: false,
-              error: 'Auto-restart feature is disabled in settings. Enable it in Settings > General > Auto-Restart on Loop/Crash.'
-            })
-          }]
-        };
-      }
+      console.log('[MCP] Settings loaded:', settings ? 'exists' : 'undefined');
+
+      // Note: Manual restart via MCP always works, no need to check autoRestartOnFailure.enabled
+      // That setting is for automatic restarts on failure, not manual MCP triggers
 
       // Write restart marker file
       const restartMarkerPath = path.join(app.getPath('userData'), '.restart-requested');
@@ -1283,7 +1276,7 @@ server.tool(
 
       // Import and call buildAndRestart
       const { buildAndRestart } = await import('../ipc-handlers/restart-handlers.js');
-      const cmd = buildCommand || settings.autoRestartOnFailure.buildCommand || 'npm run build';
+      const cmd = buildCommand || settings?.autoRestartOnFailure?.buildCommand || 'npm run build';
 
       // Note: Task state will be saved by checkAndHandleRestart when app restarts and detects marker file
       console.log('[MCP] Triggering build and restart with command:', cmd);
