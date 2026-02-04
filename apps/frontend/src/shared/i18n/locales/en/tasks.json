@@ -119,7 +119,17 @@
     "rdrSendSuccess": "Message Sent",
     "rdrSendSuccessDesc": "RDR message sent to Claude Code window.",
     "rdrSendFailed": "Send Failed",
-    "rdrSendFailedDesc": "Failed to send message to VS Code window."
+    "rdrSendFailedDesc": "Failed to send message to VS Code window.",
+    "rdrInterventionTypes": {
+      "recovery": "Needs Recovery",
+      "recoveryDesc": "Task crashed or errored - requires recovery",
+      "resume": "Needs Resume",
+      "resumeDesc": "Task paused (rate limit/incomplete) - can be resumed",
+      "stuck": "Stuck",
+      "stuckDesc": "Task bounced with incomplete work - needs attention",
+      "incomplete": "Incomplete",
+      "incompleteDesc": "Task has pending subtasks - continue work"
+    }
   },
   "execution": {
     "phases": {

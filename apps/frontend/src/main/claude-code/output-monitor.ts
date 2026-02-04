@@ -4,13 +4,19 @@
  * Monitors Claude Code's session state to detect when it's waiting at a prompt.
  * This prevents RDR from sending messages while Claude is in a prompt loop.
  *
+ * ENHANCED: Now uses EventEmitter for real-time state change notifications.
+ * RDR can subscribe to 'idle' event to immediately detect when Claude Code
+ * finishes processing, instead of relying on fixed polling intervals.
+ *
  * FIXED: Now monitors JSONL transcripts in ~/.claude/projects/ instead of empty
  * .output files in %LOCALAPPDATA%\Temp\claude\
  */
 
 import * as fs from 'fs/promises';
+import { existsSync, watch, FSWatcher } from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import { EventEmitter } from 'events';
 
 /**
  * Claude Code's possible states
@@ -47,17 +53,140 @@ const PATTERNS = {
 };
 
 /**
- * Monitor Claude Code's output files to detect prompt state
+ * State change event data
  */
-class ClaudeOutputMonitor {
+export interface StateChangeEvent {
+  from: ClaudeState;
+  to: ClaudeState;
+  file?: string;
+  timestamp: number;
+}
+
+/**
+ * Monitor Claude Code's output files to detect prompt state
+ * Extends EventEmitter for real-time notifications to RDR
+ *
+ * Events:
+ * - 'stateChange': Emitted when state changes (data: StateChangeEvent)
+ * - 'idle': Emitted when Claude Code becomes idle (data: StateChangeEvent)
+ * - 'processing': Emitted when Claude Code starts processing
+ * - 'watching': Emitted when file watching starts
+ * - 'watchError': Emitted on file watching errors
+ */
+class ClaudeOutputMonitor extends EventEmitter {
   private currentState: ClaudeState = 'IDLE';
   private lastStateChange: number = Date.now();
   private claudeProjectsDir: string;
+  private fileWatchers: FSWatcher[] = [];
+  private isWatching: boolean = false;
+  private watchDebounceTimer: NodeJS.Timeout | null = null;
+  private static readonly WATCH_DEBOUNCE_MS = 500; // Debounce rapid file changes
 
   constructor() {
+    super();
     // Monitor JSONL transcripts in ~/.claude/projects/
     // (.output files in temp are empty/old, JSONL files have real session data)
     this.claudeProjectsDir = path.join(os.homedir(), '.claude', 'projects');
+  }
+
+  /**
+   * Start watching JSONL files for real-time state change detection
+   * This enables event-driven RDR triggering instead of polling
+   */
+  async startWatching(): Promise<void> {
+    if (this.isWatching) {
+      console.log('[OutputMonitor] Already watching for file changes');
+      return;
+    }
+
+    try {
+      // Watch the projects directory for changes
+      if (existsSync(this.claudeProjectsDir)) {
+        console.log('[OutputMonitor] Starting file watcher on:', this.claudeProjectsDir);
+
+        // Get list of project directories
+        const entries = await fs.readdir(this.claudeProjectsDir, { withFileTypes: true });
+        const projectDirs = entries.filter(e => e.isDirectory()).map(e => e.name);
+
+        // Watch each project directory for JSONL changes
+        for (const projectDir of projectDirs) {
+          const projectPath = path.join(this.claudeProjectsDir, projectDir);
+          try {
+            const watcher = watch(projectPath, { persistent: false }, (eventType, filename) => {
+              if (filename && filename.endsWith('.jsonl')) {
+                this.handleFileChange(path.join(projectPath, filename), eventType);
+              }
+            });
+
+            watcher.on('error', (error) => {
+              console.warn('[OutputMonitor] Watcher error for', projectPath, ':', error);
+              this.emit('watchError', { path: projectPath, error });
+            });
+
+            this.fileWatchers.push(watcher);
+          } catch (error) {
+            // Skip directories we can't watch
+            console.warn('[OutputMonitor] Could not watch directory:', projectPath, error);
+          }
+        }
+
+        this.isWatching = true;
+        console.log('[OutputMonitor] Watching', this.fileWatchers.length, 'project directories');
+        this.emit('watching', { directories: this.fileWatchers.length });
+      } else {
+        console.warn('[OutputMonitor] Projects directory does not exist:', this.claudeProjectsDir);
+      }
+    } catch (error) {
+      console.error('[OutputMonitor] Failed to start watching:', error);
+      this.emit('watchError', { error });
+    }
+  }
+
+  /**
+   * Stop watching for file changes
+   */
+  stopWatching(): void {
+    if (!this.isWatching) return;
+
+    console.log('[OutputMonitor] Stopping file watchers...');
+    for (const watcher of this.fileWatchers) {
+      try {
+        watcher.close();
+      } catch {
+        // Ignore close errors
+      }
+    }
+    this.fileWatchers = [];
+    this.isWatching = false;
+
+    if (this.watchDebounceTimer) {
+      clearTimeout(this.watchDebounceTimer);
+      this.watchDebounceTimer = null;
+    }
+  }
+
+  /**
+   * Handle JSONL file change event with debouncing
+   */
+  private handleFileChange(filePath: string, eventType: string): void {
+    // Debounce rapid changes
+    if (this.watchDebounceTimer) {
+      clearTimeout(this.watchDebounceTimer);
+    }
+
+    this.watchDebounceTimer = setTimeout(async () => {
+      console.log('[OutputMonitor] File change detected:', eventType, filePath);
+
+      // Update state
+      const oldState = this.currentState;
+      await this.updateState();
+      const newState = this.currentState;
+
+      // State change is already emitted in setState, but we log here for context
+      if (oldState !== newState) {
+        console.log(`[OutputMonitor] State changed after file update: ${oldState} -> ${newState}`);
+      }
+    }, ClaudeOutputMonitor.WATCH_DEBOUNCE_MS);
   }
 
   /**
@@ -285,9 +414,10 @@ class ClaudeOutputMonitor {
       // Message complete, no question, no prompt
       // Only applies if stop_reason='end_turn' (not for old messages with undefined stop_reason)
       if (lastMessage.stop_reason === 'end_turn') {
-        // Grace period: 2 minutes after completion before allowing RDR
+        // Grace period: 10 seconds after completion before allowing RDR
+        // (Reduced from 2 minutes since we now have event-driven notification)
         const messageAge = this.getMessageAge(lastMessage);
-        if (messageAge < 120000) {
+        if (messageAge < 10000) {
           const ageSeconds = Math.floor(messageAge / 1000);
           console.log(`[OutputMonitor] Recent completion (${ageSeconds}s ago) - grace period active`);
           return 'PROCESSING';
@@ -344,6 +474,7 @@ class ClaudeOutputMonitor {
 
   /**
    * Update state and log transition if changed
+   * Emits events for state changes so RDR can respond immediately
    */
   private setState(newState: ClaudeState): void {
     if (newState !== this.currentState) {
@@ -351,17 +482,30 @@ class ClaudeOutputMonitor {
       this.currentState = newState;
       this.lastStateChange = Date.now();
 
+      const eventData: StateChangeEvent = {
+        from: oldState,
+        to: newState,
+        timestamp: Date.now()
+      };
+
       console.log(
         `[OutputMonitor] State transition: ${oldState} -> ${newState} (after ${this.getTimeSinceStateChange()}ms)`
       );
 
-      // Log additional context for debugging
+      // Emit general state change event
+      this.emit('stateChange', eventData);
+
+      // Log additional context for debugging and emit specific events
       if (newState === 'AT_PROMPT') {
         console.log('[OutputMonitor] WARNING: Claude is at prompt - RDR should skip sending');
+        this.emit('atPrompt', eventData);
       } else if (newState === 'PROCESSING') {
         console.log('[OutputMonitor] INFO: Claude is processing - RDR should skip sending');
+        this.emit('processing', eventData);
       } else if (newState === 'IDLE') {
         console.log('[OutputMonitor] INFO: Claude is idle - RDR can send');
+        // CRITICAL: Emit 'idle' event for RDR to trigger immediately
+        this.emit('idle', eventData);
       }
     }
   }

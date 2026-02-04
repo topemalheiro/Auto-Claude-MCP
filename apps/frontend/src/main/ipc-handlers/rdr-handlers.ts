@@ -90,6 +90,294 @@ interface RdrProcessingSummary {
   message?: string;  // Optional status message for queued tasks
 }
 
+// RDR Intervention Types (matches shared/types/task.ts)
+type InterventionType = 'recovery' | 'resume' | 'stuck' | 'incomplete';
+
+/**
+ * Calculate task progress from phases/subtasks
+ * Returns percentage of completed subtasks (0-100)
+ * Reused from auto-shutdown-handlers logic
+ */
+function calculateTaskProgress(task: TaskInfo): number {
+  if (!task.phases || task.phases.length === 0) {
+    return 0;
+  }
+
+  // Flatten all subtasks from all phases
+  const allSubtasks = task.phases.flatMap(phase =>
+    phase.subtasks || []
+  ).filter(Boolean);
+
+  if (allSubtasks.length === 0) {
+    return 0;
+  }
+
+  const completed = allSubtasks.filter(s => s.status === 'completed').length;
+  return Math.round((completed / allSubtasks.length) * 100);
+}
+
+/**
+ * Check if task is legitimate human review (shouldn't be flagged by RDR)
+ * Tasks at 100% completion + completed reviewReason = waiting for merge approval
+ */
+function isLegitimateHumanReview(task: TaskInfo): boolean {
+  const progress = calculateTaskProgress(task);
+
+  // 100% subtasks complete + completed = waiting for merge approval
+  if (progress === 100 && task.reviewReason === 'completed') {
+    return true;  // Don't flag - this is normal human review
+  }
+
+  // Plan review - waiting for user to approve spec before coding
+  if (task.reviewReason === 'plan_review' && task.planStatus === 'review') {
+    return true;  // Don't flag - user needs to approve plan (we do flag separately with plan_review)
+  }
+
+  return false;
+}
+
+/**
+ * Determine what type of intervention a task needs
+ * Returns null if task doesn't need intervention
+ *
+ * Types:
+ * - 'recovery': Task crashed/errored (exitReason: error, reviewReason: errors/qa_rejected)
+ * - 'resume': Task paused mid-work (rate_limit_crash, incomplete_work)
+ * - 'stuck': Task bounced to human_review with incomplete subtasks (no clear exit reason)
+ * - 'incomplete': Task has pending subtasks in active boards (in_progress, ai_review)
+ */
+function determineInterventionType(task: TaskInfo): InterventionType | null {
+  // Skip completed/archived tasks
+  if (task.status === 'done' || task.status === 'pr_created' || task.status === 'backlog') {
+    return null;
+  }
+
+  // Check if this is legitimate human review (don't flag)
+  if (task.status === 'human_review' && isLegitimateHumanReview(task)) {
+    return null;
+  }
+
+  // RECOVERY: Crashed with error or QA rejected
+  if (task.exitReason === 'error' ||
+      task.exitReason === 'auth_failure' ||
+      task.reviewReason === 'errors' ||
+      task.reviewReason === 'qa_rejected') {
+    return 'recovery';
+  }
+
+  // RESUME: Rate limited or paused mid-task (incomplete_work)
+  if (task.exitReason === 'rate_limit_crash' ||
+      (task.reviewReason === 'incomplete_work' && task.status !== 'human_review')) {
+    return 'resume';
+  }
+
+  // STUCK: In human_review with incomplete subtasks but no clear exit reason
+  if (task.status === 'human_review') {
+    const progress = calculateTaskProgress(task);
+    if (progress < 100) {
+      // Has incomplete work - either incomplete_work review reason or just stuck
+      if (task.reviewReason === 'incomplete_work') {
+        return 'resume';  // Can be resumed
+      }
+      return 'stuck';  // Bounced without clear reason
+    }
+  }
+
+  // INCOMPLETE: Still has pending subtasks in active boards
+  if (task.status === 'in_progress' || task.status === 'ai_review') {
+    const progress = calculateTaskProgress(task);
+    if (progress < 100) {
+      // Check if it has a reviewReason indicating it was interrupted
+      if (task.reviewReason === 'incomplete_work' || task.reviewReason === 'errors') {
+        return task.reviewReason === 'errors' ? 'recovery' : 'resume';
+      }
+      return 'incomplete';
+    }
+  }
+
+  // Empty plan - needs intervention
+  if (!task.phases || task.phases.length === 0) {
+    return 'recovery';  // Can't continue without a plan
+  }
+
+  return null;  // No intervention needed
+}
+
+// Interface for rich task info used in RDR messages
+interface RichTaskInfo {
+  specId: string;
+  status: string;
+  reviewReason?: string;
+  interventionType: InterventionType | null;
+  progress: {
+    completed: number;
+    total: number;
+    percentage: number;
+    lastSubtaskName?: string;
+    lastSubtaskIndex?: number;
+  };
+  currentPhase?: 'planning' | 'coding' | 'validation';
+  lastLogs: Array<{
+    timestamp: string;
+    phase: string;
+    content: string;
+  }>;
+  errors?: {
+    exitReason?: string;
+    reviewReason?: string;
+    errorSummary?: string;
+  };
+}
+
+/**
+ * Get the last N log entries from task_logs.json
+ * Combines entries from all phases and sorts by timestamp
+ */
+function getLastLogEntries(projectPath: string, specId: string, count: number = 3): Array<{
+  timestamp: string;
+  phase: string;
+  content: string;
+}> {
+  const logsPath = path.join(projectPath, '.auto-claude', 'specs', specId, 'task_logs.json');
+
+  if (!existsSync(logsPath)) {
+    return [];
+  }
+
+  try {
+    const content = readFileSync(logsPath, 'utf-8');
+    const taskLogs = JSON.parse(content);
+
+    if (!taskLogs?.phases) {
+      return [];
+    }
+
+    const allEntries: Array<{ timestamp: string; phase: string; content: string }> = [];
+
+    // Collect entries from all phases
+    for (const phase of ['planning', 'coding', 'validation'] as const) {
+      const phaseLog = taskLogs.phases[phase];
+      if (phaseLog?.entries) {
+        for (const entry of phaseLog.entries) {
+          if (entry.content && entry.timestamp) {
+            allEntries.push({
+              timestamp: entry.timestamp,
+              phase,
+              content: entry.content.substring(0, 100)  // Truncate long content
+            });
+          }
+        }
+      }
+    }
+
+    // Sort by timestamp descending and take last N
+    return allEntries
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+      .slice(0, count);
+  } catch (error) {
+    console.error(`[RDR] Failed to read task logs for ${specId}:`, error);
+    return [];
+  }
+}
+
+/**
+ * Get current active phase from task_logs.json
+ */
+function getCurrentPhase(projectPath: string, specId: string): 'planning' | 'coding' | 'validation' | undefined {
+  const logsPath = path.join(projectPath, '.auto-claude', 'specs', specId, 'task_logs.json');
+
+  if (!existsSync(logsPath)) {
+    return undefined;
+  }
+
+  try {
+    const content = readFileSync(logsPath, 'utf-8');
+    const taskLogs = JSON.parse(content);
+
+    if (!taskLogs?.phases) {
+      return undefined;
+    }
+
+    // Find the active phase
+    for (const phase of ['validation', 'coding', 'planning'] as const) {
+      if (taskLogs.phases[phase]?.status === 'active') {
+        return phase;
+      }
+    }
+
+    // Find most recent started phase
+    for (const phase of ['validation', 'coding', 'planning'] as const) {
+      if (taskLogs.phases[phase]?.started_at) {
+        return phase;
+      }
+    }
+
+    return undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Gather rich task information for RDR messages
+ * Includes progress, logs, errors, and intervention type
+ */
+function gatherRichTaskInfo(task: TaskInfo, projectPath: string): RichTaskInfo {
+  // Calculate progress from subtasks/phases
+  const allSubtasks = task.phases?.flatMap(p => p.subtasks || []) || task.subtasks || [];
+  const completed = allSubtasks.filter(s => s.status === 'completed').length;
+  const total = allSubtasks.length;
+
+  // Find last completed subtask
+  let lastSubtaskName: string | undefined;
+  let lastSubtaskIndex: number | undefined;
+  for (let i = allSubtasks.length - 1; i >= 0; i--) {
+    if (allSubtasks[i].status === 'completed') {
+      lastSubtaskName = (allSubtasks[i] as any).name || (allSubtasks[i] as any).description?.substring(0, 50);
+      lastSubtaskIndex = i + 1;
+      break;
+    }
+  }
+
+  // Get intervention type
+  const interventionType = determineInterventionType(task);
+
+  // Get last logs
+  const lastLogs = getLastLogEntries(projectPath, task.specId, 3);
+
+  // Get current phase
+  const currentPhase = getCurrentPhase(projectPath, task.specId);
+
+  // Build error info if applicable
+  let errors: RichTaskInfo['errors'];
+  if (task.exitReason || task.reviewReason === 'errors' || task.reviewReason === 'qa_rejected') {
+    errors = {
+      exitReason: task.exitReason,
+      reviewReason: task.reviewReason,
+      errorSummary: task.reviewReason === 'qa_rejected'
+        ? 'QA found issues with implementation'
+        : task.exitReason || 'Task failed during execution'
+    };
+  }
+
+  return {
+    specId: task.specId,
+    status: task.status,
+    reviewReason: task.reviewReason,
+    interventionType,
+    progress: {
+      completed,
+      total,
+      percentage: total > 0 ? Math.round((completed / total) * 100) : 0,
+      lastSubtaskName,
+      lastSubtaskIndex
+    },
+    currentPhase,
+    lastLogs,
+    errors
+  };
+}
+
 /**
  * Attempt to fix common JSON errors in implementation_plan.json
  */
@@ -432,9 +720,23 @@ async function processMcpBatch(
 // ============================================================================
 
 /**
- * Generate a prompt for Claude Code to analyze the batch
+ * Get intervention type label for display
  */
-function generateBatchPrompt(batches: RdrBatch[], projectId: string): string {
+function getInterventionTypeLabel(type: InterventionType | null): string {
+  switch (type) {
+    case 'recovery': return 'RECOVERY';
+    case 'resume': return 'RESUME';
+    case 'stuck': return 'STUCK';
+    case 'incomplete': return 'INCOMPLETE';
+    default: return 'UNKNOWN';
+  }
+}
+
+/**
+ * Generate a prompt for Claude Code to analyze the batch
+ * Enhanced with rich task info including intervention type, progress, and logs
+ */
+function generateBatchPrompt(batches: RdrBatch[], projectId: string, projectPath: string): string {
   const lines: string[] = [
     '/auto-claude-rdr',
     '',
@@ -477,14 +779,54 @@ function generateBatchPrompt(batches: RdrBatch[], projectId: string): string {
     ''
   ];
 
+  // Enhanced task details with rich info
   for (const batch of batches) {
-    lines.push(`### ${batch.type}: ${batch.taskIds.length} tasks`);
-    for (const task of batch.tasks) {
-      const completed = task.subtasks?.filter(s => s.status === 'completed').length || 0;
-      const total = task.subtasks?.length || 0;
-      lines.push(`- ${task.specId} (${completed}/${total} subtasks)`);
-    }
+    lines.push(`### ${batch.type.toUpperCase()}: ${batch.taskIds.length} tasks`);
     lines.push('');
+
+    for (const task of batch.tasks) {
+      // Gather rich info for this task
+      const richInfo = gatherRichTaskInfo(task, projectPath);
+      const typeLabel = getInterventionTypeLabel(richInfo.interventionType);
+
+      lines.push(`#### ${task.specId}`);
+      lines.push(`**Status:** ${task.status} | **Reason:** ${task.reviewReason || 'none'} | **Type:** ${typeLabel}`);
+      lines.push(`**Progress:** ${richInfo.progress.completed}/${richInfo.progress.total} subtasks (${richInfo.progress.percentage}%)`);
+
+      if (richInfo.currentPhase) {
+        lines.push(`**Current Phase:** ${richInfo.currentPhase}`);
+      }
+
+      if (richInfo.progress.lastSubtaskName) {
+        lines.push(`**Last Subtask:** #${richInfo.progress.lastSubtaskIndex} - ${richInfo.progress.lastSubtaskName}`);
+      }
+
+      // Show last logs if available
+      if (richInfo.lastLogs.length > 0) {
+        lines.push('');
+        lines.push('**Recent Activity:**');
+        for (const log of richInfo.lastLogs) {
+          const time = new Date(log.timestamp).toLocaleTimeString('en-US', { hour12: false });
+          lines.push(`- [${time}] (${log.phase}) ${log.content}`);
+        }
+      }
+
+      // Show errors if applicable
+      if (richInfo.errors) {
+        lines.push('');
+        lines.push('**Errors:**');
+        if (richInfo.errors.exitReason) {
+          lines.push(`- Exit Reason: ${richInfo.errors.exitReason}`);
+        }
+        if (richInfo.errors.errorSummary) {
+          lines.push(`- Summary: ${richInfo.errors.errorSummary}`);
+        }
+      }
+
+      lines.push('');
+      lines.push('---');
+      lines.push('');
+    }
   }
 
   lines.push('## IMMEDIATE ACTION');
@@ -506,6 +848,7 @@ function generateBatchPrompt(batches: RdrBatch[], projectId: string): string {
 
 /**
  * Write signal file for Claude Code to pick up via MCP
+ * Enhanced with rich task info including intervention type, progress, and logs
  */
 function writeRdrSignalFile(
   projectPath: string,
@@ -522,15 +865,24 @@ function writeRdrSignalFile(
       type: b.type,
       taskCount: b.taskIds.length,
       taskIds: b.taskIds,
-      tasks: b.tasks.map(t => ({
-        specId: t.specId,
-        description: t.description?.substring(0, 200),
-        reviewReason: t.reviewReason,
-        subtasksCompleted: t.subtasks?.filter(s => s.status === 'completed').length || 0,
-        subtasksTotal: t.subtasks?.length || 0
-      }))
+      tasks: b.tasks.map(t => {
+        // Gather rich info for each task
+        const richInfo = gatherRichTaskInfo(t, projectPath);
+        return {
+          specId: t.specId,
+          description: t.description?.substring(0, 200),
+          status: t.status,
+          reviewReason: t.reviewReason,
+          exitReason: t.exitReason,
+          interventionType: richInfo.interventionType,
+          progress: richInfo.progress,
+          currentPhase: richInfo.currentPhase,
+          lastLogs: richInfo.lastLogs,
+          errors: richInfo.errors
+        };
+      })
     })),
-    prompt: generateBatchPrompt(batches, projectId)
+    prompt: generateBatchPrompt(batches, projectId, projectPath)
   };
 
   writeFileSync(signalPath, JSON.stringify(signal, null, 2));
@@ -541,6 +893,7 @@ function writeRdrSignalFile(
 /**
  * Read and clear the RDR signal file if it exists
  * Returns the signal data or null if no file exists
+ * Enhanced with rich task info including intervention type, progress, and logs
  */
 export function readAndClearSignalFile(projectPath: string): {
   timestamp: string;
@@ -552,9 +905,31 @@ export function readAndClearSignalFile(projectPath: string): {
     tasks: Array<{
       specId: string;
       description?: string;
+      status?: string;
       reviewReason?: string;
-      subtasksCompleted: number;
-      subtasksTotal: number;
+      exitReason?: string;
+      interventionType?: InterventionType | null;
+      progress?: {
+        completed: number;
+        total: number;
+        percentage: number;
+        lastSubtaskName?: string;
+        lastSubtaskIndex?: number;
+      };
+      currentPhase?: 'planning' | 'coding' | 'validation';
+      lastLogs?: Array<{
+        timestamp: string;
+        phase: string;
+        content: string;
+      }>;
+      errors?: {
+        exitReason?: string;
+        reviewReason?: string;
+        errorSummary?: string;
+      };
+      // Legacy fields for backwards compatibility
+      subtasksCompleted?: number;
+      subtasksTotal?: number;
     }>;
   }>;
   prompt: string;
@@ -788,8 +1163,81 @@ export function getPendingTaskCount(): number {
 }
 
 // ============================================================================
+// Event-Driven RDR Processing
+// ============================================================================
+
+/**
+ * Set up event-driven RDR processing
+ * Subscribes to OutputMonitor's 'idle' event to trigger processing immediately
+ * when Claude Code finishes its current work, instead of waiting for fixed timers
+ */
+async function setupEventDrivenProcessing(): Promise<void> {
+  if (eventDrivenEnabled) {
+    console.log('[RDR] Event-driven processing already enabled');
+    return;
+  }
+
+  try {
+    // Start file watching in OutputMonitor
+    await outputMonitor.startWatching();
+
+    // Subscribe to 'idle' event - triggers when Claude Code becomes idle
+    idleEventListener = async (event: any) => {
+      if (pendingTasks.length === 0) {
+        return; // No pending tasks to process
+      }
+
+      console.log(`[RDR] 🚀 EVENT: Claude Code became idle - processing ${pendingTasks.length} pending tasks immediately`);
+      console.log(`[RDR]    📊 State change: ${event.from} -> ${event.to}`);
+
+      // Cancel any pending timer - we'll process immediately
+      if (batchTimer) {
+        clearTimeout(batchTimer);
+        batchTimer = null;
+        console.log('[RDR]    ⏰ Cancelled pending timer - using event-driven processing');
+      }
+
+      // Small delay to ensure state is stable (prevents rapid re-triggering)
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Process pending tasks immediately
+      await processPendingTasks();
+    };
+
+    outputMonitor.on('idle', idleEventListener);
+    eventDrivenEnabled = true;
+
+    console.log('[RDR] ✅ Event-driven processing enabled - RDR will trigger immediately when Claude Code becomes idle');
+    console.log('[RDR]    📡 Subscribed to OutputMonitor "idle" events');
+  } catch (error) {
+    console.error('[RDR] ❌ Failed to enable event-driven processing:', error);
+    console.log('[RDR]    ⏰ Falling back to timer-based processing');
+  }
+}
+
+/**
+ * Disable event-driven processing (cleanup)
+ */
+export function disableEventDrivenProcessing(): void {
+  if (!eventDrivenEnabled) return;
+
+  if (idleEventListener) {
+    outputMonitor.removeListener('idle', idleEventListener);
+    idleEventListener = null;
+  }
+
+  outputMonitor.stopWatching();
+  eventDrivenEnabled = false;
+  console.log('[RDR] Event-driven processing disabled');
+}
+
+// ============================================================================
 // IPC Handlers
 // ============================================================================
+
+// Track whether event-driven processing is enabled
+let eventDrivenEnabled = false;
+let idleEventListener: ((event: any) => void) | null = null;
 
 /**
  * Register RDR IPC handlers
@@ -801,6 +1249,9 @@ export function registerRdrHandlers(): void {
   }
 
   console.log('[RDR] Registering RDR handlers');
+
+  // Start event-driven RDR processing
+  setupEventDrivenProcessing();
 
   ipcMain.handle(
     IPC_CHANNELS.TRIGGER_RDR_PROCESSING,
@@ -929,15 +1380,24 @@ export function registerRdrHandlers(): void {
           type: b.type,
           taskCount: b.taskIds.length,
           taskIds: b.taskIds,
-          tasks: b.tasks.map(t => ({
-            specId: t.specId,
-            description: t.description?.substring(0, 200),
-            reviewReason: t.reviewReason,
-            subtasksCompleted: t.subtasks?.filter(s => s.status === 'completed').length || 0,
-            subtasksTotal: t.subtasks?.length || 0
-          }))
+          tasks: b.tasks.map(t => {
+            // Gather rich info for each task
+            const richInfo = gatherRichTaskInfo(t, project.path);
+            return {
+              specId: t.specId,
+              description: t.description?.substring(0, 200),
+              status: t.status,
+              reviewReason: t.reviewReason,
+              exitReason: t.exitReason,
+              interventionType: richInfo.interventionType,
+              progress: richInfo.progress,
+              currentPhase: richInfo.currentPhase,
+              lastLogs: richInfo.lastLogs,
+              errors: richInfo.errors
+            };
+          })
         })),
-        prompt: generateBatchPrompt(batches, projectId)
+        prompt: generateBatchPrompt(batches, projectId, project.path)
       };
 
       writeFileSync(signalPath, JSON.stringify(signal, null, 2));
@@ -1026,6 +1486,12 @@ export function registerRdrHandlers(): void {
         status: string;
         reviewReason?: string;
         exitReason?: string;
+        interventionType?: InterventionType | null;  // Type of intervention needed
+        progress?: {                                  // Progress info
+          completed: number;
+          total: number;
+          percentage: number;
+        };
         subtasks?: Array<{ name: string; status: string }>;
         errorSummary?: string;
       }>;
@@ -1037,134 +1503,32 @@ export function registerRdrHandlers(): void {
 
         /**
          * Helper: Check if task needs intervention
-         * Enhanced detection logic that checks multiple indicators:
-         * - Empty plans (0 phases/subtasks)
-         * - Error exit reasons (exitReason: error/prompt_loop)
-         * - Plan needs approval (planStatus: review)
-         * - Stuck in_progress tasks (no subtask progress >1 hour)
-         * - Original logic (incomplete subtasks in human_review)
+         * Delegates to centralized determineInterventionType() which uses calculateTaskProgress()
+         * to properly check task.phases (same logic as auto-shutdown detection)
+         *
+         * Tasks at 100% completion + passed AI review = NOT flagged (legitimate human review)
          */
-        const needsIntervention = (task: any): boolean => {
-          // CRITICAL: Only check tasks that can be stuck
-          // Skip tasks that are complete, pending, or already handled
-          if (task.status === 'done') {
-            return false;  // Don't flag completed tasks
-          }
-          if (task.status === 'pr_created') {
-            return false;  // Don't flag PR'd tasks
-          }
-          if (task.status === 'backlog') {
-            return false;  // Don't flag pending tasks
-          }
-          // Removed ai_review exclusion - we now check for staleness
+        const needsIntervention = (task: TaskInfo): boolean => {
+          const interventionType = determineInterventionType(task);
 
-          // 1. Empty plan (0 phases/subtasks) → NEEDS INTERVENTION
-          // This catches tasks that crashed before creating a plan
-          if (!task.phases || task.phases.length === 0) {
-            console.log(`[RDR] ✅ Task ${task.specId} needs intervention: Empty plan (0 phases)`);
+          if (interventionType) {
+            const progress = calculateTaskProgress(task);
+            console.log(`[RDR] ✅ Task ${task.specId} needs intervention: type=${interventionType}, progress=${progress}%, status=${task.status}, reviewReason=${task.reviewReason || 'none'}`);
             return true;
           }
 
-          // 2. Error exit reason → NEEDS INTERVENTION
-          // exitReason is the field that indicates WHY the task stopped
-          // Expanded to include "stuck" and "timeout" which also indicate abnormal termination
-          if (task.exitReason === 'error' || task.exitReason === 'prompt_loop' ||
-              task.exitReason === 'stuck' || task.exitReason === 'timeout') {
-            console.log(`[RDR] ✅ Task ${task.specId} needs intervention: exitReason=${task.exitReason}`);
-            return true;
+          // Log why task was skipped
+          const progress = calculateTaskProgress(task);
+          if (progress === 100) {
+            console.log(`[RDR] ⏭️  Skipping task ${task.specId} - 100% complete (legitimate human review)`);
+          } else if (task.status === 'done' || task.status === 'pr_created' || task.status === 'backlog') {
+            console.log(`[RDR] ⏭️  Skipping task ${task.specId} - status=${task.status}`);
           }
 
-          // 3. Plan needs approval → NEEDS INTERVENTION
-          // planStatus: "review" means waiting for user to approve the plan
-          if (task.planStatus === 'review' && task.status === 'human_review') {
-            console.log(`[RDR] ✅ Task ${task.specId} needs intervention: planStatus=review (needs approval)`);
-            return true;
-          }
-
-          // 4. Stuck in_progress tasks (no subtask progress >1 hour)
-          if (task.status === 'in_progress') {
-            const lastSubtaskUpdate = getLastSubtaskUpdate(task);
-            const hoursSinceUpdate = (Date.now() - lastSubtaskUpdate) / (1000 * 60 * 60);
-            if (hoursSinceUpdate > 1) {
-              console.log(`[RDR] ✅ Task ${task.specId} needs intervention: Stuck in_progress (${hoursSinceUpdate.toFixed(1)}h since last update)`);
-              return true;
-            }
-
-            // 4c. Check reviewReason for in_progress tasks
-            // reviewReason: "incomplete_work" means Auto-Claude stopped mid-task
-            if (task.reviewReason === 'incomplete_work' || task.reviewReason === 'errors') {
-              console.log(`[RDR] ✅ Task ${task.specId} needs intervention: in_progress with reviewReason=${task.reviewReason}`);
-              return true;
-            }
-          }
-
-          // 4b. Stuck ai_review tasks (no subtask progress >1 hour)
-          if (task.status === 'ai_review') {
-            const lastSubtaskUpdate = getLastSubtaskUpdate(task);
-            const hoursSinceUpdate = (Date.now() - lastSubtaskUpdate) / (1000 * 60 * 60);
-            if (hoursSinceUpdate > 1) {
-              console.log(`[RDR] ✅ Task ${task.specId} needs intervention: Stuck in ai_review (${hoursSinceUpdate.toFixed(1)}h since last update)`);
-              return true;
-            }
-
-            // 4d. Check reviewReason for ai_review tasks
-            // reviewReason: "incomplete_work" or "errors" means the task needs intervention
-            if (task.reviewReason === 'incomplete_work' || task.reviewReason === 'errors') {
-              console.log(`[RDR] ✅ Task ${task.specId} needs intervention: ai_review with reviewReason=${task.reviewReason}`);
-              return true;
-            }
-          }
-
-          // 5. Original logic: human_review with incomplete subtasks
-          if (task.status === 'human_review') {
-            // If task has subtasks, check completion percentage
-            if (task.subtasks && task.subtasks.length > 0) {
-              const allComplete = task.subtasks.every((s: { status: string }) => s.status === 'completed');
-              if (allComplete) {
-                // 100% complete - ready for manual review, don't auto-process
-                console.log(`[RDR] ⏭️  Skipping task ${task.specId} - all subtasks complete (ready for manual review)`);
-                return false;
-              }
-              // Has incomplete subtasks - needs help
-              console.log(`[RDR] ✅ Task ${task.specId} needs intervention: Incomplete subtasks in human_review`);
-              return true;
-            }
-
-            // No subtasks but has reviewReason errors/qa_rejected - needs help
-            if (task.reviewReason === 'errors' || task.reviewReason === 'qa_rejected') {
-              console.log(`[RDR] ✅ Task ${task.specId} needs intervention: reviewReason=${task.reviewReason}`);
-              return true;
-            }
-          }
-
-          // No intervention needed
           return false;
         };
 
-        /**
-         * Helper: Get timestamp of last subtask update
-         */
-        const getLastSubtaskUpdate = (task: any): number => {
-          if (!task.phases || task.phases.length === 0) {
-            return new Date(task.updated_at || task.created_at).getTime();
-          }
-
-          let latestUpdate = 0;
-          for (const phase of task.phases) {
-            if (phase.subtasks) {
-              for (const subtask of phase.subtasks) {
-                if (subtask.updated_at) {
-                  const updateTime = new Date(subtask.updated_at).getTime();
-                  latestUpdate = Math.max(latestUpdate, updateTime);
-                }
-              }
-            }
-          }
-
-          return latestUpdate || new Date(task.updated_at || task.created_at).getTime();
-        };
-
-        // Filter tasks using enhanced detection
+        // Filter tasks using enhanced detection (uses centralized calculateTaskProgress)
         const tasksNeedingHelp = tasks.filter(needsIntervention);
 
         if (tasksNeedingHelp.length === 0) {
@@ -1183,7 +1547,10 @@ export function registerRdrHandlers(): void {
           status: t.status,
           reviewReason: t.reviewReason,
           description: t.description,
-          subtasks: t.subtasks
+          subtasks: t.subtasks,
+          phases: t.phases,  // Required for calculateTaskProgress()
+          exitReason: t.exitReason,
+          planStatus: t.planStatus
         }));
 
         // Categorize into batches
@@ -1201,6 +1568,26 @@ export function registerRdrHandlers(): void {
             errorSummary = 'JSON parse error in task data';
           }
 
+          // Convert task to TaskInfo for helper functions
+          const taskInfo: TaskInfo = {
+            specId: task.specId,
+            status: task.status,
+            reviewReason: task.reviewReason,
+            description: task.description,
+            subtasks: task.subtasks,
+            phases: task.phases,
+            exitReason: task.exitReason,
+            planStatus: task.planStatus
+          };
+
+          // Calculate progress from subtasks
+          const allSubtasks = task.phases?.flatMap((p: any) => p.subtasks || []) || task.subtasks || [];
+          const completed = allSubtasks.filter((s: any) => s.status === 'completed').length;
+          const total = allSubtasks.length;
+
+          // Determine intervention type using centralized function
+          const interventionType = determineInterventionType(taskInfo);
+
           return {
             specId: task.specId,
             title: task.title || task.specId,
@@ -1208,6 +1595,12 @@ export function registerRdrHandlers(): void {
             status: task.status,
             reviewReason: task.reviewReason,
             exitReason: task.exitReason,
+            interventionType,  // NEW: Type of intervention needed
+            progress: {        // NEW: Progress info
+              completed,
+              total,
+              percentage: total > 0 ? Math.round((completed / total) * 100) : 0
+            },
             subtasks: task.subtasks?.map((s) => ({
               name: s.title || s.id,
               status: s.status

@@ -278,6 +278,14 @@ export interface Task {
 // Helps distinguish between successful completion vs crash
 export type TaskExitReason = 'success' | 'rate_limit_crash' | 'auth_failure' | 'error';
 
+// RDR Intervention type - distinguishes what kind of help a task needs
+// Used by RDR system to categorize tasks and display appropriate labels
+// - 'recovery': Task crashed or errored - requires recovery (exitReason: error, reviewReason: errors/qa_rejected)
+// - 'resume': Task paused mid-work - can be resumed (rate_limit_crash, incomplete_work)
+// - 'stuck': Task bounced to human_review with incomplete subtasks (no clear exit reason)
+// - 'incomplete': Task has pending subtasks in active boards (in_progress, ai_review)
+export type TaskInterventionType = 'recovery' | 'resume' | 'stuck' | 'incomplete';
+
 // Rate limit info stored in plan when task crashes due to rate limit
 export interface TaskRateLimitInfo {
   resetAt?: string;  // ISO date string when rate limit resets

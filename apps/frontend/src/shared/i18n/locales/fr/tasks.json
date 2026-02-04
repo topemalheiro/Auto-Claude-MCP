@@ -119,7 +119,17 @@
     "rdrSendSuccess": "Message envoyé",
     "rdrSendSuccessDesc": "Message RDR envoyé à la fenêtre Claude Code.",
     "rdrSendFailed": "Échec de l'envoi",
-    "rdrSendFailedDesc": "Échec de l'envoi du message vers la fenêtre VS Code."
+    "rdrSendFailedDesc": "Échec de l'envoi du message vers la fenêtre VS Code.",
+    "rdrInterventionTypes": {
+      "recovery": "Récupération Nécessaire",
+      "recoveryDesc": "La tâche a planté ou a échoué - nécessite une récupération",
+      "resume": "Reprise Nécessaire",
+      "resumeDesc": "Tâche en pause (limite/incomplète) - peut être reprise",
+      "stuck": "Bloquée",
+      "stuckDesc": "Tâche renvoyée avec travail incomplet - attention requise",
+      "incomplete": "Incomplète",
+      "incompleteDesc": "La tâche a des sous-tâches en attente - continuer le travail"
+    }
   },
   "execution": {
     "phases": {
