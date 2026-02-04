@@ -1086,30 +1086,36 @@ async function checkClaudeCodeBusy(): Promise<boolean> {
 
 /**
  * Process all collected pending tasks after timer expires
+ * @param skipBusyCheck - If true, skip the busy check (used when triggered by idle event)
  */
-async function processPendingTasks(): Promise<void> {
+async function processPendingTasks(skipBusyCheck: boolean = false): Promise<void> {
   if (pendingTasks.length === 0) {
     console.log(`[RDR] No pending tasks to process`);
     return;
   }
 
-  console.log(`[RDR] Timer expired - processing ${pendingTasks.length} pending tasks`);
+  console.log(`[RDR] Processing ${pendingTasks.length} pending tasks (skipBusyCheck=${skipBusyCheck})`);
 
   // CRITICAL: Check if Claude Code is busy before processing
-  const isBusy = await checkClaudeCodeBusy();
-  if (isBusy) {
-    console.log(`[RDR] ⏸️  Claude Code is BUSY - rescheduling ${pendingTasks.length} tasks for 60s later`);
-    console.log(`[RDR]    ⏰ Next retry at: ${new Date(Date.now() + 60000).toISOString()}`);
+  // Skip this check when triggered by idle event - we KNOW it's idle
+  if (!skipBusyCheck) {
+    const isBusy = await checkClaudeCodeBusy();
+    if (isBusy) {
+      console.log(`[RDR] ⏸️  Claude Code is BUSY - rescheduling ${pendingTasks.length} tasks for 60s later`);
+      console.log(`[RDR]    ⏰ Next retry at: ${new Date(Date.now() + 60000).toISOString()}`);
 
-    // Reschedule for later (retry in 60 seconds)
-    if (batchTimer) {
-      clearTimeout(batchTimer);
+      // Reschedule for later (retry in 60 seconds)
+      if (batchTimer) {
+        clearTimeout(batchTimer);
+      }
+      batchTimer = setTimeout(async () => {
+        console.log('[RDR] ⏰ RETRY: Attempting to process pending tasks again...');
+        await processPendingTasks();
+      }, 60000); // Retry in 60 seconds
+      return;
     }
-    batchTimer = setTimeout(async () => {
-      console.log('[RDR] ⏰ RETRY: Attempting to process pending tasks again...');
-      await processPendingTasks();
-    }, 60000); // Retry in 60 seconds
-    return;
+  } else {
+    console.log(`[RDR] ✅ Triggered by idle event - skipping busy check`);
   }
 
   console.log(`[RDR] ✅ Claude is IDLE - proceeding to process ${pendingTasks.length} tasks`);
@@ -1249,8 +1255,9 @@ async function setupEventDrivenProcessing(): Promise<void> {
         // Small delay to ensure state is stable (prevents rapid re-triggering)
         await new Promise(resolve => setTimeout(resolve, 500));
 
-        // Process pending tasks immediately
-        await processPendingTasks();
+        // Process pending tasks immediately - skip busy check since we KNOW it's idle
+        // The idle event already confirmed Claude is idle, no need to re-check with grace period
+        await processPendingTasks(true);
       }
     };
 
