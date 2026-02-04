@@ -14,7 +14,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { spawn } from 'child_process';
 
-const SPECS_DIR = path.join(__dirname, '..', '.auto-claude', 'specs');
+let SPECS_DIR = path.join(__dirname, '..', '.auto-claude', 'specs');
 const POLL_INTERVAL_MS = 5000; // Check every 5 seconds for testing
 
 interface TaskStatus {
@@ -105,6 +105,7 @@ async function main() {
   // Parse arguments
   let taskIds: string[] | undefined;
   let delaySeconds = 120;
+  let projectPath: string | undefined;
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--task-ids' && args[i + 1]) {
@@ -113,7 +114,15 @@ async function main() {
     } else if (args[i] === '--delay-seconds' && args[i + 1]) {
       delaySeconds = parseInt(args[i + 1], 10);
       i++;
+    } else if (args[i] === '--project-path' && args[i + 1]) {
+      projectPath = args[i + 1];
+      i++;
     }
+  }
+
+  // Update SPECS_DIR if project path provided
+  if (projectPath) {
+    SPECS_DIR = path.join(projectPath, '.auto-claude', 'specs');
   }
 
   console.log('[Monitor] Starting shutdown monitor...');

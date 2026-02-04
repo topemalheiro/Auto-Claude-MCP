@@ -5,7 +5,7 @@
  * system shutdown when all active tasks reach Human Review.
  */
 
-import { ipcMain } from 'electron';
+import { ipcMain, app } from 'electron';
 import { spawn, ChildProcess } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs';
@@ -25,7 +25,65 @@ function getProjectSpecsDir(projectPath: string): string {
 }
 
 /**
- * Get all active task IDs for a project
+ * Check if a task is archived by reading task_metadata.json
+ * Archived tasks have an archivedAt field set to an ISO date string
+ */
+function isTaskArchived(specsDir: string, taskDir: string): boolean {
+  const metadataPath = path.join(specsDir, taskDir, 'task_metadata.json');
+
+  if (!fs.existsSync(metadataPath)) {
+    return false;
+  }
+
+  try {
+    const metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf-8'));
+    // Task is archived if archivedAt field exists and is truthy
+    if (metadata.archivedAt) {
+      console.log(`[AutoShutdown] Task ${taskDir}: ARCHIVED at ${metadata.archivedAt} (skipped)`);
+      return true;
+    }
+    return false;
+  } catch (e) {
+    // If we can't read metadata, assume not archived
+    return false;
+  }
+}
+
+/**
+ * Calculate task completion percentage from phases/subtasks
+ * Returns 100 if all subtasks are completed, 0 if no subtasks
+ * Matches the green dot indicators in the UI
+ */
+function calculateTaskProgress(plan: {
+  phases?: Array<{
+    subtasks?: Array<{ status: string }>;
+    chunks?: Array<{ status: string }>;  // Legacy field name
+  }>;
+}): number {
+  if (!plan.phases || plan.phases.length === 0) {
+    return 0;
+  }
+
+  // Flatten all subtasks from all phases
+  // Note: Only 'completed' status counts toward 100%. Tasks with 'failed' subtasks
+  // will never reach 100% and will continue to be monitored, which is correct
+  // behavior since they require intervention.
+  const allSubtasks = plan.phases.flatMap(phase =>
+    phase.subtasks || phase.chunks || []
+  ).filter(Boolean);
+
+  if (allSubtasks.length === 0) {
+    return 0;
+  }
+
+  const completed = allSubtasks.filter(s => s.status === 'completed').length;
+  return Math.round((completed / allSubtasks.length) * 100);
+}
+
+/**
+ * Get all active (incomplete) task IDs for a project
+ * Only returns tasks with progress < 100%
+ * This matches the green dot indicators in the UI
  */
 function getActiveTaskIds(projectPath: string): string[] {
   const specsDir = getProjectSpecsDir(projectPath);
@@ -40,12 +98,24 @@ function getActiveTaskIds(projectPath: string): string[] {
     .map(d => d.name);
 
   for (const dir of dirs) {
+    // Skip archived tasks - they shouldn't be monitored for shutdown
+    if (isTaskArchived(specsDir, dir)) {
+      continue;
+    }
+
     const planPath = path.join(specsDir, dir, 'implementation_plan.json');
     if (fs.existsSync(planPath)) {
       try {
         const content = JSON.parse(fs.readFileSync(planPath, 'utf-8'));
-        // Only monitor active tasks (not done)
-        if (content.status && content.status !== 'done') {
+
+        // Skip done tasks
+        if (content.status === 'done') {
+          continue;
+        }
+
+        // Only monitor tasks that are NOT at 100% completion
+        const progress = calculateTaskProgress(content);
+        if (progress < 100) {
           taskIds.push(dir);
         }
       } catch (e) {
@@ -58,7 +128,9 @@ function getActiveTaskIds(projectPath: string): string[] {
 }
 
 /**
- * Count tasks in each status
+ * Count tasks that are NOT at 100% completion
+ * Only tasks with incomplete subtasks should be counted as "remaining"
+ * This matches the green dot indicators in the UI
  */
 function countTasksByStatus(projectPath: string): { total: number; humanReview: number } {
   const specsDir = getProjectSpecsDir(projectPath);
@@ -75,22 +147,41 @@ function countTasksByStatus(projectPath: string): { total: number; humanReview: 
     .map(d => d.name);
 
   for (const dir of dirs) {
+    // Skip archived tasks - they shouldn't be counted for shutdown monitoring
+    if (isTaskArchived(specsDir, dir)) {
+      continue;
+    }
+
     const planPath = path.join(specsDir, dir, 'implementation_plan.json');
     if (fs.existsSync(planPath)) {
       try {
         const content = JSON.parse(fs.readFileSync(planPath, 'utf-8'));
-        if (content.status && content.status !== 'done') {
+
+        // Skip tasks marked as done
+        if (content.status === 'done') {
+          continue;
+        }
+
+        // Calculate actual progress from subtasks (green dots)
+        const progress = calculateTaskProgress(content);
+
+        // Only count tasks that are NOT at 100% completion
+        if (progress < 100) {
           total++;
           if (content.status === 'human_review') {
             humanReview++;
           }
+          console.log(`[AutoShutdown] Task ${dir}: ${progress}% complete, status=${content.status} (counted)`);
+        } else {
+          console.log(`[AutoShutdown] Task ${dir}: 100% complete, status=${content.status} (NOT counted - complete)`);
         }
       } catch (e) {
-        // Ignore parse errors
+        console.error(`[AutoShutdown] Failed to read ${planPath}:`, e);
       }
     }
   }
 
+  console.log(`[AutoShutdown] Total incomplete tasks: ${total}, in human_review: ${humanReview}`);
   return { total, humanReview };
 }
 
@@ -153,21 +244,47 @@ ipcMain.handle(
           monitorProcesses.delete(projectId);
         }
 
-        // Get script path
-        const scriptPath = path.join(__dirname, '..', '..', '..', '..', 'scripts', 'shutdown-monitor.ts');
+        // Get script path - use path.resolve for correct parent directory resolution
+        // In development: app.getAppPath() returns the compiled output dir (apps/frontend/out/main)
+        // Scripts folder is at repo root, so we need to go up 4 levels:
+        // out/main -> out -> apps/frontend -> apps -> repo root
+        const appPath = app.getAppPath();
+        console.log(`[AutoShutdown] App path: ${appPath}`);
+
+        const scriptPath = app.isPackaged
+          ? path.join(process.resourcesPath, 'scripts', 'shutdown-monitor.ts')
+          : path.resolve(appPath, '..', '..', '..', '..', 'scripts', 'shutdown-monitor.ts');
+
+        console.log(`[AutoShutdown] Script path: ${scriptPath}`);
+        console.log(`[AutoShutdown] Script exists: ${fs.existsSync(scriptPath)}`);
+
+        if (!fs.existsSync(scriptPath)) {
+          return {
+            success: false,
+            error: `Shutdown monitor script not found at: ${scriptPath}`
+          };
+        }
 
         // Spawn monitoring process
-        const args = [
-          scriptPath,
-          '--task-ids', activeTaskIds.join(','),
-          '--delay-seconds', '120'
-        ];
-
-        const monitorProcess = spawn('npx', ['tsx', ...args], {
-          cwd: projectPath,
-          detached: true,
-          stdio: ['ignore', 'pipe', 'pipe']
-        });
+        // Use shell: true for Windows (required for npx.cmd) with windowsHide to minimize visibility
+        const monitorProcess = spawn(
+          'npx',
+          [
+            'tsx',
+            scriptPath,
+            '--project-path', projectPath,
+            '--task-ids', activeTaskIds.join(','),
+            '--delay-seconds', '120'
+          ],
+          {
+            cwd: projectPath,
+            detached: true,
+            stdio: ['ignore', 'pipe', 'pipe'],
+            shell: true,
+            windowsHide: true,
+            env: { ...process.env }
+          }
+        );
 
         // Log output
         monitorProcess.stdout?.on('data', (data) => {
@@ -271,7 +388,6 @@ ipcMain.handle(
 );
 
 // Clean up on app quit
-import { app } from 'electron';
 app.on('before-quit', () => {
   for (const process of monitorProcesses.values()) {
     process.kill();
