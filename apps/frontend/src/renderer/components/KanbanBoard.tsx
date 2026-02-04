@@ -1099,7 +1099,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     }
   }, [rdrMessageInFlight, selectedWindowHandle, projectId, buildRdrMessage, toast, t]);
 
-  // Start/stop 60-second timer when RDR toggle or window selection changes
+  // EVENT-DRIVEN RDR: Check immediately on startup, then respond to idle events
   useEffect(() => {
     // Clear any existing timer
     if (rdrIntervalRef.current) {
@@ -1109,18 +1109,36 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
 
     // Only start timer if RDR is enabled AND a window is selected
     if (rdrEnabled && selectedWindowHandle) {
-      console.log(`[RDR] Starting timer - immediate send + ${RDR_INTERVAL_MS / 1000}s recurring`);
+      console.log(`[RDR] Starting event-driven RDR - immediate check + idle event triggers`);
 
-      // CRITICAL FIX: Trigger immediate send when toggle enabled (don't wait 60 seconds)
+      // IMMEDIATE CHECK: Catch existing tasks needing intervention
       handleAutoRdr();
 
-      // THEN set up recurring 60-second interval
+      // EVENT-DRIVEN: Subscribe to 'claude-code-idle' IPC event for sequential batching
+      const idleListener = (_event: any, data: { from: string; to: string; timestamp: number }) => {
+        console.log(`[RDR] 🚀 EVENT: Claude Code became idle (${data.from} -> ${data.to})`);
+        console.log('[RDR]    🔄 Triggering next RDR check for sequential batching');
+
+        // Trigger RDR check immediately when Claude finishes processing
+        handleAutoRdr();
+      };
+
+      // @ts-ignore - electron API exists in renderer
+      window.electron?.ipcRenderer.on('claude-code-idle', idleListener);
+
+      // FALLBACK POLLING: Set up 60-second interval as fallback if event system fails
       rdrIntervalRef.current = setInterval(() => {
+        console.log('[RDR] Fallback polling check (60s interval)');
         handleAutoRdr();
       }, RDR_INTERVAL_MS);
 
       // Cleanup on unmount or dependency change
       return () => {
+        // Remove IPC listener
+        // @ts-ignore
+        window.electron?.ipcRenderer.removeListener('claude-code-idle', idleListener);
+
+        // Clear timer
         if (rdrIntervalRef.current) {
           clearInterval(rdrIntervalRef.current);
           rdrIntervalRef.current = null;

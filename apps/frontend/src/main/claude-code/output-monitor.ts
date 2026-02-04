@@ -76,6 +76,7 @@ export interface StateChangeEvent {
 class ClaudeOutputMonitor extends EventEmitter {
   private currentState: ClaudeState = 'IDLE';
   private lastStateChange: number = Date.now();
+  private lastCheckedMtime: number = 0;  // Track last file mtime checked to prevent redundant state changes
   private claudeProjectsDir: string;
   private fileWatchers: FSWatcher[] = [];
   private isWatching: boolean = false;
@@ -225,16 +226,45 @@ class ClaudeOutputMonitor extends EventEmitter {
    */
   private async updateState(): Promise<void> {
     // Find the most recent JSONL transcript across all projects
-    const latestTranscript = await this.getLatestOutputFile();
+    const result = await this.getLatestOutputFile();
 
-    if (!latestTranscript) {
+    if (!result) {
       // No recent transcript files - Claude is idle
       console.log('[OutputMonitor] No recent JSONL transcript found - setting IDLE');
       this.setState('IDLE');
+      this.lastCheckedMtime = 0;  // Reset tracking
       return;
     }
 
-    console.log('[OutputMonitor] Found latest transcript:', latestTranscript);
+    const { path: latestTranscript, fileAgeMs } = result;
+
+    // Calculate file mtime from age
+    const fileMtime = Date.now() - fileAgeMs;
+
+    console.log('[OutputMonitor] Found latest transcript:', latestTranscript, `(file ${Math.floor(fileAgeMs / 1000)}s old)`);
+
+    // CRITICAL FIX: Only treat as PROCESSING if file was NEWLY modified since last check
+    // This prevents repeated checks of the same old file from causing state transitions
+    // that reset the idle timer, allowing the 30-second accumulation to complete
+    const isNewActivity = fileMtime !== this.lastCheckedMtime;
+
+    if (fileAgeMs < 3000) {
+      if (isNewActivity) {
+        // File freshly modified - Claude is actively streaming
+        console.log(`[OutputMonitor] NEW activity detected - file modified since last check`);
+        this.setState('PROCESSING');
+        this.lastCheckedMtime = fileMtime;
+        return;
+      } else {
+        // Same file as last check - don't reset state timer
+        console.log(`[OutputMonitor] Same file as last check - maintaining current state (${this.currentState})`);
+        // Don't call setState - keeps idle timer running without reset
+        return;
+      }
+    }
+
+    // File is old enough to parse content - update tracking
+    this.lastCheckedMtime = fileMtime;
 
     // Read and parse JSONL file
     const content = await fs.readFile(latestTranscript, 'utf-8');
@@ -256,15 +286,16 @@ class ClaudeOutputMonitor extends EventEmitter {
 
     console.log('[OutputMonitor] Parsed', messages.length, 'messages from transcript');
 
-    // Parse conversation state (not time-based guess)
+    // Parse conversation state (file is old enough to check message content)
     const state = this.parseConversationState(messages);
     this.setState(state);
   }
 
   /**
    * Find the most recently modified JSONL transcript file across all project directories
+   * Returns both the file path and how old the file is (in ms) for streaming detection
    */
-  private async getLatestOutputFile(): Promise<string | null> {
+  private async getLatestOutputFile(): Promise<{ path: string; fileAgeMs: number } | null> {
     try {
       console.log('[OutputMonitor] Searching for JSONL transcripts in:', this.claudeProjectsDir);
 
@@ -316,11 +347,12 @@ class ClaudeOutputMonitor extends EventEmitter {
 
       if (latestFile) {
         console.log('[OutputMonitor] Selected latest file:', latestFile.path);
+        const fileAgeMs = Date.now() - latestFile.mtime;
+        return { path: latestFile.path, fileAgeMs };
       } else {
         console.log('[OutputMonitor] No recent JSONL files found');
+        return null;
       }
-
-      return latestFile?.path || null;
     } catch (error) {
       // Base directory doesn't exist or can't be accessed
       console.warn('[OutputMonitor] Failed to access projects directory:', error);
@@ -518,6 +550,7 @@ class ClaudeOutputMonitor extends EventEmitter {
     timeSinceStateChange: number;
     recentOutputFiles: number;
     baseDirExists: boolean;
+    latestFileAgeMs?: number;
   }> {
     const latestOutput = await this.getLatestOutputFile().catch(() => null);
     let baseDirExists = false;
@@ -532,7 +565,8 @@ class ClaudeOutputMonitor extends EventEmitter {
       state: this.currentState,
       timeSinceStateChange: this.getTimeSinceStateChange(),
       recentOutputFiles: latestOutput ? 1 : 0,
-      baseDirExists
+      baseDirExists,
+      latestFileAgeMs: latestOutput?.fileAgeMs
     };
   }
 }

@@ -123,6 +123,9 @@ function calculateTaskProgress(task: TaskInfo): number {
 /**
  * Check if task is legitimate human review (shouldn't be flagged by RDR)
  * Tasks at 100% completion + completed reviewReason = waiting for merge approval
+ *
+ * NOTE: plan_review tasks are NOT excluded - they need to be flagged!
+ * plan_review means planning is done and coding needs to start.
  */
 function isLegitimateHumanReview(task: TaskInfo): boolean {
   const progress = calculateTaskProgress(task);
@@ -132,10 +135,9 @@ function isLegitimateHumanReview(task: TaskInfo): boolean {
     return true;  // Don't flag - this is normal human review
   }
 
-  // Plan review - waiting for user to approve spec before coding
-  if (task.reviewReason === 'plan_review' && task.planStatus === 'review') {
-    return true;  // Don't flag - user needs to approve plan (we do flag separately with plan_review)
-  }
+  // REMOVED: plan_review exception was wrong!
+  // plan_review tasks NEED to be flagged to start coding phase
+  // The handler at line 191-193 will catch them and return 'incomplete'
 
   return false;
 }
@@ -186,9 +188,15 @@ function determineInterventionType(task: TaskInfo): InterventionType | null {
       }
       return 'stuck';  // Bounced without clear reason
     }
-    // NEW: Also flag if 100% but reviewReason indicates a problem
+    // PLAN_REVIEW: Planning phase complete, needs to start coding
+    // This happens when planner agent finishes but coder hasn't started yet
+    if (task.reviewReason === 'plan_review') {
+      console.log(`[RDR] Task ${task.specId} at 100% with plan_review - planning complete, ready for coding`);
+      return 'incomplete';  // Ready to move to next phase
+    }
+    // Also flag if 100% but reviewReason indicates a problem
     // (e.g., errors, qa_rejected, or other non-'completed' reasons)
-    if (task.reviewReason && task.reviewReason !== 'completed' && task.reviewReason !== 'plan_review') {
+    if (task.reviewReason && task.reviewReason !== 'completed') {
       console.log(`[RDR] Task ${task.specId} at 100% but has problematic reviewReason: ${task.reviewReason}`);
       return 'stuck';  // Completed but marked with issue
     }
@@ -334,8 +342,8 @@ function getCurrentPhase(projectPath: string, specId: string): 'planning' | 'cod
  * Includes progress, logs, errors, and intervention type
  */
 function gatherRichTaskInfo(task: TaskInfo, projectPath: string): RichTaskInfo {
-  // Calculate progress from subtasks/phases
-  const allSubtasks = task.phases?.flatMap(p => p.subtasks || []) || task.subtasks || [];
+  // Calculate progress from subtasks/phases (handle both 'subtasks' and 'chunks' naming)
+  const allSubtasks = task.phases?.flatMap(p => p.subtasks || (p as any).chunks || []) || task.subtasks || [];
   const completed = allSubtasks.filter(s => s.status === 'completed').length;
   const total = allSubtasks.length;
 
@@ -1194,25 +1202,43 @@ async function setupEventDrivenProcessing(): Promise<void> {
 
     // Subscribe to 'idle' event - triggers when Claude Code becomes idle
     idleEventListener = async (event: any) => {
-      if (pendingTasks.length === 0) {
-        return; // No pending tasks to process
-      }
-
-      console.log(`[RDR] 🚀 EVENT: Claude Code became idle - processing ${pendingTasks.length} pending tasks immediately`);
+      console.log(`[RDR] 🚀 EVENT: Claude Code became idle`);
       console.log(`[RDR]    📊 State change: ${event.from} -> ${event.to}`);
 
-      // Cancel any pending timer - we'll process immediately
-      if (batchTimer) {
-        clearTimeout(batchTimer);
-        batchTimer = null;
-        console.log('[RDR]    ⏰ Cancelled pending timer - using event-driven processing');
+      // Notify renderer to trigger RDR check (sequential batching)
+      try {
+        const allWindows = BrowserWindow?.getAllWindows() || [];
+        for (const win of allWindows) {
+          if (!win.isDestroyed()) {
+            win.webContents.send('claude-code-idle', {
+              from: event.from,
+              to: event.to,
+              timestamp: event.timestamp || Date.now()
+            });
+          }
+        }
+        console.log('[RDR]    📤 Notified renderer of idle state - triggering next RDR check');
+      } catch (error) {
+        console.error('[RDR]    ❌ Failed to notify renderer:', error);
       }
 
-      // Small delay to ensure state is stable (prevents rapid re-triggering)
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Also process pending tasks if any (backend processing)
+      if (pendingTasks.length > 0) {
+        console.log(`[RDR]    🔄 Processing ${pendingTasks.length} pending tasks immediately`);
 
-      // Process pending tasks immediately
-      await processPendingTasks();
+        // Cancel any pending timer - we'll process immediately
+        if (batchTimer) {
+          clearTimeout(batchTimer);
+          batchTimer = null;
+          console.log('[RDR]       ⏰ Cancelled pending timer - using event-driven processing');
+        }
+
+        // Small delay to ensure state is stable (prevents rapid re-triggering)
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        // Process pending tasks immediately
+        await processPendingTasks();
+      }
     };
 
     outputMonitor.on('idle', idleEventListener);
@@ -1603,8 +1629,8 @@ export function registerRdrHandlers(): void {
             planStatus: task.planStatus
           };
 
-          // Calculate progress from subtasks
-          const allSubtasks = task.phases?.flatMap((p: any) => p.subtasks || []) || task.subtasks || [];
+          // Calculate progress from subtasks (handle both 'subtasks' and 'chunks' naming)
+          const allSubtasks = task.phases?.flatMap((p: any) => p.subtasks || p.chunks || []) || task.subtasks || [];
           const completed = allSubtasks.filter((s: any) => s.status === 'completed').length;
           const total = allSubtasks.length;
 

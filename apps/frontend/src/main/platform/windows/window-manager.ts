@@ -353,8 +353,9 @@ export async function isClaudeCodeBusy(titlePattern: string): Promise<boolean> {
         }
 
         // Check minimum idle time (prevents interrupting during rapid tool use)
+        // REDUCED: 30s -> 5s with event-driven RDR and mtime tracking preventing false positives
         const timeSinceStateChange = outputMonitor.getTimeSinceStateChange();
-        const MINIMUM_IDLE_TIME_MS = 30000; // 30 seconds
+        const MINIMUM_IDLE_TIME_MS = 5000; // 5 seconds (was 30s)
 
         if (timeSinceStateChange < MINIMUM_IDLE_TIME_MS) {
           console.log(`[WindowManager] ⏸️  BUSY: Recently active (${timeSinceStateChange}ms ago) - waiting for ${MINIMUM_IDLE_TIME_MS}ms idle time`);
