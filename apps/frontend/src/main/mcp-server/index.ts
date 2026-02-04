@@ -1252,9 +1252,8 @@ server.tool(
   withMonitoring('trigger_auto_restart', async ({ reason, buildCommand }) => {
     try {
       // Import dynamically to avoid circular dependencies
-      const { readSettingsFile } = await import('../settings-utils.js');
+      const { readSettingsFile, getSettingsPath } = await import('../settings-utils.js');
       const { writeFileSync } = await import('fs');
-      const { app } = await import('electron');
       const path = await import('path');
 
       const settings = readSettingsFile() || {};
@@ -1264,8 +1263,12 @@ server.tool(
       // Note: Manual restart via MCP always works, no need to check autoRestartOnFailure.enabled
       // That setting is for automatic restarts on failure, not manual MCP triggers
 
+      // Get userData path - use same logic as getSettingsPath but for parent dir
+      const settingsPath = getSettingsPath();
+      const userDataPath = path.dirname(settingsPath);
+
       // Write restart marker file
-      const restartMarkerPath = path.join(app.getPath('userData'), '.restart-requested');
+      const restartMarkerPath = path.join(userDataPath, '.restart-requested');
       writeFileSync(restartMarkerPath, JSON.stringify({
         reason,
         timestamp: new Date().toISOString(),
@@ -1274,15 +1277,64 @@ server.tool(
 
       console.log('[MCP] Restart marker written:', restartMarkerPath);
 
-      // Import and call buildAndRestart
-      const { buildAndRestart } = await import('../ipc-handlers/restart-handlers.js');
       const cmd = buildCommand || settings?.autoRestartOnFailure?.buildCommand || 'npm run build';
 
       // Note: Task state will be saved by checkAndHandleRestart when app restarts and detects marker file
       console.log('[MCP] Triggering build and restart with command:', cmd);
 
-      // Execute build and restart
-      const result = await buildAndRestart(cmd);
+      // Execute build and restart - standalone MCP mode
+      // Can't use buildAndRestart from restart-handlers because it has top-level Electron dependencies
+      const { spawn } = await import('child_process');
+
+      // Get frontend directory (relative to this file: mcp-server/index.ts -> main -> frontend)
+      const frontendDir = path.join(path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Z]:)/, '$1')), '..', '..');
+
+      console.log('[MCP] Running build in:', frontendDir);
+
+      const result = await new Promise<{ success: boolean; error?: string }>((resolve) => {
+        const [cmdName, ...cmdArgs] = cmd.split(' ');
+        const buildProcess = spawn(cmdName, cmdArgs, {
+          cwd: frontendDir,
+          shell: true,
+          stdio: 'pipe'
+        });
+
+        let output = '';
+        let errorOutput = '';
+
+        buildProcess.stdout?.on('data', (data) => {
+          output += data.toString();
+          console.log('[BUILD]', data.toString().trim());
+        });
+
+        buildProcess.stderr?.on('data', (data) => {
+          errorOutput += data.toString();
+          console.error('[BUILD ERROR]', data.toString().trim());
+        });
+
+        buildProcess.on('exit', (code) => {
+          if (code === 0) {
+            console.log('[MCP] Build succeeded, launching Electron app...');
+
+            // Launch Electron app
+            const electronProcess = spawn('npx', ['electron', '.'], {
+              cwd: frontendDir,
+              detached: true,
+              stdio: 'ignore',
+              shell: true
+            });
+            electronProcess.unref();
+
+            resolve({ success: true });
+          } else {
+            resolve({ success: false, error: `Build failed with exit code ${code}: ${errorOutput}` });
+          }
+        });
+
+        buildProcess.on('error', (err) => {
+          resolve({ success: false, error: `Build process error: ${err.message}` });
+        });
+      });
 
       return {
         content: [{
