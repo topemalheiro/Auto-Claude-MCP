@@ -300,9 +300,7 @@ export interface AppSettings {
   // When disabled, tasks go to Human Review and require manual restart
   autoRestartOnFailure?: {
     enabled: boolean;
-    buildType?: 'production' | 'development'; // Default: "production"
-    autoClaudeDirectory?: string; // Path to Auto-Claude installation
-    showTerminalOnRestart?: boolean; // Show terminal when restarting (default: false)
+    reopenCommand?: string;   // OS-specific command to start Auto-Claude after restart
     buildCommand: string;     // Default: "npm run build"
     maxRestartsPerHour: number; // Default: 3 (prevent infinite loops)
     cooldownMinutes: number;   // Default: 5 (wait between restarts)

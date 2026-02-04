@@ -278,28 +278,18 @@
       "label": "Auto-name Claude terminals",
       "description": "Use AI to generate a descriptive name for Claude terminals based on your first message"
     },
-    "buildType": {
-      "label": "Build Type",
-      "description": "Choose build optimization level",
-      "production": "Production (Optimized)",
-      "development": "Development (Fast Build)"
+    "reopenCommand": {
+      "label": "Reopen Command",
+      "description": "Command to start Auto-Claude after restart (OS-specific)",
+      "placeholder": "e.g., open -a \"Auto-Claude\" (macOS)"
     },
-    "autoClaudeDirectory": {
-      "label": "Auto-Claude Directory",
-      "description": "Path to Auto-Claude installation to modify and restart",
-      "placeholder": "Leave empty for current directory"
-    },
-    "showTerminalOnRestart": {
-      "label": "Show Terminal on Restart",
-      "description": "Display terminal window when LLM Manager restarts Auto-Claude"
+    "buildCommand": {
+      "label": "Build Command",
+      "description": "Command to build Auto-Claude before restart"
     },
     "autoRestartOnFailure": {
       "label": "LLM Manager Auto-Restart",
       "description": "Allow Claude Code (via MCP) to trigger Auto-Claude restarts when intervention is needed. Also handles Claude process crashes. Enables unattended operation."
-    },
-    "buildCommand": {
-      "label": "Build Command",
-      "description": "Command to build Auto-Claude (auto-filled based on Build Type)"
     },
     "crashRecovery": {
       "label": "Crash Recovery",

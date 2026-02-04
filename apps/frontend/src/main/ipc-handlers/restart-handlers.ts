@@ -106,6 +106,7 @@ function recordRestart(): void {
 
 /**
  * Execute build command and restart app
+ * Workflow: Build → Kill → Start (using reopenCommand if set)
  */
 async function buildAndRestart(buildCommand: string): Promise<IPCResult<void>> {
   try {
@@ -121,43 +122,46 @@ async function buildAndRestart(buildCommand: string): Promise<IPCResult<void>> {
       };
     }
 
-    console.log('[RESTART] Starting build:', buildCommand);
+    // Step 1: BUILD (while app is still running)
+    if (buildCommand && buildCommand.trim()) {
+      console.log('[RESTART] Step 1/3: Building...', buildCommand);
 
-    // Parse command (e.g., "npm run build" -> ["npm", "run", "build"])
-    const [cmd, ...args] = buildCommand.split(' ');
+      // Parse command (e.g., "npm run build" -> ["npm", "run", "build"])
+      const [cmd, ...args] = buildCommand.split(' ');
 
-    // Execute build
-    const buildProcess = spawn(cmd, args, {
-      cwd: path.join(__dirname, '../../../'), // Frontend root
-      stdio: 'pipe',
-      shell: true // Enable shell for cross-platform compatibility
-    });
+      // Execute build
+      const buildProcess = spawn(cmd, args, {
+        cwd: path.join(__dirname, '../../../'), // Frontend root
+        stdio: 'pipe',
+        shell: true // Enable shell for cross-platform compatibility
+      });
 
-    let output = '';
-    let errorOutput = '';
+      let errorOutput = '';
 
-    buildProcess.stdout?.on('data', (data) => {
-      output += data.toString();
-      console.log('[BUILD]', data.toString().trim());
-    });
+      buildProcess.stdout?.on('data', (data) => {
+        console.log('[BUILD]', data.toString().trim());
+      });
 
-    buildProcess.stderr?.on('data', (data) => {
-      errorOutput += data.toString();
-      console.error('[BUILD ERROR]', data.toString().trim());
-    });
+      buildProcess.stderr?.on('data', (data) => {
+        errorOutput += data.toString();
+        console.error('[BUILD ERROR]', data.toString().trim());
+      });
 
-    const exitCode = await new Promise<number>((resolve) => {
-      buildProcess.on('exit', (code) => resolve(code || 0));
-    });
+      const exitCode = await new Promise<number>((resolve) => {
+        buildProcess.on('exit', (code) => resolve(code || 0));
+      });
 
-    if (exitCode !== 0) {
-      return {
-        success: false,
-        error: `Build failed with exit code ${exitCode}: ${errorOutput}`
-      };
+      if (exitCode !== 0) {
+        return {
+          success: false,
+          error: `Build failed with exit code ${exitCode}: ${errorOutput}`
+        };
+      }
+
+      console.log('[RESTART] Build succeeded');
+    } else {
+      console.log('[RESTART] Step 1/3: Skipping build (no command set)');
     }
-
-    console.log('[RESTART] Build succeeded, restarting app...');
 
     // Record restart
     recordRestart();
@@ -167,9 +171,33 @@ async function buildAndRestart(buildCommand: string): Promise<IPCResult<void>> {
       unlinkSync(RESTART_MARKER_FILE);
     }
 
-    // Restart app
-    app.relaunch();
-    app.quit();
+    // Step 2 & 3: START new process, then QUIT
+    const reopenCommand = settings.autoRestartOnFailure?.reopenCommand;
+
+    if (reopenCommand && reopenCommand.trim()) {
+      console.log('[RESTART] Step 2/3: Starting new process:', reopenCommand);
+
+      // Spawn the reopen command as a detached process
+      // This ensures it survives after we quit
+      const reopenProcess = spawn(reopenCommand, [], {
+        cwd: path.join(__dirname, '../../../'),
+        shell: true,
+        detached: true,
+        stdio: 'ignore'
+      });
+
+      // Unref so it doesn't keep the parent alive
+      reopenProcess.unref();
+
+      console.log('[RESTART] Step 3/3: Quitting current app...');
+      app.quit();
+    } else {
+      // Fallback: Use Electron's built-in relaunch (works for packaged apps)
+      console.log('[RESTART] Step 2/3: Using app.relaunch() (no reopenCommand set)');
+      app.relaunch();
+      console.log('[RESTART] Step 3/3: Quitting current app...');
+      app.quit();
+    }
 
     return { success: true };
 
