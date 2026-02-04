@@ -1295,8 +1295,9 @@ server.tool(
         const [cmdName, ...cmdArgs] = cmd.split(' ');
         const buildProcess = spawn(cmdName, cmdArgs, {
           cwd: frontendDir,
-          shell: true,
-          stdio: 'pipe'
+          shell: process.platform === 'win32' ? process.env.ComSpec || 'cmd.exe' : true,
+          stdio: 'pipe',
+          env: { ...process.env }
         });
 
         let output = '';
@@ -1321,7 +1322,8 @@ server.tool(
               cwd: frontendDir,
               detached: true,
               stdio: 'ignore',
-              shell: true
+              shell: process.platform === 'win32' ? process.env.ComSpec || 'cmd.exe' : true,
+              env: { ...process.env }
             });
             electronProcess.unref();
 
