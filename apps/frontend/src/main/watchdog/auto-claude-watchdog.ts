@@ -267,7 +267,9 @@ export class AutoClaudeWatchdog extends EventEmitter {
         }, 2000);
       }
     } else {
-      console.log('[Watchdog] Process exited normally');
+      console.log('[Watchdog] Process exited normally (code 0)');
+      // Emit normal-exit event so launcher can exit cleanly and close the terminal
+      this.emit('normal-exit', { exitCode: code });
     }
   }
 

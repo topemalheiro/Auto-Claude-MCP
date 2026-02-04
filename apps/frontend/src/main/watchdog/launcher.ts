@@ -87,6 +87,14 @@ watchdog.on('restart-needed', async () => {
   }
 });
 
+// Handle normal exit events (user closed the app via X button)
+watchdog.on('normal-exit', (data) => {
+  console.log('[Launcher] ✅ Auto-Claude closed normally');
+  console.log('[Launcher] Exit code:', data.exitCode);
+  console.log('[Launcher] Exiting launcher (terminal will close)...');
+  process.exit(0);
+});
+
 // Handle SIGINT (Ctrl+C) and SIGTERM for clean shutdown
 process.on('SIGINT', async () => {
   console.log('[Launcher] Received SIGINT, shutting down...');
