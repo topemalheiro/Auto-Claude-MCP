@@ -703,18 +703,23 @@ class WorktreeManager:
         else:
             # Branch doesn't exist - create new branch from remote or local base
             # Determine the start point for the worktree
-            remote_ref = f"origin/{self.base_branch}"
             start_point = self.base_branch  # Default to local branch
 
-            # Check if remote ref exists and use it as the source of truth
-            check_remote = self._run_git(["rev-parse", "--verify", remote_ref])
-            if check_remote.returncode == 0:
-                start_point = remote_ref
-                print(f"Creating worktree from remote: {remote_ref}")
+            if self.use_local_branch:
+                # User explicitly requested local branch - skip auto-switch to remote
+                # This preserves gitignored files (.env, configs) that may not exist on remote
+                print(f"Creating worktree from local branch: {self.base_branch}")
             else:
-                print(
-                    f"Remote ref {remote_ref} not found, using local branch: {self.base_branch}"
-                )
+                # Check if remote ref exists and use it as the source of truth
+                remote_ref = f"origin/{self.base_branch}"
+                check_remote = self._run_git(["rev-parse", "--verify", remote_ref])
+                if check_remote.returncode == 0:
+                    start_point = remote_ref
+                    print(f"Creating worktree from remote: {remote_ref}")
+                else:
+                    print(
+                        f"Remote ref {remote_ref} not found, using local branch: {self.base_branch}"
+                    )
 
             # Create worktree with new branch from the start point
             result = self._run_git(
