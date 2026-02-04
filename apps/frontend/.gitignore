@@ -13,11 +13,6 @@ python-runtime/
 src/**/*.js
 src/**/*.js.map
 
-# Exception: MCP server entry points (hand-written JS, not compiled)
-!src/main/mcp-server/mcp-server.js
-!src/main/mcp-server/start.js
-!src/main/mcp-server/mock-electron.js
-
 # electron-vite
 .vite/
 

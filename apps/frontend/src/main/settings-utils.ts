@@ -8,51 +8,16 @@
  * Those are handled by the IPC handlers where they have full context.
  */
 
+import { app } from 'electron';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { promises as fsPromises } from 'fs';
 import path from 'path';
-import os from 'os';
-
-// Try to import Electron app, but handle standalone MCP mode gracefully
-let electronApp: { getPath: (name: string) => string } | undefined;
-try {
-  // Dynamic import to handle cases where electron mock isn't fully functional
-  const electron = require('electron');
-  electronApp = electron?.app;
-} catch {
-  // Running in standalone mode without Electron
-  electronApp = undefined;
-}
-
-/**
- * Get the user data directory, with fallback for standalone MCP mode
- */
-function getUserDataPath(): string {
-  // Try Electron app first
-  if (electronApp?.getPath) {
-    try {
-      return electronApp.getPath('userData');
-    } catch {
-      // Fall through to manual calculation
-    }
-  }
-
-  // Fallback: Calculate userData path manually (same logic as Electron)
-  const homedir = os.homedir();
-  if (process.platform === 'win32') {
-    return path.join(homedir, 'AppData', 'Roaming', 'auto-claude-ui');
-  } else if (process.platform === 'darwin') {
-    return path.join(homedir, 'Library', 'Application Support', 'auto-claude-ui');
-  } else {
-    return path.join(homedir, '.config', 'auto-claude-ui');
-  }
-}
 
 /**
  * Get the path to the settings file
  */
 export function getSettingsPath(): string {
-  return path.join(getUserDataPath(), 'settings.json');
+  return path.join(app.getPath('userData'), 'settings.json');
 }
 
 /**

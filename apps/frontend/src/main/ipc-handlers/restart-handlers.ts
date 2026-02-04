@@ -59,7 +59,7 @@ function checkCooldown(settings: any): { allowed: boolean; reason?: string } {
     return age < 3600000; // 1 hour
   });
 
-  const maxPerHour = settings?.autoRestartOnFailure?.maxRestartsPerHour || 3;
+  const maxPerHour = settings.autoRestartOnFailure?.maxRestartsPerHour || 3;
 
   if (recentRestarts.length >= maxPerHour) {
     return {
@@ -72,7 +72,7 @@ function checkCooldown(settings: any): { allowed: boolean; reason?: string } {
   const lastRestart = recentRestarts[0];
   if (lastRestart) {
     const timeSinceLast = now - new Date(lastRestart).getTime();
-    const cooldownMs = (settings?.autoRestartOnFailure?.cooldownMinutes || 5) * 60000;
+    const cooldownMs = (settings.autoRestartOnFailure?.cooldownMinutes || 5) * 60000;
 
     if (timeSinceLast < cooldownMs) {
       return {
@@ -109,8 +109,8 @@ function recordRestart(): void {
  */
 async function buildAndRestart(buildCommand: string): Promise<IPCResult<void>> {
   try {
-    // Check cooldown - default to empty object if settings undefined
-    const settings = readSettingsFile() || {};
+    // Check cooldown
+    const settings = readSettingsFile();
     const cooldownCheck = checkCooldown(settings);
 
     if (!cooldownCheck.allowed) {
@@ -314,7 +314,7 @@ export function checkAndHandleRestart(settings: any, agentManager: AgentManager)
     return;
   }
 
-  if (!settings?.autoRestartOnFailure?.enabled) {
+  if (!settings.autoRestartOnFailure?.enabled) {
     console.log('[RESTART] Auto-restart requested but feature is disabled');
     unlinkSync(RESTART_MARKER_FILE);
     return;
@@ -324,7 +324,7 @@ export function checkAndHandleRestart(settings: any, agentManager: AgentManager)
 
   saveRestartState('prompt_loop', agentManager);
 
-  const buildCommand = settings?.autoRestartOnFailure?.buildCommand || 'npm run build';
+  const buildCommand = settings.autoRestartOnFailure.buildCommand || 'npm run build';
 
   buildAndRestart(buildCommand).catch(error => {
     console.error('[RESTART] Auto-restart failed:', error);
