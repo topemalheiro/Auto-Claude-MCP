@@ -188,11 +188,16 @@ function determineInterventionType(task: TaskInfo): InterventionType | null {
       }
       return 'stuck';  // Bounced without clear reason
     }
-    // PLAN_REVIEW: Planning phase complete, needs to start coding
-    // This happens when planner agent finishes but coder hasn't started yet
+    // PLAN_REVIEW: Only flag if subtasks are actually incomplete
+    // At 100% completion, planning is done - no intervention needed
     if (task.reviewReason === 'plan_review') {
-      console.log(`[RDR] Task ${task.specId} at 100% with plan_review - planning complete, ready for coding`);
-      return 'incomplete';  // Ready to move to next phase
+      if (progress < 100) {
+        console.log(`[RDR] Task ${task.specId} with plan_review at ${progress}% - needs to complete planning`);
+        return 'incomplete';
+      }
+      // At 100% - planning is done, task will progress automatically
+      console.log(`[RDR] ⏭️  Task ${task.specId} with plan_review at 100% - no intervention needed`);
+      return null;
     }
     // Also flag if 100% but reviewReason indicates a problem
     // (e.g., errors, qa_rejected, or other non-'completed' reasons)
