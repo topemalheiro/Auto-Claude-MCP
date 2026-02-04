@@ -465,7 +465,10 @@ function getAllTaskInfo(projectId: string, taskIds: string[]): TaskInfo[] {
       status: task.status,
       reviewReason: task.reviewReason,
       description: task.description,
-      subtasks: task.subtasks
+      subtasks: task.subtasks,
+      phases: task.phases,           // CRITICAL: Needed for calculateTaskProgress()
+      exitReason: task.exitReason,   // Needed for recovery detection
+      planStatus: task.planStatus    // Needed for plan_review detection
     }));
 }
 
