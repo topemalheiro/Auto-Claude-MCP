@@ -136,7 +136,7 @@ class TestGetChangedFilesFromGit:
             ],
         ):
             result = _get_changed_files_from_git(worktree_path, "main")
-            assert result == ["file1.py", "file2.py", "file3"]
+            assert result == ["file1.py", "file2.py", "file3.py"]
 
     def test_get_changed_files_fallback_to_direct_diff(self, tmp_path):
         """Test fallback to direct diff when merge-base fails."""
@@ -198,7 +198,7 @@ class TestGetChangedFilesFromGit:
             ],
         ):
             result = _get_changed_files_from_git(worktree_path, "main")
-            assert result == ["file1.py", "file2.py", "file3"]
+            assert result == ["file1.py", "file2.py", "file3.py"]
 
 
 # ============================================================================
