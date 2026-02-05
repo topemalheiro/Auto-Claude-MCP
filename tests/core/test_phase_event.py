@@ -513,5 +513,5 @@ class TestExecutionPhaseEnum:
     def test_enum_iteration(self):
         """Test iterating over all enum values."""
         phases = [phase.value for phase in ExecutionPhase]
-        expected = ["planning", "coding", "qa_review", "qa_fixing", "complete", "failed"]
+        expected = ["planning", "coding", "qa_review", "qa_fixing", "complete", "failed", "rate_limit_paused", "auth_failure_paused"]
         assert phases == expected

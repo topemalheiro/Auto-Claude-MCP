@@ -28,7 +28,9 @@ class TestCodeSearcherInit:
         """Test initialization with absolute path"""
         project_dir = Path("/tmp/test_project")
         searcher = CodeSearcher(project_dir)
-        assert searcher.project_dir == project_dir
+        # On macOS, /tmp is a symlink to /private/tmp, so compare resolved paths
+        # On Windows, absolute paths may include drive letter
+        assert searcher.project_dir == project_dir.resolve()
 
 
 class TestIterCodeFiles:
