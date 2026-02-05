@@ -320,7 +320,7 @@ class TestDetectParallelTaskConflicts:
         project_dir.mkdir()
 
         with patch(
-            "cli.workspace_commands.MergeOrchestrator"
+            "merge.MergeOrchestrator"
         ) as mock_orchestrator_class:
             mock_orchestrator = MagicMock()
             mock_orchestrator_class.return_value = mock_orchestrator
@@ -339,7 +339,7 @@ class TestDetectParallelTaskConflicts:
         project_dir.mkdir()
 
         with patch(
-            "cli.workspace_commands.MergeOrchestrator"
+            "merge.MergeOrchestrator"
         ) as mock_orchestrator_class:
             mock_orchestrator = MagicMock()
             mock_orchestrator_class.return_value = mock_orchestrator
@@ -367,7 +367,7 @@ class TestDetectParallelTaskConflicts:
         project_dir.mkdir()
 
         with patch(
-            "cli.workspace_commands.MergeOrchestrator"
+            "merge.MergeOrchestrator"
         ) as mock_orchestrator_class:
             mock_orchestrator = MagicMock()
             mock_orchestrator_class.return_value = mock_orchestrator
@@ -393,7 +393,7 @@ class TestDetectParallelTaskConflicts:
         project_dir.mkdir()
 
         with patch(
-            "cli.workspace_commands.MergeOrchestrator",
+            "merge.MergeOrchestrator",
             side_effect=Exception("Merge orchestrator failed"),
         ):
             result = _detect_parallel_task_conflicts(
