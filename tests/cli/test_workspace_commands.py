@@ -23,6 +23,7 @@ from cli.workspace_commands import (
     handle_merge_command,
     handle_merge_preview_command,
     handle_review_command,
+    is_lock_file,
     worktree_summary_command,
 )
 
@@ -644,7 +645,7 @@ class TestHandleMergePreviewCommand:
         project_dir.mkdir()
 
         with patch(
-            "cli.workspace_commands.get_existing_build_worktree", return_value=None
+            "workspace.get_existing_build_worktree", return_value=None
         ):
             result = handle_merge_preview_command(project_dir, "001-test")
             assert result["success"] is False
@@ -658,7 +659,7 @@ class TestHandleMergePreviewCommand:
         worktree_path.mkdir()
 
         with patch(
-            "cli.workspace_commands.get_existing_build_worktree",
+            "workspace.get_existing_build_worktree",
             return_value=worktree_path,
         ), patch(
             "cli.workspace_commands._detect_default_branch", return_value="main"
@@ -695,7 +696,7 @@ class TestHandleMergePreviewCommand:
         worktree_path.mkdir()
 
         with patch(
-            "cli.workspace_commands.get_existing_build_worktree",
+            "workspace.get_existing_build_worktree",
             return_value=worktree_path,
         ), patch(
             "cli.workspace_commands._detect_default_branch", return_value="main"
@@ -738,7 +739,7 @@ class TestHandleMergePreviewCommand:
         ]
 
         with patch(
-            "cli.workspace_commands.get_existing_build_worktree",
+            "workspace.get_existing_build_worktree",
             return_value=worktree_path,
         ), patch(
             "cli.workspace_commands._detect_default_branch", return_value="main"
@@ -776,7 +777,7 @@ class TestHandleMergePreviewCommand:
         worktree_path.mkdir()
 
         with patch(
-            "cli.workspace_commands.get_existing_build_worktree",
+            "workspace.get_existing_build_worktree",
             return_value=worktree_path,
         ), patch(
             "cli.workspace_commands._detect_default_branch", return_value="main"
@@ -821,7 +822,7 @@ class TestHandleMergePreviewCommand:
         worktree_path.mkdir()
 
         with patch(
-            "cli.workspace_commands.get_existing_build_worktree",
+            "workspace.get_existing_build_worktree",
             return_value=worktree_path,
         ), patch(
             "cli.workspace_commands._detect_worktree_base_branch", return_value=None
@@ -861,7 +862,7 @@ class TestHandleMergePreviewCommand:
         worktree_path.mkdir()
 
         with patch(
-            "cli.workspace_commands.get_existing_build_worktree",
+            "workspace.get_existing_build_worktree",
             return_value=worktree_path,
         ), patch(
             "cli.workspace_commands._detect_default_branch",
@@ -891,7 +892,7 @@ class TestGenerateAndSaveCommitMessage:
         files_changed = ["src/main.py", "src/utils.py"]
 
         with patch(
-            "cli.workspace_commands.generate_commit_message_sync",
+            "commit_message.generate_commit_message_sync",
             return_value="feat: implement new feature",
         ), patch(
             "subprocess.run",
@@ -914,7 +915,7 @@ class TestGenerateAndSaveCommitMessage:
         spec_dir.mkdir(parents=True)
 
         with patch(
-            "cli.workspace_commands.generate_commit_message_sync",
+            "commit_message.generate_commit_message_sync",
             return_value="fix: resolve bug",
         ), patch("subprocess.run", return_value=Mock(returncode=0, stdout="")):
             _generate_and_save_commit_message(project_dir, "001-test")
@@ -930,7 +931,7 @@ class TestGenerateAndSaveCommitMessage:
         spec_dir.mkdir(parents=True)
 
         with patch(
-            "cli.workspace_commands.generate_commit_message_sync",
+            "commit_message.generate_commit_message_sync",
             return_value="chore: update",
         ), patch("subprocess.run", return_value=Mock(returncode=0, stdout="")):
             _generate_and_save_commit_message(project_dir, "001-test")
@@ -944,7 +945,7 @@ class TestGenerateAndSaveCommitMessage:
         project_dir.mkdir()
 
         with patch(
-            "cli.workspace_commands.generate_commit_message_sync",
+            "commit_message.generate_commit_message_sync",
             side_effect=ImportError("No module named 'commit_message'"),
         ):
             # Should not raise
@@ -958,7 +959,7 @@ class TestGenerateAndSaveCommitMessage:
         spec_dir.mkdir(parents=True)
 
         with patch(
-            "cli.workspace_commands.generate_commit_message_sync", return_value=None
+            "commit_message.generate_commit_message_sync", return_value=None
         ):
             _generate_and_save_commit_message(project_dir, "001-test")
 
@@ -997,7 +998,7 @@ class TestHandleCreatePrCommand:
         with patch(
             "cli.workspace_commands.get_existing_build_worktree",
             return_value=worktree_path,
-        ), patch("cli.workspace_commands.WorktreeManager") as mock_mgr_class:
+        ), patch("core.worktree.WorktreeManager") as mock_mgr_class:
             mock_manager = MagicMock()
             mock_mgr_class.return_value = mock_manager
             mock_manager.base_branch = "main"
@@ -1021,7 +1022,7 @@ class TestHandleCreatePrCommand:
         with patch(
             "cli.workspace_commands.get_existing_build_worktree",
             return_value=worktree_path,
-        ), patch("cli.workspace_commands.WorktreeManager") as mock_mgr_class:
+        ), patch("core.worktree.WorktreeManager") as mock_mgr_class:
             mock_manager = MagicMock()
             mock_mgr_class.return_value = mock_manager
             mock_manager.base_branch = "main"
@@ -1045,7 +1046,7 @@ class TestHandleCreatePrCommand:
         with patch(
             "cli.workspace_commands.get_existing_build_worktree",
             return_value=worktree_path,
-        ), patch("cli.workspace_commands.WorktreeManager") as mock_mgr_class:
+        ), patch("core.worktree.WorktreeManager") as mock_mgr_class:
             mock_manager = MagicMock()
             mock_mgr_class.return_value = mock_manager
             mock_manager.base_branch = "develop"
@@ -1076,7 +1077,7 @@ class TestHandleCreatePrCommand:
         with patch(
             "cli.workspace_commands.get_existing_build_worktree",
             return_value=worktree_path,
-        ), patch("cli.workspace_commands.WorktreeManager") as mock_mgr_class:
+        ), patch("core.worktree.WorktreeManager") as mock_mgr_class:
             mock_manager = MagicMock()
             mock_mgr_class.return_value = mock_manager
             mock_manager.push_and_create_pr.return_value = {
@@ -1098,7 +1099,7 @@ class TestHandleCreatePrCommand:
         with patch(
             "cli.workspace_commands.get_existing_build_worktree",
             return_value=worktree_path,
-        ), patch("cli.workspace_commands.WorktreeManager") as mock_mgr_class:
+        ), patch("core.worktree.WorktreeManager") as mock_mgr_class:
             mock_manager = MagicMock()
             mock_mgr_class.return_value = mock_manager
             mock_manager.push_and_create_pr.side_effect = Exception(
@@ -1197,7 +1198,7 @@ class TestHandleReviewCommand:
         project_dir = Path("/tmp/test")
         spec_name = "001-test"
 
-        with patch("cli.workspace_commands.get_existing_build_worktree", return_value=None):
+        with patch("workspace.get_existing_build_worktree", return_value=None):
             handle_review_command(project_dir, spec_name)
 
         captured = capsys.readouterr()
@@ -1230,7 +1231,7 @@ class TestHandleDiscardCommand:
         project_dir = Path("/tmp/test")
         spec_name = "001-test"
 
-        with patch("cli.workspace_commands.get_existing_build_worktree", return_value=None):
+        with patch("workspace.get_existing_build_worktree", return_value=None):
             handle_discard_command(project_dir, spec_name)
 
         captured = capsys.readouterr()
@@ -1433,7 +1434,7 @@ def test_handle_merge_command_no_worktree(capsys):
     project_dir = Path("/tmp/test")
     spec_name = ""
 
-    with patch("cli.workspace_commands.get_existing_build_worktree", return_value=None):
+    with patch("workspace.get_existing_build_worktree", return_value=None):
         # Act
         result = handle_merge_command(project_dir, spec_name, False, None)
 
@@ -1449,7 +1450,7 @@ def test_handle_merge_command_with_empty_inputs(capsys):
     project_dir = Path("/tmp/test")
     spec_name = ""
 
-    with patch("cli.workspace_commands.get_existing_build_worktree", return_value=None):
+    with patch("workspace.get_existing_build_worktree", return_value=None):
         # Act
         result = handle_merge_command(project_dir, spec_name, False, None)
 
@@ -1464,7 +1465,7 @@ def test_handle_review_command_no_worktree(capsys):
     project_dir = Path("/tmp/test")
     spec_name = ""
 
-    with patch("cli.workspace_commands.get_existing_build_worktree", return_value=None):
+    with patch("workspace.get_existing_build_worktree", return_value=None):
         # Act
         result = handle_review_command(project_dir, spec_name)
 
@@ -1479,7 +1480,7 @@ def test_handle_review_command_with_empty_inputs(capsys):
     project_dir = Path("/tmp/test")
     spec_name = ""
 
-    with patch("cli.workspace_commands.get_existing_build_worktree", return_value=None):
+    with patch("workspace.get_existing_build_worktree", return_value=None):
         # Act
         result = handle_review_command(project_dir, spec_name)
 
@@ -1494,7 +1495,7 @@ def test_handle_discard_command_no_worktree(capsys):
     project_dir = Path("/tmp/test")
     spec_name = ""
 
-    with patch("cli.workspace_commands.get_existing_build_worktree", return_value=None):
+    with patch("workspace.get_existing_build_worktree", return_value=None):
         # Act
         result = handle_discard_command(project_dir, spec_name)
 
@@ -1509,7 +1510,7 @@ def test_handle_discard_command_with_empty_inputs(capsys):
     project_dir = Path("/tmp/test")
     spec_name = ""
 
-    with patch("cli.workspace_commands.get_existing_build_worktree", return_value=None):
+    with patch("workspace.get_existing_build_worktree", return_value=None):
         # Act
         result = handle_discard_command(project_dir, spec_name)
 
@@ -1573,7 +1574,7 @@ def test_handle_merge_preview_command_no_worktree(tmp_path):
     project_dir.mkdir()
     spec_name = "001-test"
 
-    with patch("cli.workspace_commands.get_existing_build_worktree", return_value=None):
+    with patch("workspace.get_existing_build_worktree", return_value=None):
         # Act
         result = handle_merge_preview_command(project_dir, spec_name, None)
 
@@ -1588,7 +1589,7 @@ def test_handle_merge_preview_command_with_empty_inputs(tmp_path):
     project_dir = tmp_path / "project"
     project_dir.mkdir()
 
-    with patch("cli.workspace_commands.get_existing_build_worktree", return_value=None):
+    with patch("workspace.get_existing_build_worktree", return_value=None):
         # Act
         result = handle_merge_preview_command(project_dir, "", None)
 
@@ -1604,7 +1605,7 @@ def test_handle_create_pr_command_no_worktree(tmp_path):
     project_dir.mkdir()
     spec_name = "001-test"
 
-    with patch("cli.workspace_commands.get_existing_build_worktree", return_value=None):
+    with patch("workspace.get_existing_build_worktree", return_value=None):
         # Act
         result = handle_create_pr_command(project_dir, spec_name, None, None, False)
 
@@ -1621,7 +1622,7 @@ def test_handle_create_pr_command_with_empty_inputs(tmp_path):
     project_dir = tmp_path / "project"
     project_dir.mkdir()
 
-    with patch("cli.workspace_commands.get_existing_build_worktree", return_value=None):
+    with patch("workspace.get_existing_build_worktree", return_value=None):
         # Act
         result = handle_create_pr_command(project_dir, "", None, None, False)
 
@@ -1695,7 +1696,7 @@ def test_handle_merge_command_valid_worktree(tmp_path, capsys):
     worktree_path = tmp_path / "worktree"
     worktree_path.mkdir()
 
-    with patch("cli.workspace_commands.get_existing_build_worktree", return_value=worktree_path), \
+    with patch("workspace.get_existing_build_worktree", return_value=worktree_path), \
          patch("sys.exit"):
         # Act
         result = handle_merge_command(project_dir, spec_name, False, None)
@@ -1713,7 +1714,7 @@ def test_handle_review_command_valid_worktree(tmp_path, capsys):
     worktree_path = tmp_path / "worktree"
     worktree_path.mkdir()
 
-    with patch("cli.workspace_commands.get_existing_build_worktree", return_value=worktree_path):
+    with patch("workspace.get_existing_build_worktree", return_value=worktree_path):
         # Act
         result = handle_review_command(project_dir, spec_name)
 
@@ -1730,7 +1731,7 @@ def test_handle_discard_command_valid_worktree(tmp_path, capsys):
     worktree_path = tmp_path / "worktree"
     worktree_path.mkdir()
 
-    with patch("cli.workspace_commands.get_existing_build_worktree", return_value=worktree_path), \
+    with patch("workspace.get_existing_build_worktree", return_value=worktree_path), \
          patch("sys.exit"):
         # Act
         result = handle_discard_command(project_dir, spec_name)
