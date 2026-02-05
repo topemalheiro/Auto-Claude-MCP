@@ -138,7 +138,9 @@ export const TaskCard = memo(function TaskCard({
 
   const isRunning = task.status === 'in_progress';
   const executionPhase = task.executionProgress?.phase;
-  const hasActiveExecution = executionPhase && executionPhase !== 'idle' && executionPhase !== 'complete' && executionPhase !== 'failed';
+  // Only show execution phase badge if task is actually running AND has an active phase
+  // This prevents showing stale "Planning" badges for tasks that were recovered or have inconsistent state
+  const hasActiveExecution = isRunning && executionPhase && executionPhase !== 'idle' && executionPhase !== 'complete' && executionPhase !== 'failed';
 
   // Check if task is in human_review but has no completed subtasks (crashed/incomplete)
   const isIncomplete = isIncompleteHumanReview(task);

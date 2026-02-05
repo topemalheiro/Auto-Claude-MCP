@@ -4,6 +4,7 @@ import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import type { Project, ProjectSettings, Task, TaskStatus, TaskMetadata, ImplementationPlan, ReviewReason, PlanSubtask, KanbanPreferences, ExecutionPhase } from '../shared/types';
 import { DEFAULT_PROJECT_SETTINGS, AUTO_BUILD_PATHS, getSpecsDir, JSON_ERROR_PREFIX, JSON_ERROR_TITLE_SUFFIX, TASK_STATUS_PRIORITY } from '../shared/constants';
+import { XSTATE_SETTLED_STATES } from '../shared/state-machines';
 import { getAutoBuildPath, isInitialized } from './project-initializer';
 import { getTaskWorktreeDir } from './worktree-paths';
 import { findAllSpecPaths } from './utils/spec-path-helpers';
@@ -341,8 +342,6 @@ export class ProjectStore {
         const newIsMain = task.location === 'main';
 
         if (existingIsMain && !newIsMain) {
-          // Main wins, keep existing
-          continue;
         } else if (!existingIsMain && newIsMain) {
           // New is main, replace existing worktree
           taskMap.set(task.id, task);
@@ -527,15 +526,24 @@ export class ProjectStore {
           }
         }
 
-        // Use persisted executionPhase (from text parser) or xstateState for exact restoration
-        // Priority: executionPhase > xstateState > inferred from status
+        // Use xstateState as the authoritative source for execution phase when available.
+        // Only fall back to persistedPhase for active running states where xstateState
+        // might not reflect the detailed phase yet (e.g., planning vs coding within in_progress).
+        // Priority: xstateState (when settled) > persistedPhase (when running) > inferred from status
         const persistedPhase = (plan as { executionPhase?: string } | null)?.executionPhase as ExecutionPhase | undefined;
         const xstateState = (plan as { xstateState?: string } | null)?.xstateState;
-        const executionProgress = persistedPhase
-          ? { phase: persistedPhase, phaseProgress: 50, overallProgress: 50 }
-          : xstateState
-            ? this.inferExecutionProgressFromXState(xstateState)
-            : this.inferExecutionProgress(plan?.status);
+
+        // XState settled states take priority - these override any stale persisted phase
+        // because the task is no longer actively running
+        const isSettledState = xstateState && XSTATE_SETTLED_STATES.has(xstateState);
+
+        const executionProgress = isSettledState
+          ? this.inferExecutionProgressFromXState(xstateState)  // Use XState for settled states
+          : persistedPhase
+            ? { phase: persistedPhase, phaseProgress: 50, overallProgress: 50 }  // Use persisted for running
+            : xstateState
+              ? this.inferExecutionProgressFromXState(xstateState)
+              : this.inferExecutionProgress(plan?.status);
 
         tasks.push({
           id: dir.name, // Use spec directory name as ID
