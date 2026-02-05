@@ -10,6 +10,22 @@ import pytest
 import sys
 
 
+# Disable pytest capture for this module due to sys.stdout.close() in safe_print
+# See: https://github.com/pytest-dev/pytest/issues/7770
+pytestmark = pytest.mark.filterwarnings("ignore::pytest.PytestUnraisableExceptionWarning")
+pytestmark = pytest.mark.filterwarnings("ignore::RuntimeWarning")
+
+
+@pytest.fixture(autouse=True)
+def cleanup_io_state():
+    """Ensure clean I/O state before and after each test."""
+    # Reset before test
+    reset_pipe_state()
+    yield
+    # Reset after test to ensure clean state for next test
+    reset_pipe_state()
+
+
 class TestSafePrint:
     """Tests for safe_print() function."""
 

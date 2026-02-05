@@ -13,12 +13,16 @@ cases gracefully.
 from __future__ import annotations
 
 import logging
+import os
 import sys
 
 logger = logging.getLogger(__name__)
 
 # Track if pipe is broken to avoid repeated failed writes
 _pipe_broken = False
+
+# Check if running in tests to prevent closing stdout
+_IN_TESTS = os.environ.get("AUTO_CLAUDE_TESTS", "0") == "1"
 
 
 def safe_print(message: str, flush: bool = True) -> None:
@@ -45,10 +49,12 @@ def safe_print(message: str, flush: bool = True) -> None:
         # Pipe closed by parent process - this is expected during shutdown
         _pipe_broken = True
         # Quietly close stdout to prevent further errors
-        try:
-            sys.stdout.close()
-        except Exception:
-            pass
+        # Skip closing stdout during tests to avoid pytest capture issues
+        if not _IN_TESTS:
+            try:
+                sys.stdout.close()
+            except Exception:
+                pass
         logger.debug("Output pipe closed by parent process")
     except ValueError as e:
         # Handle writes to closed file (can happen after stdout.close())
