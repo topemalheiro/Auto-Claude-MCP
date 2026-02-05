@@ -1,24 +1,8 @@
-"""
-Auto-Build Framework Test Suite
-===============================
+"""Tests package - adds apps/backend to Python path."""
+import sys
+from pathlib import Path
 
-Comprehensive tests for the autonomous coding assistant framework.
-
-Test modules:
-- test_worktree.py: Git worktree management tests
-- test_security.py: Command security and validation tests
-- test_scan_secrets.py: Secret scanning and detection tests
-- test_project_analyzer.py: Project analysis and profile generation tests
-- test_implementation_plan.py: Implementation plan data structure tests
-- test_qa_loop.py: QA validation loop tests
-- test_workspace.py: Workspace selection and management tests
-- test_parallel.py: Parallel execution tests
-- test_recovery.py: Recovery mechanism tests
-- test_critique_integration.py: Self-critique integration tests
-
-Run tests with:
-    pytest tests/
-    pytest tests/ -v  # verbose
-    pytest tests/ -k "test_worktree"  # specific module
-    pytest tests/ --cov=auto-claude  # with coverage
-"""
+# Add apps/backend to Python path so we can import modules like review, qa, etc.
+backend_path = Path(__file__).parent / "apps" / "backend"
+if str(backend_path) not in sys.path:
+    sys.path.insert(0, str(backend_path))

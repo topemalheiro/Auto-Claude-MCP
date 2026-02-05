@@ -17,9 +17,9 @@ import pytest
 
 # Add auto-claude to path for imports
 import sys
-sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "backend"))
+sys.path.insert(0, str(Path(__file__).parent.parent / "Apps" / "backend"))
 
-from services.orchestrator import (
+from service_orchestrator import (
     ServiceConfig,
     OrchestrationResult,
     ServiceOrchestrator,

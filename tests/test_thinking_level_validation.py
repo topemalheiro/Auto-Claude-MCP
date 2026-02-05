@@ -9,8 +9,10 @@ import logging
 import sys
 from pathlib import Path
 
+import pytest
+
 # Add auto-claude to path
-sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "backend"))
+sys.path.insert(0, str(Path(__file__).parent.parent / "Apps" / "backend"))
 
 from phase_config import THINKING_BUDGET_MAP, get_thinking_budget
 
@@ -26,6 +28,14 @@ class TestThinkingLevelValidation:
             budget = get_thinking_budget(level)
             expected = THINKING_BUDGET_MAP[level]
             assert budget == expected, f"Expected {expected} for {level}, got {budget}"
+
+    def test_none_level_returns_none(self):
+        """Test that 'none' thinking level returns None (no extended thinking)."""
+        assert get_thinking_budget("none") is None
+
+    def test_ultrathink_max_budget(self):
+        """Test that 'ultrathink' returns maximum budget."""
+        assert get_thinking_budget("ultrathink") == 60000
 
     def test_invalid_level_logs_warning(self, caplog):
         """Test that invalid thinking level logs a warning."""
@@ -81,17 +91,4 @@ class TestThinkingLevelValidation:
         assert get_thinking_budget("low") == 1024
         assert get_thinking_budget("medium") == 4096
         assert get_thinking_budget("high") == 16384
-
-    def test_removed_none_treated_as_invalid(self, caplog):
-        """Test that removed 'none' level is treated as invalid and defaults to medium."""
-        with caplog.at_level(logging.WARNING):
-            budget = get_thinking_budget("none")
-            assert budget == THINKING_BUDGET_MAP["medium"]
-            assert "Invalid thinking_level 'none'" in caplog.text
-
-    def test_removed_ultrathink_treated_as_invalid(self, caplog):
-        """Test that removed 'ultrathink' level is treated as invalid and defaults to medium."""
-        with caplog.at_level(logging.WARNING):
-            budget = get_thinking_budget("ultrathink")
-            assert budget == THINKING_BUDGET_MAP["medium"]
-            assert "Invalid thinking_level 'ultrathink'" in caplog.text
+        assert get_thinking_budget("ultrathink") == 60000
