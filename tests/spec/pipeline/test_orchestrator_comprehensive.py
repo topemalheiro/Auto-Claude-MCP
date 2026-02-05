@@ -3,17 +3,15 @@ Comprehensive tests for spec.pipeline.orchestrator module.
 
 Additional tests to improve coverage for SpecOrchestrator class,
 focusing on previously untested code paths.
-
-NOTE: Tests SpecOrchestrator which involves async operations and file I/O.
-Marked as slow - can be excluded with: pytest -m "not slow"
 """
 
 import json
-from unittest.mock import AsyncMock, MagicMock, patch
+from datetime import datetime, timedelta
+from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock, patch, call
+from typing import Any
 
 import pytest
-
-pytestmark = pytest.mark.slow
 
 from spec.pipeline.orchestrator import SpecOrchestrator
 from spec.phases.models import PhaseResult

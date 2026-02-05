@@ -6,10 +6,10 @@ Tests for utility functions, models, and helper functions in the spec pipeline.
 
 import json
 import os
-import sys
+import shutil
 from datetime import datetime, timedelta
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, PropertyMock
 
 import pytest
 
@@ -1074,10 +1074,6 @@ class TestRenameSpecDirFromRequirementsEdgeCases:
         assert result is True
         assert spec_dir.exists()
 
-    @pytest.mark.skipif(
-        sys.platform == "win32",
-        reason="Windows console cannot encode non-ASCII characters (Chinese, emoji, etc.) due to charmap codec limitations"
-    )
     def test_rename_with_non_ascii_description(self, tmp_path):
         """Test rename with non-ASCII characters in description."""
         specs_dir = tmp_path / "specs"

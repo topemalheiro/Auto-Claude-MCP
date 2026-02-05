@@ -1,7 +1,9 @@
 """Tests for writer module"""
 
 import json
-from unittest.mock import patch
+from pathlib import Path
+from datetime import datetime
+from unittest.mock import MagicMock, patch
 
 import pytest
 

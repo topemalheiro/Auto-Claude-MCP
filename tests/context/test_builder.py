@@ -1,6 +1,7 @@
 """Tests for builder"""
 
-from unittest.mock import patch, AsyncMock
+from pathlib import Path
+from unittest.mock import MagicMock, patch, AsyncMock
 import json
 
 import pytest

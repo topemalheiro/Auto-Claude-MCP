@@ -4,6 +4,9 @@ Comprehensive test coverage for memory summary functions.
 """
 
 import json
+from pathlib import Path
+from unittest.mock import patch
+import pytest
 
 from memory.summary import get_memory_summary
 from memory.patterns import append_pattern, append_gotcha

@@ -15,12 +15,13 @@ Comprehensive tests for the ProjectAnalyzer class including:
 
 import json
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import MagicMock, Mock, patch
+from datetime import datetime
 
 import pytest
 
 from project.analyzer import ProjectAnalyzer
-from project.models import SecurityProfile
+from project.models import SecurityProfile, TechnologyStack, CustomScripts
 from project.structure_analyzer import StructureAnalyzer
 
 
@@ -344,8 +345,6 @@ class TestComputeProjectHash:
 
     def test_hash_with_dockerfile(self, temp_project_dir: Path):
         """Test hash computation with Dockerfile."""
-        import time
-
         analyzer = ProjectAnalyzer(temp_project_dir)
 
         dockerfile = temp_project_dir / "Dockerfile"
@@ -353,19 +352,11 @@ class TestComputeProjectHash:
 
         hash1 = analyzer.compute_project_hash()
 
-        # Small delay to ensure different mtime on systems with coarse resolution
-        time.sleep(0.01)
-
-        # Modify Dockerfile - ensure different content
+        # Modify Dockerfile
         dockerfile.write_text("FROM python:3.12")
-
-        # Verify file was actually modified
-        assert dockerfile.read_text() == "FROM python:3.12"
-
         hash2 = analyzer.compute_project_hash()
 
-        # Hashes should be different since Dockerfile content changed
-        assert hash1 != hash2, f"Hashes should differ but got same value: {hash1}"
+        assert hash1 != hash2
 
     def test_hash_with_go_mod(self, temp_project_dir: Path):
         """Test hash computation with go.mod."""

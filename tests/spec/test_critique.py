@@ -1,6 +1,9 @@
 """Tests for critique"""
 
 from spec.critique import CritiqueResult, format_critique_summary, generate_critique_prompt, parse_critique_response, should_proceed
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+import pytest
 
 
 def test_generate_critique_prompt():

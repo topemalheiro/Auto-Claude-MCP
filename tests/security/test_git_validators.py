@@ -1,7 +1,8 @@
 """Tests for git_validators"""
 
+import pytest
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, call
 from security.git_validators import (
     validate_git_config,
     validate_git_inline_config,
@@ -845,6 +846,7 @@ class TestEdgeCasesForFullCoverage:
     def test_git_commit_secret_scanner_import_error_path(self):
         """Test ImportError path when scan_secrets module cannot be imported (lines 239-241)"""
         import sys
+        import importlib
 
         # Save original states
         scan_secrets_backup = sys.modules.get("scan_secrets")

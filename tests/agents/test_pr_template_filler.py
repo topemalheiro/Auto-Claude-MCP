@@ -1,6 +1,7 @@
 """Tests for agents.pr_template_filler module."""
 
-from unittest.mock import AsyncMock, patch
+from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from agents.pr_template_filler import (
@@ -308,6 +309,7 @@ class TestTruncateDiff:
 
     def test_handles_diff_with_only_file_headers(self):
         """Test diff with only file header lines."""
+        from agents.pr_template_filler import MAX_DIFF_CHARS
         diff_lines = [
             "diff --git a/file.py b/file.py",
             "--- a/file.py",
@@ -322,6 +324,7 @@ class TestTruncateDiff:
 
     def test_preserves_diff_structure_when_truncated(self):
         """Test that truncated diff maintains proper structure."""
+        from agents.pr_template_filler import MAX_DIFF_CHARS
         diff_lines = [
             "diff --git a/file1.py b/file1.py",
             "--- a/file1.py",

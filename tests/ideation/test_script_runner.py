@@ -2,16 +2,16 @@
 
 from ideation.script_runner import ScriptRunner
 from pathlib import Path
-from unittest.mock import patch, Mock
+from unittest.mock import MagicMock, patch, Mock
 import subprocess
+import pytest
 
 
 def test_ScriptRunner___init__():
     """Test ScriptRunner.__init__"""
     project_dir = Path("/tmp/test")
     runner = ScriptRunner(project_dir)
-    # Compare paths without resolve() since the implementation stores paths as-is
-    assert str(runner.project_dir) == str(project_dir)
+    assert runner.project_dir == project_dir
 
 
 @patch("ideation.script_runner.subprocess.run")

@@ -6,6 +6,7 @@ Tests for ServiceMatcher class including all scoring logic,
 edge cases, and default service selection.
 """
 
+import pytest
 
 from context.service_matcher import ServiceMatcher
 

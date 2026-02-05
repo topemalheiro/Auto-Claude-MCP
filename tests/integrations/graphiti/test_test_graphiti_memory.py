@@ -1,5 +1,6 @@
 """Tests for test_graphiti_memory.py script functions."""
 
+import asyncio
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
@@ -56,52 +57,35 @@ class TestHelperFunctions:
 class TestApplyLadybugMonkeypatch:
     """Tests for apply_ladybug_monkeypatch function."""
 
-    @patch("builtins.__import__")
-    def test_apply_ladybug_monkeypatch_with_real_ladybug(self, mock_import):
+    @patch("integrations.graphiti.test_graphiti_memory.sys.modules", {"real_ladybug": MagicMock()})
+    def test_apply_ladybug_monkeypatch_with_real_ladybug(self):
         """Test monkeypatch succeeds when real_ladybug is available."""
-        # Save original import to avoid affecting other tests
-        original_import = __import__
-
-        # Mock real_ladybug import to succeed
-        def import_side_effect(name, *args, **kwargs):
-            if name == "real_ladybug":
-                return MagicMock()
-            return original_import(name, *args, **kwargs)
-
-        mock_import.side_effect = import_side_effect
         result = apply_ladybug_monkeypatch()
         assert result is True
 
-    @patch("builtins.__import__")
-    def test_apply_ladybug_monkeypatch_fallback_to_kuzu(self, mock_import):
+    @patch.dict("sys.modules", {}, clear=False)
+    @patch("integrations.graphiti.test_graphiti_memory.sys.modules", {})
+    def test_apply_ladybug_monkeypatch_fallback_to_kuzu(self):
         """Test fallback to kuzu when real_ladybug not available."""
-        # Save original import to avoid affecting other tests
-        original_import = __import__
+        # Add kuzu to modules
+        import sys
+        sys.modules["kuzu"] = MagicMock()
 
-        def import_side_effect(name, *args, **kwargs):
-            if name == "real_ladybug":
-                raise ImportError("real_ladybug not available")
-            elif name == "kuzu":
-                return MagicMock()
-            return original_import(name, *args, **kwargs)
+        # Make real_ladybug not available
+        sys.modules.pop("real_ladybug", None)
 
-        mock_import.side_effect = import_side_effect
         result = apply_ladybug_monkeypatch()
         assert result is True
 
-    @patch("builtins.__import__")
-    def test_apply_ladybug_monkeypatch_neither_available(self, mock_import):
+    @patch.dict("sys.modules", {}, clear=False)
+    @patch("integrations.graphiti.test_graphiti_memory.sys.modules", {})
+    def test_apply_ladybug_monkeypatch_neither_available(self):
         """Test returns False when neither is available."""
-        # Save original import to avoid affecting other tests
-        original_import = __import__
+        import sys
+        # Remove both modules
+        sys.modules.pop("real_ladybug", None)
+        sys.modules.pop("kuzu", None)
 
-        # Both imports fail
-        def import_side_effect(name, *args, **kwargs):
-            if name in ("real_ladybug", "kuzu"):
-                raise ImportError(f"{name} not available")
-            return original_import(name, *args, **kwargs)
-
-        mock_import.side_effect = import_side_effect
         result = apply_ladybug_monkeypatch()
         assert result is False
 
@@ -110,12 +94,27 @@ class TestLadybugdbConnection:
     """Tests for test_ladybugdb_connection function."""
 
     @pytest.mark.asyncio
-    @pytest.mark.skip(reason="Meta-test for test script - actual kuzu mocking complex due to local imports")
     async def test_ladybugdb_connection_success(self):
         """Test successful database connection."""
-        # Skipped: This test mocks a test script (meta-test) which has complex
-        # local imports that are difficult to mock reliably. The actual
-        # test_graphiti_memory.py script is tested manually when needed.
+        mock_kuzu = MagicMock()
+        mock_db = MagicMock()
+        mock_conn = MagicMock()
+        mock_result = MagicMock()
+        mock_df = MagicMock()
+
+        mock_df.__getitem__ = MagicMock(return_value=[2])
+        mock_df.__len__ = MagicMock(return_value=1)
+        mock_df.iloc = MagicMock(return_value=2)
+
+        mock_result.get_as_df = MagicMock(return_value=mock_df)
+        mock_conn.execute = MagicMock(return_value=mock_result)
+        mock_kuzu.Connection = MagicMock(return_value=mock_conn)
+        mock_kuzu.Database = MagicMock(return_value=mock_db)
+
+        with patch.dict("sys.modules", {"kuzu": mock_kuzu}):
+            result = await test_ladybugdb_connection("/tmp/test", "test_db")
+
+            assert result is True
 
     @pytest.mark.asyncio
     async def test_ladybugdb_connection_not_installed(self, capsys):
@@ -136,19 +135,16 @@ class TestLadybugdbConnection:
         mock_kuzu = MagicMock()
         mock_kuzu.Database = MagicMock(side_effect=OSError("Permission denied"))
 
-        # Patch apply_ladybug_monkeypatch to set up our mock kuzu
-        with patch("integrations.graphiti.test_graphiti_memory.apply_ladybug_monkeypatch", return_value=True):
-            with patch.dict("sys.modules", {"kuzu": mock_kuzu}):
-                result = await test_ladybugdb_connection("/tmp/test", "test_db")
+        with patch.dict("sys.modules", {"kuzu": mock_kuzu}):
+            result = await test_ladybugdb_connection("/tmp/test", "test_db")
 
-                assert result is False
+            assert result is False
 
 
 class TestSaveEpisode:
     """Tests for test_save_episode function."""
 
     @pytest.mark.asyncio
-    @pytest.mark.skip(reason="Test isolation issue with graphiti_core module loading")
     async def test_save_episode_success(self):
         """Test successful episode save."""
         mock_config = MagicMock()
@@ -163,34 +159,28 @@ class TestSaveEpisode:
         mock_client.graphiti.add_episode = AsyncMock()
         mock_client.close = AsyncMock()
 
-        # Create a mock EpisodeType with text attribute
-        mock_episode_type = MagicMock()
-        mock_episode_type.text = "text"
-
         with patch(
-            "integrations.graphiti.config.GraphitiConfig.from_env",
+            "integrations.graphiti.test_graphiti_memory.GraphitiConfig.from_env",
             return_value=mock_config,
         ):
             with patch(
-                "integrations.graphiti.queries_pkg.client.GraphitiClient",
+                "integrations.graphiti.test_graphiti_memory.GraphitiClient",
                 return_value=mock_client,
             ):
                 with patch(
                     "integrations.graphiti.test_graphiti_memory.apply_ladybug_monkeypatch",
                     return_value=True,
                 ):
-                    # Patch graphiti_core.nodes.EpisodeType to avoid import issues
-                    with patch("graphiti_core.nodes.EpisodeType", mock_episode_type):
-                        result = await test_save_episode("/tmp/test", "test_db")
+                    result = await test_save_episode("/tmp/test", "test_db")
 
-                        assert result[0] is not None  # episode_name
-                        assert result[1] is not None  # group_id
+                    assert result[0] is not None  # episode_name
+                    assert result[1] is not None  # group_id
 
     @pytest.mark.asyncio
     async def test_save_episode_import_error(self):
         """Test episode save handles import errors."""
         with patch(
-            "integrations.graphiti.config.GraphitiConfig.from_env",
+            "integrations.graphiti.test_graphiti_memory.GraphitiConfig.from_env",
             side_effect=ImportError("Module not found"),
         ):
             result = await test_save_episode("/tmp/test", "test_db")
@@ -207,11 +197,11 @@ class TestSaveEpisode:
         mock_client.initialize = AsyncMock(return_value=False)
 
         with patch(
-            "integrations.graphiti.config.GraphitiConfig.from_env",
+            "integrations.graphiti.test_graphiti_memory.GraphitiConfig.from_env",
             return_value=mock_config,
         ):
             with patch(
-                "integrations.graphiti.queries_pkg.client.GraphitiClient",
+                "integrations.graphiti.test_graphiti_memory.GraphitiClient",
                 return_value=mock_client,
             ):
                 with patch(
@@ -297,11 +287,11 @@ class TestSemanticSearch:
         mock_client.close = AsyncMock()
 
         with patch(
-            "integrations.graphiti.config.GraphitiConfig.from_env",
+            "integrations.graphiti.test_graphiti_memory.GraphitiConfig.from_env",
             return_value=mock_config,
         ):
             with patch(
-                "integrations.graphiti.queries_pkg.client.GraphitiClient",
+                "integrations.graphiti.test_graphiti_memory.GraphitiClient",
                 return_value=mock_client,
             ):
                 with patch(
@@ -321,7 +311,7 @@ class TestSemanticSearch:
         mock_config.embedder_provider = "test"
 
         with patch(
-            "integrations.graphiti.config.GraphitiConfig.from_env",
+            "integrations.graphiti.test_graphiti_memory.GraphitiConfig.from_env",
             return_value=mock_config,
         ):
             result = await test_semantic_search("/tmp/test", "test_db", None)
@@ -335,7 +325,7 @@ class TestSemanticSearch:
         mock_config.embedder_provider = ""
 
         with patch(
-            "integrations.graphiti.config.GraphitiConfig.from_env",
+            "integrations.graphiti.test_graphiti_memory.GraphitiConfig.from_env",
             return_value=mock_config,
         ):
             result = await test_semantic_search(
@@ -410,9 +400,7 @@ class TestOllamaEmbeddings:
                 with patch("requests.post", return_value=mock_post_response):
                     result = await test_ollama_embeddings()
 
-                    # The function returns True even with dimension mismatch
-                    # It only prints a warning message
-                    assert result is True
+                    assert result is False
 
 
 class TestGraphitiMemoryClass:
@@ -435,11 +423,11 @@ class TestGraphitiMemoryClass:
 
         with patch.dict("os.environ", {"GRAPHITI_DB_PATH": "/tmp/test"}):
             with patch(
-                "integrations.graphiti.config.GraphitiConfig.from_env",
+                "integrations.graphiti.test_graphiti_memory.GraphitiConfig.from_env",
                 return_value=mock_config,
             ):
                 with patch(
-                    "integrations.graphiti.memory.GraphitiMemory",
+                    "integrations.graphiti.test_graphiti_memory.GraphitiMemory",
                     return_value=mock_memory,
                 ):
                     result = await test_graphiti_memory_class("/tmp/test", "/tmp/project")
@@ -454,10 +442,10 @@ class TestGraphitiMemoryClass:
 
         with patch.dict("os.environ", {"GRAPHITI_DB_PATH": "/tmp/test"}):
             with patch(
-                "integrations.graphiti.config.GraphitiConfig.from_env",
+                "integrations.graphiti.test_graphiti_memory.GraphitiConfig.from_env",
             ):
                 with patch(
-                    "integrations.graphiti.memory.GraphitiMemory",
+                    "integrations.graphiti.test_graphiti_memory.GraphitiMemory",
                     return_value=mock_memory,
                 ):
                     result = await test_graphiti_memory_class("/tmp/test", "/tmp/project")
@@ -469,7 +457,7 @@ class TestGraphitiMemoryClass:
         """Test GraphitiMemory class with import error."""
         with patch.dict("os.environ", {"GRAPHITI_DB_PATH": "/tmp/test"}):
             with patch(
-                "integrations.graphiti.memory.GraphitiMemory",
+                "integrations.graphiti.test_graphiti_memory.GraphitiMemory",
                 side_effect=ImportError("Module not found"),
             ):
                 result = await test_graphiti_memory_class("/tmp/test", "/tmp/project")
@@ -528,26 +516,18 @@ class TestDatabaseContents:
     @pytest.mark.asyncio
     async def test_database_contents_exception(self):
         """Test database contents handles exceptions."""
-        # Create a directory that exists so we get past the exists() check
-        import tempfile
-        temp_dir = Path(tempfile.mkdtemp())
-        db_dir = temp_dir / "test_db"
-        db_dir.mkdir(parents=True, exist_ok=True)
+        mock_kuzu = MagicMock()
+        mock_db = MagicMock()
+        mock_db.exists = MagicMock(return_value=True)
+        mock_conn = MagicMock()
+        mock_conn.execute = MagicMock(side_effect=Exception("Database error"))
+        mock_kuzu.Connection = MagicMock(return_value=mock_conn)
+        mock_kuzu.Database = MagicMock(return_value=mock_db)
 
-        # Patch apply_ladybug_monkeypatch to return True and set up kuzu mock
-        with patch("integrations.graphiti.test_graphiti_memory.apply_ladybug_monkeypatch", return_value=True):
-            mock_kuzu = MagicMock()
-            # Make Database() raise an exception - this won't be caught by inner try/except
-            mock_kuzu.Database = MagicMock(side_effect=Exception("Database error"))
+        with patch.dict("sys.modules", {"kuzu": mock_kuzu}):
+            result = await test_database_contents("/tmp/test", "test_db")
 
-            with patch.dict("sys.modules", {"kuzu": mock_kuzu}):
-                result = await test_database_contents(str(temp_dir), "test_db")
-
-                # Clean up
-                import shutil
-                shutil.rmtree(temp_dir, ignore_errors=True)
-
-                assert result is False
+            assert result is False
 
 
 class TestMainFunction:
@@ -558,47 +538,48 @@ class TestMainFunction:
         """Test main runs all tests."""
         with patch(
             "integrations.graphiti.test_graphiti_memory.test_ladybugdb_connection",
-            AsyncMock(return_value=True),
+            return_value=asyncio.coroutine(lambda: True)(),
         ):
             with patch(
                 "integrations.graphiti.test_graphiti_memory.test_ollama_embeddings",
-                AsyncMock(return_value=True),
+                return_value=asyncio.coroutine(lambda: True)(),
             ):
                 with patch(
                     "integrations.graphiti.test_graphiti_memory.test_save_episode",
-                    AsyncMock(return_value=("ep1", "group1")),
+                    return_value=asyncio.coroutine(lambda: ("ep1", "group1"))(),
                 ):
                     with patch(
                         "integrations.graphiti.test_graphiti_memory.test_keyword_search",
-                        AsyncMock(return_value=True),
+                        return_value=asyncio.coroutine(lambda: True)(),
                     ):
                         with patch(
                             "integrations.graphiti.test_graphiti_memory.test_semantic_search",
-                            AsyncMock(return_value=True),
+                            return_value=asyncio.coroutine(lambda: True)(),
                         ):
                             with patch(
                                 "integrations.graphiti.test_graphiti_memory.test_graphiti_memory_class",
-                                AsyncMock(return_value=True),
+                                return_value=asyncio.coroutine(lambda: True)(),
                             ):
                                 with patch(
                                     "integrations.graphiti.test_graphiti_memory.test_database_contents",
-                                    AsyncMock(return_value=True),
+                                    return_value=asyncio.coroutine(lambda: True)(),
                                 ):
                                     with patch.dict("os.environ", {"GRAPHITI_ENABLED": "true"}):
                                         with patch("sys.argv", ["test_graphiti_memory.py"]):
                                             # Import and run main
-                                            pass
+                                            from integrations.graphiti.test_graphiti_memory import main
 
                                             # Should complete without error
                                             # Note: We can't actually test main's output easily
                                             # because it's an async main entry point
+                                            pass
 
     @pytest.mark.asyncio
     async def test_main_specific_test(self):
         """Test main runs specific test."""
         with patch(
             "integrations.graphiti.test_graphiti_memory.test_ladybugdb_connection",
-            AsyncMock(return_value=True),
+            return_value=asyncio.coroutine(lambda: True)(),
         ):
             with patch.dict("os.environ", {"GRAPHITI_ENABLED": "true"}):
                 # We can't easily test argparse with sys.argv mocking in async context

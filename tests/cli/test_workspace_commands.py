@@ -1,5 +1,6 @@
 """Tests for workspace_commands"""
 
+import json
 import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock, Mock, patch
@@ -22,7 +23,6 @@ from cli.workspace_commands import (
     handle_merge_command,
     handle_merge_preview_command,
     handle_review_command,
-    is_lock_file,
     worktree_summary_command,
 )
 
@@ -136,7 +136,7 @@ class TestGetChangedFilesFromGit:
             ],
         ):
             result = _get_changed_files_from_git(worktree_path, "main")
-            assert result == ["file1.py", "file2.py", "file3.py"]
+            assert result == ["file1.py", "file2.py", "file3"]
 
     def test_get_changed_files_fallback_to_direct_diff(self, tmp_path):
         """Test fallback to direct diff when merge-base fails."""
@@ -157,7 +157,7 @@ class TestGetChangedFilesFromGit:
             ],
         ):
             result = _get_changed_files_from_git(worktree_path, "main")
-            assert result == ["file1.py", "file2.py"]
+            assert result == ["file1.py", "file2"]
 
     def test_get_changed_files_both_fail(self, tmp_path):
         """Test when both merge-base and direct diff fail."""
@@ -198,7 +198,7 @@ class TestGetChangedFilesFromGit:
             ],
         ):
             result = _get_changed_files_from_git(worktree_path, "main")
-            assert result == ["file1.py", "file2.py", "file3.py"]
+            assert result == ["file1.py", "file2.py", "file3"]
 
 
 # ============================================================================
@@ -320,7 +320,7 @@ class TestDetectParallelTaskConflicts:
         project_dir.mkdir()
 
         with patch(
-            "merge.MergeOrchestrator"
+            "cli.workspace_commands.MergeOrchestrator"
         ) as mock_orchestrator_class:
             mock_orchestrator = MagicMock()
             mock_orchestrator_class.return_value = mock_orchestrator
@@ -339,7 +339,7 @@ class TestDetectParallelTaskConflicts:
         project_dir.mkdir()
 
         with patch(
-            "merge.MergeOrchestrator"
+            "cli.workspace_commands.MergeOrchestrator"
         ) as mock_orchestrator_class:
             mock_orchestrator = MagicMock()
             mock_orchestrator_class.return_value = mock_orchestrator
@@ -367,7 +367,7 @@ class TestDetectParallelTaskConflicts:
         project_dir.mkdir()
 
         with patch(
-            "merge.MergeOrchestrator"
+            "cli.workspace_commands.MergeOrchestrator"
         ) as mock_orchestrator_class:
             mock_orchestrator = MagicMock()
             mock_orchestrator_class.return_value = mock_orchestrator
@@ -393,7 +393,7 @@ class TestDetectParallelTaskConflicts:
         project_dir.mkdir()
 
         with patch(
-            "merge.MergeOrchestrator",
+            "cli.workspace_commands.MergeOrchestrator",
             side_effect=Exception("Merge orchestrator failed"),
         ):
             result = _detect_parallel_task_conflicts(
@@ -644,7 +644,7 @@ class TestHandleMergePreviewCommand:
         project_dir.mkdir()
 
         with patch(
-            "workspace.get_existing_build_worktree", return_value=None
+            "cli.workspace_commands.get_existing_build_worktree", return_value=None
         ):
             result = handle_merge_preview_command(project_dir, "001-test")
             assert result["success"] is False
@@ -658,7 +658,7 @@ class TestHandleMergePreviewCommand:
         worktree_path.mkdir()
 
         with patch(
-            "workspace.get_existing_build_worktree",
+            "cli.workspace_commands.get_existing_build_worktree",
             return_value=worktree_path,
         ), patch(
             "cli.workspace_commands._detect_default_branch", return_value="main"
@@ -695,7 +695,7 @@ class TestHandleMergePreviewCommand:
         worktree_path.mkdir()
 
         with patch(
-            "workspace.get_existing_build_worktree",
+            "cli.workspace_commands.get_existing_build_worktree",
             return_value=worktree_path,
         ), patch(
             "cli.workspace_commands._detect_default_branch", return_value="main"
@@ -738,7 +738,7 @@ class TestHandleMergePreviewCommand:
         ]
 
         with patch(
-            "workspace.get_existing_build_worktree",
+            "cli.workspace_commands.get_existing_build_worktree",
             return_value=worktree_path,
         ), patch(
             "cli.workspace_commands._detect_default_branch", return_value="main"
@@ -776,7 +776,7 @@ class TestHandleMergePreviewCommand:
         worktree_path.mkdir()
 
         with patch(
-            "workspace.get_existing_build_worktree",
+            "cli.workspace_commands.get_existing_build_worktree",
             return_value=worktree_path,
         ), patch(
             "cli.workspace_commands._detect_default_branch", return_value="main"
@@ -807,6 +807,11 @@ class TestHandleMergePreviewCommand:
             assert result["success"] is True
             # Lock file should be excluded
             assert "package-lock.json" in result.get("lockFilesExcluded", [])
+            # Check git conflicts excludes lock file
+            non_lock_conflicts = [
+                f for f in result["gitConflicts"]["conflictingFiles"]
+                if not is_lock_file(f)
+            ]
 
     def test_preview_with_base_branch_provided(self, tmp_path):
         """Test preview with explicitly provided base branch."""
@@ -816,7 +821,7 @@ class TestHandleMergePreviewCommand:
         worktree_path.mkdir()
 
         with patch(
-            "workspace.get_existing_build_worktree",
+            "cli.workspace_commands.get_existing_build_worktree",
             return_value=worktree_path,
         ), patch(
             "cli.workspace_commands._detect_worktree_base_branch", return_value=None
@@ -856,7 +861,7 @@ class TestHandleMergePreviewCommand:
         worktree_path.mkdir()
 
         with patch(
-            "workspace.get_existing_build_worktree",
+            "cli.workspace_commands.get_existing_build_worktree",
             return_value=worktree_path,
         ), patch(
             "cli.workspace_commands._detect_default_branch",
@@ -883,9 +888,10 @@ class TestGenerateAndSaveCommitMessage:
         spec_dir.mkdir(parents=True)
 
         diff_summary = "2 files changed, 10 insertions(+), 5 deletions(-)"
+        files_changed = ["src/main.py", "src/utils.py"]
 
         with patch(
-            "commit_message.generate_commit_message_sync",
+            "cli.workspace_commands.generate_commit_message_sync",
             return_value="feat: implement new feature",
         ), patch(
             "subprocess.run",
@@ -908,7 +914,7 @@ class TestGenerateAndSaveCommitMessage:
         spec_dir.mkdir(parents=True)
 
         with patch(
-            "commit_message.generate_commit_message_sync",
+            "cli.workspace_commands.generate_commit_message_sync",
             return_value="fix: resolve bug",
         ), patch("subprocess.run", return_value=Mock(returncode=0, stdout="")):
             _generate_and_save_commit_message(project_dir, "001-test")
@@ -924,7 +930,7 @@ class TestGenerateAndSaveCommitMessage:
         spec_dir.mkdir(parents=True)
 
         with patch(
-            "commit_message.generate_commit_message_sync",
+            "cli.workspace_commands.generate_commit_message_sync",
             return_value="chore: update",
         ), patch("subprocess.run", return_value=Mock(returncode=0, stdout="")):
             _generate_and_save_commit_message(project_dir, "001-test")
@@ -938,7 +944,7 @@ class TestGenerateAndSaveCommitMessage:
         project_dir.mkdir()
 
         with patch(
-            "commit_message.generate_commit_message_sync",
+            "cli.workspace_commands.generate_commit_message_sync",
             side_effect=ImportError("No module named 'commit_message'"),
         ):
             # Should not raise
@@ -952,7 +958,7 @@ class TestGenerateAndSaveCommitMessage:
         spec_dir.mkdir(parents=True)
 
         with patch(
-            "commit_message.generate_commit_message_sync", return_value=None
+            "cli.workspace_commands.generate_commit_message_sync", return_value=None
         ):
             _generate_and_save_commit_message(project_dir, "001-test")
 
@@ -991,7 +997,7 @@ class TestHandleCreatePrCommand:
         with patch(
             "cli.workspace_commands.get_existing_build_worktree",
             return_value=worktree_path,
-        ), patch("core.worktree.WorktreeManager") as mock_mgr_class:
+        ), patch("cli.workspace_commands.WorktreeManager") as mock_mgr_class:
             mock_manager = MagicMock()
             mock_mgr_class.return_value = mock_manager
             mock_manager.base_branch = "main"
@@ -1015,7 +1021,7 @@ class TestHandleCreatePrCommand:
         with patch(
             "cli.workspace_commands.get_existing_build_worktree",
             return_value=worktree_path,
-        ), patch("core.worktree.WorktreeManager") as mock_mgr_class:
+        ), patch("cli.workspace_commands.WorktreeManager") as mock_mgr_class:
             mock_manager = MagicMock()
             mock_mgr_class.return_value = mock_manager
             mock_manager.base_branch = "main"
@@ -1039,7 +1045,7 @@ class TestHandleCreatePrCommand:
         with patch(
             "cli.workspace_commands.get_existing_build_worktree",
             return_value=worktree_path,
-        ), patch("core.worktree.WorktreeManager") as mock_mgr_class:
+        ), patch("cli.workspace_commands.WorktreeManager") as mock_mgr_class:
             mock_manager = MagicMock()
             mock_mgr_class.return_value = mock_manager
             mock_manager.base_branch = "develop"
@@ -1070,7 +1076,7 @@ class TestHandleCreatePrCommand:
         with patch(
             "cli.workspace_commands.get_existing_build_worktree",
             return_value=worktree_path,
-        ), patch("core.worktree.WorktreeManager") as mock_mgr_class:
+        ), patch("cli.workspace_commands.WorktreeManager") as mock_mgr_class:
             mock_manager = MagicMock()
             mock_mgr_class.return_value = mock_manager
             mock_manager.push_and_create_pr.return_value = {
@@ -1092,7 +1098,7 @@ class TestHandleCreatePrCommand:
         with patch(
             "cli.workspace_commands.get_existing_build_worktree",
             return_value=worktree_path,
-        ), patch("core.worktree.WorktreeManager") as mock_mgr_class:
+        ), patch("cli.workspace_commands.WorktreeManager") as mock_mgr_class:
             mock_manager = MagicMock()
             mock_mgr_class.return_value = mock_manager
             mock_manager.push_and_create_pr.side_effect = Exception(
@@ -1191,7 +1197,7 @@ class TestHandleReviewCommand:
         project_dir = Path("/tmp/test")
         spec_name = "001-test"
 
-        with patch("workspace.get_existing_build_worktree", return_value=None):
+        with patch("cli.workspace_commands.get_existing_build_worktree", return_value=None):
             handle_review_command(project_dir, spec_name)
 
         captured = capsys.readouterr()
@@ -1224,7 +1230,7 @@ class TestHandleDiscardCommand:
         project_dir = Path("/tmp/test")
         spec_name = "001-test"
 
-        with patch("workspace.get_existing_build_worktree", return_value=None):
+        with patch("cli.workspace_commands.get_existing_build_worktree", return_value=None):
             handle_discard_command(project_dir, spec_name)
 
         captured = capsys.readouterr()
@@ -1427,7 +1433,7 @@ def test_handle_merge_command_no_worktree(capsys):
     project_dir = Path("/tmp/test")
     spec_name = ""
 
-    with patch("workspace.get_existing_build_worktree", return_value=None):
+    with patch("cli.workspace_commands.get_existing_build_worktree", return_value=None):
         # Act
         result = handle_merge_command(project_dir, spec_name, False, None)
 
@@ -1443,9 +1449,9 @@ def test_handle_merge_command_with_empty_inputs(capsys):
     project_dir = Path("/tmp/test")
     spec_name = ""
 
-    with patch("workspace.get_existing_build_worktree", return_value=None):
+    with patch("cli.workspace_commands.get_existing_build_worktree", return_value=None):
         # Act
-        handle_merge_command(project_dir, spec_name, False, None)
+        result = handle_merge_command(project_dir, spec_name, False, None)
 
     # Assert
     captured = capsys.readouterr()
@@ -1458,9 +1464,9 @@ def test_handle_review_command_no_worktree(capsys):
     project_dir = Path("/tmp/test")
     spec_name = ""
 
-    with patch("workspace.get_existing_build_worktree", return_value=None):
+    with patch("cli.workspace_commands.get_existing_build_worktree", return_value=None):
         # Act
-        handle_review_command(project_dir, spec_name)
+        result = handle_review_command(project_dir, spec_name)
 
     # Assert
     captured = capsys.readouterr()
@@ -1473,9 +1479,9 @@ def test_handle_review_command_with_empty_inputs(capsys):
     project_dir = Path("/tmp/test")
     spec_name = ""
 
-    with patch("workspace.get_existing_build_worktree", return_value=None):
+    with patch("cli.workspace_commands.get_existing_build_worktree", return_value=None):
         # Act
-        handle_review_command(project_dir, spec_name)
+        result = handle_review_command(project_dir, spec_name)
 
     # Assert
     captured = capsys.readouterr()
@@ -1488,9 +1494,9 @@ def test_handle_discard_command_no_worktree(capsys):
     project_dir = Path("/tmp/test")
     spec_name = ""
 
-    with patch("workspace.get_existing_build_worktree", return_value=None):
+    with patch("cli.workspace_commands.get_existing_build_worktree", return_value=None):
         # Act
-        handle_discard_command(project_dir, spec_name)
+        result = handle_discard_command(project_dir, spec_name)
 
     # Assert
     captured = capsys.readouterr()
@@ -1503,9 +1509,9 @@ def test_handle_discard_command_with_empty_inputs(capsys):
     project_dir = Path("/tmp/test")
     spec_name = ""
 
-    with patch("workspace.get_existing_build_worktree", return_value=None):
+    with patch("cli.workspace_commands.get_existing_build_worktree", return_value=None):
         # Act
-        handle_discard_command(project_dir, spec_name)
+        result = handle_discard_command(project_dir, spec_name)
 
     # Assert
     captured = capsys.readouterr()
@@ -1522,7 +1528,7 @@ def test_handle_list_worktrees_command_non_git_dir(capsys):
         try:
             handle_list_worktrees_command(project_dir)
         except Exception:
-            pass  # Expected to raise for non-git directories (no-op)
+            pass  # Expected to raise for non-git directories
 
     # Assert - exception is expected for non-git directories
 
@@ -1567,7 +1573,7 @@ def test_handle_merge_preview_command_no_worktree(tmp_path):
     project_dir.mkdir()
     spec_name = "001-test"
 
-    with patch("workspace.get_existing_build_worktree", return_value=None):
+    with patch("cli.workspace_commands.get_existing_build_worktree", return_value=None):
         # Act
         result = handle_merge_preview_command(project_dir, spec_name, None)
 
@@ -1582,7 +1588,7 @@ def test_handle_merge_preview_command_with_empty_inputs(tmp_path):
     project_dir = tmp_path / "project"
     project_dir.mkdir()
 
-    with patch("workspace.get_existing_build_worktree", return_value=None):
+    with patch("cli.workspace_commands.get_existing_build_worktree", return_value=None):
         # Act
         result = handle_merge_preview_command(project_dir, "", None)
 
@@ -1598,7 +1604,7 @@ def test_handle_create_pr_command_no_worktree(tmp_path):
     project_dir.mkdir()
     spec_name = "001-test"
 
-    with patch("workspace.get_existing_build_worktree", return_value=None):
+    with patch("cli.workspace_commands.get_existing_build_worktree", return_value=None):
         # Act
         result = handle_create_pr_command(project_dir, spec_name, None, None, False)
 
@@ -1615,7 +1621,7 @@ def test_handle_create_pr_command_with_empty_inputs(tmp_path):
     project_dir = tmp_path / "project"
     project_dir.mkdir()
 
-    with patch("workspace.get_existing_build_worktree", return_value=None):
+    with patch("cli.workspace_commands.get_existing_build_worktree", return_value=None):
         # Act
         result = handle_create_pr_command(project_dir, "", None, None, False)
 
@@ -1648,7 +1654,8 @@ def test_cleanup_old_worktrees_command_with_empty_inputs():
         # If it doesn't raise, should still return something
         assert result is not None
     except Exception:
-        pass  # Exception is also acceptable for non-existent directories (no-op)
+        # Exception is also acceptable for non-existent directories
+        pass
 
 
 def test_worktree_summary_command(tmp_path):
@@ -1675,7 +1682,8 @@ def test_worktree_summary_command_with_empty_inputs():
         # If it doesn't raise, should still return something
         assert result is not None
     except Exception:
-        pass  # Exception is also acceptable for non-existent directories (no-op)
+        # Exception is also acceptable for non-existent directories
+        pass
 
 
 def test_handle_merge_command_valid_worktree(tmp_path, capsys):
@@ -1687,7 +1695,7 @@ def test_handle_merge_command_valid_worktree(tmp_path, capsys):
     worktree_path = tmp_path / "worktree"
     worktree_path.mkdir()
 
-    with patch("workspace.get_existing_build_worktree", return_value=worktree_path), \
+    with patch("cli.workspace_commands.get_existing_build_worktree", return_value=worktree_path), \
          patch("sys.exit"):
         # Act
         result = handle_merge_command(project_dir, spec_name, False, None)
@@ -1705,7 +1713,7 @@ def test_handle_review_command_valid_worktree(tmp_path, capsys):
     worktree_path = tmp_path / "worktree"
     worktree_path.mkdir()
 
-    with patch("workspace.get_existing_build_worktree", return_value=worktree_path):
+    with patch("cli.workspace_commands.get_existing_build_worktree", return_value=worktree_path):
         # Act
         result = handle_review_command(project_dir, spec_name)
 
@@ -1722,7 +1730,7 @@ def test_handle_discard_command_valid_worktree(tmp_path, capsys):
     worktree_path = tmp_path / "worktree"
     worktree_path.mkdir()
 
-    with patch("workspace.get_existing_build_worktree", return_value=worktree_path), \
+    with patch("cli.workspace_commands.get_existing_build_worktree", return_value=worktree_path), \
          patch("sys.exit"):
         # Act
         result = handle_discard_command(project_dir, spec_name)

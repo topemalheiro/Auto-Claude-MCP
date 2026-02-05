@@ -5,6 +5,7 @@ Comprehensive tests for auto_merger.context module
 from datetime import datetime
 from merge.auto_merger.context import MergeContext
 from merge.types import ChangeType, ConflictRegion, ConflictSeverity, SemanticChange, TaskSnapshot
+import pytest
 
 
 class TestMergeContext:
@@ -412,9 +413,8 @@ export default App;
 
     def test_merge_context_with_completed_timestamp(self):
         """Test MergeContext with snapshots that have completed_at timestamps"""
-        from datetime import timedelta
         now = datetime.now()
-        completed = now + timedelta(minutes=5)
+        completed = datetime(now.year, now.month, now.day, now.hour, now.minute + 5)
 
         snapshot = TaskSnapshot(
             task_id="task_001",

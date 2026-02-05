@@ -7,7 +7,8 @@ error handling, edge cases, and all functionality paths.
 """
 
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
+import pytest
 
 from context.pattern_discovery import PatternDiscoverer
 from context.models import FileMatch
@@ -26,8 +27,7 @@ class TestPatternDiscovererInit:
         """Test initialization with absolute path"""
         project_dir = Path("/tmp/test_project")
         discoverer = PatternDiscoverer(project_dir)
-        # On macOS, /tmp is a symlink to /private/tmp, so compare resolved paths
-        assert discoverer.project_dir == project_dir.resolve()
+        assert discoverer.project_dir == project_dir
 
 
 class TestDiscoverPatternsBasic:

@@ -13,7 +13,7 @@ import json
 import sys
 from datetime import datetime
 from pathlib import Path
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
 
@@ -267,6 +267,7 @@ class TestGetDbConnection:
     def test_get_db_connection_exception_during_connect(self, mock_exists, mock_apply):
         """Test connection exception handling."""
         # Need to import kuzu module first, then mock it
+        import importlib
         import sys
 
         # Mock the kuzu module's Database to raise an exception
@@ -1063,7 +1064,9 @@ class TestIntegrationScenarios:
         """Test full workflow from checking status to getting memories."""
         # This would test the actual workflow but requires a real database
         # For now, we test the routing and command structure
+        pass
 
     def test_error_recovery_on_missing_database(self):
         """Test error recovery when database is missing."""
         # Test that the system handles missing databases gracefully
+        pass

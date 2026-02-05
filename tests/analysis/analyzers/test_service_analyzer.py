@@ -2,6 +2,8 @@
 
 from analysis.analyzers.service_analyzer import ServiceAnalyzer
 from pathlib import Path
+from unittest.mock import MagicMock, patch
+import pytest
 
 
 def test_ServiceAnalyzer___init__():

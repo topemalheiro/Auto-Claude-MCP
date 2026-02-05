@@ -5,7 +5,9 @@ This is a re-export module that aggregates all UI components.
 Tests verify all exports are accessible and backward compatibility aliases work.
 """
 
+import importlib
 import sys
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -229,23 +231,20 @@ class TestMainImports:
         for attr in expected_attributes:
             assert hasattr(ui.main, attr), f"Missing expected attribute: {attr}"
 
-    def test_module_reimport_stability(self, clear_ui_imports):
-        """Test that the module is stable across re-imports (cached)."""
+    def test_module_reloading(self, clear_ui_imports):
+        """Test that the module can be reloaded without issues."""
         import ui.main as main_module
 
         # Get initial state
         initial_all = list(main_module.__all__)
         initial_fancy_ui = main_module.FANCY_UI
 
-        # Re-import the module (should use cached module)
-        import ui.main as reimported_module
-
-        # Verify it's the same cached module
-        assert id(reimported_module) == id(main_module)
+        # Reload the module
+        importlib.reload(main_module)
 
         # Verify state is preserved
-        assert reimported_module.__all__ == initial_all
-        assert reimported_module.FANCY_UI == initial_fancy_ui
+        assert main_module.__all__ == initial_all
+        assert main_module.FANCY_UI == initial_fancy_ui
 
     def test_star_import(self, clear_ui_imports):
         """Test that star import from ui.main works correctly."""

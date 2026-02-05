@@ -2,7 +2,8 @@
 
 from analysis.analyzers.context.api_docs_detector import ApiDocsDetector
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
+import pytest
 
 
 def test_ApiDocsDetector___init__():

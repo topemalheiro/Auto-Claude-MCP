@@ -2,7 +2,7 @@
 
 import json
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -121,6 +121,7 @@ class TestPhaseDiscovery:
     @pytest.mark.asyncio
     async def test_discovery_logs_to_task_logger(self, tmp_path):
         """Test discovery logs success to task logger"""
+        from task_logger import LogEntryType, LogPhase
 
         project_dir = tmp_path / "project"
         project_dir.mkdir()
@@ -148,6 +149,7 @@ class TestPhaseDiscovery:
     @pytest.mark.asyncio
     async def test_discovery_logs_failure(self, tmp_path):
         """Test discovery logs failures to task logger"""
+        from task_logger import LogEntryType, LogPhase
 
         project_dir = tmp_path / "project"
         project_dir.mkdir()

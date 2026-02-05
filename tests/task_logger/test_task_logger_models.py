@@ -2,6 +2,7 @@
 
 from datetime import datetime, timezone
 
+import pytest
 
 from task_logger.models import (
     LogEntry,

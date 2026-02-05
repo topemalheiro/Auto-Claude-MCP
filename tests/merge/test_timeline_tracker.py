@@ -1,9 +1,8 @@
 """Comprehensive tests for timeline_tracker.py"""
 
-import sys
 from datetime import datetime
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, mock_open
 import pytest
 import tempfile
 
@@ -12,6 +11,7 @@ from merge.timeline_models import (
     BranchPoint,
     FileTimeline,
     MainBranchEvent,
+    MergeContext,
     TaskFileView,
     TaskIntent,
     WorktreeState,
@@ -28,8 +28,7 @@ class TestFileTimelineTrackerInit:
             instance = FileTimelineTracker(project_path)
 
             assert instance.project_path == project_path.resolve()
-            # storage_path is computed from resolved project_path
-            assert instance.storage_path == project_path.resolve() / ".auto-claude"
+            assert instance.storage_path == project_path / ".auto-claude"
             assert isinstance(instance._timelines, dict)
 
     def test_init_with_custom_storage(self):
@@ -840,7 +839,6 @@ class TestCaptureWorktreeState:
 
                     assert task_view.worktree_state.content == "worktree content"
 
-    @pytest.mark.skipif(sys.platform == "win32", reason="Windows file encoding may corrupt non-ASCII characters")
     def test_capture_worktree_state_unicode_fallback(self):
         """Test capture_worktree_state handles Unicode decode errors"""
         with tempfile.TemporaryDirectory() as tmpdir:

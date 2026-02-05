@@ -4,6 +4,8 @@ from spec.validate_pkg.validators.spec_document_validator import SpecDocumentVal
 from spec.validate_pkg.models import ValidationResult
 from spec.validate_pkg.schemas import SPEC_REQUIRED_SECTIONS, SPEC_RECOMMENDED_SECTIONS
 from pathlib import Path
+from unittest.mock import MagicMock, patch
+import pytest
 
 
 def test_SpecDocumentValidator___init__():

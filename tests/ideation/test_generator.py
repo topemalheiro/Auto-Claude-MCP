@@ -2,7 +2,7 @@
 
 from ideation.generator import IdeationGenerator, IDEATION_TYPE_LABELS, IDEATION_TYPE_PROMPTS
 from pathlib import Path
-from unittest.mock import patch, Mock
+from unittest.mock import MagicMock, patch, AsyncMock, Mock
 import pytest
 
 
@@ -25,9 +25,8 @@ def test_IdeationGenerator___init__():
             max_ideas_per_type=max_ideas_per_type,
         )
 
-        # Compare paths without resolve() since the implementation stores paths as-is
-        assert str(generator.project_dir) == str(project_dir)
-        assert str(generator.output_dir) == str(output_dir)
+        assert generator.project_dir == project_dir
+        assert generator.output_dir == output_dir
         assert generator.model == model
         assert generator.thinking_level == thinking_level
         assert generator.max_ideas_per_type == max_ideas_per_type
@@ -35,14 +34,11 @@ def test_IdeationGenerator___init__():
 
 
 @pytest.mark.asyncio
+@patch("ideation.generator.Path.exists")
 @patch("ideation.generator.create_client")
-async def test_IdeationGenerator_run_agent_success(mock_create_client, tmp_path):
+async def test_IdeationGenerator_run_agent_success(mock_create_client, mock_exists):
     """Test IdeationGenerator.run_agent with success"""
-    # Create a real test prompt file
-    prompts_dir = tmp_path / "prompts"
-    prompts_dir.mkdir()
-    test_prompt_file = prompts_dir / "test_prompt.md"
-    test_prompt_file.write_text("# Test Prompt\n\nTest content")
+    mock_exists.return_value = True
 
     project_dir = Path("/tmp/test")
     output_dir = Path("/tmp/output")
@@ -52,9 +48,6 @@ async def test_IdeationGenerator_run_agent_success(mock_create_client, tmp_path)
             project_dir=project_dir,
             output_dir=output_dir,
         )
-
-    # Override the prompts_dir to use our tmp_path
-    generator.prompts_dir = prompts_dir
 
     # Create mock response message with proper TextBlock
     mock_text_block = Mock()
@@ -71,6 +64,7 @@ async def test_IdeationGenerator_run_agent_success(mock_create_client, tmp_path)
         # Stop iteration after first message
 
     # Create a proper async context manager mock
+    from unittest.mock import MagicMock
 
     class MockClientContextManager:
         async def __aenter__(self):

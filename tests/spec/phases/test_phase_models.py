@@ -2,6 +2,7 @@
 
 import json
 
+import pytest
 from dataclasses import asdict
 
 from spec.phases.models import PhaseResult, MAX_RETRIES

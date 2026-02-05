@@ -13,7 +13,7 @@ Tests for ProjectAnalyzer class covering:
 import json
 import pytest
 from pathlib import Path
-from unittest.mock import patch, AsyncMock
+from unittest.mock import patch, MagicMock, AsyncMock
 
 
 class TestProjectAnalyzerInit:
@@ -67,8 +67,8 @@ class TestProjectAnalyzerInit:
 
         assert isinstance(analyzer.project_dir, Path)
         assert isinstance(analyzer.output_dir, Path)
-        # Check that paths are Path objects without comparing string representation
-        # since path separators differ by platform (/ vs \)
+        assert analyzer.project_dir == Path("/tmp/test_project")
+        assert analyzer.output_dir == Path("/tmp/output")
 
     def test_init_with_pathlib_path(self):
         """Test initialization with pathlib.Path objects"""
@@ -82,9 +82,8 @@ class TestProjectAnalyzerInit:
             output_dir=output_dir,
         )
 
-        # Compare paths without resolve() since the implementation stores paths as-is
-        assert str(analyzer.project_dir) == str(project_dir)
-        assert str(analyzer.output_dir) == str(output_dir)
+        assert analyzer.project_dir == project_dir
+        assert analyzer.output_dir == output_dir
 
     def test_init_include_roadmap_true(self):
         """Test include_roadmap_context=True"""

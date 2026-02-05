@@ -10,7 +10,8 @@ Comprehensive tests for safe I/O utilities including:
 """
 
 import logging
-from unittest.mock import patch
+import sys
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
@@ -31,7 +32,7 @@ def reset_io_utils_state():
     try:
         reset_pipe_state()
     except Exception:
-        pass  # Module state may be broken, ignore (no-op)
+        pass  # Module state may be broken, ignore
 
 
 # ============================================================================
@@ -99,7 +100,7 @@ class TestSafePrint:
                 assert is_pipe_broken() is True
 
         # Check log message
-        assert any("output stream" in record.message.lower() for record in caplog.records)
+        assert any("closed file" in record.message.lower() for record in caplog.records)
 
     def test_safe_print_value_error_other(self):
         """Test safe_print re-raises unexpected ValueError."""

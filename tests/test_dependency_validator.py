@@ -13,6 +13,7 @@ import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import pytest
 
 # Add apps/backend directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "backend"))
@@ -38,7 +39,6 @@ class TestValidatePlatformDependencies:
         import builtins
 
         with patch("sys.platform", "win32"), \
-             patch("platform.system", return_value="Windows"), \
              patch("sys.version_info", (3, 12, 0)), \
              patch("core.dependency_validator._exit_with_pywin32_error") as mock_exit:
 
@@ -70,7 +70,6 @@ class TestValidatePlatformDependencies:
             return original_import(name, *args, **kwargs)
 
         with patch("sys.platform", "win32"), \
-             patch("platform.system", return_value="Windows"), \
              patch("sys.version_info", (3, 12, 0)), \
              patch("builtins.__import__", side_effect=selective_mock):
             # Should not raise SystemExit
@@ -86,7 +85,6 @@ class TestValidatePlatformDependencies:
         import builtins
 
         with patch("sys.platform", "win32"), \
-             patch("platform.system", return_value="Windows"), \
              patch("sys.version_info", (3, 11, 0)), \
              patch("core.dependency_validator._exit_with_pywin32_error") as mock_exit:
 
@@ -105,39 +103,23 @@ class TestValidatePlatformDependencies:
 
     def test_linux_skips_validation(self):
         """Non-Windows platforms should skip pywin32 validation."""
-        import builtins
-
-        original_import = builtins.__import__
-
-        def selective_mock(name, *args, **kwargs):
-            """Mock only pywintypes import, delegate others to original."""
-            if name == "pywintypes":
-                raise ImportError("No module named 'pywintypes'")
-            return original_import(name, *args, **kwargs)
-
         with patch("sys.platform", "linux"), \
-             patch("platform.system", return_value="Linux"), \
              patch("sys.version_info", (3, 12, 0)), \
-             patch("builtins.__import__", side_effect=selective_mock):
+             patch("builtins.__import__") as mock_import:
+            # Even if pywintypes is not available, should not exit
+            mock_import.side_effect = ImportError("No module named 'pywintypes'")
+
             # Should not raise SystemExit
             validate_platform_dependencies()
 
     def test_macos_skips_validation(self):
         """macOS should skip pywin32 validation."""
-        import builtins
-
-        original_import = builtins.__import__
-
-        def selective_mock(name, *args, **kwargs):
-            """Mock only pywintypes import, delegate others to original."""
-            if name == "pywintypes":
-                raise ImportError("No module named 'pywintypes'")
-            return original_import(name, *args, **kwargs)
-
         with patch("sys.platform", "darwin"), \
-             patch("platform.system", return_value="Darwin"), \
              patch("sys.version_info", (3, 12, 0)), \
-             patch("builtins.__import__", side_effect=selective_mock):
+             patch("builtins.__import__") as mock_import:
+            # Even if pywintypes is not available, should not exit
+            mock_import.side_effect = ImportError("No module named 'pywintypes'")
+
             # Should not raise SystemExit
             validate_platform_dependencies()
 
@@ -146,7 +128,6 @@ class TestValidatePlatformDependencies:
         import builtins
 
         with patch("sys.platform", "win32"), \
-             patch("platform.system", return_value="Windows"), \
              patch("sys.version_info", (3, 13, 0)), \
              patch("core.dependency_validator._exit_with_pywin32_error") as mock_exit:
 
@@ -173,7 +154,6 @@ class TestValidatePlatformDependencies:
         import builtins
 
         with patch("sys.platform", "win32"), \
-             patch("platform.system", return_value="Windows"), \
              patch("sys.version_info", (3, 10, 0)), \
              patch("core.dependency_validator._exit_with_pywin32_error") as mock_exit:
 

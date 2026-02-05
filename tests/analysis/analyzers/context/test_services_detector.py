@@ -2,7 +2,8 @@
 
 from analysis.analyzers.context.services_detector import ServicesDetector
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
+import pytest
 
 
 def test_ServicesDetector___init__():

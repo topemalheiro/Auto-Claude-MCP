@@ -12,6 +12,14 @@ from merge.tracker_cli import (
     get_tracker,
     main,
 )
+from merge.timeline_models import (
+    BranchPoint,
+    FileTimeline,
+    MainBranchEvent,
+    MergeContext,
+    TaskFileView,
+    TaskIntent,
+)
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 import pytest

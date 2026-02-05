@@ -1,7 +1,9 @@
 """Tests for spec.validate_pkg.spec_validator module"""
 
 import json
+from pathlib import Path
 
+import pytest
 
 from spec.validate_pkg.models import ValidationResult
 from spec.validate_pkg.spec_validator import SpecValidator

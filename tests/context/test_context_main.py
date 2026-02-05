@@ -7,8 +7,11 @@ main() function that handle task context building from command-line.
 """
 
 import json
-from unittest.mock import MagicMock, patch
+from pathlib import Path
+from unittest.mock import MagicMock, patch, AsyncMock, call
+import argparse
 
+import pytest
 
 
 class TestBuildTaskContext:
@@ -17,7 +20,7 @@ class TestBuildTaskContext:
     def test_build_task_context_basic(self, tmp_path):
         """Test basic task context building without output file"""
         from context.main import build_task_context
-        from context.models import TaskContext
+        from context.models import FileMatch, TaskContext
 
         # Create a test service directory
         service_dir = tmp_path / "api"

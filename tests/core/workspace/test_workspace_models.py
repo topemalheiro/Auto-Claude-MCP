@@ -15,7 +15,7 @@ Tests cover:
 
 import os
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch, mock_open
 
 import pytest
 
@@ -259,7 +259,6 @@ class TestMergeLock:
         with lock:
             assert lock_dir.exists()
 
-    @pytest.mark.slow
     def test_merge_lock_concurrent_acquisition_blocked(self, project_dir):
         """Test MergeLock blocks concurrent acquisition attempts."""
         lock1 = MergeLock(project_dir, "test-spec")
@@ -569,6 +568,7 @@ class TestSpecNumberLock:
                 if sleep_count[0] == 2 and lock_file.exists():
                     lock_file.unlink()
                 # Don't actually sleep
+                pass
 
             with patch("time.sleep", side_effect=mock_sleep_handler):
                 with patch("time.time") as mock_time:

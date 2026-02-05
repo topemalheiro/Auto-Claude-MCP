@@ -3,6 +3,8 @@ Tests for paths module.
 Comprehensive test coverage for path management functions.
 """
 
+from pathlib import Path
+import pytest
 
 from memory.paths import (
     get_memory_dir,

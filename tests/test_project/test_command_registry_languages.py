@@ -9,6 +9,7 @@ Comprehensive tests for the language commands module including:
 - Coverage across programming languages
 """
 
+import pytest
 
 from project.command_registry.languages import LANGUAGE_COMMANDS
 

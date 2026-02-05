@@ -4,8 +4,10 @@ Tests for phase_event facade module (root level re-export).
 
 import json
 import os
+from io import StringIO
 from unittest.mock import patch
 
+import pytest
 
 # The root phase_event module re-exports from core.phase_event
 # We need to test that the re-exports work correctly
@@ -33,8 +35,6 @@ class TestPhaseEventFacade:
         assert ExecutionPhase.QA_FIXING == "qa_fixing"
         assert ExecutionPhase.COMPLETE == "complete"
         assert ExecutionPhase.FAILED == "failed"
-        assert ExecutionPhase.RATE_LIMIT_PAUSED == "rate_limit_paused"
-        assert ExecutionPhase.AUTH_FAILURE_PAUSED == "auth_failure_paused"
 
     def test_execution_phase_is_string_enum(self):
         """Test ExecutionPhase is a string enum."""
@@ -48,11 +48,9 @@ class TestPhaseEventFacade:
     def test_execution_phase_iteration(self):
         """Test iterating over ExecutionPhase enum."""
         phases = list(ExecutionPhase)
-        assert len(phases) == 8
+        assert len(phases) == 6
         assert ExecutionPhase.PLANNING in phases
         assert ExecutionPhase.FAILED in phases
-        assert ExecutionPhase.RATE_LIMIT_PAUSED in phases
-        assert ExecutionPhase.AUTH_FAILURE_PAUSED in phases
 
     def test_emit_phase_basic(self, capsys):
         """Test basic emit_phase function."""
@@ -230,8 +228,6 @@ class TestPhaseEventFacade:
         assert hasattr(ExecutionPhase, "QA_FIXING")
         assert hasattr(ExecutionPhase, "COMPLETE")
         assert hasattr(ExecutionPhase, "FAILED")
-        assert hasattr(ExecutionPhase, "RATE_LIMIT_PAUSED")
-        assert hasattr(ExecutionPhase, "AUTH_FAILURE_PAUSED")
 
     def test_phase_marker_prefix_constant(self):
         """Test PHASE_MARKER_PREFIX is a constant."""

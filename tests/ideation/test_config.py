@@ -2,7 +2,8 @@
 
 from ideation.config import IdeationConfigManager
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch, Mock
+import pytest
 
 
 @patch("ideation.config.init_auto_claude_dir")
@@ -35,9 +36,7 @@ def test_IdeationConfigManager___init__(mock_init):
             append=False,
         )
 
-        # Compare paths without resolve() since the implementation stores paths as-is
-        # On Windows, /tmp/test doesn't resolve to D:/tmp/test in the implementation
-        assert str(config.project_dir) == str(project_dir)
+        assert config.project_dir == project_dir
         assert config.model == model
         assert config.thinking_level == thinking_level
         assert config.refresh is True
@@ -46,7 +45,7 @@ def test_IdeationConfigManager___init__(mock_init):
         assert config.include_roadmap_context is True
         assert config.include_kanban_context is False
         assert config.max_ideas_per_type == max_ideas_per_type
-        assert str(config.output_dir) == str(output_dir)
+        assert config.output_dir == output_dir
 
 
 @patch("ideation.config.init_auto_claude_dir")
@@ -63,8 +62,7 @@ def test_IdeationConfigManager_default_values(mock_init):
 
         config = IdeationConfigManager(project_dir=project_dir)
 
-        # Compare paths without resolve() since the implementation stores paths as-is
-        assert str(config.project_dir) == str(project_dir)
+        assert config.project_dir == project_dir
         assert config.model == "sonnet"
         assert config.thinking_level == "medium"
         assert config.refresh is False

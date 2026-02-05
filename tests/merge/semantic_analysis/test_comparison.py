@@ -3,6 +3,9 @@
 from merge.semantic_analysis.comparison import classify_function_modification, classify_modification, compare_elements, get_add_change_type, get_location, get_remove_change_type
 from merge.semantic_analysis.models import ExtractedElement
 from merge.types import ChangeType
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+import pytest
 
 
 def test_compare_elements():

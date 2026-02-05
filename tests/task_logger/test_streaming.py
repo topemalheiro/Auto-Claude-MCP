@@ -1,7 +1,9 @@
 """Tests for task_logger/streaming.py"""
 
 import json
+from unittest.mock import MagicMock, patch
 
+import pytest
 
 from task_logger.streaming import emit_marker
 

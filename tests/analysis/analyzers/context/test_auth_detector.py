@@ -2,7 +2,8 @@
 
 from analysis.analyzers.context.auth_detector import AuthDetector
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
+import pytest
 
 
 def test_AuthDetector___init__():

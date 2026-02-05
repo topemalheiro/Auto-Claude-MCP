@@ -2,7 +2,8 @@
 
 from ideation.runner import IdeationOrchestrator
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
+import pytest
 
 
 @patch("ideation.config.init_auto_claude_dir")
@@ -34,9 +35,8 @@ def test_IdeationOrchestrator___init__(mock_init):
             append=False,
         )
 
-        # Compare paths without resolve() since the implementation stores paths as-is
-        assert str(orchestrator.project_dir) == str(project_dir)
-        assert str(orchestrator.output_dir) == str(output_dir)
+        assert orchestrator.project_dir == project_dir
+        assert orchestrator.output_dir == output_dir
         assert orchestrator.model == model
         assert orchestrator.enabled_types == enabled_types
         assert orchestrator.max_ideas_per_type == max_ideas_per_type

@@ -1,6 +1,7 @@
 """Tests for agents.tools_pkg.registry module."""
 
-from unittest.mock import MagicMock, patch
+from pathlib import Path
+from unittest.mock import MagicMock, AsyncMock, patch
 import pytest
 
 from agents.tools_pkg.registry import (

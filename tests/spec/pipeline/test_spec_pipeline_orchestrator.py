@@ -1,21 +1,16 @@
 """
 Tests for spec.pipeline.orchestrator module
 Comprehensive tests for SpecOrchestrator class.
-
-NOTE: These are INTEGRATION tests that run real orchestrator code with file I/O.
-They are marked as slow and can be excluded with: pytest -m "not slow"
 """
 
 import json
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch, call
 from datetime import datetime, timedelta
 
 import pytest
 
 from spec.pipeline.orchestrator import SpecOrchestrator
-
-pytestmark = pytest.mark.slow  # Mark all tests in this file as slow
 from spec.phases.models import PhaseResult
 from spec.complexity import Complexity, ComplexityAssessment
 

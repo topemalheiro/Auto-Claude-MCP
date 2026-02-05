@@ -1,6 +1,7 @@
 """Tests for main"""
 
-from unittest.mock import patch
+from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import pytest
 

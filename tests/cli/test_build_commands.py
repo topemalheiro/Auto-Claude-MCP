@@ -1,6 +1,7 @@
 """Tests for build_commands"""
 
-from unittest.mock import MagicMock, patch
+from pathlib import Path
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
@@ -387,7 +388,7 @@ class TestHandleBuildCommand:
                     base_branch=None,
                 )
             except Exception:
-                pass  # Some imports may fail (no-op)
+                pass  # Some imports may fail
 
     def test_keyboard_interrupt(self, temp_project_dir, temp_spec_dir):
         """Test handle_build_command handles KeyboardInterrupt."""
@@ -491,7 +492,7 @@ class TestHandleBuildCommand:
         ) as mock_run_agent, patch(
             "qa_loop.should_run_qa", return_value=False
         ), patch(
-            "prompts_pkg.prompts.get_base_branch_from_metadata",
+            "cli.build_commands.get_base_branch_from_metadata",
             return_value="develop",
         ), patch(
             "cli.build_commands.WorkspaceMode"
@@ -966,7 +967,7 @@ def test_handle_build_command_with_mocked_dependencies(
                 force_bypass_approval=True,
                 base_branch=None,
             )
-        except Exception:
+        except Exception as e:
             # Some imports may fail in test environment, that's ok
             pass
 

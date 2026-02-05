@@ -7,16 +7,15 @@ Tests for:
 """
 
 import asyncio
+import os
 import shutil
 import subprocess
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import MagicMock, Mock, call, patch
 
 import pytest
 
 from core.worktree import WorktreeManager, WorktreeError, WorktreeInfo
-pytestmark = pytest.mark.slow
-
 
 
 # ==================== Fixtures ====================
@@ -108,8 +107,6 @@ class TestUnstageGitignoredFiles:
             cwd=git_project,
             capture_output=True,
             text=True,
-            encoding="utf-8",
-            errors="replace",
         )
         assert "test.log" in result_before.stdout
 
@@ -124,8 +121,6 @@ class TestUnstageGitignoredFiles:
             cwd=git_project,
             capture_output=True,
             text=True,
-            encoding="utf-8",
-            errors="replace",
         )
         # We expect unstaging if git check-ignore reports it
         # (depends on .gitignore configuration)
@@ -155,8 +150,6 @@ class TestUnstageGitignoredFiles:
             cwd=git_project,
             capture_output=True,
             text=True,
-            encoding="utf-8",
-            errors="replace",
         )
         assert ".auto-claude" not in result.stdout
 
@@ -185,8 +178,6 @@ class TestUnstageGitignoredFiles:
             cwd=git_project,
             capture_output=True,
             text=True,
-            encoding="utf-8",
-            errors="replace",
         )
         assert ".auto-claude" not in result.stdout
 
@@ -229,8 +220,6 @@ class TestUnstageGitignoredFiles:
             cwd=git_project,
             capture_output=True,
             text=True,
-            encoding="utf-8",
-            errors="replace",
         )
         assert "normal.txt" in result_before.stdout
 
@@ -244,8 +233,6 @@ class TestUnstageGitignoredFiles:
             cwd=git_project,
             capture_output=True,
             text=True,
-            encoding="utf-8",
-            errors="replace",
         )
         assert "normal.txt" in result.stdout  # Normal file should remain staged
         assert ".auto-claude" not in result.stdout  # .auto-claude should always be unstaged
@@ -277,8 +264,6 @@ class TestCreateWorktree:
             cwd=git_project,
             capture_output=True,
             text=True,
-            encoding="utf-8",
-            errors="replace",
         )
         assert str(result.path) in worktree_list.stdout
 
@@ -377,6 +362,7 @@ class TestCreateWorktree:
 
             # When creating worktree, it should detect stale dir and fail to remove it
             # This test scenario is complex - let's simplify by testing the error path directly
+            pass
 
         # Simplified test: Just verify WorktreeError is raised for path-related issues
         # The actual permission error is hard to simulate in tests
@@ -623,8 +609,6 @@ class TestMergeWorktree:
             cwd=git_project,
             capture_output=True,
             text=True,
-            encoding="utf-8",
-            errors="replace",
         )
         assert "normal.txt" in result.stdout  # Normal file should be staged
         # test.log may or may not be staged depending on git check-ignore behavior
@@ -656,8 +640,6 @@ class TestMergeWorktree:
             cwd=git_project,
             capture_output=True,
             text=True,
-            encoding="utf-8",
-            errors="replace",
         )
         assert "normal.txt" in result.stdout
         assert ".auto-claude" not in result.stdout
@@ -2460,6 +2442,7 @@ class TestCLIOperationsMock:
     """Simple mock-based tests for CLI operations."""
     # Note: Many CLI operations are difficult to mock because they interact with git commands
     # The existing tests in TestCreatePullRequest and TestCreateMergeRequest cover the main paths
+    pass
 
 
 # ==================== Additional Edge Cases ====================

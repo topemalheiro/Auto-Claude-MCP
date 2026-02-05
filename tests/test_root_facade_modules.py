@@ -6,6 +6,8 @@ These tests verify that the root-level Python modules in apps/backend/
 properly re-export their functionality from the actual implementation modules.
 """
 
+import pytest
+from pathlib import Path
 
 
 class TestCiDiscoveryFacade:
@@ -69,6 +71,7 @@ class TestCritiqueFacade:
 
     def test_critique_exports_from_spec(self):
         """Test that critique.py re-exports from spec.critique."""
+        import critique
         import spec.critique as original
 
         # Check that key exports are available
@@ -248,6 +251,7 @@ class TestPromptGeneratorFacade:
 
     def test_prompt_generator_exports_from_prompts_pkg(self):
         """Test that prompt_generator re-exports from prompts_pkg."""
+        import prompt_generator
         import prompts_pkg.prompt_generator as original
 
         # Check that key exports are available (based on actual API)
@@ -273,6 +277,7 @@ class TestPromptsFacade:
 
     def test_prompts_exports_from_prompts_pkg(self):
         """Test that prompts re-exports from prompts_pkg.prompts."""
+        import prompts
         import prompts_pkg.prompts as original
 
         # Check that the module is accessible (based on actual API)
@@ -460,6 +465,7 @@ class TestScanSecretsFacade:
 
     def test_scan_secrets_exports_from_security(self):
         """Test that scan_secrets re-exports from security.scan_secrets."""
+        import scan_secrets
         import security.scan_secrets as original
 
         # Check that key exports are available
@@ -499,6 +505,7 @@ class TestSecurityScannerFacade:
 
     def test_security_scanner_exports_from_analysis(self):
         """Test that security_scanner re-exports from analysis.security_scanner."""
+        import security_scanner
         import analysis.security_scanner as original
 
         # Check that key exports are available
@@ -536,7 +543,7 @@ class TestFacadeModulesIntegration:
 
     def test_ci_discovery_can_be_imported_and_used(self):
         """Test that ci_discovery can be imported and used like the original."""
-        from ci_discovery import get_ci_system
+        from ci_discovery import CIDiscovery, get_ci_system
 
         assert callable(get_ci_system)
 

@@ -2,6 +2,7 @@
 Tests for security.constants module.
 """
 
+import pytest
 
 from security.constants import (
     PROJECT_DIR_ENV_VAR,

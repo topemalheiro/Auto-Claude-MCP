@@ -1,10 +1,13 @@
 """Tests for services/orchestrator.py"""
 
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, mock_open, Mock
 import subprocess
+import shutil
 import socket
+import time
 
+import pytest
 
 from services.orchestrator import (
     ServiceConfig,
@@ -1609,7 +1612,8 @@ class TestDiscoverServicesEdgeCases:
             try:
                 orchestrator._discover_monorepo_services()
             except PermissionError:
-                pass  # The code may not handle this case gracefully (no-op)
+                # The code may not handle this case gracefully
+                pass
 
         # Services list should be unchanged (empty in this case)
         assert len(orchestrator._services) == 0

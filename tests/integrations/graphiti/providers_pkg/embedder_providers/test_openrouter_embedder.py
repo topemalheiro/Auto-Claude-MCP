@@ -7,7 +7,7 @@ import pytest
 from integrations.graphiti.providers_pkg.embedder_providers.openrouter_embedder import (
     create_openrouter_embedder,
 )
-from integrations.graphiti.providers_pkg.exceptions import ProviderNotInstalled
+from integrations.graphiti.providers_pkg.exceptions import ProviderNotInstalled, ProviderError
 
 
 def test_create_openrouter_embedder():

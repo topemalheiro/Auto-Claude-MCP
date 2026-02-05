@@ -4,10 +4,13 @@ Tests for qa.report module.
 
 import json
 from pathlib import Path
+from typing import Any
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from apps.backend.qa.report import (
+    RECURRING_ISSUE_THRESHOLD,
     ISSUE_SIMILARITY_THRESHOLD,
     check_test_discovery,
     create_manual_test_plan,

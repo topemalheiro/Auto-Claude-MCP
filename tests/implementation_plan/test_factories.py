@@ -2,6 +2,11 @@
 
 from implementation_plan.factories import create_feature_plan, create_investigation_plan, create_refactor_plan
 from implementation_plan.enums import PhaseType, SubtaskStatus, VerificationType, WorkflowType
+from implementation_plan.phase import Phase
+from implementation_plan.subtask import Subtask
+from implementation_plan.verification import Verification
+from pathlib import Path
+import pytest
 
 
 def test_create_feature_plan_basic():

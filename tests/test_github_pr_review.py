@@ -5,10 +5,12 @@ Tests for GitHub PR Review System
 Tests the PR review orchestrator and follow-up review functionality.
 """
 
+import json
 import sys
 from datetime import datetime
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import AsyncMock, MagicMock, patch
+from dataclasses import asdict
 
 import pytest
 
@@ -28,7 +30,7 @@ from models import (
     MergeVerdict,
     FollowupReviewContext,
 )
-from bot_detection import BotDetector
+from bot_detection import BotDetector, BotDetectionState
 
 
 # ============================================================================

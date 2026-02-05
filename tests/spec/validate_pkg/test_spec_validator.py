@@ -5,7 +5,9 @@ Comprehensive tests for SpecValidator class.
 
 import json
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
+import pytest
 
 from spec.validate_pkg.spec_validator import SpecValidator
 from spec.validate_pkg.models import ValidationResult

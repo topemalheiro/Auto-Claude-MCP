@@ -10,10 +10,11 @@ from analysis.security_scanner import (
     main,
 )
 from pathlib import Path
-from unittest.mock import patch, Mock
+from unittest.mock import MagicMock, patch, Mock
 import pytest
 import tempfile
 import shutil
+import json
 
 
 @pytest.fixture
@@ -127,7 +128,7 @@ class TestScanMethod:
     def test_scan_saves_to_spec_dir(self, python_project, spec_dir):
         """Test scan saves results to spec directory."""
         scanner = SecurityScanner()
-        scanner.scan(
+        result = scanner.scan(
             python_project,
             spec_dir=spec_dir,
             changed_files=None,
@@ -263,6 +264,7 @@ class TestCheckBanditAvailable:
     @patch("subprocess.run")
     def test_bandit_not_found(self, mock_run):
         """Test when bandit is not found."""
+        import subprocess
         mock_run.side_effect = FileNotFoundError("bandit not found")
         scanner = SecurityScanner()
         result = scanner._check_bandit_available()
@@ -466,6 +468,7 @@ class TestCriticalIssuesDetection:
 
     def test_high_vulnerabilities_mark_critical(self):
         """Test high severity vulnerabilities are critical."""
+        scanner = SecurityScanner()
         result = SecurityScanResult()
         result.vulnerabilities.append(
             SecurityVulnerability(
@@ -484,6 +487,7 @@ class TestBlockingQA:
 
     def test_secrets_always_block(self):
         """Test any secrets always block QA."""
+        scanner = SecurityScanner()
         result = SecurityScanResult()
         result.secrets.append({"file": "test.py", "line": 10, "pattern": "API Key"})
         result.should_block_qa = len(result.secrets) > 0
@@ -491,6 +495,7 @@ class TestBlockingQA:
 
     def test_critical_vulnerabilities_block(self):
         """Test critical vulnerabilities block QA."""
+        scanner = SecurityScanner()
         result = SecurityScanResult()
         result.vulnerabilities.append(
             SecurityVulnerability(
@@ -505,6 +510,7 @@ class TestBlockingQA:
 
     def test_high_does_not_block_without_critical(self):
         """Test high severity doesn't block without critical."""
+        scanner = SecurityScanner()
         result = SecurityScanResult()
         result.vulnerabilities.append(
             SecurityVulnerability(

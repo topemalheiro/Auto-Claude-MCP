@@ -7,6 +7,8 @@ file operations, and all functionality paths.
 """
 
 import json
+from pathlib import Path
+from unittest.mock import patch, mock_open, MagicMock
 import pytest
 
 from context.serialization import serialize_context, save_context, load_context

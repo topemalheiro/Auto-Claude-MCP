@@ -7,6 +7,7 @@ from merge.conflict_explanation import (
 )
 from merge.compatibility_rules import CompatibilityRule, build_default_rules
 from merge.types import ChangeType, ConflictRegion, ConflictSeverity, MergeStrategy
+import pytest
 
 
 class TestExplainConflict:

@@ -1,6 +1,7 @@
 """Tests for service_matcher"""
 
 from context.service_matcher import ServiceMatcher
+import pytest
 
 
 def test_ServiceMatcher___init__():

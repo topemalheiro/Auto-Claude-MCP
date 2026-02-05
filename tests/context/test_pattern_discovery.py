@@ -3,6 +3,7 @@
 from context.pattern_discovery import PatternDiscoverer
 from context.models import FileMatch
 from pathlib import Path
+import pytest
 
 
 def test_PatternDiscoverer___init__():

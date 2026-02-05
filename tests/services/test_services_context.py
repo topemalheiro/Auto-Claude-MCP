@@ -3,9 +3,9 @@ Tests for services/context.py - Service Context Generator
 """
 
 import json
-import sys
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, Mock, patch
+import argparse
 
 import pytest
 
@@ -1429,10 +1429,6 @@ class TestErrorHandling:
         with pytest.raises(json.JSONDecodeError):
             ServiceContextGenerator(mock_project_dir)
 
-    @pytest.mark.skipif(
-        sys.platform == "win32",
-        reason="Windows does not support Unix-style chmod permissions for making files unreadable"
-    )
     def test_load_project_index_os_error(self, mock_project_dir, mock_auto_claude_dir):
         """Test loading project index when file can't be read - exception propagates."""
         index_file = mock_auto_claude_dir / "project_index.json"

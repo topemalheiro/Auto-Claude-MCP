@@ -2,8 +2,9 @@
 
 from ideation.prioritizer import IdeaPrioritizer
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 import json
+import pytest
 
 
 def test_IdeaPrioritizer___init__():

@@ -534,9 +534,8 @@ class TestWindowsCredentialFiles:
         )
         mock_open.return_value.__enter__.return_value = mock_file
 
-        # Use Path for cross-platform path comparison
-        expanded_dir = Path(config_dir).expanduser()
-        mock_exists.side_effect = lambda path: expanded_dir in Path(path).parents or Path(path) == expanded_dir
+        expanded_dir = str(Path(config_dir).expanduser())
+        mock_exists.side_effect = lambda path: path.startswith(expanded_dir)
 
         # Act
         result = _get_token_from_windows_credential_files(config_dir)
@@ -722,12 +721,8 @@ class TestPlatformDecryption:
             _decrypt_token_windows("encrypted-data")
 
     @patch("core.auth.is_macos", return_value=True)
-    @patch("core.auth.is_linux", return_value=False)
-    @patch("core.auth.is_windows", return_value=False)
     @patch("shutil.which", return_value="/usr/bin/claude")
-    def test_decrypt_token_macos_error_wrapped(
-        self, mock_which, mock_is_windows, mock_is_linux, mock_is_macos
-    ):
+    def test_decrypt_token_macos_error_wrapped(self, mock_which, mock_is_macos):
         """Test macOS NotImplementedError is wrapped in ValueError"""
         # Arrange
         encrypted_token = "enc:test-encrypted-data"
@@ -737,12 +732,8 @@ class TestPlatformDecryption:
             decrypt_token(encrypted_token)
 
     @patch("core.auth.is_linux", return_value=True)
-    @patch("core.auth.is_macos", return_value=False)
-    @patch("core.auth.is_windows", return_value=False)
     @patch("core.auth.secretstorage", MagicMock())
-    def test_decrypt_token_linux_error_wrapped(
-        self, mock_is_windows, mock_is_macos, mock_is_linux
-    ):
+    def test_decrypt_token_linux_error_wrapped(self, mock_is_linux):
         """Test Linux NotImplementedError is wrapped in ValueError"""
         # Arrange
         encrypted_token = "enc:test-encrypted-data"
@@ -752,12 +743,8 @@ class TestPlatformDecryption:
             decrypt_token(encrypted_token)
 
     @patch("core.auth.is_windows", return_value=True)
-    @patch("core.auth.is_macos", return_value=False)
-    @patch("core.auth.is_linux", return_value=False)
     @patch("core.auth._decrypt_token_windows")
-    def test_decrypt_token_windows_error_wrapped(
-        self, mock_decrypt_win, mock_is_linux, mock_is_macos, mock_is_windows
-    ):
+    def test_decrypt_token_windows_error_wrapped(self, mock_decrypt_win, mock_is_windows):
         """Test Windows NotImplementedError is wrapped in ValueError"""
         # Arrange
         encrypted_token = "enc:test-encrypted-data"
@@ -859,11 +846,10 @@ class TestDecryptionErrorHandling:
         with pytest.raises(ValueError, match="Encrypted token decryption"):
             decrypt_token(encrypted_token)
 
-    @patch("core.auth.is_macos", return_value=False)
     @patch("core.auth.is_linux", return_value=True)
     @patch("core.auth._decrypt_token_linux")
     def test_decrypt_linux_not_implemented_error_caught(
-        self, mock_decrypt_linux, mock_is_linux, mock_is_macos
+        self, mock_decrypt_linux, mock_is_linux
     ):
         """Test NotImplementedError from Linux decryption is caught and wrapped"""
         # Arrange - Need 10+ chars after enc: prefix to pass validation
@@ -874,12 +860,10 @@ class TestDecryptionErrorHandling:
         with pytest.raises(ValueError, match="Encrypted token decryption"):
             decrypt_token(encrypted_token)
 
-    @patch("core.auth.is_macos", return_value=False)
-    @patch("core.auth.is_linux", return_value=False)
     @patch("core.auth.is_windows", return_value=True)
     @patch("core.auth._decrypt_token_windows")
     def test_decrypt_windows_not_implemented_error_caught(
-        self, mock_decrypt_win, mock_is_windows, mock_is_linux, mock_is_macos
+        self, mock_decrypt_win, mock_is_windows
     ):
         """Test NotImplementedError from Windows decryption is caught and wrapped"""
         # Arrange - Need 10+ chars after enc: prefix to pass validation
@@ -929,19 +913,17 @@ class TestTokenValidationEdgeCases:
         with pytest.raises(ValueError, match="invalid characters"):
             decrypt_token(invalid_token)
 
-    @patch("core.auth.is_macos", return_value=False)
-    @patch("core.auth.is_linux", return_value=False)
-    @patch("core.auth.is_windows", return_value=False)
-    def test_decrypt_token_minimal_valid_length(self, mock_is_windows, mock_is_linux, mock_is_macos):
+    def test_decrypt_token_minimal_valid_length(self):
         """Test decrypt_token accepts tokens at minimum valid length"""
         # Arrange - Token with exactly 10 characters after enc:
         # (10 is the minimum length that passes validation)
         valid_token = "enc:0123456789"
 
         # This should pass basic length validation
-        # Since all platform checks are mocked to False, it will raise ValueError
-        # with "Unsupported platform" message
-        with pytest.raises(ValueError, match="Unsupported platform"):
+        # (will fail later during actual decryption attempt with NotImplementedError)
+        # Arrange & Act & Assert
+        # Will fail during platform decryption, not validation
+        with pytest.raises(ValueError, match="Encrypted token decryption"):
             decrypt_token(valid_token)
 
 
@@ -1120,20 +1102,19 @@ class TestGetTokenFromKeychainPlatformBranches:
         assert result == "sk-ant-oat01-macos-token"
         mock_macos_keychain.assert_called_once_with(None)
 
-    @patch("core.auth.is_macos", return_value=False)
     @patch("core.auth.is_windows", return_value=True)
     @patch("core.auth._get_token_from_windows_credential_files")
-    def test_get_token_from_keychain_windows_branch(self, mock__get_token_from_windows_credential_files, mock_is_windows, mock_is_macos):
+    def test_get_token_from_keychain_windows_branch(self, mock_windows_creds, mock_is_windows):
         """Test get_token_from_keychain calls Windows implementation"""
         # Arrange
-        mock__get_token_from_windows_credential_files.return_value = "sk-ant-oat01-windows-token"
+        mock_windows_creds.return_value = "sk-ant-oat01-windows-token"
 
         # Act
         result = get_token_from_keychain()
 
         # Assert
         assert result == "sk-ant-oat01-windows-token"
-        mock__get_token_from_windows_credential_files.assert_called_once_with(None)
+        mock_windows_creds.assert_called_once_with(None)
 
 
 # ============================================================================
@@ -1565,12 +1546,11 @@ class TestGetTokenFromConfigDir:
         """Test config dir with tilde is expanded"""
         # Arrange
         config_dir = "~/.config/claude"
-        # Use os.path.expanduser like the actual function does
-        expanded = os.path.expanduser(config_dir)
+        expanded = str(Path(config_dir).expanduser())
         cred_file_path = os.path.join(expanded, ".credentials.json")
 
-        # Make exists return True for the credential file (be flexible with path format)
-        mock_exists.side_effect = lambda p: ".credentials.json" in p
+        # Make exists return True for the credential file
+        mock_exists.side_effect = lambda p: p == cred_file_path
 
         # Mock json.load to return test data
         test_data = {"claudeAiOauth": {"accessToken": "sk-ant-oat01-test"}}
@@ -1767,10 +1747,9 @@ class TestGetAuthTokenSourcePlatform:
         # Assert
         assert result == "macOS Keychain"
 
-    @patch("core.auth.is_macos", return_value=False)
     @patch("core.auth.is_windows", return_value=True)
     @patch("core.auth.get_token_from_keychain")
-    def test_auth_token_source_windows_default(self, mock_keychain, mock_is_windows, mock_is_macos):
+    def test_auth_token_source_windows_default(self, mock_keychain, mock_is_windows):
         """Test default Windows credentials (no profile)"""
         # Arrange
         mock_keychain.return_value = "sk-ant-oat01-default"
@@ -2056,10 +2035,9 @@ class TestTriggerLoginPlatformBranches:
         assert result is True
         mock_macos_login.assert_called_once()
 
-    @patch("core.auth.is_macos", return_value=False)
     @patch("core.auth.is_windows", return_value=True)
     @patch("core.auth._trigger_login_windows")
-    def test_trigger_login_windows_branch(self, mock_windows_login, mock_is_windows, mock_is_macos):
+    def test_trigger_login_windows_branch(self, mock_windows_login, mock_is_windows):
         """Test trigger_login calls Windows implementation"""
         # Arrange
         mock_windows_login.return_value = True
@@ -2250,7 +2228,7 @@ class TestAdditionalCoverage:
             decrypt_token(encrypted_token)
 
     @patch("core.auth.is_windows", return_value=True)
-    @patch("os.path.exists")
+    @patch("os.path.exists", return_value=True)
     @patch("builtins.open", new_callable=MagicMock)
     def test_windows_credential_files_config_dir_no_token_fallback(
         self, mock_open, mock_exists, mock_is_windows
@@ -2258,14 +2236,20 @@ class TestAdditionalCoverage:
         """Test Windows credential files with config_dir returns None without fallback"""
         # Arrange
         config_dir = "~/custom/profile"
+        mock_file = MagicMock()
+        mock_file.read.return_value = json.dumps(
+            {"claudeAiOauth": {"accessToken": "sk-ant-oat01-profile-token"}}
+        )
+        mock_open.return_value.__enter__.return_value = mock_file
 
-        # Make exists return False for all paths (simulating no files exist)
-        mock_exists.return_value = False
+        expanded_dir = str(Path(config_dir).expanduser())
+        # Make exists return False for the profile path
+        mock_exists.side_effect = lambda p: not p.startswith(expanded_dir)
 
         # Act
         result = _get_token_from_windows_credential_files(config_dir)
 
-        # Assert - Should return None when config_dir files don't exist
+        # Assert - Should return None, not fall back to default paths
         assert result is None
 
     @patch("core.auth.is_linux", return_value=True)
@@ -2391,6 +2375,7 @@ class TestTriggerLoginMacOSComprehensive:
     ):
         """Test _trigger_login_macos successful login with token verification (covers 1082-1111)"""
         # Arrange
+        import tempfile
 
         # Mock TemporaryDirectory context manager
         temp_dir_obj = MagicMock()

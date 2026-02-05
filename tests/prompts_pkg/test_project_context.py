@@ -4,6 +4,9 @@ Tests project capability detection, index loading, and MCP tool selection.
 """
 
 import json
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+import pytest
 
 from prompts_pkg.project_context import (
     detect_project_capabilities,
@@ -646,7 +649,8 @@ class TestShouldRefreshProjectIndex:
             # The key is that it doesn't raise an exception
             assert isinstance(result, bool)
         except OSError:
-            pass  # If it raises OSError, that's also acceptable behavior (no-op)
+            # If it raises OSError, that's also acceptable behavior
+            pass
 
 
 class TestGetMcpToolsForProject:

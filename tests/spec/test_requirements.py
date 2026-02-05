@@ -2,6 +2,7 @@
 
 import json
 import os
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -402,9 +403,11 @@ class TestOpenEditorForInputAdditional:
         """Test that helpful instructions are written to temp file (lines 22-27)"""
         # This test is removed because the temp file is deleted after the function runs
         # The function writes instructions but then deletes the file, so we can't verify the content
+        pass
 
     def test_creates_temp_file_with_md_suffix(self, tmp_path):
         """Test temp file has .md suffix (line 23)"""
+        import tempfile
 
         mock_result = MagicMock()
         mock_result.returncode = 0
@@ -635,6 +638,7 @@ class TestGatherRequirementsInteractivelyAdditional:
     def test_timestamp_format_iso8601(self, tmp_path, monkeypatch):
         """Test timestamp is in ISO format (line 155)"""
         import re
+        from datetime import datetime
 
         inputs = iter(["Task", "", "1", "", ""])
         monkeypatch.setattr("builtins.input", lambda _: next(inputs))

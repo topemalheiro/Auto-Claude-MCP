@@ -5,6 +5,7 @@ Comprehensive tests for auto_merger.helpers module
 from datetime import datetime
 from merge.auto_merger.helpers import MergeHelpers
 from merge.types import ChangeType, SemanticChange, TaskSnapshot
+import pytest
 
 
 class TestMergeHelpersFindImportSectionEnd:

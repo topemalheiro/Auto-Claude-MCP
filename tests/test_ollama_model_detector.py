@@ -3,7 +3,10 @@
 import json
 import urllib.error
 from ollama_model_detector import cmd_check_status, cmd_get_recommended_models, cmd_list_embedding_models, cmd_list_models, cmd_pull_model, fetch_ollama_api, get_embedding_description, get_embedding_dim, get_model_min_version, get_ollama_version, is_embedding_model, main, output_error, output_json, parse_version, version_gte
+from pathlib import Path
 from unittest.mock import MagicMock, patch
+import pytest
+import sys
 
 
 def test_parse_version():

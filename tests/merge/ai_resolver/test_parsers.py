@@ -1,6 +1,9 @@
 """Tests for parsers"""
 
 from merge.ai_resolver.parsers import extract_batch_code_blocks, extract_code_block, looks_like_code
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+import pytest
 
 
 def test_extract_code_block():

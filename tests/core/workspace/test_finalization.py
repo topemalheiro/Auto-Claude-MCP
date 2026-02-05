@@ -11,6 +11,8 @@ Comprehensive test coverage for workspace finalization functionality including:
 """
 
 import subprocess
+import sys
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 from worktree import WorktreeInfo
 import pytest

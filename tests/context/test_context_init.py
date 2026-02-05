@@ -1,5 +1,6 @@
 """Tests for context/__init__.py - Context package exports."""
 
+import pytest
 
 from context import (
     # Main builder
@@ -153,6 +154,7 @@ class TestContextModuleImports:
 
     def test_no_circular_imports(self):
         """Test that importing context doesn't cause circular imports."""
+        import importlib
         import sys
 
         # Remove from cache if present

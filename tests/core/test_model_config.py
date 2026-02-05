@@ -1,6 +1,8 @@
 """Tests for model_config"""
 
+import os
 from core.model_config import get_utility_model_config, DEFAULT_UTILITY_MODEL
+import pytest
 
 
 class TestGetUtilityModelConfig:

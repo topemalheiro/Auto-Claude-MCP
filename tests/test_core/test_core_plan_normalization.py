@@ -9,6 +9,7 @@ Comprehensive tests for implementation plan normalization utilities including:
 - Change detection for normalization
 """
 
+import pytest
 
 from core.plan_normalization import normalize_subtask_aliases
 

@@ -1,6 +1,9 @@
 """Tests for prompts"""
 
 from merge.ai_resolver.prompts import format_batch_merge_prompt, format_merge_prompt
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+import pytest
 
 
 def test_format_merge_prompt():

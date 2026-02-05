@@ -3,7 +3,8 @@
 from prediction.predictor import BugPredictor
 from prediction.models import PreImplementationChecklist, PredictedIssue
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
+import pytest
 
 
 def test_BugPredictor___init__():

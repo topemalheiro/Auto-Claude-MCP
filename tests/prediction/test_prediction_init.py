@@ -4,8 +4,9 @@ Tests the convenience function and public API.
 """
 
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
+import pytest
 
 from prediction import BugPredictor, generate_subtask_checklist
 from prediction.models import PreImplementationChecklist, PredictedIssue

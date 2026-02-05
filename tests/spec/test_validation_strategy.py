@@ -1,12 +1,14 @@
 """Tests for validation_strategy module"""
 
-from unittest.mock import patch
+from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from spec.validation_strategy import (
     ValidationStrategy,
     ValidationStrategyBuilder,
+    ValidationStep,
     build_validation_strategy,
     detect_project_type,
     get_strategy_as_dict,
@@ -198,7 +200,7 @@ class TestMain:
         except SystemExit:
             # argparse may call exit
             pass
-        except Exception:
+        except Exception as e:
             # Some error is acceptable for this test
             pass
 

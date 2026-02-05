@@ -16,7 +16,15 @@ import os
 import sys
 from unittest.mock import MagicMock, Mock, patch, PropertyMock
 
+import pytest
 
+from ui.capabilities import (
+    configure_safe_encoding,
+    enable_windows_ansi_support,
+    supports_color,
+    supports_interactive,
+    supports_unicode,
+)
 
 
 class TestEnableWindowsAnsiSupport:
@@ -24,22 +32,19 @@ class TestEnableWindowsAnsiSupport:
 
     def test_non_windows_platform_returns_true(self):
         """Test that non-Windows platforms always return True"""
-        import ui.capabilities
-        with patch.object(sys, "platform", "linux"):
-            result = ui.capabilities.enable_windows_ansi_support()
+        with patch("ui.capabilities.sys.platform", "linux"):
+            result = enable_windows_ansi_support()
             assert result is True
 
     def test_non_windows_macos_returns_true(self):
         """Test that macOS returns True"""
-        import ui.capabilities
-        with patch.object(sys, "platform", "darwin"):
-            result = ui.capabilities.enable_windows_ansi_support()
+        with patch("ui.capabilities.sys.platform", "darwin"):
+            result = enable_windows_ansi_support()
             assert result is True
 
-    @patch.object(sys, "platform", "win32")
+    @patch("ui.capabilities.sys.platform", "win32")
     def test_windows_successfully_enables_ansi(self):
         """Test successful ANSI enablement on Windows"""
-        import ui.capabilities
         # Mock the ctypes module and its sub-components
         mock_dword = MagicMock()
         mock_dword.value = 0
@@ -57,13 +62,12 @@ class TestEnableWindowsAnsiSupport:
         mock_ctypes.wintypes = mock_wintypes
 
         with patch("builtins.__import__", side_effect=_create_import_side_effect(mock_ctypes)):
-            result = ui.capabilities.enable_windows_ansi_support()
+            result = enable_windows_ansi_support()
             assert result is True
 
-    @patch.object(sys, "platform", "win32")
+    @patch("ui.capabilities.sys.platform", "win32")
     def test_windows_ansi_already_enabled(self):
         """Test when ANSI is already enabled on Windows"""
-        import ui.capabilities
         # Setup mock for DWORD with ANSI flag already set
         mock_dword = MagicMock()
         mock_dword.value = 0x0004  # ENABLE_VIRTUAL_TERMINAL_PROCESSING
@@ -80,13 +84,12 @@ class TestEnableWindowsAnsiSupport:
         mock_ctypes.wintypes = mock_wintypes
 
         with patch("builtins.__import__", side_effect=_create_import_side_effect(mock_ctypes)):
-            result = ui.capabilities.enable_windows_ansi_support()
+            result = enable_windows_ansi_support()
             assert result is True
 
-    @patch.object(sys, "platform", "win32")
+    @patch("ui.capabilities.sys.platform", "win32")
     def test_windows_invalid_handle_continues(self):
         """Test when GetStdHandle returns -1 (invalid handle)"""
-        import ui.capabilities
         mock_dword = MagicMock()
         mock_dword.value = 0
 
@@ -103,13 +106,12 @@ class TestEnableWindowsAnsiSupport:
         mock_ctypes.wintypes = mock_wintypes
 
         with patch("builtins.__import__", side_effect=_create_import_side_effect(mock_ctypes)):
-            result = ui.capabilities.enable_windows_ansi_support()
+            result = enable_windows_ansi_support()
             assert result is True
 
-    @patch.object(sys, "platform", "win32")
+    @patch("ui.capabilities.sys.platform", "win32")
     def test_windows_get_console_mode_fails(self):
         """Test when GetConsoleMode fails"""
-        import ui.capabilities
         mock_dword = MagicMock()
         mock_dword.value = 0
 
@@ -125,13 +127,12 @@ class TestEnableWindowsAnsiSupport:
         mock_ctypes.wintypes = mock_wintypes
 
         with patch("builtins.__import__", side_effect=_create_import_side_effect(mock_ctypes)):
-            result = ui.capabilities.enable_windows_ansi_support()
+            result = enable_windows_ansi_support()
             assert result is True
 
-    @patch.object(sys, "platform", "win32")
+    @patch("ui.capabilities.sys.platform", "win32")
     def test_windows_ctypes_import_error_falls_back_to_colorama(self):
         """Test fallback to colorama when ctypes import fails"""
-        import ui.capabilities
         mock_colorama = MagicMock()
         mock_colorama.init.return_value = None
 
@@ -143,14 +144,13 @@ class TestEnableWindowsAnsiSupport:
             return __import__(name, *args, **kwargs)
 
         with patch("builtins.__import__", side_effect=import_side_effect):
-            result = ui.capabilities.enable_windows_ansi_support()
+            result = enable_windows_ansi_support()
             assert result is True
             mock_colorama.init.assert_called_once()
 
-    @patch.object(sys, "platform", "win32")
+    @patch("ui.capabilities.sys.platform", "win32")
     def test_windows_ctypes_attribute_error(self):
         """Test handling of AttributeError from ctypes"""
-        import ui.capabilities
         mock_ctypes = MagicMock()
         mock_ctypes.windll.kernel32.GetStdHandle.side_effect = AttributeError("No attribute")
 
@@ -165,14 +165,13 @@ class TestEnableWindowsAnsiSupport:
             return __import__(name, *args, **kwargs)
 
         with patch("builtins.__import__", side_effect=import_side_effect):
-            result = ui.capabilities.enable_windows_ansi_support()
+            result = enable_windows_ansi_support()
             assert result is True
             mock_colorama.init.assert_called_once()
 
-    @patch.object(sys, "platform", "win32")
+    @patch("ui.capabilities.sys.platform", "win32")
     def test_windows_oserror_falls_back_to_colorama(self):
         """Test OSError handling falls back to colorama"""
-        import ui.capabilities
         mock_ctypes = MagicMock()
         mock_ctypes.windll.kernel32.GetStdHandle.side_effect = OSError("Failed")
 
@@ -187,28 +186,16 @@ class TestEnableWindowsAnsiSupport:
             return __import__(name, *args, **kwargs)
 
         with patch("builtins.__import__", side_effect=import_side_effect):
-            result = ui.capabilities.enable_windows_ansi_support()
+            result = enable_windows_ansi_support()
             assert result is True
             mock_colorama.init.assert_called_once()
 
-    @patch.object(sys, "platform", "win32")
-    def test_windows_colorama_import_error_returns_false(self):
+    @patch("ui.capabilities.sys.platform", "win32")
+    @patch("builtins.__import__")
+    def test_windows_colorama_import_error_returns_false(self, mock_import):
         """Test when both ctypes and colorama fail"""
-        import ui.capabilities
-        # Patch both ctypes and colorama imports to fail
-        import builtins
-        original_import = builtins.__import__
-
-        def import_side_effect(name, *args, **kwargs):
-            if name == "ctypes":
-                raise ImportError("No module named 'ctypes'")
-            if name == "colorama":
-                raise ImportError("No module named 'colorama'")
-            return original_import(name, *args, **kwargs)
-
-        with patch("builtins.__import__", side_effect=import_side_effect):
-            result = ui.capabilities.enable_windows_ansi_support()
-
+        mock_import.side_effect = ImportError("No module")
+        result = enable_windows_ansi_support()
         assert result is False
 
 
@@ -228,19 +215,17 @@ class TestConfigureSafeEncoding:
 
     def test_non_windows_returns_early(self):
         """Test that non-Windows platforms return early"""
-        import ui.capabilities
-        with patch.object(sys, "platform", "linux"):
+        with patch("ui.capabilities.sys.platform", "linux"):
             original_stdout = sys.stdout
             original_stderr = sys.stderr
-            ui.capabilities.configure_safe_encoding()
+            configure_safe_encoding()
             # Should not modify stdout/stderr on non-Windows
             assert sys.stdout is original_stdout
             assert sys.stderr is original_stderr
 
-    @patch.object(sys, "platform", "win32")
+    @patch("ui.capabilities.sys.platform", "win32")
     def test_windows_reconfigure_method_works(self):
         """Test successful reconfigure on Windows"""
-        import ui.capabilities
         mock_stdout = MagicMock()
         mock_stdout.reconfigure.return_value = None
         mock_stderr = MagicMock()
@@ -248,7 +233,7 @@ class TestConfigureSafeEncoding:
 
         with patch("ui.capabilities.sys.stdout", mock_stdout):
             with patch("ui.capabilities.sys.stderr", mock_stderr):
-                ui.capabilities.configure_safe_encoding()
+                configure_safe_encoding()
 
                 mock_stdout.reconfigure.assert_called_once_with(
                     encoding="utf-8", errors="replace"
@@ -257,10 +242,9 @@ class TestConfigureSafeEncoding:
                     encoding="utf-8", errors="replace"
                 )
 
-    @patch.object(sys, "platform", "win32")
+    @patch("ui.capabilities.sys.platform", "win32")
     def test_windows_reconfigure_unsupported_operation_falls_back_to_wrapper(self):
         """Test fallback to TextIOWrapper when reconfigure fails"""
-        import ui.capabilities
         mock_buffer = MagicMock()
         mock_stdout = MagicMock()
         mock_stdout.reconfigure.side_effect = io.UnsupportedOperation()
@@ -268,38 +252,35 @@ class TestConfigureSafeEncoding:
 
         with patch("ui.capabilities.sys.stdout", mock_stdout):
             with patch("ui.capabilities.sys", sys):
-                ui.capabilities.configure_safe_encoding()
+                configure_safe_encoding()
                 # Should wrap with TextIOWrapper
                 # (actual sys.stdout would be replaced)
 
-    @patch.object(sys, "platform", "win32")
+    @patch("ui.capabilities.sys.platform", "win32")
     def test_windows_reconfigure_attribute_error(self):
         """Test handling AttributeError during reconfigure"""
-        import ui.capabilities
         mock_stdout = MagicMock()
         mock_stdout.reconfigure.side_effect = AttributeError("No reconfigure")
 
         with patch("ui.capabilities.sys.stdout", mock_stdout):
             with patch("ui.capabilities.sys.stderr", mock_stdout):
                 # Should not raise exception
-                ui.capabilities.configure_safe_encoding()
+                configure_safe_encoding()
 
-    @patch.object(sys, "platform", "win32")
+    @patch("ui.capabilities.sys.platform", "win32")
     def test_windows_reconfigure_oserror(self):
         """Test handling OSError during reconfigure"""
-        import ui.capabilities
         mock_stdout = MagicMock()
         mock_stdout.reconfigure.side_effect = OSError("Failed")
 
         with patch("ui.capabilities.sys.stdout", mock_stdout):
             with patch("ui.capabilities.sys.stderr", mock_stdout):
                 # Should not raise exception
-                ui.capabilities.configure_safe_encoding()
+                configure_safe_encoding()
 
-    @patch.object(sys, "platform", "win32")
+    @patch("ui.capabilities.sys.platform", "win32")
     def test_windows_no_buffer_attribute(self):
         """Test when stream has no buffer attribute"""
-        import ui.capabilities
         mock_stdout = MagicMock()
         mock_stdout.reconfigure.side_effect = io.UnsupportedOperation()
         # No buffer attribute - accessing it raises AttributeError
@@ -308,12 +289,11 @@ class TestConfigureSafeEncoding:
         with patch("ui.capabilities.sys.stdout", mock_stdout):
             with patch("ui.capabilities.sys.stderr", mock_stdout):
                 # Should not raise exception
-                ui.capabilities.configure_safe_encoding()
+                configure_safe_encoding()
 
-    @patch.object(sys, "platform", "win32")
+    @patch("ui.capabilities.sys.platform", "win32")
     def test_windows_textio_wrapper_creation_oserror(self):
         """Test OSError when creating TextIOWrapper"""
-        import ui.capabilities
         mock_stdout = MagicMock()
         mock_stdout.reconfigure.side_effect = io.UnsupportedOperation()
         mock_stdout.buffer = MagicMock()
@@ -321,19 +301,18 @@ class TestConfigureSafeEncoding:
         with patch("ui.capabilities.io.TextIOWrapper", side_effect=OSError("Failed")):
             with patch("ui.capabilities.sys.stdout", mock_stdout):
                 # Should not raise exception
-                ui.capabilities.configure_safe_encoding()
+                configure_safe_encoding()
 
-    @patch.object(sys, "platform", "win32")
+    @patch("ui.capabilities.sys.platform", "win32")
     def test_windows_textio_wrapper_unsupported_operation(self):
         """Test UnsupportedOperation when creating TextIOWrapper"""
-        import ui.capabilities
         mock_stdout = MagicMock()
         mock_stdout.reconfigure.side_effect = io.UnsupportedOperation()
         mock_stdout.buffer = MagicMock()
         with patch("ui.capabilities.io.TextIOWrapper", side_effect=io.UnsupportedOperation()):
             with patch("ui.capabilities.sys.stdout", mock_stdout):
                 # Should not raise exception
-                ui.capabilities.configure_safe_encoding()
+                configure_safe_encoding()
 
 
 class TestSupportsUnicode:
@@ -342,41 +321,28 @@ class TestSupportsUnicode:
     @patch.dict(os.environ, {"ENABLE_FANCY_UI": "false"})
     def test_returns_false_when_fancy_ui_disabled(self):
         """Test returns False when ENABLE_FANCY_UI is false"""
-        mock_stdout = MagicMock()
-        mock_stdout.encoding = "utf-8"
-        with patch("sys.stdout", mock_stdout):
-            from ui.capabilities import supports_unicode
-            result = supports_unicode()
-            assert result is False
+        result = supports_unicode()
+        assert result is False
 
     @patch.dict(os.environ, {"ENABLE_FANCY_UI": "0"})
     def test_returns_false_when_fancy_ui_zero(self):
         """Test returns False when ENABLE_FANCY_UI is 0"""
-        mock_stdout = MagicMock()
-        mock_stdout.encoding = "utf-8"
-        with patch("sys.stdout", mock_stdout):
-            from ui.capabilities import supports_unicode
-            result = supports_unicode()
-            assert result is False
+        result = supports_unicode()
+        assert result is False
 
     @patch.dict(os.environ, {"ENABLE_FANCY_UI": "no"})
     def test_returns_false_when_fancy_ui_no(self):
         """Test returns False when ENABLE_FANCY_UI is no"""
-        mock_stdout = MagicMock()
-        mock_stdout.encoding = "utf-8"
-        with patch("sys.stdout", mock_stdout):
-            from ui.capabilities import supports_unicode
-            result = supports_unicode()
-            assert result is False
+        result = supports_unicode()
+        assert result is False
 
     @patch.dict(os.environ, {"ENABLE_FANCY_UI": "true"})
     def test_returns_true_for_utf8_encoding(self):
         """Test returns True for UTF-8 encoding"""
         mock_stdout = MagicMock()
         mock_stdout.encoding = "utf-8"
-        with patch("sys.stdout", mock_stdout):
-            import ui.capabilities
-            result = ui.capabilities.supports_unicode()
+        with patch("ui.capabilities.sys.stdout", mock_stdout):
+            result = supports_unicode()
             assert result is True
 
     @patch.dict(os.environ, {"ENABLE_FANCY_UI": "true"})
@@ -384,9 +350,8 @@ class TestSupportsUnicode:
         """Test returns True for utf8 (no dash) encoding"""
         mock_stdout = MagicMock()
         mock_stdout.encoding = "utf8"
-        with patch("sys.stdout", mock_stdout):
-            import ui.capabilities
-            result = ui.capabilities.supports_unicode()
+        with patch("ui.capabilities.sys.stdout", mock_stdout):
+            result = supports_unicode()
             assert result is True
 
     @patch.dict(os.environ, {"ENABLE_FANCY_UI": "true"})
@@ -394,9 +359,8 @@ class TestSupportsUnicode:
         """Test returns True for uppercase UTF-8"""
         mock_stdout = MagicMock()
         mock_stdout.encoding = "UTF-8"
-        with patch("sys.stdout", mock_stdout):
-            import ui.capabilities
-            result = ui.capabilities.supports_unicode()
+        with patch("ui.capabilities.sys.stdout", mock_stdout):
+            result = supports_unicode()
             assert result is True
 
     @patch.dict(os.environ, {"ENABLE_FANCY_UI": "true"})
@@ -404,9 +368,8 @@ class TestSupportsUnicode:
         """Test returns False for non-UTF-8 encoding"""
         mock_stdout = MagicMock()
         mock_stdout.encoding = "cp1252"
-        with patch("sys.stdout", mock_stdout):
-            import ui.capabilities
-            result = ui.capabilities.supports_unicode()
+        with patch("ui.capabilities.sys.stdout", mock_stdout):
+            result = supports_unicode()
             assert result is False
 
     @patch.dict(os.environ, {"ENABLE_FANCY_UI": "true"})
@@ -414,9 +377,8 @@ class TestSupportsUnicode:
         """Test returns False when encoding is empty"""
         mock_stdout = MagicMock()
         mock_stdout.encoding = ""
-        with patch("sys.stdout", mock_stdout):
-            import ui.capabilities
-            result = ui.capabilities.supports_unicode()
+        with patch("ui.capabilities.sys.stdout", mock_stdout):
+            result = supports_unicode()
             assert result is False
 
     @patch.dict(os.environ, {"ENABLE_FANCY_UI": "true"})
@@ -424,9 +386,8 @@ class TestSupportsUnicode:
         """Test returns False when encoding is None"""
         mock_stdout = MagicMock()
         mock_stdout.encoding = None
-        with patch("sys.stdout", mock_stdout):
-            import ui.capabilities
-            result = ui.capabilities.supports_unicode()
+        with patch("ui.capabilities.sys.stdout", mock_stdout):
+            result = supports_unicode()
             assert result is False
 
     @patch.dict(os.environ, {"ENABLE_FANCY_UI": "1"})
@@ -434,9 +395,8 @@ class TestSupportsUnicode:
         """Test returns True when ENABLE_FANCY_UI is 1"""
         mock_stdout = MagicMock()
         mock_stdout.encoding = "utf-8"
-        with patch("sys.stdout", mock_stdout):
-            import ui.capabilities
-            result = ui.capabilities.supports_unicode()
+        with patch("ui.capabilities.sys.stdout", mock_stdout):
+            result = supports_unicode()
             assert result is True
 
     @patch.dict(os.environ, {"ENABLE_FANCY_UI": "yes"})
@@ -444,9 +404,8 @@ class TestSupportsUnicode:
         """Test returns True when ENABLE_FANCY_UI is yes"""
         mock_stdout = MagicMock()
         mock_stdout.encoding = "utf-8"
-        with patch("sys.stdout", mock_stdout):
-            import ui.capabilities
-            result = ui.capabilities.supports_unicode()
+        with patch("ui.capabilities.sys.stdout", mock_stdout):
+            result = supports_unicode()
             assert result is True
 
     @patch.dict(os.environ, {"ENABLE_FANCY_UI": "on"})
@@ -454,9 +413,8 @@ class TestSupportsUnicode:
         """Test returns True when ENABLE_FANCY_UI is on"""
         mock_stdout = MagicMock()
         mock_stdout.encoding = "utf-8"
-        with patch("sys.stdout", mock_stdout):
-            import ui.capabilities
-            result = ui.capabilities.supports_unicode()
+        with patch("ui.capabilities.sys.stdout", mock_stdout):
+            result = supports_unicode()
             assert result is True
 
 
@@ -466,99 +424,79 @@ class TestSupportsColor:
     @patch.dict(os.environ, {"ENABLE_FANCY_UI": "false"})
     def test_returns_false_when_fancy_ui_disabled(self):
         """Test returns False when fancy UI is disabled"""
-        mock_stdout = MagicMock()
-        mock_stdout.encoding = "utf-8"
-        with patch("sys.stdout", mock_stdout):
-            from ui.capabilities import supports_color
-            result = supports_color()
-            assert result is False
+        result = supports_color()
+        assert result is False
 
     @patch.dict(os.environ, {"ENABLE_FANCY_UI": "true", "NO_COLOR": "1"})
     def test_returns_false_when_no_color_set(self):
         """Test returns False when NO_COLOR env var is set"""
-        mock_stdout = MagicMock()
-        mock_stdout.encoding = "utf-8"
-        with patch("sys.stdout", mock_stdout):
-            from ui.capabilities import supports_color
-            result = supports_color()
-            assert result is False
+        result = supports_color()
+        assert result is False
 
     @patch.dict(os.environ, {"ENABLE_FANCY_UI": "true", "NO_COLOR": ""})
-    def test_returns_true_when_no_color_empty_string(self):
-        """Test returns True when NO_COLOR is empty string (falsy, so ignored)"""
-        mock_stdout = MagicMock()
-        mock_stdout.encoding = "utf-8"
-        with patch("sys.stdout", mock_stdout):
-            from ui.capabilities import supports_color
-            result = supports_color()
-            # Empty string is falsy, so NO_COLOR check is skipped, returns True (MagicMock.isatty is truthy)
-            assert result is True
+    def test_returns_false_when_no_color_empty_string(self):
+        """Test returns False when NO_COLOR is empty string (truthy)"""
+        result = supports_color()
+        assert result is False
 
     @patch.dict(os.environ, {"ENABLE_FANCY_UI": "true", "FORCE_COLOR": "1"})
     def test_returns_true_when_force_color_set(self):
         """Test returns True when FORCE_COLOR env var is set"""
-        mock_stdout = MagicMock()
-        mock_stdout.encoding = "utf-8"
-        with patch("sys.stdout", mock_stdout):
-            from ui.capabilities import supports_color
-            result = supports_color()
-            assert result is True
+        result = supports_color()
+        assert result is True
 
     @patch.dict(os.environ, {"ENABLE_FANCY_UI": "true", "FORCE_COLOR": "1"})
     def test_returns_true_when_force_color_non_empty(self):
         """Test returns True when FORCE_COLOR has non-empty value"""
-        mock_stdout = MagicMock()
-        mock_stdout.encoding = "utf-8"
-        with patch("sys.stdout", mock_stdout):
-            from ui.capabilities import supports_color
-            result = supports_color()
-            assert result is True
+        result = supports_color()
+        assert result is True
 
     @patch.dict(os.environ, {"ENABLE_FANCY_UI": "true"})
     def test_returns_false_when_not_tty(self):
         """Test returns False when stdout is not a TTY"""
-        # Mock sys.stdout.isatty at the call site
-        with patch("sys.stdout.isatty", return_value=False):
-            import ui.capabilities
-            result = ui.capabilities.supports_color()
+        mock_stdout = MagicMock()
+        mock_stdout.isatty.return_value = False
+        with patch("ui.capabilities.sys.stdout", mock_stdout):
+            result = supports_color()
             assert result is False
+            mock_stdout.isatty.assert_called_once()
 
     @patch.dict(os.environ, {"ENABLE_FANCY_UI": "true"})
     def test_returns_false_when_no_isatty_method(self):
         """Test returns False when stdout has no isatty method"""
         # Create a mock object without isatty method
         mock_stdout = Mock(spec=["encoding"])
-        with patch("sys.stdout", mock_stdout):
-            import ui.capabilities
-            result = ui.capabilities.supports_color()
+        with patch("ui.capabilities.sys.stdout", mock_stdout):
+            result = supports_color()
             assert result is False
 
     @patch.dict(os.environ, {"ENABLE_FANCY_UI": "true", "TERM": "dumb"})
     def test_returns_false_when_term_is_dumb(self):
         """Test returns False when TERM is set to 'dumb'"""
-        # Mock sys.stdout.isatty at the call site
-        with patch("sys.stdout.isatty", return_value=True):
-            import ui.capabilities
-            result = ui.capabilities.supports_color()
+        mock_stdout = MagicMock()
+        mock_stdout.isatty.return_value = True
+        with patch("ui.capabilities.sys.stdout", mock_stdout):
+            result = supports_color()
             assert result is False
 
     @patch.dict(os.environ, {"ENABLE_FANCY_UI": "true", "TERM": "xterm-256color"})
     def test_returns_true_when_term_supports_color(self):
         """Test returns True for color-supporting terminal"""
-        # Mock sys.stdout.isatty at the call site
-        with patch("sys.stdout.isatty", return_value=True):
-            import ui.capabilities
-            result = ui.capabilities.supports_color()
+        mock_stdout = MagicMock()
+        mock_stdout.isatty.return_value = True
+        with patch("ui.capabilities.sys.stdout", mock_stdout):
+            result = supports_color()
             assert result is True
 
     @patch.dict(os.environ, {"ENABLE_FANCY_UI": "true"})
     def test_returns_true_when_term_not_set(self):
         """Test returns True when TERM env var is not set (defaults to not dumb)"""
-        # Remove TERM from environment and mock isatty
-        with patch.dict(os.environ, {"ENABLE_FANCY_UI": "true"}, clear=True):
-            with patch("sys.stdout.isatty", return_value=True):
-                import ui.capabilities
-                result = ui.capabilities.supports_color()
+        # Remove TERM from environment
+        mock_stdout = MagicMock()
+        mock_stdout.isatty.return_value = True
+        with patch("ui.capabilities.sys.stdout", mock_stdout):
+            with patch.dict(os.environ, {"ENABLE_FANCY_UI": "true"}, clear=True):
+                result = supports_color()
                 assert result is True
 
 
@@ -568,39 +506,36 @@ class TestSupportsInteractive:
     @patch.dict(os.environ, {"ENABLE_FANCY_UI": "false"})
     def test_returns_false_when_fancy_ui_disabled(self):
         """Test returns False when fancy UI is disabled"""
-        mock_stdout = MagicMock()
-        mock_stdout.encoding = "utf-8"
-        with patch("sys.stdout", mock_stdout):
-            from ui.capabilities import supports_interactive
-            result = supports_interactive()
-            assert result is False
+        result = supports_interactive()
+        assert result is False
 
     @patch.dict(os.environ, {"ENABLE_FANCY_UI": "true"})
     def test_returns_false_when_stdin_not_tty(self):
         """Test returns False when stdin is not a TTY"""
-        # Mock sys.stdin.isatty at the call site
-        with patch("sys.stdin.isatty", return_value=False):
-            import ui.capabilities
-            result = ui.capabilities.supports_interactive()
+        mock_stdin = MagicMock()
+        mock_stdin.isatty.return_value = False
+        with patch("ui.capabilities.sys.stdin", mock_stdin):
+            result = supports_interactive()
             assert result is False
+            mock_stdin.isatty.assert_called_once()
 
     @patch.dict(os.environ, {"ENABLE_FANCY_UI": "true"})
     def test_returns_true_when_stdin_is_tty(self):
         """Test returns True when stdin is a TTY"""
-        # Mock sys.stdin.isatty at the call site
-        with patch("sys.stdin.isatty", return_value=True):
-            import ui.capabilities
-            result = ui.capabilities.supports_interactive()
+        mock_stdin = MagicMock()
+        mock_stdin.isatty.return_value = True
+        with patch("ui.capabilities.sys.stdin", mock_stdin):
+            result = supports_interactive()
             assert result is True
+            mock_stdin.isatty.assert_called_once()
 
     @patch.dict(os.environ, {"ENABLE_FANCY_UI": "true"})
     def test_returns_false_when_no_isatty_method(self):
         """Test returns False when stdin has no isatty method"""
         # Create a mock object without isatty method
         mock_stdin = Mock(spec=["encoding"])
-        with patch("sys.stdin", mock_stdin):
-            import ui.capabilities
-            result = ui.capabilities.supports_interactive()
+        with patch("ui.capabilities.sys.stdin", mock_stdin):
+            result = supports_interactive()
             assert result is False
 
 
@@ -612,10 +547,9 @@ class TestSupportsInteractive:
 class TestEnableWindowsAnsiSupportActualPaths:
     """Tests that execute the actual Windows ANSI support code paths"""
 
-    @patch.object(sys, "platform", "win32")
+    @patch("ui.capabilities.sys.platform", "win32")
     def test_windows_ctypes_actual_import_and_execution(self):
         """Test actual ctypes import path on Windows"""
-        import ui.capabilities as cap_module
         # We need to properly mock ctypes.wintypes.DWORD
         mock_dword_instance = MagicMock()
         mock_dword_instance.value = 0
@@ -635,6 +569,8 @@ class TestEnableWindowsAnsiSupportActualPaths:
         mock_ctypes_module.wintypes.DWORD = mock_dword_class
         mock_ctypes_module.byref = mock_byref
 
+        # Patch the import to return our mock
+        import ui.capabilities as cap_module
         import builtins
 
         original_import = builtins.__import__
@@ -654,10 +590,9 @@ class TestEnableWindowsAnsiSupportActualPaths:
         # Assert
         assert result is True
 
-    @patch.object(sys, "platform", "win32")
+    @patch("ui.capabilities.sys.platform", "win32")
     def test_windows_ctypes_with_mode_already_set(self):
         """Test Windows path when ANSI mode is already enabled"""
-        import ui.capabilities as cap_module
         # Mock DWORD with ANSI flag already set
         mock_dword_instance = MagicMock()
         mock_dword_instance.value = 0x0004  # ENABLE_VIRTUAL_TERMINAL_PROCESSING
@@ -675,6 +610,7 @@ class TestEnableWindowsAnsiSupportActualPaths:
         mock_ctypes_module.wintypes.DWORD = mock_dword_class
         mock_ctypes_module.byref = mock_byref
 
+        import ui.capabilities as cap_module
         import builtins
 
         original_import = builtins.__import__
@@ -695,10 +631,9 @@ class TestEnableWindowsAnsiSupportActualPaths:
         # The code checks: if not (mode.value & ENABLE_VIRTUAL_TERMINAL_PROCESSING)
         # Since mode.value is 0x0004, the condition is False, so SetConsoleMode is not called
 
-    @patch.object(sys, "platform", "win32")
+    @patch("ui.capabilities.sys.platform", "win32")
     def test_windows_ctypes_with_both_handles(self):
         """Test Windows path with both output and error handles"""
-        import ui.capabilities as cap_module
         # Mock two different handles
         mock_dword_instance = MagicMock()
         mock_dword_instance.value = 0
@@ -718,6 +653,7 @@ class TestEnableWindowsAnsiSupportActualPaths:
         mock_ctypes_module.wintypes.DWORD = mock_dword_class
         mock_ctypes_module.byref = mock_byref
 
+        import ui.capabilities as cap_module
         import builtins
 
         original_import = builtins.__import__
@@ -742,7 +678,7 @@ class TestEnableWindowsAnsiSupportActualPaths:
 class TestConfigureSafeEncodingActualPaths:
     """Tests that execute the actual configure_safe_encoding code paths"""
 
-    @patch.object(sys, "platform", "win32")
+    @patch("ui.capabilities.sys.platform", "win32")
     def test_windows_reconfigure_success(self):
         """Test successful reconfigure on Windows"""
         # Create mocks for stdout and stderr with reconfigure method
@@ -760,7 +696,7 @@ class TestConfigureSafeEncodingActualPaths:
                 mock_stdout.reconfigure.assert_called_once_with(encoding="utf-8", errors="replace")
                 mock_stderr.reconfigure.assert_called_once_with(encoding="utf-8", errors="replace")
 
-    @patch.object(sys, "platform", "win32")
+    @patch("ui.capabilities.sys.platform", "win32")
     def test_windows_reconfigure_fails_to_textiowrapper(self):
         """Test fallback to TextIOWrapper when reconfigure fails"""
         mock_buffer = MagicMock()
@@ -783,7 +719,7 @@ class TestConfigureSafeEncodingActualPaths:
                     # Assert - TextIOWrapper should be created for both streams
                     assert mock_textio_wrapper.call_count == 2
 
-    @patch.object(sys, "platform", "win32")
+    @patch("ui.capabilities.sys.platform", "win32")
     def test_windows_no_buffer_attribute(self):
         """Test when stream has no buffer attribute"""
         mock_stdout = MagicMock()
@@ -804,7 +740,7 @@ class TestConfigureSafeEncodingActualPaths:
 
                 # Assert - no exception raised
 
-    @patch.object(sys, "platform", "win32")
+    @patch("ui.capabilities.sys.platform", "win32")
     def test_windows_textiowrapper_oserror(self):
         """Test OSError when creating TextIOWrapper"""
         mock_stdout = MagicMock()
@@ -821,7 +757,7 @@ class TestConfigureSafeEncodingActualPaths:
 
                     # Assert - no exception raised
 
-    @patch.object(sys, "platform", "linux")
+    @patch("ui.capabilities.sys.platform", "linux")
     def test_non_windows_returns_early(self):
         """Test that non-Windows platforms return early"""
         import ui.capabilities as cap_module

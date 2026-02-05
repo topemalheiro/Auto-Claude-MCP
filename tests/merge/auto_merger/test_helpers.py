@@ -2,6 +2,9 @@
 
 from merge.auto_merger.helpers import MergeHelpers
 from merge.types import ChangeType, SemanticChange
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+import pytest
 
 
 def test_MergeHelpers_find_import_section_end():

@@ -17,7 +17,7 @@ from pathlib import Path
 
 
 # Add auto-claude directory to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "backend"))
+sys.path.insert(0, str(Path(__file__).parent.parent / "Apps" / "backend"))
 
 from workspace import ParallelMergeTask, ParallelMergeResult
 from core.workspace import _run_parallel_merges

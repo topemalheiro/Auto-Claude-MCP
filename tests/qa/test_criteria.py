@@ -4,7 +4,7 @@ Tests for qa.criteria module.
 
 import json
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 

@@ -1,5 +1,6 @@
 """Tests for analysis/__init__.py - Analysis module exports."""
 
+import pytest
 
 from analysis import (
     ProjectAnalyzer,
@@ -119,6 +120,7 @@ class TestAnalysisModuleImports:
 
     def test_no_circular_imports(self):
         """Test that importing analysis doesn't cause circular imports."""
+        import importlib
         import sys
 
         # Remove from cache if present

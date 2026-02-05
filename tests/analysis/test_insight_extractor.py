@@ -13,11 +13,12 @@ from analysis.insight_extractor import (
     _get_generic_insights,
 )
 from pathlib import Path
-from unittest.mock import patch, AsyncMock, Mock
+from unittest.mock import MagicMock, patch, AsyncMock, Mock
 import pytest
 import tempfile
 import shutil
 import json
+import asyncio
 
 
 @pytest.fixture
@@ -595,6 +596,7 @@ class TestParseInsightsEdgeCases:
 
     def test_parse_json_with_large_response(self):
         """Test parsing very large JSON response."""
+        from analysis.insight_extractor import MAX_DIFF_CHARS
 
         # Create a large JSON response
         large_data = {

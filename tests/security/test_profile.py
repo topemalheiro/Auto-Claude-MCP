@@ -1,5 +1,6 @@
 """Tests for security profile management"""
 
+import pytest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 from security.profile import (
@@ -101,8 +102,6 @@ class TestGetSecurityProfile:
 
     def test_creates_profile_on_first_call(self):
         """Test that profile is created on first call"""
-        from unittest.mock import ANY
-
         project_dir = Path("/tmp/test_project")
 
         with patch("security.profile.get_or_create_profile") as mock_get:
@@ -113,9 +112,7 @@ class TestGetSecurityProfile:
                 with patch("security.profile._get_allowlist_mtime", return_value=None):
                     profile = get_security_profile(project_dir)
                     assert profile is mock_profile
-                    # Use ANY for project_dir since get_security_profile resolves the path
-                    # and on macOS /tmp resolves to /private/tmp
-                    mock_get.assert_called_once_with(ANY, None)
+                    mock_get.assert_called_once_with(project_dir, None)
 
     def test_uses_cached_profile_on_subsequent_calls(self):
         """Test that cached profile is returned on subsequent calls"""

@@ -2,8 +2,9 @@
 
 from ideation.formatter import IdeationFormatter
 from pathlib import Path
-from unittest.mock import patch, mock_open
+from unittest.mock import patch, mock_open, MagicMock
 import json
+import pytest
 
 
 def test_IdeationFormatter___init__():
@@ -13,9 +14,8 @@ def test_IdeationFormatter___init__():
 
     formatter = IdeationFormatter(output_dir, project_dir)
 
-    # Compare paths without resolve() since the implementation stores paths as-is
-    assert str(formatter.output_dir) == str(output_dir)
-    assert str(formatter.project_dir) == str(project_dir)
+    assert formatter.output_dir == output_dir
+    assert formatter.project_dir == project_dir
 
 
 @patch("ideation.formatter.Path.exists")
@@ -68,7 +68,8 @@ def test_IdeationFormatter_merge_ideation_outputs_new(mock_file, mock_exists):
         )
         assert result_path == output_dir / "ideation.json"
     except Exception:
-        pass  # If mocking fails, just verify the method is callable (no-op)
+        # If mocking fails, just verify the method is callable
+        pass
 
 
 @patch("ideation.formatter.Path.exists")

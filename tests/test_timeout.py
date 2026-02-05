@@ -11,7 +11,7 @@ This module tests various timeout-related scenarios including:
 import asyncio
 import subprocess
 import time
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 
 import pytest
@@ -27,8 +27,6 @@ class TestSubprocessTimeout:
             ["echo", "hello"],
             capture_output=True,
             text=True,
-            encoding="utf-8",
-            errors="replace",
             timeout=5,
         )
 
@@ -258,8 +256,8 @@ class TestTimeModuleOperations:
         time.sleep(0.1)
         elapsed = time.time() - start
 
-        # Allow generous tolerance for CI scheduling delays
-        assert 0.05 < elapsed < 0.5
+        # Allow some tolerance
+        assert 0.05 < elapsed < 0.2
 
     def test_time_sleep_zero(self):
         """Test time.sleep(0) returns immediately."""
@@ -281,8 +279,8 @@ class TestTimeModuleOperations:
         time.sleep(0.123)
         elapsed = time.time() - start
 
-        # Allow generous tolerance for CI scheduling delays
-        assert 0.1 < elapsed < 0.5
+        # Allow some tolerance
+        assert 0.1 < elapsed < 0.2
 
     def test_time_monotonic(self):
         """Test time.monotonic returns increasing values."""
@@ -291,8 +289,7 @@ class TestTimeModuleOperations:
         t2 = time.monotonic()
 
         assert t2 > t1
-        # Allow generous tolerance for CI scheduling delays
-        assert 0.04 < (t2 - t1) < 0.3
+        assert 0.04 < (t2 - t1) < 0.1
 
     def test_time_perf_counter(self):
         """Test time.perf_counter for high-resolution timing."""
@@ -301,8 +298,7 @@ class TestTimeModuleOperations:
         t2 = time.perf_counter()
 
         assert t2 > t1
-        # Allow generous tolerance for CI scheduling delays
-        assert 0.04 < (t2 - t1) < 0.3
+        assert 0.04 < (t2 - t1) < 0.1
 
 
 class TestThreadPoolExecutorTimeout:
@@ -349,7 +345,7 @@ class TestThreadPoolExecutorTimeout:
 
     def test_concurrent_future_wait_timeout(self):
         """Test concurrent.futures wait() with timeout."""
-        from concurrent.futures import wait
+        from concurrent.futures import wait, FIRST_COMPLETED
 
         def slow_task():
             time.sleep(10)
@@ -580,8 +576,6 @@ class TestTimeoutErrorHandling:
                 ["sleep", "10"],
                 capture_output=True,
                 text=True,
-                encoding="utf-8",
-                errors="replace",
                 timeout=0.1,
             )
             output = result.stdout

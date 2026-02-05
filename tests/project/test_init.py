@@ -1,5 +1,6 @@
 """Tests for project/__init__.py - Module facade exports."""
 
+import pytest
 
 from project import (
     ProjectAnalyzer,
@@ -94,6 +95,7 @@ class TestProjectModuleFacade:
 
     def test_no_circular_imports(self):
         """Test that importing project module doesn't cause circular imports."""
+        import importlib
         import sys
 
         # Remove from cache if present

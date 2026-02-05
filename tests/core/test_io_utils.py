@@ -7,22 +7,7 @@ Comprehensive test coverage for safe console output utilities handling broken pi
 from core.io_utils import is_pipe_broken, reset_pipe_state, safe_print
 from unittest.mock import MagicMock, patch
 import pytest
-
-
-# Disable pytest capture for this module due to sys.stdout.close() in safe_print
-# See: https://github.com/pytest-dev/pytest/issues/7770
-pytestmark = pytest.mark.filterwarnings("ignore::pytest.PytestUnraisableExceptionWarning")
-pytestmark = pytest.mark.filterwarnings("ignore::RuntimeWarning")
-
-
-@pytest.fixture(autouse=True)
-def cleanup_io_state():
-    """Ensure clean I/O state before and after each test."""
-    # Reset before test
-    reset_pipe_state()
-    yield
-    # Reset after test to ensure clean state for next test
-    reset_pipe_state()
+import sys
 
 
 class TestSafePrint:

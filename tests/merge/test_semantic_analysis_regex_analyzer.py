@@ -8,6 +8,7 @@ from merge.semantic_analysis.regex_analyzer import (
     get_function_pattern,
 )
 from merge.types import ChangeType, FileAnalysis
+import pytest
 
 
 class TestAnalyzeWithRegex:

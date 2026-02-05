@@ -8,8 +8,9 @@ Tests for AgentRunner class covering all code paths including:
 - Static helper methods
 """
 
+import asyncio
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch, call
 
 import pytest
 

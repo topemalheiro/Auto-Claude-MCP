@@ -12,6 +12,7 @@ Comprehensive tests for the remaining command registry modules including:
 - VERSION_MANAGER_COMMANDS
 """
 
+import pytest
 
 from project.command_registry.package_managers import PACKAGE_MANAGER_COMMANDS
 from project.command_registry.frameworks import FRAMEWORK_COMMANDS

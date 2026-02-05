@@ -4,6 +4,7 @@ Tests for prediction.main module (CLI entry point).
 
 import json
 import sys
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest

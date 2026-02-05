@@ -12,8 +12,11 @@ Comprehensive test coverage for workspace setup functionality including:
 
 import json
 import os
+import shutil
+import subprocess
 import sys
-from unittest.mock import MagicMock, patch
+from pathlib import Path
+from unittest.mock import MagicMock, patch, call
 import pytest
 
 from core.workspace.setup import (
@@ -21,6 +24,7 @@ from core.workspace.setup import (
     copy_env_files_to_worktree,
     symlink_node_modules_to_worktree,
     copy_spec_to_worktree,
+    setup_workspace,
     ensure_timeline_hook_installed,
     initialize_timeline_tracking,
     _ensure_timeline_hook_installed,
@@ -678,7 +682,6 @@ class TestBackwardCompatibilityAliases:
 class TestSetupEdgeCases:
     """Tests for edge cases in setup functions."""
 
-    @pytest.mark.skipif(sys.platform == "win32", reason="Windows console cannot encode certain Unicode characters (charmap codec limitation)")
     def test_copy_env_files_unicode_content(self, tmp_path):
         """Test copy_env_files_to_worktree with Unicode content."""
         project_dir = tmp_path / "project"

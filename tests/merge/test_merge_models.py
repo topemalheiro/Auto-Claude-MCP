@@ -5,6 +5,7 @@ Tests for MergeStats, TaskMergeRequest, and MergeReport dataclasses.
 
 from datetime import datetime
 from pathlib import Path
+from unittest.mock import MagicMock, patch, mock_open
 import pytest
 import tempfile
 import json

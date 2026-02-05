@@ -1,13 +1,13 @@
 """Tests for menu"""
 
-from unittest.mock import MagicMock, patch
+from io import StringIO
+from unittest.mock import MagicMock, patch, call
 import sys
 
 import pytest
 
 from ui.icons import Icons
-from ui.menu import MenuOption, select_menu
-import ui.menu as menu_module
+from ui.menu import MenuOption, _getch, select_menu, _HAS_TERMIOS, _HAS_MSVCRT
 
 
 def test_MenuOption():
@@ -44,7 +44,7 @@ def test_MenuOption_defaults():
     assert option.disabled is False
 
 
-@patch("ui.capabilities.INTERACTIVE", False)
+@patch("ui.menu.INTERACTIVE", False)
 def test_select_menu_fallback():
     """Test select_menu falls back to simple menu when not interactive"""
 
@@ -56,14 +56,13 @@ def test_select_menu_fallback():
 
     with patch("builtins.input", return_value="1"):
         # Act
-
         result = select_menu("Test Menu", options)
 
         # Assert
         assert result == "1"
 
 
-@patch("ui.capabilities.INTERACTIVE", False)
+@patch("ui.menu.INTERACTIVE", False)
 def test_select_menu_fallback_with_quit():
     """Test select_menu fallback with quit option"""
 
@@ -75,14 +74,13 @@ def test_select_menu_fallback_with_quit():
 
     with patch("builtins.input", return_value="q"):
         # Act
-
         result = select_menu("Test Menu", options, allow_quit=True)
 
         # Assert
         assert result is None
 
 
-@patch("ui.capabilities.INTERACTIVE", False)
+@patch("ui.menu.INTERACTIVE", False)
 def test_select_menu_fallback_with_disabled():
     """Test select_menu fallback with disabled options"""
 
@@ -94,14 +92,13 @@ def test_select_menu_fallback_with_disabled():
 
     with patch("builtins.input", return_value="2"):
         # Act
-
         result = select_menu("Test Menu", options)
 
         # Assert
         assert result == "2"
 
 
-@patch("ui.capabilities.INTERACTIVE", False)
+@patch("ui.menu.INTERACTIVE", False)
 def test_select_menu_fallback_invalid_then_valid():
     """Test select_menu fallback with invalid then valid input"""
 
@@ -113,14 +110,13 @@ def test_select_menu_fallback_invalid_then_valid():
 
     with patch("builtins.input", side_effect=["invalid", "5", "1"]):
         # Act
-
         result = select_menu("Test Menu", options)
 
         # Assert
         assert result == "1"
 
 
-@patch("ui.capabilities.INTERACTIVE", False)
+@patch("ui.menu.INTERACTIVE", False)
 def test_select_menu_fallback_with_description():
     """Test select_menu fallback shows descriptions"""
 
@@ -132,7 +128,6 @@ def test_select_menu_fallback_with_description():
 
     with patch("builtins.input", return_value="1"):
         # Act - should not raise
-
         result = select_menu("Test Menu", options, subtitle="Choose an option")
 
         # Assert
@@ -145,13 +140,13 @@ def test_select_menu_empty_options():
     # Arrange
     options = []
 
-    with patch.object(menu_module, "_getch", return_value="q"):
-        # Act - should handle gracefully
+    with patch("ui.menu.INTERACTIVE", True):
+        with patch("ui.menu._getch", return_value="q"):
+            # Act - should handle gracefully
+            result = select_menu("Empty Menu", options, allow_quit=True)
 
-        result = select_menu("Empty Menu", options, allow_quit=True, _interactive=True)
-
-        # Assert
-        assert result is None
+            # Assert
+            assert result is None
 
 
 def test_select_menu_all_disabled():
@@ -163,14 +158,14 @@ def test_select_menu_all_disabled():
         MenuOption(key="2", label="Option 2", disabled=True),
     ]
 
-    with patch.object(menu_module, "_getch", return_value="q"):
-        # Act - should handle gracefully
+    with patch("ui.menu.INTERACTIVE", True):
+        with patch("ui.menu._getch", return_value="q"):
+            # Act - should handle gracefully
+            result = select_menu("Disabled Menu", options, allow_quit=True)
 
-        result = select_menu("Disabled Menu", options, allow_quit=True, _interactive=True)
-
-        # Assert
-        # When all options are disabled, valid_options is empty, so it should print message and return None
-        assert result is None
+            # Assert
+            # When all options are disabled, valid_options is empty, so it should print message and return None
+            assert result is None
 
 
 # ============================================================================
@@ -357,392 +352,222 @@ class TestGetchWindows:
 # ============================================================================
 
 
-@pytest.mark.skipif(sys.platform == "win32", reason="Class contains Unix-specific tests using termios/tty mocking")
 class TestGetchUnix:
     """Tests for _getch() on Unix (termios/tty)"""
 
-    # These tests mock termios/tty to work on all platforms
-
     @patch("ui.menu._HAS_MSVCRT", False)
     @patch("ui.menu._HAS_TERMIOS", True)
-    def test_getch_unix_regular_character(self):
+    @patch("ui.menu.sys")
+    @patch("ui.menu.termios")
+    @patch("ui.menu.tty")
+    def test_getch_unix_regular_character(self, mock_tty, mock_termios, mock_sys):
         """Test _getch returns regular character on Unix"""
         # Arrange
-        import ui.menu as menu_module
         old_settings = MagicMock()
-
-        mock_termios = MagicMock()
         mock_termios.tcgetattr.return_value = old_settings
-        mock_tty = MagicMock()
+        mock_sys.stdin.fileno.return_value = 1
+        mock_sys.stdin.read.return_value = "a"
 
-        # Patch the function's globals to use mocked termios/tty
-        original_termios = menu_module._getch.__globals__.get('termios')
-        original_tty = menu_module._getch.__globals__.get('tty')
-
-        try:
-            menu_module._getch.__globals__['termios'] = mock_termios
-            menu_module._getch.__globals__['tty'] = mock_tty
-
-            with patch.object(menu_module.sys.stdin, "fileno", return_value=1):
-                with patch.object(menu_module.sys.stdin, "read", return_value="a"):
-                    # Act
-                    result = menu_module._getch()
-        finally:
-            # Restore original globals
-            if original_termios is not None:
-                menu_module._getch.__globals__['termios'] = original_termios
-            if original_tty is not None:
-                menu_module._getch.__globals__['tty'] = original_tty
+        # Act
+        result = _getch()
 
         # Assert
         assert result == "a"
+        mock_tty.setraw.assert_called_once_with(1)
+        mock_termios.tcgetattr.assert_called_once_with(1)
+        mock_termios.tcsetattr.assert_called_once_with(1, mock_termios.TCSADRAIN, old_settings)
+        mock_sys.stdin.read.assert_called_once_with(1)
 
     @patch("ui.menu._HAS_MSVCRT", False)
-    @pytest.mark.skipif(sys.platform == "win32", reason="Unix-specific test using termios")
     @patch("ui.menu._HAS_TERMIOS", True)
-    def test_getch_unix_escape_sequence_up_arrow(self):
+    @patch("ui.menu.sys")
+    @patch("ui.menu.termios")
+    @patch("ui.menu.tty")
+    def test_getch_unix_escape_sequence_up_arrow(self, mock_tty, mock_termios, mock_sys):
         """Test _getch handles UP arrow key on Unix"""
         # Arrange
-        import ui.menu as menu_module
         old_settings = MagicMock()
-
-        mock_termios = MagicMock()
         mock_termios.tcgetattr.return_value = old_settings
-        mock_tty = MagicMock()
+        mock_sys.stdin.fileno.return_value = 1
+        mock_sys.stdin.read.side_effect = ["\x1b", "[", "A"]
 
-        # Patch the function's globals to use mocked termios/tty
-        original_termios = menu_module._getch.__globals__.get('termios')
-        original_tty = menu_module._getch.__globals__.get('tty')
-
-        try:
-            menu_module._getch.__globals__['termios'] = mock_termios
-            menu_module._getch.__globals__['tty'] = mock_tty
-
-            with patch.object(menu_module.sys.stdin, "fileno", return_value=1):
-                with patch.object(menu_module.sys.stdin, "read", side_effect=["\x1b", "[", "A"]):
-                    # Act
-                    result = menu_module._getch()
-        finally:
-            # Restore original globals
-            if original_termios is not None:
-                menu_module._getch.__globals__['termios'] = original_termios
-            if original_tty is not None:
-                menu_module._getch.__globals__['tty'] = original_tty
+        # Act
+        result = _getch()
 
         # Assert
         assert result == "UP"
+        assert mock_sys.stdin.read.call_count == 3
 
     @patch("ui.menu._HAS_MSVCRT", False)
-    @pytest.mark.skipif(sys.platform == "win32", reason="Unix-specific test using termios")
     @patch("ui.menu._HAS_TERMIOS", True)
-    def test_getch_unix_escape_sequence_down_arrow(self):
+    @patch("ui.menu.sys")
+    @patch("ui.menu.termios")
+    @patch("ui.menu.tty")
+    def test_getch_unix_escape_sequence_down_arrow(self, mock_tty, mock_termios, mock_sys):
         """Test _getch handles DOWN arrow key on Unix"""
         # Arrange
-        import ui.menu as menu_module
         old_settings = MagicMock()
-
-        mock_termios = MagicMock()
         mock_termios.tcgetattr.return_value = old_settings
-        mock_tty = MagicMock()
+        mock_sys.stdin.fileno.return_value = 1
+        mock_sys.stdin.read.side_effect = ["\x1b", "[", "B"]
 
-        # Patch the function's globals to use mocked termios/tty
-        original_termios = menu_module._getch.__globals__.get('termios')
-        original_tty = menu_module._getch.__globals__.get('tty')
-
-        try:
-            menu_module._getch.__globals__['termios'] = mock_termios
-            menu_module._getch.__globals__['tty'] = mock_tty
-
-            with patch.object(menu_module.sys.stdin, "fileno", return_value=1):
-                with patch.object(menu_module.sys.stdin, "read", side_effect=["\x1b", "[", "B"]):
-                    # Act
-                    result = menu_module._getch()
-        finally:
-            # Restore original globals
-            if original_termios is not None:
-                menu_module._getch.__globals__['termios'] = original_termios
-            if original_tty is not None:
-                menu_module._getch.__globals__['tty'] = original_tty
+        # Act
+        result = _getch()
 
         # Assert
         assert result == "DOWN"
+        assert mock_sys.stdin.read.call_count == 3
 
     @patch("ui.menu._HAS_MSVCRT", False)
-    @pytest.mark.skipif(sys.platform == "win32", reason="Unix-specific test using termios")
     @patch("ui.menu._HAS_TERMIOS", True)
-    def test_getch_unix_escape_sequence_right_arrow(self):
+    @patch("ui.menu.sys")
+    @patch("ui.menu.termios")
+    @patch("ui.menu.tty")
+    def test_getch_unix_escape_sequence_right_arrow(self, mock_tty, mock_termios, mock_sys):
         """Test _getch handles RIGHT arrow key on Unix"""
         # Arrange
-        import ui.menu as menu_module
         old_settings = MagicMock()
-
-        mock_termios = MagicMock()
         mock_termios.tcgetattr.return_value = old_settings
-        mock_tty = MagicMock()
+        mock_sys.stdin.fileno.return_value = 1
+        mock_sys.stdin.read.side_effect = ["\x1b", "[", "C"]
 
-        # Patch the function's globals to use mocked termios/tty
-        original_termios = menu_module._getch.__globals__.get('termios')
-        original_tty = menu_module._getch.__globals__.get('tty')
-
-        try:
-            menu_module._getch.__globals__['termios'] = mock_termios
-            menu_module._getch.__globals__['tty'] = mock_tty
-
-            with patch.object(menu_module.sys.stdin, "fileno", return_value=1):
-                with patch.object(menu_module.sys.stdin, "read", side_effect=["\x1b", "[", "C"]):
-                    # Act
-                    result = menu_module._getch()
-        finally:
-            # Restore original globals
-            if original_termios is not None:
-                menu_module._getch.__globals__['termios'] = original_termios
-            if original_tty is not None:
-                menu_module._getch.__globals__['tty'] = original_tty
+        # Act
+        result = _getch()
 
         # Assert
         assert result == "RIGHT"
+        assert mock_sys.stdin.read.call_count == 3
 
     @patch("ui.menu._HAS_MSVCRT", False)
-    @pytest.mark.skipif(sys.platform == "win32", reason="Unix-specific test using termios")
     @patch("ui.menu._HAS_TERMIOS", True)
-    def test_getch_unix_escape_sequence_left_arrow(self):
+    @patch("ui.menu.sys")
+    @patch("ui.menu.termios")
+    @patch("ui.menu.tty")
+    def test_getch_unix_escape_sequence_left_arrow(self, mock_tty, mock_termios, mock_sys):
         """Test _getch handles LEFT arrow key on Unix"""
         # Arrange
-        import ui.menu as menu_module
         old_settings = MagicMock()
-
-        mock_termios = MagicMock()
         mock_termios.tcgetattr.return_value = old_settings
-        mock_tty = MagicMock()
+        mock_sys.stdin.fileno.return_value = 1
+        mock_sys.stdin.read.side_effect = ["\x1b", "[", "D"]
 
-        # Patch the function's globals to use mocked termios/tty
-        original_termios = menu_module._getch.__globals__.get('termios')
-        original_tty = menu_module._getch.__globals__.get('tty')
-
-        try:
-            menu_module._getch.__globals__['termios'] = mock_termios
-            menu_module._getch.__globals__['tty'] = mock_tty
-
-            with patch.object(menu_module.sys.stdin, "fileno", return_value=1):
-                with patch.object(menu_module.sys.stdin, "read", side_effect=["\x1b", "[", "D"]):
-                    # Act
-                    result = menu_module._getch()
-        finally:
-            # Restore original globals
-            if original_termios is not None:
-                menu_module._getch.__globals__['termios'] = original_termios
-            if original_tty is not None:
-                menu_module._getch.__globals__['tty'] = original_tty
+        # Act
+        result = _getch()
 
         # Assert
         assert result == "LEFT"
+        assert mock_sys.stdin.read.call_count == 3
 
     @patch("ui.menu._HAS_MSVCRT", False)
-    @pytest.mark.skipif(sys.platform == "win32", reason="Unix-specific test using termios")
     @patch("ui.menu._HAS_TERMIOS", True)
-    def test_getch_unix_partial_escape_sequence(self):
+    @patch("ui.menu.sys")
+    @patch("ui.menu.termios")
+    @patch("ui.menu.tty")
+    def test_getch_unix_partial_escape_sequence(self, mock_tty, mock_termios, mock_sys):
         """Test _getch handles partial escape sequence on Unix"""
         # Arrange - escape but not followed by [
-        import ui.menu as menu_module
         old_settings = MagicMock()
-
-        mock_termios = MagicMock()
         mock_termios.tcgetattr.return_value = old_settings
-        mock_tty = MagicMock()
+        mock_sys.stdin.fileno.return_value = 1
+        mock_sys.stdin.read.side_effect = ["\x1b", "x"]
 
-        # Patch the function's globals to use mocked termios/tty
-        original_termios = menu_module._getch.__globals__.get('termios')
-        original_tty = menu_module._getch.__globals__.get('tty')
-
-        try:
-            menu_module._getch.__globals__['termios'] = mock_termios
-            menu_module._getch.__globals__['tty'] = mock_tty
-
-            with patch.object(menu_module.sys.stdin, "fileno", return_value=1):
-                with patch.object(menu_module.sys.stdin, "read", side_effect=["\x1b", "x"]):
-                    # Act
-                    result = menu_module._getch()
-        finally:
-            # Restore original globals
-            if original_termios is not None:
-                menu_module._getch.__globals__['termios'] = original_termios
-            if original_tty is not None:
-                menu_module._getch.__globals__['tty'] = original_tty
+        # Act
+        result = _getch()
 
         # Assert - should return the escape character itself
         assert result == "\x1b"
 
     @patch("ui.menu._HAS_MSVCRT", False)
-    @pytest.mark.skipif(sys.platform == "win32", reason="Unix-specific test using termios")
     @patch("ui.menu._HAS_TERMIOS", True)
-    def test_getch_unix_unknown_escape_command(self):
+    @patch("ui.menu.sys")
+    @patch("ui.menu.termios")
+    @patch("ui.menu.tty")
+    def test_getch_unix_unknown_escape_command(self, mock_tty, mock_termios, mock_sys):
         """Test _getch handles unknown escape command on Unix"""
         # Arrange - escape [ but unknown third char
-        import ui.menu as menu_module
         old_settings = MagicMock()
-
-        mock_termios = MagicMock()
         mock_termios.tcgetattr.return_value = old_settings
-        mock_tty = MagicMock()
+        mock_sys.stdin.fileno.return_value = 1
+        mock_sys.stdin.read.side_effect = ["\x1b", "[", "Z"]
 
-        # Patch the function's globals to use mocked termios/tty
-        original_termios = menu_module._getch.__globals__.get('termios')
-        original_tty = menu_module._getch.__globals__.get('tty')
-
-        try:
-            menu_module._getch.__globals__['termios'] = mock_termios
-            menu_module._getch.__globals__['tty'] = mock_tty
-
-            with patch.object(menu_module.sys.stdin, "fileno", return_value=1):
-                with patch.object(menu_module.sys.stdin, "read", side_effect=["\x1b", "[", "Z"]):
-                    # Act
-                    result = menu_module._getch()
-        finally:
-            # Restore original globals
-            if original_termios is not None:
-                menu_module._getch.__globals__['termios'] = original_termios
-            if original_tty is not None:
-                menu_module._getch.__globals__['tty'] = original_tty
+        # Act
+        result = _getch()
 
         # Assert - should return the escape character
         assert result == "\x1b"
 
     @patch("ui.menu._HAS_MSVCRT", False)
-    @pytest.mark.skipif(sys.platform == "win32", reason="Unix-specific test using termios")
     @patch("ui.menu._HAS_TERMIOS", True)
-    def test_getch_unix_newline(self):
+    @patch("ui.menu.sys")
+    @patch("ui.menu.termios")
+    @patch("ui.menu.tty")
+    def test_getch_unix_newline(self, mock_tty, mock_termios, mock_sys):
         """Test _getch handles newline on Unix"""
         # Arrange
-        import ui.menu as menu_module
         old_settings = MagicMock()
-
-        mock_termios = MagicMock()
         mock_termios.tcgetattr.return_value = old_settings
-        mock_tty = MagicMock()
+        mock_sys.stdin.fileno.return_value = 1
+        mock_sys.stdin.read.return_value = "\n"
 
-        # Patch the function's globals to use mocked termios/tty
-        original_termios = menu_module._getch.__globals__.get('termios')
-        original_tty = menu_module._getch.__globals__.get('tty')
-
-        try:
-            menu_module._getch.__globals__['termios'] = mock_termios
-            menu_module._getch.__globals__['tty'] = mock_tty
-
-            with patch.object(menu_module.sys.stdin, "fileno", return_value=1):
-                with patch.object(menu_module.sys.stdin, "read", return_value="\n"):
-                    # Act
-                    result = menu_module._getch()
-        finally:
-            # Restore original globals
-            if original_termios is not None:
-                menu_module._getch.__globals__['termios'] = original_termios
-            if original_tty is not None:
-                menu_module._getch.__globals__['tty'] = original_tty
+        # Act
+        result = _getch()
 
         # Assert
         assert result == "\n"
 
     @patch("ui.menu._HAS_MSVCRT", False)
-    @pytest.mark.skipif(sys.platform == "win32", reason="Unix-specific test using termios")
     @patch("ui.menu._HAS_TERMIOS", True)
-    def test_getch_unix_carriage_return(self):
+    @patch("ui.menu.sys")
+    @patch("ui.menu.termios")
+    @patch("ui.menu.tty")
+    def test_getch_unix_carriage_return(self, mock_tty, mock_termios, mock_sys):
         """Test _getch handles carriage return on Unix"""
         # Arrange
-        import ui.menu as menu_module
         old_settings = MagicMock()
-
-        mock_termios = MagicMock()
         mock_termios.tcgetattr.return_value = old_settings
-        mock_tty = MagicMock()
+        mock_sys.stdin.fileno.return_value = 1
+        mock_sys.stdin.read.return_value = "\r"
 
-        # Patch the function's globals to use mocked termios/tty
-        original_termios = menu_module._getch.__globals__.get('termios')
-        original_tty = menu_module._getch.__globals__.get('tty')
-
-        try:
-            menu_module._getch.__globals__['termios'] = mock_termios
-            menu_module._getch.__globals__['tty'] = mock_tty
-
-            with patch.object(menu_module.sys.stdin, "fileno", return_value=1):
-                with patch.object(menu_module.sys.stdin, "read", return_value="\r"):
-                    # Act
-                    result = menu_module._getch()
-        finally:
-            # Restore original globals
-            if original_termios is not None:
-                menu_module._getch.__globals__['termios'] = original_termios
-            if original_tty is not None:
-                menu_module._getch.__globals__['tty'] = original_tty
+        # Act
+        result = _getch()
 
         # Assert
         assert result == "\r"
 
     @patch("ui.menu._HAS_MSVCRT", False)
-    @pytest.mark.skipif(sys.platform == "win32", reason="Unix-specific test using termios")
     @patch("ui.menu._HAS_TERMIOS", True)
-    def test_getch_unix_j_key(self):
+    @patch("ui.menu.sys")
+    @patch("ui.menu.termios")
+    @patch("ui.menu.tty")
+    def test_getch_unix_j_key(self, mock_tty, mock_termios, mock_sys):
         """Test _getch handles 'j' key on Unix"""
         # Arrange
-        import ui.menu as menu_module
         old_settings = MagicMock()
-
-        mock_termios = MagicMock()
         mock_termios.tcgetattr.return_value = old_settings
-        mock_tty = MagicMock()
+        mock_sys.stdin.fileno.return_value = 1
+        mock_sys.stdin.read.return_value = "j"
 
-        # Patch the function's globals to use mocked termios/tty
-        original_termios = menu_module._getch.__globals__.get('termios')
-        original_tty = menu_module._getch.__globals__.get('tty')
-
-        try:
-            menu_module._getch.__globals__['termios'] = mock_termios
-            menu_module._getch.__globals__['tty'] = mock_tty
-
-            with patch.object(menu_module.sys.stdin, "fileno", return_value=1):
-                with patch.object(menu_module.sys.stdin, "read", return_value="j"):
-                    # Act
-                    result = menu_module._getch()
-        finally:
-            # Restore original globals
-            if original_termios is not None:
-                menu_module._getch.__globals__['termios'] = original_termios
-            if original_tty is not None:
-                menu_module._getch.__globals__['tty'] = original_tty
+        # Act
+        result = _getch()
 
         # Assert
         assert result == "j"
 
     @patch("ui.menu._HAS_MSVCRT", False)
-    @pytest.mark.skipif(sys.platform == "win32", reason="Unix-specific test using termios")
     @patch("ui.menu._HAS_TERMIOS", True)
-    def test_getch_unix_k_key(self):
+    @patch("ui.menu.sys")
+    @patch("ui.menu.termios")
+    @patch("ui.menu.tty")
+    def test_getch_unix_k_key(self, mock_tty, mock_termios, mock_sys):
         """Test _getch handles 'k' key on Unix"""
         # Arrange
-        import ui.menu as menu_module
         old_settings = MagicMock()
-
-        mock_termios = MagicMock()
         mock_termios.tcgetattr.return_value = old_settings
-        mock_tty = MagicMock()
+        mock_sys.stdin.fileno.return_value = 1
+        mock_sys.stdin.read.return_value = "k"
 
-        # Patch the function's globals to use mocked termios/tty
-        original_termios = menu_module._getch.__globals__.get('termios')
-        original_tty = menu_module._getch.__globals__.get('tty')
-
-        try:
-            menu_module._getch.__globals__['termios'] = mock_termios
-            menu_module._getch.__globals__['tty'] = mock_tty
-
-            with patch.object(menu_module.sys.stdin, "fileno", return_value=1):
-                with patch.object(menu_module.sys.stdin, "read", return_value="k"):
-                    # Act
-                    result = menu_module._getch()
-        finally:
-            # Restore original globals
-            if original_termios is not None:
-                menu_module._getch.__globals__['termios'] = original_termios
-            if original_tty is not None:
-                menu_module._getch.__globals__['tty'] = original_tty
+        # Act
+        result = _getch()
 
         # Assert
         assert result == "k"
@@ -760,14 +585,9 @@ class TestGetchNoRawInput:
     @patch("ui.menu._HAS_TERMIOS", False)
     def test_getch_no_raw_input(self):
         """Test _getch raises RuntimeError when no raw input available"""
-        # Import and patch at module level
-        import ui.menu as menu_module
-
-        with patch.object(menu_module, "_HAS_MSVCRT", False):
-            with patch.object(menu_module, "_HAS_TERMIOS", False):
-                # Act & Assert
-                with pytest.raises(RuntimeError, match="No raw input method available"):
-                    menu_module._getch()
+        # Act & Assert
+        with pytest.raises(RuntimeError, match="No raw input method available"):
+            _getch()
 
 
 # ============================================================================
@@ -782,340 +602,320 @@ class TestSelectMenuInteractive:
         """Test select_menu navigation with UP key"""
         # Arrange
         options = [
-        MenuOption(key="1", label="Option 1"),
-        MenuOption(key="2", label="Option 2"),
-        MenuOption(key="3", label="Option 3"),
+            MenuOption(key="1", label="Option 1"),
+            MenuOption(key="2", label="Option 2"),
+            MenuOption(key="3", label="Option 3"),
         ]
 
-        with patch.object(menu_module, "_getch") as mock_getch:
-            # Simulate: UP key moves selection to previous, then Enter to select
+        with patch("ui.menu.INTERACTIVE", True):
+            with patch("ui.menu._getch") as mock_getch:
+                # Simulate: UP key moves selection to previous, then Enter to select
+                mock_getch.side_effect = ["UP", "\r"]
 
-            mock_getch.side_effect = ["UP", "\r"]
+                # Act
+                result = select_menu("Test Menu", options)
 
-            # Act - force interactive mode for CI environments
-            result = select_menu("Test Menu", options, _interactive=True)
-
-            # Assert - starting at option 1 (index 1), UP moves to option 0
-            # Actually looking at code: selected starts at valid_options[0] which is index 0
-            # UP when at index 0 does nothing (current_idx = 0, not > 0)
-            # So we should still be at index 0
-            # Let's trace through: selected=0, valid_options=[0,1,2]
-            # UP: current_idx=0, not > 0, so no change, render() called once
-            # Enter: return options[0].key = "1"
-            assert result == "1"
+                # Assert - starting at option 1 (index 1), UP moves to option 0
+                # Actually looking at code: selected starts at valid_options[0] which is index 0
+                # UP when at index 0 does nothing (current_idx = 0, not > 0)
+                # So we should still be at index 0
+                # Let's trace through: selected=0, valid_options=[0,1,2]
+                # UP: current_idx=0, not > 0, so no change, render() called once
+                # Enter: return options[0].key = "1"
+                assert result == "1"
 
     def test_select_menu_interactive_with_down_navigation(self):
         """Test select_menu navigation with DOWN key"""
         # Arrange
         options = [
-        MenuOption(key="1", label="Option 1"),
-        MenuOption(key="2", label="Option 2"),
-        MenuOption(key="3", label="Option 3"),
+            MenuOption(key="1", label="Option 1"),
+            MenuOption(key="2", label="Option 2"),
+            MenuOption(key="3", label="Option 3"),
         ]
 
-        with patch.object(menu_module, "_getch") as mock_getch:
-            # Simulate: DOWN key moves selection to next, then Enter to select
+        with patch("ui.menu.INTERACTIVE", True):
+            with patch("ui.menu._getch") as mock_getch:
+                # Simulate: DOWN key moves selection to next, then Enter to select
+                mock_getch.side_effect = ["DOWN", "\r"]
 
-            mock_getch.side_effect = ["DOWN", "\r"]
+                # Act
+                result = select_menu("Test Menu", options)
 
-            # Act
-            result = select_menu("Test Menu", options, _interactive=True)
-
-            # Assert - starting at index 0, DOWN moves to index 1
-            # selected=0, valid_options=[0,1,2]
-            # DOWN: current_idx=0, < 2, so selected = valid_options[1] = 1
-            # Enter: return options[1].key = "2"
-            assert result == "2"
+                # Assert - starting at index 0, DOWN moves to index 1
+                # selected=0, valid_options=[0,1,2]
+                # DOWN: current_idx=0, < 2, so selected = valid_options[1] = 1
+                # Enter: return options[1].key = "2"
+                assert result == "2"
 
     def test_select_menu_interactive_with_vim_keys(self):
         """Test select_menu navigation with vim-style j/k keys"""
         # Arrange
         options = [
-        MenuOption(key="1", label="Option 1"),
-        MenuOption(key="2", label="Option 2"),
-        MenuOption(key="3", label="Option 3"),
+            MenuOption(key="1", label="Option 1"),
+            MenuOption(key="2", label="Option 2"),
+            MenuOption(key="3", label="Option 3"),
         ]
 
-        # Test 'k' key (up)
-        with patch.object(menu_module, "_getch") as mock_getch:
-            mock_getch.side_effect = ["k", "\r"]
-            result = select_menu("Test Menu", options, _interactive=True)
-            # 'k' at index 0 does nothing
-            assert result == "1"
+        with patch("ui.menu.INTERACTIVE", True):
+            # Test 'k' key (up)
+            with patch("ui.menu._getch") as mock_getch:
+                mock_getch.side_effect = ["k", "\r"]
+                result = select_menu("Test Menu", options)
+                # 'k' at index 0 does nothing
+                assert result == "1"
 
-        # Test 'j' key (down)
-        with patch.object(menu_module, "_getch") as mock_getch:
-            mock_getch.side_effect = ["j", "\r"]
-            result = select_menu("Test Menu", options, _interactive=True)
-            # 'j' at index 0 moves to index 1
-            assert result == "2"
+            # Test 'j' key (down)
+            with patch("ui.menu._getch") as mock_getch:
+                mock_getch.side_effect = ["j", "\r"]
+                result = select_menu("Test Menu", options)
+                # 'j' at index 0 moves to index 1
+                assert result == "2"
 
     def test_select_menu_interactive_enter_selection(self):
         """Test select_menu selects current option with Enter key"""
         # Arrange
         options = [
-        MenuOption(key="1", label="Option 1"),
-        MenuOption(key="2", label="Option 2"),
+            MenuOption(key="1", label="Option 1"),
+            MenuOption(key="2", label="Option 2"),
         ]
 
-        # Test with \r (carriage return)
-        with patch.object(menu_module, "_getch", return_value="\r"):
-            result = select_menu("Test Menu", options, _interactive=True)
-            assert result == "1"
+        with patch("ui.menu.INTERACTIVE", True):
+            # Test with \r (carriage return)
+            with patch("ui.menu._getch", return_value="\r"):
+                result = select_menu("Test Menu", options)
+                assert result == "1"
 
-        # Test with \n (newline)
-        with patch.object(menu_module, "_getch", return_value="\n"):
-            result = select_menu("Test Menu", options, _interactive=True)
-            assert result == "1"
+            # Test with \n (newline)
+            with patch("ui.menu._getch", return_value="\n"):
+                result = select_menu("Test Menu", options)
+                assert result == "1"
 
     def test_select_menu_interactive_quit_with_q(self):
         """Test select_menu quits with 'q' key"""
         # Arrange
         options = [
-        MenuOption(key="1", label="Option 1"),
-        MenuOption(key="2", label="Option 2"),
+            MenuOption(key="1", label="Option 1"),
+            MenuOption(key="2", label="Option 2"),
         ]
 
-        with patch.object(menu_module, "_getch", return_value="q"):
-            # Act
+        with patch("ui.menu.INTERACTIVE", True):
+            with patch("ui.menu._getch", return_value="q"):
+                # Act
+                result = select_menu("Test Menu", options, allow_quit=True)
 
-            result = select_menu("Test Menu", options, allow_quit=True, _interactive=True)
-
-            # Assert
-            assert result is None
+                # Assert
+                assert result is None
 
     def test_select_menu_interactive_q_without_allow_quit(self):
         """Test 'q' key does nothing when allow_quit is False"""
         # Arrange
         options = [
-        MenuOption(key="1", label="Option 1"),
-        MenuOption(key="2", label="Option 2"),
+            MenuOption(key="1", label="Option 1"),
+            MenuOption(key="2", label="Option 2"),
         ]
 
-        with patch.object(menu_module, "_getch") as mock_getch:
-            # 'q' should be ignored, then Enter to select
-
-            mock_getch.side_effect = ["q", "\r"]
-            result = select_menu("Test Menu", options, allow_quit=False, _interactive=True)
-            assert result == "1"
+        with patch("ui.menu.INTERACTIVE", True):
+            with patch("ui.menu._getch") as mock_getch:
+                # 'q' should be ignored, then Enter to select
+                mock_getch.side_effect = ["q", "\r"]
+                result = select_menu("Test Menu", options, allow_quit=False)
+                assert result == "1"
 
     def test_select_menu_interactive_number_key_selection(self):
         """Test select_menu direct selection with number keys"""
         # Arrange
         options = [
-        MenuOption(key="1", label="Option 1"),
-        MenuOption(key="2", label="Option 2"),
-        MenuOption(key="3", label="Option 3"),
+            MenuOption(key="1", label="Option 1"),
+            MenuOption(key="2", label="Option 2"),
+            MenuOption(key="3", label="Option 3"),
         ]
 
-        for i in range(1, 4):
-            with patch.object(menu_module, "_getch", return_value=str(i)):
-                # Act
+        with patch("ui.menu.INTERACTIVE", True):
+            for i in range(1, 4):
+                with patch("ui.menu._getch", return_value=str(i)):
+                    # Act
+                    result = select_menu("Test Menu", options)
 
-                result = select_menu("Test Menu", options, _interactive=True)
-
-                # Assert
-                assert result == str(i)
+                    # Assert
+                    assert result == str(i)
 
     def test_select_menu_interactive_number_key_disabled_option(self):
         """Test number key doesn't select disabled option"""
         # Arrange
         options = [
-        MenuOption(key="1", label="Option 1", disabled=True),
-        MenuOption(key="2", label="Option 2"),
+            MenuOption(key="1", label="Option 1", disabled=True),
+            MenuOption(key="2", label="Option 2"),
         ]
 
-        with patch.object(menu_module, "_getch") as mock_getch:
-            # Press '1' (disabled), should be ignored, then Enter selects option 2
-
-            mock_getch.side_effect = ["1", "\r"]
-            result = select_menu("Test Menu", options, _interactive=True)
-            # Should skip disabled option and select first valid (index 1)
-            assert result == "2"
+        with patch("ui.menu.INTERACTIVE", True):
+            with patch("ui.menu._getch") as mock_getch:
+                # Press '1' (disabled), should be ignored, then Enter selects option 2
+                mock_getch.side_effect = ["1", "\r"]
+                result = select_menu("Test Menu", options)
+                # Should skip disabled option and select first valid (index 1)
+                assert result == "2"
 
     def test_select_menu_interactive_number_key_out_of_range(self):
         """Test number key out of range is ignored"""
         # Arrange
         options = [
-        MenuOption(key="1", label="Option 1"),
-        MenuOption(key="2", label="Option 2"),
+            MenuOption(key="1", label="Option 1"),
+            MenuOption(key="2", label="Option 2"),
         ]
 
-        with patch.object(menu_module, "_getch") as mock_getch:
-            # Press '9' (out of range), should be ignored, then Enter
-
-            mock_getch.side_effect = ["9", "\r"]
-            result = select_menu("Test Menu", options, _interactive=True)
-            assert result == "1"
+        with patch("ui.menu.INTERACTIVE", True):
+            with patch("ui.menu._getch") as mock_getch:
+                # Press '9' (out of range), should be ignored, then Enter
+                mock_getch.side_effect = ["9", "\r"]
+                result = select_menu("Test Menu", options)
+                assert result == "1"
 
     def test_select_menu_interactive_arrow_key_at_upper_boundary(self):
         """Test UP key at first option doesn't go out of bounds"""
         # Arrange
         options = [
-        MenuOption(key="1", label="Option 1"),
-        MenuOption(key="2", label="Option 2"),
+            MenuOption(key="1", label="Option 1"),
+            MenuOption(key="2", label="Option 2"),
         ]
 
-        with patch.object(menu_module, "_getch") as mock_getch:
-            # UP at index 0 stays at index 0
-
-            mock_getch.side_effect = ["UP", "\r"]
-            result = select_menu("Test Menu", options, _interactive=True)
-            assert result == "1"
+        with patch("ui.menu.INTERACTIVE", True):
+            with patch("ui.menu._getch") as mock_getch:
+                # UP at index 0 stays at index 0
+                mock_getch.side_effect = ["UP", "\r"]
+                result = select_menu("Test Menu", options)
+                assert result == "1"
 
     def test_select_menu_interactive_arrow_key_at_lower_boundary(self):
         """Test DOWN key at last option doesn't go out of bounds"""
         # Arrange
         options = [
-        MenuOption(key="1", label="Option 1"),
-        MenuOption(key="2", label="Option 2"),
+            MenuOption(key="1", label="Option 1"),
+            MenuOption(key="2", label="Option 2"),
         ]
 
-        with patch.object(menu_module, "_getch") as mock_getch:
-            # Move to last option with DOWN, then DOWN again (should stay)
-
-            # First DOWN: 0 -> 1, second DOWN: at 1, current_idx=1, not < 1, so no change
-
-            mock_getch.side_effect = ["DOWN", "DOWN", "\r"]
-            result = select_menu("Test Menu", options, _interactive=True)
-            assert result == "2"
+        with patch("ui.menu.INTERACTIVE", True):
+            with patch("ui.menu._getch") as mock_getch:
+                # Move to last option with DOWN, then DOWN again (should stay)
+                # First DOWN: 0 -> 1, second DOWN: at 1, current_idx=1, not < 1, so no change
+                mock_getch.side_effect = ["DOWN", "DOWN", "\r"]
+                result = select_menu("Test Menu", options)
+                assert result == "2"
 
     def test_select_menu_interactive_with_disabled_options(self):
         """Test navigation skips disabled options"""
         # Arrange
         options = [
-        MenuOption(key="1", label="Option 1"),
-        MenuOption(key="2", label="Option 2", disabled=True),
-        MenuOption(key="3", label="Option 3"),
+            MenuOption(key="1", label="Option 1"),
+            MenuOption(key="2", label="Option 2", disabled=True),
+            MenuOption(key="3", label="Option 3"),
         ]
 
-        with patch.object(menu_module, "_getch") as mock_getch:
-            # DOWN should skip disabled option 2
-
-            # valid_options = [0, 2], selected starts at 0
-
-            # DOWN: 0 -> 2 (skipping 1 which is disabled)
-
-            mock_getch.side_effect = ["DOWN", "\r"]
-            result = select_menu("Test Menu", options, _interactive=True)
-            assert result == "3"
+        with patch("ui.menu.INTERACTIVE", True):
+            with patch("ui.menu._getch") as mock_getch:
+                # DOWN should skip disabled option 2
+                # valid_options = [0, 2], selected starts at 0
+                # DOWN: 0 -> 2 (skipping 1 which is disabled)
+                mock_getch.side_effect = ["DOWN", "\r"]
+                result = select_menu("Test Menu", options)
+                assert result == "3"
 
     def test_select_menu_interactive_fallback_on_exception(self):
         """Test select_menu falls back to simple menu on _getch exception"""
         # Arrange
         options = [
-        MenuOption(key="1", label="Option 1"),
-        MenuOption(key="2", label="Option 2"),
+            MenuOption(key="1", label="Option 1"),
+            MenuOption(key="2", label="Option 2"),
         ]
 
-        with patch.object(menu_module, "_getch", side_effect=RuntimeError("Terminal error")):
-            with patch("builtins.input", return_value="1"):
-                # Act
-                result = select_menu("Test Menu", options, _interactive=True)
+        with patch("ui.menu.INTERACTIVE", True):
+            with patch("ui.menu._getch", side_effect=RuntimeError("Terminal error")):
+                with patch("builtins.input", return_value="1"):
+                    # Act
+                    result = select_menu("Test Menu", options)
 
-                # Assert
-                assert result == "1"
+                    # Assert
+                    assert result == "1"
 
     def test_select_menu_interactive_with_subtitle(self):
         """Test select_menu with subtitle renders correctly"""
         # Arrange
         options = [
-        MenuOption(key="1", label="Option 1"),
+            MenuOption(key="1", label="Option 1"),
         ]
 
-        with patch.object(menu_module, "_getch", return_value="\r"):
-            # Act - should not raise
+        with patch("ui.menu.INTERACTIVE", True):
+            with patch("ui.menu._getch", return_value="\r"):
+                # Act - should not raise
+                result = select_menu("Test Menu", options, subtitle="Choose wisely")
 
-            result = select_menu("Test Menu", options, subtitle="Choose wisely", _interactive=True)
-
-            # Assert
-            assert result == "1"
+                # Assert
+                assert result == "1"
 
     def test_select_menu_interactive_with_description(self):
         """Test select_menu renders description for selected option"""
         # Arrange
         options = [
-        MenuOption(key="1", label="Option 1", description="First option description"),
-        MenuOption(key="2", label="Option 2"),
+            MenuOption(key="1", label="Option 1", description="First option description"),
+            MenuOption(key="2", label="Option 2"),
         ]
 
-        with patch.object(menu_module, "_getch", return_value="\r"):
-            # Act - should render description for selected option
+        with patch("ui.menu.INTERACTIVE", True):
+            with patch("ui.menu._getch", return_value="\r"):
+                # Act - should render description for selected option
+                result = select_menu("Test Menu", options)
 
-            result = select_menu("Test Menu", options, _interactive=True)
-
-            # Assert
-            assert result == "1"
+                # Assert
+                assert result == "1"
 
     def test_select_menu_interactive_description_shown_only_for_selected(self):
         """Test description is shown only for selected option, not others"""
         # Arrange
         options = [
-        MenuOption(key="1", label="Option 1", description="First option description"),
-        MenuOption(key="2", label="Option 2", description="Second option description"),
-        MenuOption(key="3", label="Option 3", description="Third option description"),
+            MenuOption(key="1", label="Option 1", description="First option description"),
+            MenuOption(key="2", label="Option 2", description="Second option description"),
+            MenuOption(key="3", label="Option 3", description="Third option description"),
         ]
 
-        with patch.object(menu_module, "_getch") as mock_getch:
-            # Select option 2, which should show its description
-
-            mock_getch.side_effect = ["DOWN", "\r"]
-            result = select_menu("Test Menu", options, _interactive=True)
-            assert result == "2"
+        with patch("ui.menu.INTERACTIVE", True):
+            with patch("ui.menu._getch") as mock_getch:
+                # Select option 2, which should show its description
+                mock_getch.side_effect = ["DOWN", "\r"]
+                result = select_menu("Test Menu", options)
+                assert result == "2"
 
     def test_select_menu_interactive_multiple_down_moves(self):
         """Test multiple DOWN key presses"""
         # Arrange
         options = [
-        MenuOption(key="1", label="Option 1"),
-        MenuOption(key="2", label="Option 2"),
-        MenuOption(key="3", label="Option 3"),
-        MenuOption(key="4", label="Option 4"),
+            MenuOption(key="1", label="Option 1"),
+            MenuOption(key="2", label="Option 2"),
+            MenuOption(key="3", label="Option 3"),
+            MenuOption(key="4", label="Option 4"),
         ]
 
-        with patch.object(menu_module, "_getch") as mock_getch:
-            # Move down twice
-
-            mock_getch.side_effect = ["DOWN", "DOWN", "\r"]
-            result = select_menu("Test Menu", options, _interactive=True)
-            # Start at 0, DOWN -> 1, DOWN -> 2
-            assert result == "3"
+        with patch("ui.menu.INTERACTIVE", True):
+            with patch("ui.menu._getch") as mock_getch:
+                # Move down twice
+                mock_getch.side_effect = ["DOWN", "DOWN", "\r"]
+                result = select_menu("Test Menu", options)
+                # Start at 0, DOWN -> 1, DOWN -> 2
+                assert result == "3"
 
     def test_select_menu_interactive_mixed_navigation(self):
         """Test mixed navigation (UP, DOWN, j, k)"""
         # Arrange
         options = [
-        MenuOption(key="1", label="Option 1"),
-        MenuOption(key="2", label="Option 2"),
-        MenuOption(key="3", label="Option 3"),
+            MenuOption(key="1", label="Option 1"),
+            MenuOption(key="2", label="Option 2"),
+            MenuOption(key="3", label="Option 3"),
         ]
 
-        with patch.object(menu_module, "_getch") as mock_getch:
-            # DOWN to option 2, UP back to option 1
-
-            mock_getch.side_effect = ["DOWN", "UP", "\r"]
-            result = select_menu("Test Menu", options, _interactive=True)
-            assert result == "1"
-
-    def test_mock_verification(self):
-        """Verify that patch works correctly for _getch"""
-        from unittest.mock import patch
-
-        # Re-import ui.menu to ensure we have the current module from sys.modules
-        # This is needed because other tests (like test_import_does_not_pollute_global_namespace)
-        # may have cleared and restored sys.modules['ui.menu'], leaving stale references
-        import ui.menu as ui_menu
-
-        # Patch on the current ui.menu module
-        with patch.object(ui_menu, '_getch', return_value="\r") as mock_getch:
-            options = [MenuOption(key="1", label="Option 1")]
-
-            # Use the freshly imported select_menu to ensure it uses the patched module
-            result = ui_menu.select_menu("Test Menu", options, _interactive=True)
-
-            # Verify mock was called
-            assert mock_getch.called, "Mock was not called!"
-            assert result == "1"
+        with patch("ui.menu.INTERACTIVE", True):
+            with patch("ui.menu._getch") as mock_getch:
+                # DOWN to option 2, UP back to option 1
+                mock_getch.side_effect = ["DOWN", "UP", "\r"]
+                result = select_menu("Test Menu", options)
+                assert result == "1"
 
 
 # ============================================================================
@@ -1126,248 +926,233 @@ class TestSelectMenuInteractive:
 class TestFallbackMenuExceptions:
     """Tests for _fallback_menu() exception handling"""
 
-    @patch("ui.capabilities.INTERACTIVE", False)
+    @patch("ui.menu.INTERACTIVE", False)
     def test_fallback_menu_eoferror_returns_none(self):
         """Test _fallback_menu returns None on EOFError"""
         # Arrange
         options = [
-        MenuOption(key="1", label="Option 1"),
-        MenuOption(key="2", label="Option 2"),
+            MenuOption(key="1", label="Option 1"),
+            MenuOption(key="2", label="Option 2"),
         ]
 
         with patch("builtins.input", side_effect=EOFError):
             # Act
+            result = select_menu("Test Menu", options)
 
-            result = select_menu("Test Menu", options, _interactive=True)
+            # Assert
+            assert result is None
 
-        # Assert
-        assert result is None
-
-    @patch("ui.capabilities.INTERACTIVE", False)
+    @patch("ui.menu.INTERACTIVE", False)
     def test_fallback_menu_keyboard_interrupt_returns_none(self):
         """Test _fallback_menu returns None on KeyboardInterrupt"""
         # Arrange
         options = [
-        MenuOption(key="1", label="Option 1"),
-        MenuOption(key="2", label="Option 2"),
+            MenuOption(key="1", label="Option 1"),
+            MenuOption(key="2", label="Option 2"),
         ]
 
         with patch("builtins.input", side_effect=KeyboardInterrupt):
             # Act
+            result = select_menu("Test Menu", options)
 
-            result = select_menu("Test Menu", options, _interactive=True)
+            # Assert
+            assert result is None
 
-        # Assert
-        assert result is None
-
-    @patch("ui.capabilities.INTERACTIVE", False)
+    @patch("ui.menu.INTERACTIVE", False)
     def test_fallback_menu_eoferror_with_allow_quit_false(self):
         """Test EOFError returns None even when allow_quit is False"""
         # Arrange
         options = [
-        MenuOption(key="1", label="Option 1"),
+            MenuOption(key="1", label="Option 1"),
         ]
 
         with patch("builtins.input", side_effect=EOFError):
             # Act
+            result = select_menu("Test Menu", options, allow_quit=False)
 
-            result = select_menu("Test Menu", options, allow_quit=False, _interactive=True)
+            # Assert
+            assert result is None
 
-        # Assert
-        assert result is None
-
-    @patch("ui.capabilities.INTERACTIVE", False)
+    @patch("ui.menu.INTERACTIVE", False)
     def test_fallback_menu_keyboard_interrupt_with_allow_quit_false(self):
         """Test KeyboardInterrupt returns None even when allow_quit is False"""
         # Arrange
         options = [
-        MenuOption(key="1", label="Option 1"),
+            MenuOption(key="1", label="Option 1"),
         ]
 
         with patch("builtins.input", side_effect=KeyboardInterrupt):
             # Act
+            result = select_menu("Test Menu", options, allow_quit=False)
 
-            result = select_menu("Test Menu", options, allow_quit=False, _interactive=True)
+            # Assert
+            assert result is None
 
-        # Assert
-        assert result is None
-
-    @patch("ui.capabilities.INTERACTIVE", False)
+    @patch("ui.menu.INTERACTIVE", False)
     def test_fallback_menu_invalid_input_then_eoferror(self):
         """Test invalid input followed by EOFError"""
         # Arrange
         options = [
-        MenuOption(key="1", label="Option 1"),
+            MenuOption(key="1", label="Option 1"),
         ]
 
         with patch("builtins.input", side_effect=["invalid", EOFError]):
             # Act
+            result = select_menu("Test Menu", options)
 
-            result = select_menu("Test Menu", options, _interactive=True)
+            # Assert
+            assert result is None
 
-        # Assert
-        assert result is None
-
-    @patch("ui.capabilities.INTERACTIVE", False)
+    @patch("ui.menu.INTERACTIVE", False)
     def test_fallback_menu_q_without_allow_quit(self):
         """Test 'q' input when allow_quit is False"""
         # Arrange
         options = [
-        MenuOption(key="1", label="Option 1"),
+            MenuOption(key="1", label="Option 1"),
         ]
 
         with patch("builtins.input", side_effect=["q", "1"]):
             # Act - 'q' should be treated as invalid, then '1' selects
+            result = select_menu("Test Menu", options, allow_quit=False)
 
-            result = select_menu("Test Menu", options, allow_quit=False, _interactive=True)
+            # Assert
+            assert result == "1"
 
-        # Assert
-        assert result == "1"
-
-    @patch("ui.capabilities.INTERACTIVE", False)
+    @patch("ui.menu.INTERACTIVE", False)
     def test_fallback_menu_selects_disabled_option_invalid(self):
         """Test selecting disabled option shows as invalid"""
         # Arrange
         options = [
-        MenuOption(key="1", label="Option 1", disabled=True),
-        MenuOption(key="2", label="Option 2"),
+            MenuOption(key="1", label="Option 1", disabled=True),
+            MenuOption(key="2", label="Option 2"),
         ]
 
         with patch("builtins.input", side_effect=["1", "2"]):
             # Act - '1' is disabled (invalid), '2' is valid
+            result = select_menu("Test Menu", options)
 
-            result = select_menu("Test Menu", options, _interactive=True)
+            # Assert
+            assert result == "2"
 
-        # Assert
-        assert result == "2"
-
-    @patch("ui.capabilities.INTERACTIVE", False)
+    @patch("ui.menu.INTERACTIVE", False)
     def test_fallback_menu_zero_input(self):
         """Test '0' input is treated as invalid (1-indexed)"""
         # Arrange
         options = [
-        MenuOption(key="1", label="Option 1"),
+            MenuOption(key="1", label="Option 1"),
         ]
 
         with patch("builtins.input", side_effect=["0", "1"]):
             # Act - '0' is invalid, '1' is valid
+            result = select_menu("Test Menu", options)
 
-            result = select_menu("Test Menu", options, _interactive=True)
+            # Assert
+            assert result == "1"
 
-        # Assert
-        assert result == "1"
-
-    @patch("ui.capabilities.INTERACTIVE", False)
+    @patch("ui.menu.INTERACTIVE", False)
     def test_fallback_menu_negative_input(self):
         """Test negative number input is treated as invalid"""
         # Arrange
         options = [
-        MenuOption(key="1", label="Option 1"),
+            MenuOption(key="1", label="Option 1"),
         ]
 
         with patch("builtins.input", side_effect=["-1", "1"]):
             # Act - '-1' causes ValueError, '1' is valid
+            result = select_menu("Test Menu", options)
 
-            result = select_menu("Test Menu", options, _interactive=True)
+            # Assert
+            assert result == "1"
 
-        # Assert
-        assert result == "1"
-
-    @patch("ui.capabilities.INTERACTIVE", False)
+    @patch("ui.menu.INTERACTIVE", False)
     def test_fallback_menu_non_numeric_input(self):
         """Test non-numeric input is treated as invalid"""
         # Arrange
         options = [
-        MenuOption(key="1", label="Option 1"),
+            MenuOption(key="1", label="Option 1"),
         ]
 
         with patch("builtins.input", side_effect=["abc", "1"]):
             # Act - 'abc' causes ValueError, '1' is valid
+            result = select_menu("Test Menu", options)
 
-            result = select_menu("Test Menu", options, _interactive=True)
+            # Assert
+            assert result == "1"
 
-        # Assert
-        assert result == "1"
-
-    @patch("ui.capabilities.INTERACTIVE", False)
+    @patch("ui.menu.INTERACTIVE", False)
     def test_fallback_menu_empty_input(self):
         """Test empty input is treated as invalid"""
         # Arrange
         options = [
-        MenuOption(key="1", label="Option 1"),
+            MenuOption(key="1", label="Option 1"),
         ]
 
         with patch("builtins.input", side_effect=["", "1"]):
             # Act - empty string causes ValueError, '1' is valid
+            result = select_menu("Test Menu", options)
 
-            result = select_menu("Test Menu", options, _interactive=True)
+            # Assert
+            assert result == "1"
 
-        # Assert
-        assert result == "1"
-
-    @patch("ui.capabilities.INTERACTIVE", False)
+    @patch("ui.menu.INTERACTIVE", False)
     def test_fallback_menu_with_icon(self):
         """Test _fallback_menu with options that have icons"""
         # Arrange
         options = [
-        MenuOption(key="1", label="Option 1", icon=Icons.SUCCESS),
+            MenuOption(key="1", label="Option 1", icon=Icons.SUCCESS),
         ]
 
         with patch("builtins.input", return_value="1"):
             # Act - should not raise
+            result = select_menu("Test Menu", options)
 
-            result = select_menu("Test Menu", options, _interactive=True)
+            # Assert
+            assert result == "1"
 
-        # Assert
-        assert result == "1"
-
-    @patch("ui.capabilities.INTERACTIVE", False)
+    @patch("ui.menu.INTERACTIVE", False)
     def test_fallback_menu_q_with_allow_quit(self):
         """Test 'q' input returns None when allow_quit is True"""
         # Arrange
         options = [
-        MenuOption(key="1", label="Option 1"),
+            MenuOption(key="1", label="Option 1"),
         ]
 
         with patch("builtins.input", return_value="q"):
             # Act
+            result = select_menu("Test Menu", options, allow_quit=True)
 
-            result = select_menu("Test Menu", options, allow_quit=True, _interactive=True)
+            # Assert
+            assert result is None
 
-        # Assert
-        assert result is None
-
-    @patch("ui.capabilities.INTERACTIVE", False)
+    @patch("ui.menu.INTERACTIVE", False)
     def test_fallback_menu_case_insensitive_q(self):
         """Test 'Q' (uppercase) is treated as quit"""
         # Arrange
         options = [
-        MenuOption(key="1", label="Option 1"),
+            MenuOption(key="1", label="Option 1"),
         ]
 
         with patch("builtins.input", return_value="Q"):
             # Act
+            result = select_menu("Test Menu", options, allow_quit=True)
 
-            result = select_menu("Test Menu", options, allow_quit=True, _interactive=True)
+            # Assert
+            assert result is None
 
-        # Assert
-        assert result is None
-
-    @patch("ui.capabilities.INTERACTIVE", False)
+    @patch("ui.menu.INTERACTIVE", False)
     def test_fallback_menu_whitespace_handling(self):
         """Test input with whitespace is stripped"""
         # Arrange
         options = [
-        MenuOption(key="1", label="Option 1"),
+            MenuOption(key="1", label="Option 1"),
         ]
 
         with patch("builtins.input", return_value="  1  "):
             # Act - whitespace should be stripped
+            result = select_menu("Test Menu", options)
 
-            result = select_menu("Test Menu", options, _interactive=True)
-
-        # Assert
-        assert result == "1"
+            # Assert
+            assert result == "1"
 
 
 # ============================================================================
@@ -1378,118 +1163,119 @@ class TestFallbackMenuExceptions:
 class TestSelectMenuRenderFunction:
     """Tests to ensure render() function is executed"""
 
+    @patch("ui.menu.INTERACTIVE", True)
     def test_render_function_called_on_initial_display(self):
         """Test that render() is called when menu is first displayed"""
         # Arrange
         options = [
-        MenuOption(key="1", label="Option 1"),
-        MenuOption(key="2", label="Option 2"),
+            MenuOption(key="1", label="Option 1"),
+            MenuOption(key="2", label="Option 2"),
         ]
 
         # Don't mock print - let render() execute normally
-        with patch.object(menu_module, "_getch", return_value="\r"):
+        with patch("ui.menu._getch", return_value="\r"):
             # Act
+            result = select_menu("Test Menu", options)
 
-            result = select_menu("Test Menu", options, _interactive=True)
+            # Assert
+            assert result == "1"
 
-        # Assert
-        assert result == "1"
-
+    @patch("ui.menu.INTERACTIVE", True)
     def test_render_function_called_on_navigation(self):
         """Test that render() is called when navigating with arrow keys"""
         # Arrange
         options = [
-        MenuOption(key="1", label="Option 1"),
-        MenuOption(key="2", label="Option 2"),
-        MenuOption(key="3", label="Option 3"),
+            MenuOption(key="1", label="Option 1"),
+            MenuOption(key="2", label="Option 2"),
+            MenuOption(key="3", label="Option 3"),
         ]
 
-        with patch.object(menu_module, "_getch") as mock_getch:
+        with patch("ui.menu._getch") as mock_getch:
             mock_getch.side_effect = ["DOWN", "\r"]
             # Act
-            result = select_menu("Test Menu", options, _interactive=True)
+            result = select_menu("Test Menu", options)
 
-        # Assert
-        assert result == "2"
+            # Assert
+            assert result == "2"
 
+    @patch("ui.menu.INTERACTIVE", True)
     def test_render_function_with_subtitle(self):
         """Test render() with subtitle parameter"""
         # Arrange
         options = [
-        MenuOption(key="1", label="Option 1"),
+            MenuOption(key="1", label="Option 1"),
         ]
 
-        with patch.object(menu_module, "_getch", return_value="\r"):
+        with patch("ui.menu._getch", return_value="\r"):
             # Act
+            result = select_menu("Test Menu", options, subtitle="Choose wisely")
 
-            result = select_menu("Test Menu", options, subtitle="Choose wisely", _interactive=True)
+            # Assert
+            assert result == "1"
 
-        # Assert
-        assert result == "1"
-
+    @patch("ui.menu.INTERACTIVE", True)
     def test_render_function_with_disabled_option(self):
         """Test render() with disabled option"""
         # Arrange
         options = [
-        MenuOption(key="1", label="Option 1", disabled=True),
-        MenuOption(key="2", label="Option 2"),
+            MenuOption(key="1", label="Option 1", disabled=True),
+            MenuOption(key="2", label="Option 2"),
         ]
 
-        with patch.object(menu_module, "_getch", return_value="\r"):
+        with patch("ui.menu._getch", return_value="\r"):
             # Act
+            result = select_menu("Test Menu", options)
 
-            result = select_menu("Test Menu", options, _interactive=True)
+            # Assert
+            # Should select option 2 since option 1 is disabled
+            assert result == "2"
 
-        # Assert
-        # Should select option 2 since option 1 is disabled
-        assert result == "2"
-
+    @patch("ui.menu.INTERACTIVE", True)
     def test_render_function_with_description(self):
         """Test render() displays description for selected option"""
         # Arrange
         options = [
-        MenuOption(key="1", label="Option 1", description="This is option 1"),
-        MenuOption(key="2", label="Option 2", description="This is option 2"),
+            MenuOption(key="1", label="Option 1", description="This is option 1"),
+            MenuOption(key="2", label="Option 2", description="This is option 2"),
         ]
 
-        with patch.object(menu_module, "_getch", return_value="\r"):
+        with patch("ui.menu._getch", return_value="\r"):
             # Act
+            result = select_menu("Test Menu", options)
 
-            result = select_menu("Test Menu", options, _interactive=True)
+            # Assert
+            assert result == "1"
 
-        # Assert
-        assert result == "1"
-
+    @patch("ui.menu.INTERACTIVE", True)
     def test_render_function_no_quit_option(self):
         """Test render() when allow_quit is False"""
         # Arrange
         options = [
-        MenuOption(key="1", label="Option 1"),
+            MenuOption(key="1", label="Option 1"),
         ]
 
-        with patch.object(menu_module, "_getch", return_value="\r"):
+        with patch("ui.menu._getch", return_value="\r"):
             # Act
+            result = select_menu("Test Menu", options, allow_quit=False)
 
-            result = select_menu("Test Menu", options, allow_quit=False, _interactive=True)
+            # Assert
+            assert result == "1"
 
-        # Assert
-        assert result == "1"
-
+    @patch("ui.menu.INTERACTIVE", True)
     def test_render_function_with_icons(self):
         """Test render() with menu option icons"""
         # Arrange
         options = [
-        MenuOption(key="1", label="Option 1", icon=Icons.SUCCESS),
-        MenuOption(key="2", label="Option 2", icon=Icons.ERROR),
+            MenuOption(key="1", label="Option 1", icon=Icons.SUCCESS),
+            MenuOption(key="2", label="Option 2", icon=Icons.ERROR),
         ]
 
-        with patch.object(menu_module, "_getch", return_value="\r"):
+        with patch("ui.menu._getch", return_value="\r"):
             # Act
+            result = select_menu("Test Menu", options)
 
-            result = select_menu("Test Menu", options, _interactive=True)
-
-        # Assert
-        assert result == "1"
+            # Assert
+            assert result == "1"
 
 
 # ============================================================================
@@ -1523,7 +1309,6 @@ class TestGetchActualExecution:
         assert mock_msvcrt.getch.called
 
     @patch("ui.menu._HAS_MSVCRT", False)
-    @pytest.mark.skipif(sys.platform == "win32", reason="Unix-specific test using termios")
     @patch("ui.menu._HAS_TERMIOS", True)
     def test_getch_unix_path_executed(self, monkeypatch):
         """Test that Unix _getch path is actually executed"""
@@ -1537,29 +1322,17 @@ class TestGetchActualExecution:
         mock_tty = MagicMock()
         old_settings = MagicMock()
 
-        # Patch the function's globals to use mocked termios/tty
-        original_termios = menu_module._getch.__globals__.get('termios')
-        original_tty = menu_module._getch.__globals__.get('tty')
+        with patch("ui.menu.termios", mock_termios):
+            with patch("ui.menu.tty", mock_tty):
+                with patch("ui.menu.sys.stdin.fileno", return_value=1):
+                    with patch("ui.menu.sys.stdin.read", return_value="Y"):
+                        with patch("ui.menu.termios.tcgetattr", return_value=old_settings):
+                            # Act
+                            result = menu_module._getch()
 
-        try:
-            menu_module._getch.__globals__['termios'] = mock_termios
-            menu_module._getch.__globals__['tty'] = mock_tty
-
-            with patch("ui.menu.sys.stdin.fileno", return_value=1):
-                with patch("ui.menu.sys.stdin.read", return_value="Y"):
-                    with patch("ui.menu.termios.tcgetattr", return_value=old_settings):
-                        # Act
-                        result = menu_module._getch()
-
-                        # Assert - verify Unix path was executed
-                        assert result == "Y"
-                        mock_tty.setraw.assert_called_once()
-        finally:
-            # Restore original globals
-            if original_termios is not None:
-                menu_module._getch.__globals__['termios'] = original_termios
-            if original_tty is not None:
-                menu_module._getch.__globals__['tty'] = original_tty
+                            # Assert - verify Unix path was executed
+                            assert result == "Y"
+                            mock_tty.setraw.assert_called_once()
 
     @patch("ui.menu._HAS_MSVCRT", False)
     @patch("ui.menu._HAS_TERMIOS", False)
@@ -1608,6 +1381,7 @@ class TestModuleImportFailure:
         trigger_termios_import_failure()
 
         # Verify the module still works after restoration
+        from ui.menu import _HAS_TERMIOS
         # After restoration, termios should be available on Unix
         # The important part is that we hit the except branch during the test
 
@@ -1621,6 +1395,7 @@ class TestModuleImportFailure:
         trigger_msvcrt_import_failure()
 
         # Verify the module still works after restoration
+        from ui.menu import _HAS_MSVCRT
         # On Unix, msvcrt is naturally False, on Windows it would be True
         # The important part is that we hit the except branch during the test
 
@@ -1647,11 +1422,11 @@ class TestModuleImportFailure:
         """Test MenuOption with all fields populated"""
         # Arrange & Act
         option = MenuOption(
-        key="test_key",
-        label="Test Label",
-        icon=(Icons.SUCCESS[0], Icons.SUCCESS[1]),
-        description="This is a test description",
-        disabled=True,
+            key="test_key",
+            label="Test Label",
+            icon=(Icons.SUCCESS[0], Icons.SUCCESS[1]),
+            description="This is a test description",
+            disabled=True,
         )
 
         # Assert
@@ -1665,31 +1440,31 @@ class TestModuleImportFailure:
         """Test select_menu with single option"""
         # Arrange
         options = [
-        MenuOption(key="only", label="Only Option"),
+            MenuOption(key="only", label="Only Option"),
         ]
 
-        with patch.object(menu_module, "_getch", return_value="\r"):
-            # Act
-
-                result = select_menu("Single Menu", options, _interactive=True)
+        with patch("ui.menu.INTERACTIVE", True):
+            with patch("ui.menu._getch", return_value="\r"):
+                # Act
+                result = select_menu("Single Menu", options)
 
                 # Assert
                 assert result == "only"
 
+    @patch("ui.menu.INTERACTIVE", True)
     def test_select_menu_preserves_selection_on_invalid_key(self):
-        """Invalid key presses don't change selection"""
+        """Test that invalid key presses don't change selection"""
         # Arrange
         options = [
             MenuOption(key="1", label="Option 1"),
             MenuOption(key="2", label="Option 2"),
         ]
 
-        with patch.object(menu_module, "_getch") as mock_getch:
+        with patch("ui.menu._getch") as mock_getch:
             # Press an invalid key (not handled), then Enter
-
             mock_getch.side_effect = ["x", "\r"]
             # Act
-            result = select_menu("Test Menu", options, _interactive=True)
+            result = select_menu("Test Menu", options)
 
             # Assert
             # Should still select first option

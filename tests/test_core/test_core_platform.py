@@ -12,15 +12,16 @@ Comprehensive tests for platform abstraction utilities including:
 """
 
 import os
-import sys
+import platform
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from core.platform import (
     # Enums
     OS,
+    ShellType,
     # Platform detection
     get_current_os,
     is_windows,
@@ -218,7 +219,6 @@ class TestBinaryDirectories:
         assert any("AppData" in p for p in result["user"])
         assert any("Program Files" in p for p in result["system"])
 
-    @pytest.mark.skipif(sys.platform == "win32", reason="Test uses Unix-specific paths and expects is_windows=False")
     @patch("core.platform.is_macos", return_value=True)
     @patch("core.platform.is_windows", return_value=False)
     @patch("pathlib.Path.home", return_value=Path("/home/user"))
@@ -230,7 +230,6 @@ class TestBinaryDirectories:
         assert "/opt/homebrew/bin" in result["system"]
         assert "/usr/local/bin" in result["system"]
 
-    @pytest.mark.skipif(sys.platform == "win32", reason="Test uses Linux-specific paths and expects is_windows=False")
     @patch("core.platform.is_linux", return_value=True)
     @patch("core.platform.is_windows", return_value=False)
     @patch("core.platform.is_macos", return_value=False)
@@ -243,14 +242,12 @@ class TestBinaryDirectories:
         assert "/usr/bin" in result["system"]
         assert "/snap/bin" in result["system"]
 
-    @pytest.mark.skipif(sys.platform == "win32", reason="Test uses Unix-specific Homebrew paths")
     @patch("core.platform.is_macos", return_value=False)
     def test_get_homebrew_path_on_linux(self, mock_is_macos):
         """Test get_homebrew_path returns None on Linux."""
         result = get_homebrew_path()
         assert result is None
 
-    @pytest.mark.skipif(sys.platform == "win32", reason="Test uses macOS-specific Homebrew paths")
     @patch("core.platform.is_macos", return_value=True)
     @patch("os.path.exists")
     def test_get_homebrew_path_apple_silicon_exists(self, mock_exists, mock_is_macos):
@@ -259,7 +256,6 @@ class TestBinaryDirectories:
         result = get_homebrew_path()
         assert result == "/opt/homebrew/bin"
 
-    @pytest.mark.skipif(sys.platform == "win32", reason="Test uses macOS-specific Homebrew paths")
     @patch("core.platform.is_macos", return_value=True)
     @patch("os.path.exists", return_value=False)
     def test_get_homebrew_path_defaults_to_apple_silicon(self, mock_exists, mock_is_macos):
@@ -282,7 +278,6 @@ class TestToolDetection:
         result = find_executable("git")
         assert result == "/usr/bin/git"
 
-    @pytest.mark.skipif(sys.platform == "win32", reason="Test uses Unix-specific paths and expects is_windows=False")
     @patch("shutil.which", return_value=None)
     @patch("core.platform.is_windows", return_value=False)
     @patch("os.path.isdir", return_value=True)
@@ -319,7 +314,6 @@ class TestToolDetection:
         result = find_executable("git")
         assert result == "C:\\Program Files\\Git\\bin\\git.exe"
 
-    @pytest.mark.skipif(sys.platform == "win32", reason="Test uses Linux-specific paths and expects is_windows=False")
     @patch("core.platform.is_windows", return_value=False)
     @patch("core.platform.is_macos", return_value=False)
     @patch("pathlib.Path.home", return_value=Path("/home/user"))
@@ -336,7 +330,6 @@ class TestToolDetection:
         assert any("claude.exe" in p for p in result)
         assert any("claude.cmd" in p for p in result)
 
-    @pytest.mark.skipif(sys.platform == "win32", reason="Test uses macOS-specific paths and expects is_windows=False")
     @patch("core.platform.is_windows", return_value=False)
     @patch("core.platform.is_macos", return_value=True)
     @patch("core.platform.is_windows", return_value=False)
@@ -347,8 +340,6 @@ class TestToolDetection:
         result = get_claude_detection_paths()
         assert any("homebrew" in p for p in result)
 
-    @pytest.mark.skipif(sys.platform == "win32", reason="Test uses Linux-specific paths")
-    @pytest.mark.skipif(sys.platform == "win32", reason="Test uses Linux-specific paths and expects is_windows=False")
     @patch("core.platform.is_windows", return_value=False)
     @patch("core.platform.is_macos", return_value=False)
     @patch("pathlib.Path.home", return_value=Path("/home/user"))
@@ -368,7 +359,6 @@ class TestToolDetection:
             assert ["python"] in result
             assert ["python3"] in result
 
-    @pytest.mark.skipif(sys.platform == "win32", reason="Test uses Unix-specific Python command behavior")
     def test_get_python_commands_unix(self):
         """Test get_python_commands on Unix systems."""
         with patch("core.platform.is_windows", return_value=False):
@@ -448,7 +438,6 @@ class TestValidateCliPath:
 class TestShellExecution:
     """Tests for shell execution functions."""
 
-    @pytest.mark.skipif(sys.platform == "win32", reason="Test mocks is_windows=False for Unix behavior")
     @patch("core.platform.is_windows", return_value=False)
     def test_requires_shell_unix(self, mock_is_windows):
         """Test requires_shell returns False on Unix."""
@@ -489,14 +478,12 @@ class TestShellExecution:
         result = get_comspec_path()
         assert "cmd.exe" in result.lower()
 
-    @pytest.mark.skipif(sys.platform == "win32", reason="Test expects Unix /bin/sh path")
     @patch("core.platform.is_windows", return_value=False)
     def test_get_comspec_path_unix(self, mock_is_windows):
         """Test get_comspec_path returns /bin/sh on Unix."""
         result = get_comspec_path()
         assert result == "/bin/sh"
 
-    @pytest.mark.skipif(sys.platform == "win32", reason="Test uses Unix-specific paths")
     @patch("core.platform.is_windows", return_value=False)
     def test_build_windows_command_unix(self, mock_is_windows):
         """Test build_windows_command on Unix systems."""
@@ -528,7 +515,6 @@ class TestShellExecution:
 class TestEnvironmentVariables:
     """Tests for environment variable handling."""
 
-    @pytest.mark.skipif(sys.platform == "win32", reason="Test uses Unix-specific case-sensitive environment variable behavior")
     @patch("core.platform.is_windows", return_value=False)
     def test_get_env_var_unix(self, mock_is_windows):
         """Test get_env_var on Unix (case-sensitive)."""

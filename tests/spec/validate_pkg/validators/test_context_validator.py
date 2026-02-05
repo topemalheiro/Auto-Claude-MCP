@@ -2,7 +2,10 @@
 
 from spec.validate_pkg.validators.context_validator import ContextValidator
 from spec.validate_pkg.models import ValidationResult
+from spec.validate_pkg.schemas import CONTEXT_SCHEMA
 from pathlib import Path
+from unittest.mock import MagicMock, patch
+import pytest
 import json
 
 

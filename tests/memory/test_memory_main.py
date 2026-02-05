@@ -5,7 +5,10 @@ Comprehensive test coverage for CLI interface.
 
 import json
 import sys
-from unittest.mock import patch
+from io import StringIO
+from pathlib import Path
+from unittest.mock import MagicMock, patch, call
+import pytest
 import subprocess
 
 # Import functions from memory package (which re-exports from main.py)
@@ -93,7 +96,7 @@ class TestMainCLI:
         # Run CLI
         with patch("sys.argv", ["memory.main.py", "--spec-dir", str(temp_spec_dir), "--action", "summary"]):
             # Import and run main
-            pass
+            import memory.main
 
             # The CLI should run without error when __name__ == "__main__"
             # We can't actually test this without running as a script
@@ -493,6 +496,7 @@ class TestMainCLIInterface:
 
     def test_cli_argparse_setup(self, temp_spec_dir):
         """Test that argparse is properly configured."""
+        import argparse
         from memory.main import __file__ as main_file
 
         # Verify the module can be imported and has proper structure
@@ -595,12 +599,6 @@ class TestCLIActualExecution:
         )
         append_pattern(temp_spec_dir, "Test pattern")
 
-        # Get backend path dynamically (same as conftest.py)
-        # tests/conftest.py is at tests/, so parent.parent is repo root
-        from pathlib import Path as PathLib
-        project_root = PathLib(__file__).parent.parent.parent
-        backend_path = project_root / "apps" / "backend"
-
         # Run the CLI module directly
         result = subprocess.run(
             [
@@ -614,9 +612,7 @@ class TestCLIActualExecution:
             ],
             capture_output=True,
             text=True,
-            encoding="utf-8",
-            errors="replace",
-            cwd=str(backend_path),
+            cwd="/opt/dev/Auto-Claude/.worktrees/tests-align/test-coverage-improvements/apps/backend",
         )
 
         # Should execute without error (exit code 0 or 1 if dir check fails)

@@ -5,7 +5,8 @@ Comprehensive test coverage for platform-specific dependency validation.
 """
 
 from core.dependency_validator import validate_platform_dependencies
-from unittest.mock import MagicMock, patch
+from pathlib import Path
+from unittest.mock import MagicMock, patch, call
 import pytest
 import sys
 
@@ -25,16 +26,10 @@ class TestValidatePlatformDependencies:
 
     def test_validate_platform_dependencies_linux_without_secretstorage(self, capsys):
         """Test validation on Linux without secretstorage (should warn)."""
-        # Arrange - save original import before patching
-        original_import = __import__
-        def import_side_effect(name, *args, **kwargs):
-            if name == 'secretstorage':
-                raise ImportError("No module named 'secretstorage'")
-            return original_import(name, *args, **kwargs)
-
+        # Arrange - mock platform as Linux, no secretstorage
         with patch('core.dependency_validator.is_linux', return_value=True):
             with patch('core.dependency_validator.is_windows', return_value=False):
-                with patch('builtins.__import__', side_effect=import_side_effect):
+                with patch('builtins.__import__', side_effect=ImportError("No module named 'secretstorage'")):
                     # Act - should not raise, but warn
                     validate_platform_dependencies()
 
@@ -54,16 +49,10 @@ class TestValidatePlatformDependencies:
 
     def test_validate_platform_dependencies_windows_without_pywin32(self):
         """Test validation on Windows without pywin32 (should exit)."""
-        # Arrange - save original import before patching
-        original_import = __import__
-        def import_side_effect(name, *args, **kwargs):
-            if name == 'pywintypes':
-                raise ImportError("No module named 'pywintypes'")
-            return original_import(name, *args, **kwargs)
-
+        # Arrange - mock platform as Windows, no pywin32
         with patch('core.dependency_validator.is_windows', return_value=True):
             with patch('core.dependency_validator.is_linux', return_value=False):
-                with patch('builtins.__import__', side_effect=import_side_effect):
+                with patch('builtins.__import__', side_effect=ImportError("No module named 'pywintypes'")):
                     # Act & Assert - should call sys.exit
                     with pytest.raises(SystemExit) as exc_info:
                         validate_platform_dependencies()
@@ -81,16 +70,10 @@ class TestValidatePlatformDependencies:
 
     def test_validate_platform_dependencies_all_checks(self, capsys):
         """Test all platform checks in sequence."""
-        # Test on Linux with warning - save original import before patching
-        original_import = __import__
-        def import_side_effect(name, *args, **kwargs):
-            if name == 'secretstorage':
-                raise ImportError("No module named 'secretstorage'")
-            return original_import(name, *args, **kwargs)
-
+        # Test on Linux with warning
         with patch('core.dependency_validator.is_linux', return_value=True):
             with patch('core.dependency_validator.is_windows', return_value=False):
-                with patch('builtins.__import__', side_effect=import_side_effect):
+                with patch('builtins.__import__', side_effect=ImportError("No module")):
                     validate_platform_dependencies()
 
         captured = capsys.readouterr()
@@ -104,14 +87,8 @@ class TestWindowsPywin32Error:
     @patch('core.dependency_validator.is_linux', return_value=False)
     def test_exit_with_pywin32_error_message_content(self, mock_linux, mock_windows):
         """Test that exit message contains expected content."""
-        # Arrange - save original import before patching
-        original_import = __import__
-        def import_side_effect(name, *args, **kwargs):
-            if name == 'pywintypes':
-                raise ImportError("No module named 'pywintypes'")
-            return original_import(name, *args, **kwargs)
-
-        with patch('builtins.__import__', side_effect=import_side_effect):
+        # Arrange
+        with patch('builtins.__import__', side_effect=ImportError("No module named 'pywintypes'")):
             # Act
             with pytest.raises(SystemExit) as exc_info:
                 validate_platform_dependencies()
@@ -119,7 +96,7 @@ class TestWindowsPywin32Error:
             # Assert - check message content
             message = str(exc_info.value)
             assert "pywin32" in message
-            assert "required windows dependency" in message.lower()
+            assert "required Windows dependency" in message.lower()
             assert "MCP library" in message
             assert "win32api" in message
             assert sys.executable in message
@@ -134,14 +111,8 @@ class TestWindowsPywin32Error:
         activate_bat = scripts_dir / "activate.bat"
         activate_bat.touch()
 
-        original_import = __import__
-        def import_side_effect(name, *args, **kwargs):
-            if name == 'pywintypes':
-                raise ImportError("No module named 'pywintypes'")
-            return original_import(name, *args, **kwargs)
-
         with patch('sys.prefix', str(tmp_path)):
-            with patch('builtins.__import__', side_effect=import_side_effect):
+            with patch('builtins.__import__', side_effect=ImportError("No module")):
                 # Act
                 with pytest.raises(SystemExit) as exc_info:
                     validate_platform_dependencies()
@@ -160,14 +131,8 @@ class TestWindowsPywin32Error:
         activate_ps1 = scripts_dir / "Activate.ps1"
         activate_ps1.touch()
 
-        original_import = __import__
-        def import_side_effect(name, *args, **kwargs):
-            if name == 'pywintypes':
-                raise ImportError("No module named 'pywintypes'")
-            return original_import(name, *args, **kwargs)
-
         with patch('sys.prefix', str(tmp_path)):
-            with patch('builtins.__import__', side_effect=import_side_effect):
+            with patch('builtins.__import__', side_effect=ImportError("No module")):
                 # Act
                 with pytest.raises(SystemExit) as exc_info:
                     validate_platform_dependencies()
@@ -184,14 +149,8 @@ class TestWindowsPywin32Error:
         scripts_dir = tmp_path / "Scripts"
         scripts_dir.mkdir()
 
-        original_import = __import__
-        def import_side_effect(name, *args, **kwargs):
-            if name == 'pywintypes':
-                raise ImportError("No module named 'pywintypes'")
-            return original_import(name, *args, **kwargs)
-
         with patch('sys.prefix', str(tmp_path)):
-            with patch('builtins.__import__', side_effect=import_side_effect):
+            with patch('builtins.__import__', side_effect=ImportError("No module")):
                 # Act
                 with pytest.raises(SystemExit) as exc_info:
                     validate_platform_dependencies()
@@ -205,13 +164,7 @@ class TestWindowsPywin32Error:
     @patch('core.dependency_validator.is_linux', return_value=False)
     def test_exit_includes_install_instructions(self, mock_linux, mock_windows):
         """Test that exit message includes installation instructions."""
-        original_import = __import__
-        def import_side_effect(name, *args, **kwargs):
-            if name == 'pywintypes':
-                raise ImportError("No module named 'pywintypes'")
-            return original_import(name, *args, **kwargs)
-
-        with patch('builtins.__import__', side_effect=import_side_effect):
+        with patch('builtins.__import__', side_effect=ImportError("No module")):
             with pytest.raises(SystemExit) as exc_info:
                 validate_platform_dependencies()
 
@@ -223,13 +176,7 @@ class TestWindowsPywin32Error:
     @patch('core.dependency_validator.is_linux', return_value=False)
     def test_exit_includes_usage_explanation(self, mock_linux, mock_windows):
         """Test that exit message explains why pywin32 is needed."""
-        original_import = __import__
-        def import_side_effect(name, *args, **kwargs):
-            if name == 'pywintypes':
-                raise ImportError("No module named 'pywintypes'")
-            return original_import(name, *args, **kwargs)
-
-        with patch('builtins.__import__', side_effect=import_side_effect):
+        with patch('builtins.__import__', side_effect=ImportError("No module")):
             with pytest.raises(SystemExit) as exc_info:
                 validate_platform_dependencies()
 
@@ -245,13 +192,7 @@ class TestLinuxSecretstorageWarning:
     @patch('core.dependency_validator.is_windows', return_value=False)
     def test_warn_message_content(self, mock_windows, mock_linux, capsys):
         """Test that warning message contains expected content."""
-        original_import = __import__
-        def import_side_effect(name, *args, **kwargs):
-            if name == 'secretstorage':
-                raise ImportError("No module named 'secretstorage'")
-            return original_import(name, *args, **kwargs)
-
-        with patch('builtins.__import__', side_effect=import_side_effect):
+        with patch('builtins.__import__', side_effect=ImportError("No module")):
             # Act
             validate_platform_dependencies()
 
@@ -271,14 +212,8 @@ class TestLinuxSecretstorageWarning:
         activate = bin_dir / "activate"
         activate.touch()
 
-        original_import = __import__
-        def import_side_effect(name, *args, **kwargs):
-            if name == 'secretstorage':
-                raise ImportError("No module named 'secretstorage'")
-            return original_import(name, *args, **kwargs)
-
         with patch('sys.prefix', str(tmp_path)):
-            with patch('builtins.__import__', side_effect=import_side_effect):
+            with patch('builtins.__import__', side_effect=ImportError("No module")):
                 # Act
                 validate_platform_dependencies()
 
@@ -295,14 +230,8 @@ class TestLinuxSecretstorageWarning:
         bin_dir = tmp_path / "bin"
         bin_dir.mkdir()
 
-        original_import = __import__
-        def import_side_effect(name, *args, **kwargs):
-            if name == 'secretstorage':
-                raise ImportError("No module named 'secretstorage'")
-            return original_import(name, *args, **kwargs)
-
         with patch('sys.prefix', str(tmp_path)):
-            with patch('builtins.__import__', side_effect=import_side_effect):
+            with patch('builtins.__import__', side_effect=ImportError("No module")):
                 # Act
                 validate_platform_dependencies()
 
@@ -317,13 +246,10 @@ class TestLinuxSecretstorageWarning:
         """Test that warning is non-blocking (function continues)."""
         # Arrange - track if function completes
         completed = [False]
-        original_import = __import__
 
-        def mark_completed(name, *args, **kwargs):
+        def mark_completed(*args, **kwargs):
             completed[0] = True
-            if name == 'secretstorage':
-                raise ImportError("No module named 'secretstorage'")
-            return original_import(name, *args, **kwargs)
+            raise ImportError("No module")
 
         with patch('builtins.__import__', side_effect=mark_completed):
             # Act
@@ -336,13 +262,7 @@ class TestLinuxSecretstorageWarning:
     @patch('core.dependency_validator.is_windows', return_value=False)
     def test_warn_includes_install_instructions(self, mock_windows, mock_linux, capsys):
         """Test that warning includes installation instructions."""
-        original_import = __import__
-        def import_side_effect(name, *args, **kwargs):
-            if name == 'secretstorage':
-                raise ImportError("No module named 'secretstorage'")
-            return original_import(name, *args, **kwargs)
-
-        with patch('builtins.__import__', side_effect=import_side_effect):
+        with patch('builtins.__import__', side_effect=ImportError("No module")):
             validate_platform_dependencies()
 
         captured = capsys.readouterr()
@@ -353,13 +273,7 @@ class TestLinuxSecretstorageWarning:
     @patch('core.dependency_validator.is_windows', return_value=False)
     def test_warn_explain_security_implications(self, mock_windows, mock_linux, capsys):
         """Test that warning explains security implications."""
-        original_import = __import__
-        def import_side_effect(name, *args, **kwargs):
-            if name == 'secretstorage':
-                raise ImportError("No module named 'secretstorage'")
-            return original_import(name, *args, **kwargs)
-
-        with patch('builtins.__import__', side_effect=import_side_effect):
+        with patch('builtins.__import__', side_effect=ImportError("No module")):
             validate_platform_dependencies()
 
         captured = capsys.readouterr()
@@ -371,17 +285,11 @@ class TestLinuxSecretstorageWarning:
     def test_warn_flushes_stderr(self, mock_windows, mock_linux):
         """Test that warning flushes stderr."""
         # Arrange - mock stderr
-        original_import = __import__
-        def import_side_effect(name, *args, **kwargs):
-            if name == 'secretstorage':
-                raise ImportError("No module named 'secretstorage'")
-            return original_import(name, *args, **kwargs)
-
         with patch('sys.stderr') as mock_stderr:
             mock_stderr.write.return_value = None
             mock_stderr.flush.return_value = None
 
-            with patch('builtins.__import__', side_effect=import_side_effect):
+            with patch('builtins.__import__', side_effect=ImportError("No module")):
                 # Act
                 validate_platform_dependencies()
 
@@ -396,13 +304,10 @@ class TestPlatformSpecificBehavior:
         """Test that Windows only checks for pywin32."""
         # Arrange - mock both imports as failing
         import_tracker = []
-        original_import = __import__
 
         def track_import(name, *args, **kwargs):
             import_tracker.append(name)
-            if name == 'pywintypes':
-                raise ImportError(f"No module {name}")
-            return original_import(name, *args, **kwargs)
+            raise ImportError(f"No module {name}")
 
         with patch('core.dependency_validator.is_windows', return_value=True):
             with patch('core.dependency_validator.is_linux', return_value=False):
@@ -417,13 +322,10 @@ class TestPlatformSpecificBehavior:
     def test_linux_checks_secretstorage_only(self, capsys):
         """Test that Linux only checks for secretstorage."""
         import_tracker = []
-        original_import = __import__
 
         def track_import(name, *args, **kwargs):
             import_tracker.append(name)
-            if name == 'secretstorage':
-                raise ImportError(f"No module {name}")
-            return original_import(name, *args, **kwargs)
+            raise ImportError(f"No module {name}")
 
         with patch('core.dependency_validator.is_windows', return_value=False):
             with patch('core.dependency_validator.is_linux', return_value=True):
@@ -437,12 +339,10 @@ class TestPlatformSpecificBehavior:
     def test_macos_no_checks(self):
         """Test that macOS performs no dependency checks."""
         import_tracker = []
-        original_import = __import__
 
         def track_import(name, *args, **kwargs):
             import_tracker.append(name)
-            # All imports should succeed on macOS
-            return original_import(name, *args, **kwargs)
+            raise ImportError(f"No module {name}")
 
         with patch('core.dependency_validator.is_windows', return_value=False):
             with patch('core.dependency_validator.is_linux', return_value=False):
@@ -461,13 +361,7 @@ class TestErrorScenarios:
     @patch('core.dependency_validator.is_linux', return_value=False)
     def test_both_windows_and_linux_true(self, mock_linux, mock_windows):
         """Test behavior when both is_windows and is_linux return True (edge case)."""
-        original_import = __import__
-        def import_side_effect(name, *args, **kwargs):
-            if name == 'pywintypes':
-                raise ImportError("No module named 'pywintypes'")
-            return original_import(name, *args, **kwargs)
-
-        with patch('builtins.__import__', side_effect=import_side_effect):
+        with patch('builtins.__import__', side_effect=ImportError("No module")):
             # Should handle both checks
             with pytest.raises(SystemExit):
                 validate_platform_dependencies()
@@ -481,15 +375,9 @@ class TestErrorScenarios:
 
     def test_actual_python_executable_in_message(self):
         """Test that sys.executable is included in error message."""
-        original_import = __import__
-        def import_side_effect(name, *args, **kwargs):
-            if name == 'pywintypes':
-                raise ImportError("No module named 'pywintypes'")
-            return original_import(name, *args, **kwargs)
-
         with patch('core.dependency_validator.is_windows', return_value=True):
             with patch('core.dependency_validator.is_linux', return_value=False):
-                with patch('builtins.__import__', side_effect=import_side_effect):
+                with patch('builtins.__import__', side_effect=ImportError("No module")):
                     with pytest.raises(SystemExit) as exc_info:
                         validate_platform_dependencies()
 
@@ -509,14 +397,8 @@ class TestScriptPathDetection:
         scripts_dir.mkdir()
         (scripts_dir / "activate.bat").touch()
 
-        original_import = __import__
-        def import_side_effect(name, *args, **kwargs):
-            if name == 'pywintypes':
-                raise ImportError("No module named 'pywintypes'")
-            return original_import(name, *args, **kwargs)
-
         with patch('sys.prefix', str(tmp_path)):
-            with patch('builtins.__import__', side_effect=import_side_effect):
+            with patch('builtins.__import__', side_effect=ImportError("No module")):
                 with pytest.raises(SystemExit) as exc_info:
                     validate_platform_dependencies()
 
@@ -531,14 +413,8 @@ class TestScriptPathDetection:
         bin_dir.mkdir()
         (bin_dir / "activate").touch()
 
-        original_import = __import__
-        def import_side_effect(name, *args, **kwargs):
-            if name == 'secretstorage':
-                raise ImportError("No module named 'secretstorage'")
-            return original_import(name, *args, **kwargs)
-
         with patch('sys.prefix', str(tmp_path)):
-            with patch('builtins.__import__', side_effect=import_side_effect):
+            with patch('builtins.__import__', side_effect=ImportError("No module")):
                 validate_platform_dependencies()
 
         captured = capsys.readouterr()
@@ -558,14 +434,8 @@ class TestMultipleActivationScripts:
         (scripts_dir / "activate.bat").touch()
         (scripts_dir / "Activate.ps1").touch()
 
-        original_import = __import__
-        def import_side_effect(name, *args, **kwargs):
-            if name == 'pywintypes':
-                raise ImportError("No module named 'pywintypes'")
-            return original_import(name, *args, **kwargs)
-
         with patch('sys.prefix', str(tmp_path)):
-            with patch('builtins.__import__', side_effect=import_side_effect):
+            with patch('builtins.__import__', side_effect=ImportError("No module")):
                 with pytest.raises(SystemExit) as exc_info:
                     validate_platform_dependencies()
 
@@ -581,14 +451,8 @@ class TestMultipleActivationScripts:
         scripts_dir.mkdir()
         (scripts_dir / "Activate.ps1").touch()
 
-        original_import = __import__
-        def import_side_effect(name, *args, **kwargs):
-            if name == 'pywintypes':
-                raise ImportError("No module named 'pywintypes'")
-            return original_import(name, *args, **kwargs)
-
         with patch('sys.prefix', str(tmp_path)):
-            with patch('builtins.__import__', side_effect=import_side_effect):
+            with patch('builtins.__import__', side_effect=ImportError("No module")):
                 with pytest.raises(SystemExit) as exc_info:
                     validate_platform_dependencies()
 

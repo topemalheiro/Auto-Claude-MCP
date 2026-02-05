@@ -11,8 +11,9 @@ Tests for commit message generation using Claude AI, including:
 
 import asyncio
 import json
-import sys
-from unittest.mock import AsyncMock, MagicMock, patch
+from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
+from datetime import datetime
 
 import pytest
 
@@ -311,7 +312,7 @@ class TestBuildPrompt:
 
     def test_build_prompt_category_mapping(self):
         """Test category to commit type mapping."""
-        from commit_message import _build_prompt
+        from commit_message import _build_prompt, CATEGORY_TO_COMMIT_TYPE
 
         test_cases = [
             ("feature", "feat"),
@@ -811,7 +812,6 @@ class TestEdgeCases:
         # Should handle special characters
         assert result is not None
 
-    @pytest.mark.skipif(sys.platform == "win32", reason="Windows console cannot encode certain Unicode characters (charmap codec limitation)")
     def test_unicode_in_description(self, temp_project_dir):
         """Test spec with Unicode characters."""
         project_dir, spec_dir = temp_project_dir

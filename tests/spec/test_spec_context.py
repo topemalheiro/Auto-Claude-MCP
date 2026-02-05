@@ -1,10 +1,7 @@
-"""Tests for context module (spec/context.py)
-
-NOTE: These tests run actual context discovery scripts - integration tests marked as slow.
-Can be excluded with: pytest -m "not slow"
-"""
+"""Tests for context module (spec/context.py)"""
 
 import json
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 from subprocess import TimeoutExpired
 
@@ -15,8 +12,6 @@ from spec.context import (
     create_minimal_context,
     get_context_stats,
 )
-
-pytestmark = pytest.mark.slow
 
 
 class TestRunContextDiscovery:

@@ -2,13 +2,14 @@
 
 import tempfile
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
+from task_logger.ansi import strip_ansi_codes
 from task_logger.capture import StreamingLogCapture
 from task_logger.logger import TaskLogger
-from task_logger.models import LogPhase
+from task_logger.models import LogPhase, LogEntryType
 
 
 @pytest.fixture

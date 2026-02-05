@@ -6,6 +6,10 @@ Enhanced tests covering edge cases, integration scenarios,
 and comprehensive functionality for all formatter functions.
 """
 
+import pytest
+from unittest.mock import patch, MagicMock
+from io import StringIO
+import sys
 
 from ui.formatters import (
     print_header,
@@ -15,6 +19,7 @@ from ui.formatters import (
     print_phase_status,
 )
 from ui.icons import Icons
+from ui.colors import bold, muted, success, error, warning, info, highlight
 
 
 class TestPrintHeaderEdgeCases:

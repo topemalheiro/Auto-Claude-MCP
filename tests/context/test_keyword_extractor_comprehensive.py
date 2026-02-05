@@ -6,6 +6,7 @@ Tests for KeywordExtractor class including edge cases,
 special characters, empty inputs, and all functionality paths.
 """
 
+import pytest
 
 from context.keyword_extractor import KeywordExtractor
 

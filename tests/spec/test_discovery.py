@@ -1,18 +1,13 @@
-"""Tests for discovery module
-
-NOTE: These tests run actual discovery scripts - integration tests marked as slow.
-Can be excluded with: pytest -m "not slow"
-"""
+"""Tests for discovery module"""
 
 import json
+import shutil
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from spec.discovery import get_project_index_stats, run_discovery_script
-
-pytestmark = pytest.mark.slow
 
 
 class TestRunDiscoveryScript:
@@ -91,6 +86,7 @@ class TestRunDiscoveryScript:
         """Test handling missing analyzer script"""
         # Create a temporary directory structure where we know the script won't exist
         import tempfile
+        import shutil
 
         with tempfile.TemporaryDirectory() as temp_dir:
             project_dir = Path(temp_dir) / "project"

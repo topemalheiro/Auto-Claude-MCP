@@ -1,15 +1,19 @@
 """Tests for route_detector"""
 
-from pathlib import Path
-
 from analysis.analyzers.route_detector import RouteDetector
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+import pytest
 
 
 def test_RouteDetector___init__():
     """Test RouteDetector.__init__"""
 
-    # Act - Constructor called during instantiation
-    RouteDetector(Path("/tmp/test"))
+    # Arrange
+    path = Path("/tmp/test")  # TODO: Set up test data
+
+    # Act
+    instance = RouteDetector(Path("/tmp/test"))  # Constructor called during instantiation
 
     # Assert
     assert True  # Function runs without error
@@ -21,7 +25,7 @@ def test_RouteDetector_detect_all_routes():
     instance = RouteDetector(Path("/tmp/test"))  # TODO: Set up instance
 
     # Act
-    _ = instance.detect_all_routes()
+    result = instance.detect_all_routes()
 
     # Assert
     assert result is not None  # TODO: Add specific assertions

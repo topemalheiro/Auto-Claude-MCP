@@ -4,7 +4,10 @@ Comprehensive test coverage for codebase map functions.
 """
 
 import json
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
+from datetime import datetime, timezone
+import pytest
 
 from memory.codebase_map import (
     update_codebase_map,

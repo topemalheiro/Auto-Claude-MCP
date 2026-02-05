@@ -7,19 +7,17 @@ Main test file for SpecOrchestrator class covering:
 - State management
 - Error handling
 - Integration with spec creation
-
-NOTE: These tests use SpecOrchestrator which involves file I/O and async operations.
-Marked as slow - can be excluded with: pytest -m "not slow"
 """
 
 import json
-from unittest.mock import AsyncMock, MagicMock, patch
+from datetime import datetime, timedelta
+from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock, patch, call
+from typing import Any
 
 import pytest
 
 from spec.pipeline.orchestrator import SpecOrchestrator
-
-pytestmark = pytest.mark.slow
 from spec.phases.models import PhaseResult
 from spec.complexity import Complexity, ComplexityAssessment
 

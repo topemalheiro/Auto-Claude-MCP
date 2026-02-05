@@ -3,7 +3,7 @@
 from ideation.project_index_phase import ProjectIndexPhase
 from ideation.script_runner import ScriptRunner
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch, AsyncMock, Mock
 import pytest
 
 
@@ -15,9 +15,8 @@ def test_ProjectIndexPhase___init__():
 
     phase = ProjectIndexPhase(project_dir, output_dir, refresh)
 
-    # Compare paths without resolve() since the implementation stores paths as-is
-    assert str(phase.project_dir) == str(project_dir)
-    assert str(phase.output_dir) == str(output_dir)
+    assert phase.project_dir == project_dir
+    assert phase.output_dir == output_dir
     assert phase.refresh is refresh
     assert isinstance(phase.script_runner, ScriptRunner)
 

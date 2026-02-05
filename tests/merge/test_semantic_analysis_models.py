@@ -3,6 +3,7 @@ Comprehensive tests for semantic_analysis.models module
 """
 
 from merge.semantic_analysis.models import ExtractedElement
+import pytest
 
 
 class TestExtractedElement:

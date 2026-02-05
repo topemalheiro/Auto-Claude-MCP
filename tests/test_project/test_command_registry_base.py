@@ -10,6 +10,7 @@ Comprehensive tests for the base commands module including:
 - Edge cases and data consistency
 """
 
+import pytest
 
 from project.command_registry.base import BASE_COMMANDS, VALIDATED_COMMANDS
 

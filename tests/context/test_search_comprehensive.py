@@ -7,9 +7,12 @@ and all search functionality paths.
 """
 
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
+import pytest
 
 from context.search import CodeSearcher
+from context.models import FileMatch
+from context.constants import SKIP_DIRS, CODE_EXTENSIONS
 
 
 class TestCodeSearcherInit:
@@ -25,9 +28,7 @@ class TestCodeSearcherInit:
         """Test initialization with absolute path"""
         project_dir = Path("/tmp/test_project")
         searcher = CodeSearcher(project_dir)
-        # On macOS, /tmp is a symlink to /private/tmp, so compare resolved paths
-        # On Windows, absolute paths may include drive letter
-        assert searcher.project_dir == project_dir.resolve()
+        assert searcher.project_dir == project_dir
 
 
 class TestIterCodeFiles:

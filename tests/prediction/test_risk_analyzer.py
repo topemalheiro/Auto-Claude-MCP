@@ -3,7 +3,7 @@
 from prediction.models import PredictedIssue
 from prediction.patterns import get_common_issues
 from prediction.risk_analyzer import RiskAnalyzer
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 

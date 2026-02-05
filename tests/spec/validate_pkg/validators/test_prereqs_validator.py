@@ -3,6 +3,7 @@
 from spec.validate_pkg.validators.prereqs_validator import PrereqsValidator
 from spec.validate_pkg.models import ValidationResult
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 import pytest
 import json
 

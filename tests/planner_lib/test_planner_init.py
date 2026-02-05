@@ -1,5 +1,6 @@
 """Tests for planner_lib/__init__.py - Implementation planner package exports."""
 
+import pytest
 
 from planner_lib import (
     ContextLoader,
@@ -63,6 +64,7 @@ class TestPlannerLibImports:
 
     def test_no_circular_imports(self):
         """Test that importing planner_lib doesn't cause circular imports."""
+        import importlib
         import sys
 
         # Remove from cache if present

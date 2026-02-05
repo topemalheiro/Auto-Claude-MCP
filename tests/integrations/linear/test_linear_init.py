@@ -4,6 +4,7 @@ Tests for Linear integration __init__ module.
 Tests that all expected exports are available and work correctly.
 """
 
+import pytest
 
 # Test all expected exports from __init__.py
 from integrations.linear import (
@@ -209,6 +210,7 @@ class TestBackwardCompatibility:
 
     def test_linear_updater_works_as_state(self):
         """Test LinearUpdater alias works the same as LinearTaskState."""
+        from datetime import datetime
 
         # Create with LinearUpdater alias
         state1 = LinearUpdater(

@@ -2,7 +2,8 @@
 
 import subprocess
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, Mock, mock_open
+import pytest
 
 from merge.git_utils import find_worktree, get_file_from_branch
 

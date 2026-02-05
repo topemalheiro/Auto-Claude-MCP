@@ -1,5 +1,6 @@
 """Tests for task_logger/ansi.py"""
 
+import pytest
 
 from task_logger.ansi import (
     strip_ansi_codes,
@@ -189,6 +190,7 @@ class TestAnsiPatterns:
 
     def test_csi_pattern_matches_simple(self):
         """Test ANSI_CSI_PATTERN matches simple CSI sequences"""
+        import re
         text = "\x1b[31m"
         match = ANSI_CSI_PATTERN.search(text)
         assert match is not None
@@ -196,6 +198,7 @@ class TestAnsiPatterns:
 
     def test_csi_pattern_matches_complex(self):
         """Test ANSI_CSI_PATTERN matches complex CSI sequences"""
+        import re
         text = "\x1b[38;5;196;1m"
         match = ANSI_CSI_PATTERN.search(text)
         assert match is not None
@@ -203,6 +206,7 @@ class TestAnsiPatterns:
 
     def test_osc_bel_pattern_matches(self):
         """Test ANSI_OSC_BEL_PATTERN matches OSC sequences with BEL"""
+        import re
         text = "\x1b]0;Window Title\x07"
         match = ANSI_OSC_BEL_PATTERN.search(text)
         assert match is not None
@@ -210,6 +214,7 @@ class TestAnsiPatterns:
 
     def test_osc_st_pattern_matches(self):
         """Test ANSI_OSC_ST_PATTERN matches OSC sequences with ST"""
+        import re
         text = "\x1b]0;Window Title\x1b\\"
         match = ANSI_OSC_ST_PATTERN.search(text)
         assert match is not None

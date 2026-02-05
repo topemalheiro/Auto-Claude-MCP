@@ -3,6 +3,7 @@ Tests for security.validation_models module.
 """
 
 import pytest
+from collections.abc import Callable
 
 from security.validation_models import (
     ValidatorFunction,

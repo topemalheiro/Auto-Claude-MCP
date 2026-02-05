@@ -1,8 +1,8 @@
-"""Comprehensive tests for config_parser module"""
+"""Comprehensive tests for config_parser module."""
 
 import json
-import sys
 from pathlib import Path
+from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
 
@@ -176,7 +176,6 @@ class TestReadText:
         result = config_parser.read_text("empty.txt")
         assert result == ""
 
-    @pytest.mark.skipif(sys.platform == "win32", reason="Windows console cannot encode certain Unicode characters (charmap codec limitation)")
     def test_read_text_unicode_content(self, config_parser: ConfigParser, tmp_path: Path):
         """Test reading a text file with unicode content."""
         test_file = tmp_path / "unicode.txt"

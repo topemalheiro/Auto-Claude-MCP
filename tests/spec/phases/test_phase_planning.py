@@ -292,6 +292,7 @@ class TestPhasePlanning:
     @pytest.mark.asyncio
     async def test_planning_logs_stats_on_success(self, tmp_path):
         """Test planning logs stats when plan is created"""
+        from task_logger import LogEntryType, LogPhase
 
         project_dir = tmp_path / "project"
         project_dir.mkdir()

@@ -3,6 +3,7 @@
 from merge.semantic_analyzer import SemanticAnalyzer
 from merge.types import ChangeType, FileAnalysis
 from merge.semantic_analysis.models import ExtractedElement
+import pytest
 
 
 class TestSemanticAnalyzerInit:

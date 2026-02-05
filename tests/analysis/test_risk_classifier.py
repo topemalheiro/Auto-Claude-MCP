@@ -16,7 +16,7 @@ from analysis.risk_classifier import (
     main,
 )
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch, Mock
 import pytest
 import tempfile
 import shutil

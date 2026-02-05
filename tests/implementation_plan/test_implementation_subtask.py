@@ -4,6 +4,7 @@ Comprehensive tests for implementation_plan.subtask module.
 
 from datetime import datetime
 from unittest.mock import patch
+import pytest
 
 from implementation_plan.subtask import Subtask
 from implementation_plan.enums import SubtaskStatus
@@ -1049,17 +1050,12 @@ class TestSubtaskStateTransitions:
 
     def test_restart_after_completion(self):
         """Test restarting a completed subtask."""
-        import time
-
         subtask = Subtask(id="1", description="Test")
 
         # First completion
         subtask.start(session_id=1)
         subtask.complete(output="First completion")
         first_completed_at = subtask.completed_at
-
-        # Small delay to ensure different timestamp on restart
-        time.sleep(0.001)
 
         # Restart
         subtask.start(session_id=2)

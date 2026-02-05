@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from spec.phases.requirements_phases import RequirementsPhaseMixin
+from spec.phases.models import PhaseResult
 
 
 class MockRequirementsExecutor(RequirementsPhaseMixin):

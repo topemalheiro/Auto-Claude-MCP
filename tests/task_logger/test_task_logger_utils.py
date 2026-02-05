@@ -1,6 +1,8 @@
 """Tests for task_logger/utils.py"""
 
 from pathlib import Path
+from unittest.mock import patch, MagicMock
+import pytest
 
 from task_logger.utils import (
     get_task_logger,
@@ -8,7 +10,7 @@ from task_logger.utils import (
     update_task_logger_path,
 )
 from task_logger.logger import TaskLogger
-from task_logger.models import LogPhase
+from task_logger.models import LogEntry, LogEntryType, LogPhase
 
 
 class TestGetTaskLogger:
@@ -31,8 +33,7 @@ class TestGetTaskLogger:
         result = get_task_logger(spec_dir)
 
         assert result is not None
-        # Use type() instead of isinstance to handle module re-import issues
-        assert type(result).__name__ == "TaskLogger"
+        assert isinstance(result, TaskLogger)
         assert result.spec_dir == spec_dir
 
     def test_get_task_logger_returns_cached_logger(self, tmp_path):
@@ -99,8 +100,7 @@ class TestGetTaskLogger:
         result = get_task_logger(spec_dir)
 
         assert result is not None
-        # Use type() instead of isinstance to handle module re-import issues
-        assert type(result).__name__ == "TaskLogger"
+        assert isinstance(result, TaskLogger)
 
 
 class TestClearTaskLogger:

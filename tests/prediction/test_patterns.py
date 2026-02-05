@@ -1,5 +1,6 @@
 """Tests for prediction.patterns module."""
 
+import pytest
 
 from prediction.models import PredictedIssue
 from prediction.patterns import detect_work_type, get_common_issues

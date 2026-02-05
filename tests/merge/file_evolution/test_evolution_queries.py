@@ -6,6 +6,7 @@ from merge.types import FileEvolution, TaskSnapshot, SemanticChange, ChangeType
 from pathlib import Path
 from datetime import datetime
 from unittest.mock import MagicMock
+import pytest
 
 
 def test_EvolutionQueries___init__():

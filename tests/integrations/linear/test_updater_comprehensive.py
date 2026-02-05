@@ -4,8 +4,10 @@ Comprehensive tests for Linear updater module.
 Tests internal functions, edge cases, and error handling.
 """
 
+import json
 from pathlib import Path
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch, Mock
+from datetime import datetime
 
 import pytest
 
@@ -18,6 +20,10 @@ from integrations.linear.updater import (
     STATUS_CANCELED,
     LINEAR_TASK_FILE,
     LINEAR_TOOLS,
+    is_linear_enabled,
+    get_linear_api_key,
+    _create_linear_client,
+    _run_linear_agent,
     create_linear_task,
     update_linear_status,
     add_linear_comment,
@@ -128,6 +134,7 @@ class TestCreateLinearClient:
 
     # Note: These tests require complex mocking of the Claude SDK and are skipped
     # The existing integration tests cover the actual usage patterns
+    pass
 
 
 class TestRunLinearAgent:
@@ -135,6 +142,7 @@ class TestRunLinearAgent:
 
     # Note: These tests require complex async mocking and are skipped
     # The existing integration tests cover the actual usage patterns
+    pass
 
 
 class TestCreateLinearTaskComprehensive:

@@ -6,7 +6,7 @@ by re-exporting all symbols from the qa package.
 """
 
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 

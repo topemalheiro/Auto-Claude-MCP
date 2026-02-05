@@ -1,7 +1,8 @@
 """Tests for test_memory_save"""
 
 import pytest
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
+import sys
 
 
 @pytest.mark.asyncio

@@ -1,7 +1,8 @@
 """Tests for agents.tools_pkg.tools.subtask module."""
 
 import json
-from unittest.mock import patch
+from pathlib import Path
+from unittest.mock import AsyncMock, patch
 import pytest
 
 from agents.tools_pkg.tools.subtask import create_subtask_tools, _update_subtask_in_plan
@@ -370,6 +371,19 @@ class TestUpdateSubtaskAutoFix:
     @pytest.mark.asyncio
     async def test_auto_fix_success_retries_update(self, mock_spec_dir, mock_project_dir):
         """Test that successful auto-fix allows retry."""
+        # Create valid plan but then simulate corruption
+        plan = {
+            "feature": "Test",
+            "phases": [
+                {
+                    "id": "1",
+                    "subtasks": [
+                        {"id": "subtask-1", "status": "pending", "description": "Test"}
+                    ]
+                }
+            ]
+        }
+
         with patch("agents.tools_pkg.tools.subtask.SDK_TOOLS_AVAILABLE", True), \
              patch("agents.tools_pkg.tools.subtask.auto_fix_plan", return_value=True):
 

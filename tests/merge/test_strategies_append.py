@@ -24,6 +24,7 @@ from merge.types import (
     SemanticChange,
     TaskSnapshot,
 )
+import pytest
 
 
 class TestAppendFunctionsStrategy:

@@ -7,7 +7,7 @@ error handling, and all functionality paths.
 """
 
 import pytest
-from unittest.mock import patch, AsyncMock
+from unittest.mock import patch, MagicMock, AsyncMock
 
 
 class TestGraphitiAvailability:
@@ -38,8 +38,8 @@ class TestIsGraphitiEnabled:
         result = is_graphiti_enabled()
         assert isinstance(result, bool)
 
-    @patch('context.graphiti_integration.is_graphiti_enabled', return_value=False)
-    def test_is_graphiti_disabled_when_unavailable(self, mock_enabled):
+    @patch('context.graphiti_integration.GRAPHITI_AVAILABLE', False)
+    def test_is_graphiti_disabled_when_unavailable(self):
         """Test that is_graphiti_enabled returns False when unavailable"""
         from context.graphiti_integration import is_graphiti_enabled
         result = is_graphiti_enabled()

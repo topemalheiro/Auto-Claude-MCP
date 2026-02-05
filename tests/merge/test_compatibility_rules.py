@@ -2,6 +2,7 @@
 
 from merge.compatibility_rules import build_default_rules, CompatibilityRule, index_rules
 from merge.types import ChangeType, MergeStrategy
+import pytest
 
 
 class TestCompatibilityRule:

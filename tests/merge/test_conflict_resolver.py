@@ -1,10 +1,11 @@
 """Comprehensive tests for conflict_resolver module"""
 
 from datetime import datetime
-from unittest.mock import Mock, patch
+from unittest.mock import MagicMock, Mock, patch
 
+import pytest
 
-from merge.auto_merger import AutoMerger
+from merge.auto_merger import AutoMerger, MergeContext
 from merge.conflict_resolver import ConflictResolver, build_explanation
 from merge.types import (
     ChangeType,

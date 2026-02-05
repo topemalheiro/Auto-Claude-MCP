@@ -4,10 +4,13 @@ Comprehensive tests for Graphiti config module.
 Additional tests to improve coverage for GraphitiConfig and GraphitiState.
 """
 
+import json
 import os
 from pathlib import Path
-from unittest.mock import patch
+from datetime import datetime
+from unittest.mock import MagicMock, patch
 
+import pytest
 
 from integrations.graphiti.config import (
     GraphitiConfig,
@@ -55,7 +58,7 @@ class TestGraphitiConfigDefaults:
         assert config.google_llm_model == "gemini-2.0-flash"
         assert config.google_embedding_model == "text-embedding-004"
         assert config.openrouter_api_key == ""
-        assert config.openrouter_base_url == "https://openrouter.ai/api"
+        assert config.openrouter_base_url == "https://openrouter.ai/api/v1"
         assert config.openrouter_llm_model == "anthropic/claude-sonnet-4"
         assert config.openrouter_embedding_model == "openai/text-embedding-3-small"
         assert config.ollama_base_url == DEFAULT_OLLAMA_BASE_URL
@@ -252,10 +255,7 @@ class TestGraphitiConfigGetDbPath:
 
         db_path = config.get_db_path()
 
-        # Check that the path contains the expected parts (cross-platform)
-        # Normalize path separators to forward slashes for comparison
-        normalized_path = str(db_path).replace("\\", "/")
-        assert "relative/path" in normalized_path
+        assert "relative/path" in str(db_path)
         assert db_path.name == "test_db"
 
 

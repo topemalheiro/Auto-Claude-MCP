@@ -1,6 +1,7 @@
 """Tests for keyword_extractor"""
 
 from context.keyword_extractor import KeywordExtractor
+import pytest
 
 
 def test_KeywordExtractor_extract_keywords():

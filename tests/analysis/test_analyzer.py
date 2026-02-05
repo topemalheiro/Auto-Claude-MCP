@@ -1,10 +1,11 @@
 """Tests for analyzer module"""
 
 from analysis.analyzer import main
-from analysis.analyzers import analyze_project, analyze_service
+from analysis.analyzers import ProjectAnalyzer, ServiceAnalyzer, analyze_project, analyze_service
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch, Mock
 import pytest
+import json
 import tempfile
 import shutil
 
@@ -113,7 +114,8 @@ class TestProjectAnalyzer:
             result = analyzer.analyze()
             assert result is not None
         except Exception:
-            pass  # May fail due to invalid project structure (no-op)
+            # May fail due to invalid project structure
+            pass
 
     def test_project_analyzer_detects_python_project(self, temp_project_dir):
         """Test ProjectAnalyzer detects Python projects."""
@@ -124,7 +126,8 @@ class TestProjectAnalyzer:
             result = analyzer.analyze()
             assert result is not None
         except Exception:
-            pass  # May fail due to invalid project structure (no-op)
+            # May fail due to invalid project structure
+            pass
 
 
 class TestServiceAnalyzer:
@@ -146,7 +149,8 @@ class TestServiceAnalyzer:
             result = analyzer.analyze()
             assert result is not None
         except Exception:
-            pass  # May fail due to invalid project structure (no-op)
+            # May fail due to invalid project structure
+            pass
 
 
 class TestAnalyzeProjectFunction:

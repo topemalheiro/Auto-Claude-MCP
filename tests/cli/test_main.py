@@ -6,9 +6,9 @@ edge cases, and error scenarios.
 """
 
 import json
-import platform
+import sys
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, Mock, patch, call
 
 import pytest
 
@@ -314,7 +314,6 @@ class TestParseArgsBatchOptions:
 class TestParseArgsOtherOptions:
     """Test other argument parsing options."""
 
-    @pytest.mark.skipif(platform.system() == "Windows", reason="Path separators differ on Windows")
     def test_parse_args_project_dir(self):
         """Test --project-dir option."""
         with patch("sys.argv", ["run.py", "--spec", "001", "--project-dir", "/custom/path"]):
@@ -873,7 +872,6 @@ class TestMainNormalBuildFlow:
 class TestRunCliSentryContext:
     """Test Sentry context setting in _run_cli."""
 
-    @pytest.mark.skipif(platform.system() == "Windows", reason="Path separators differ on Windows")
     def test_sentry_context_set_on_spec_found(self):
         """Test that Sentry context is set when spec is found."""
         from cli.main import main

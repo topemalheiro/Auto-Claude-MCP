@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from integrations.graphiti.queries_pkg.search import GraphitiSearch
-from integrations.graphiti.queries_pkg.schema import GroupIdMode
+from integrations.graphiti.queries_pkg.schema import GroupIdMode, MAX_CONTEXT_RESULTS
 
 
 @pytest.fixture

@@ -18,7 +18,7 @@ from pathlib import Path
 
 
 # Add auto-claude directory to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "backend"))
+sys.path.insert(0, str(Path(__file__).parent.parent / "Apps" / "backend"))
 # Add tests directory to path for test_fixtures
 sys.path.insert(0, str(Path(__file__).parent))
 

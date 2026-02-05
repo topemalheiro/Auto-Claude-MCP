@@ -1,5 +1,6 @@
 """Tests for process_validators"""
 
+import pytest
 from security.process_validators import (
     validate_pkill_command,
     validate_kill_command,

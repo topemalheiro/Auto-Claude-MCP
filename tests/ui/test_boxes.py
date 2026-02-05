@@ -2,6 +2,7 @@
 
 from unittest.mock import patch
 
+import pytest
 
 from ui.boxes import box, divider
 
@@ -255,15 +256,12 @@ class TestDivider:
 
     def test_divider_ascii_fallback(self):
         """Test divider uses ASCII fallback when Unicode disabled"""
-        # The divider function uses icon() which checks UNICODE from ui.icons
-        # When UNICODE is False, Icons.BOX_H returns "-" (ASCII fallback)
-        # The actual result may be Unicode if FANCY_UI is enabled
-        result = divider(width=10, style="heavy")
+        with patch("ui.icons.UNICODE", False):
+            result = divider(width=10, style="heavy")
 
-        assert isinstance(result, str)
-        assert len(result) == 10
-        # Result should be 10 characters - either Unicode box chars or ASCII
-        # Just verify length and type since FANCY_UI may be enabled
+            assert isinstance(result, str)
+            # Should use - for heavy style
+            assert "-" in result or result == "-" * 10
 
     def test_divider_zero_width(self):
         """Test divider with zero width"""

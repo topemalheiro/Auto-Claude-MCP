@@ -4,10 +4,13 @@ Tests for phase_event
 Comprehensive test coverage for execution phase event emission protocol.
 """
 
+import importlib
 import json
 import os
 from core.phase_event import ExecutionPhase, emit_phase, PHASE_MARKER_PREFIX
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
+import pytest
+import sys
 
 
 class TestEmitPhaseBasic:
@@ -230,63 +233,73 @@ class TestEmitPhaseErrorHandling:
     @patch.dict(os.environ, {'DEBUG': '1'})
     def test_emit_phase_debug_mode_oserror(self, capsys):
         """Test emit_phase writes to stderr in debug mode on OSError."""
-        # Import fresh with DEBUG='1' set via patch.dict before import
-        from core.phase_event import emit_phase as emit_phase_debug
+        # Reload module to pick up new DEBUG value
         import core.phase_event
-        # Patch _DEBUG directly since it's set at module import time
-        with patch.object(core.phase_event, '_DEBUG', True):
-            # Arrange - mock print to raise OSError
-            with patch('builtins.print', side_effect=OSError("Pipe broken")):
-                # Act
-                emit_phase_debug(ExecutionPhase.CODING, "Test")
+        importlib.reload(core.phase_event)
+        from core.phase_event import emit_phase as emit_phase_debug
 
-            # Assert - error message in stderr
-            captured = capsys.readouterr()
-            assert "emit failed" in captured.err
-            assert "Pipe broken" in captured.err
+        # Arrange - mock print to raise OSError
+        with patch('builtins.print', side_effect=OSError("Pipe broken")):
+            # Act
+            emit_phase_debug(ExecutionPhase.CODING, "Test")
+
+        # Assert - error message in stderr
+        captured = capsys.readouterr()
+        assert "emit failed" in captured.err
+        assert "Pipe broken" in captured.err
+
+        # Reset DEBUG
+        os.environ.pop('DEBUG', None)
+        importlib.reload(core.phase_event)
 
     @patch.dict(os.environ, {'DEBUG': 'true'})
     def test_emit_phase_debug_mode_variations(self, capsys):
         """Test emit_phase debug mode with various DEBUG values."""
-        from core.phase_event import emit_phase as emit_phase_debug
+        # Reload module to pick up new DEBUG value
         import core.phase_event
-        # Patch _DEBUG directly since it's set at module import time
-        with patch.object(core.phase_event, '_DEBUG', True):
-            # Test with 'true'
-            with patch('builtins.print', side_effect=OSError("Error")):
-                emit_phase_debug(ExecutionPhase.CODING, "Test")
+        importlib.reload(core.phase_event)
+        from core.phase_event import emit_phase as emit_phase_debug
 
-            captured = capsys.readouterr()
-            assert "emit failed" in captured.err
+        # Test with 'true'
+        with patch('builtins.print', side_effect=OSError("Error")):
+            emit_phase_debug(ExecutionPhase.CODING, "Test")
+
+        captured = capsys.readouterr()
+        assert "emit failed" in captured.err
+
+        # Reset DEBUG
+        os.environ.pop('DEBUG', None)
+        importlib.reload(core.phase_event)
 
     @patch.dict(os.environ, {'DEBUG': 'yes'})
     def test_emit_phase_debug_mode_yes(self, capsys):
         """Test emit_phase debug mode with DEBUG=yes."""
-        from core.phase_event import emit_phase as emit_phase_debug
+        # Reload module to pick up new DEBUG value
         import core.phase_event
-        # Patch _DEBUG directly since it's set at module import time
-        with patch.object(core.phase_event, '_DEBUG', True):
-            with patch('builtins.print', side_effect=OSError("Error")):
-                emit_phase_debug(ExecutionPhase.CODING, "Test")
+        importlib.reload(core.phase_event)
+        from core.phase_event import emit_phase as emit_phase_debug
 
-            captured = capsys.readouterr()
-            assert "emit failed" in captured.err
+        with patch('builtins.print', side_effect=OSError("Error")):
+            emit_phase_debug(ExecutionPhase.CODING, "Test")
+
+        captured = capsys.readouterr()
+        assert "emit failed" in captured.err
+
+        # Reset DEBUG
+        os.environ.pop('DEBUG', None)
+        importlib.reload(core.phase_event)
 
     @patch.dict(os.environ, {'DEBUG': '0'})
     def test_emit_phase_non_debug_mode_no_stderr(self, capsys):
         """Test emit_phase doesn't write to stderr when DEBUG=0."""
-        from core.phase_event import emit_phase
-        import core.phase_event
-        # Patch _DEBUG directly since it's set at module import time
-        with patch.object(core.phase_event, '_DEBUG', False):
-            # Arrange
-            with patch('builtins.print', side_effect=OSError("Error")):
-                # Act
-                emit_phase(ExecutionPhase.CODING, "Test")
+        # Arrange
+        with patch('builtins.print', side_effect=OSError("Error")):
+            # Act
+            emit_phase(ExecutionPhase.CODING, "Test")
 
-            # Assert - nothing in stderr
-            captured = capsys.readouterr()
-            assert captured.err == ""
+        # Assert - nothing in stderr
+        captured = capsys.readouterr()
+        assert captured.err == ""
 
     @patch.dict(os.environ, {}, clear=True)
     def test_emit_phase_no_debug_env_var(self, capsys):
@@ -297,23 +310,19 @@ class TestEmitPhaseErrorHandling:
         captured = capsys.readouterr()
         assert captured.err == ""
 
-    @patch.dict(os.environ, {'DEBUG': '1'})
     def test_emit_phase_stderr_write_failure_silent(self, capsys):
         """Test that stderr write failures are silently ignored in debug mode."""
-        from core.phase_event import emit_phase
-        import core.phase_event
-        # Patch _DEBUG directly since it's set at module import time
-        with patch.object(core.phase_event, '_DEBUG', True):
-            # Arrange - both stdout and stderr fail
-            with patch('builtins.print', side_effect=OSError("Stdout fail")):
-                with patch('sys.stderr.write', side_effect=OSError("Stderr fail")):
+        # Arrange - both stdout and stderr fail
+        with patch('builtins.print', side_effect=OSError("Stdout fail")):
+            with patch('sys.stderr.write', side_effect=OSError("Stderr fail")):
+                with patch.dict(os.environ, {'DEBUG': '1'}):
                     # Act - should not raise
                     emit_phase(ExecutionPhase.CODING, "Test")
 
-            # Assert - completely silent
-            captured = capsys.readouterr()
-            assert captured.out == ""
-            assert captured.err == ""
+        # Assert - completely silent
+        captured = capsys.readouterr()
+        assert captured.out == ""
+        assert captured.err == ""
 
     def test_emit_phase_stderr_flush_failure_silent(self, capsys):
         """Test that stderr flush failures are silently ignored in debug mode."""
@@ -504,5 +513,5 @@ class TestExecutionPhaseEnum:
     def test_enum_iteration(self):
         """Test iterating over all enum values."""
         phases = [phase.value for phase in ExecutionPhase]
-        expected = ["planning", "coding", "qa_review", "qa_fixing", "complete", "failed", "rate_limit_paused", "auth_failure_paused"]
+        expected = ["planning", "coding", "qa_review", "qa_fixing", "complete", "failed"]
         assert phases == expected

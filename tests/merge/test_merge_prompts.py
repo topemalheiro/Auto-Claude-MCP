@@ -1,6 +1,9 @@
 """Comprehensive tests for merge/prompts.py"""
 
 from datetime import datetime
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+import pytest
 
 from merge.prompts import (
     build_timeline_merge_prompt,

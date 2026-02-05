@@ -1,8 +1,10 @@
 """Tests for security main.py (backward compatibility facade)"""
 
+import pytest
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, AsyncMock
+from io import StringIO
 
 
 class TestMainModuleImports:
@@ -95,6 +97,8 @@ class TestCliExecution:
 
     def run_cli_main(self, argv, mock_profile=None, mock_validate=None):
         """Helper to run CLI main with captured output"""
+        import subprocess
+        import importlib
 
         # Save original argv
         original_argv = sys.argv.copy()
@@ -534,6 +538,7 @@ class TestMainModuleEdgeCases:
 
     def test_import_multiple_times_does_not_duplicate(self):
         """Test that importing main multiple times doesn't cause issues"""
+        import importlib
 
         from security import main as main1
         from security import main as main2
@@ -707,6 +712,7 @@ class TestMainModuleCliExecution:
     def test_cli_main_can_be_executed(self):
         """Test that main.py can be executed as a script"""
         import subprocess
+        import os
 
         main_path = Path(__file__).parent.parent.parent / "apps" / "backend" / "security" / "main.py"
 
@@ -716,8 +722,6 @@ class TestMainModuleCliExecution:
                 [sys.executable, str(main_path)],
                 capture_output=True,
                 text=True,
-                encoding="utf-8",
-                errors="replace",
                 timeout=5,
             )
             # Should show usage message

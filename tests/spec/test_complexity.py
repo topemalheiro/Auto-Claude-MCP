@@ -1,10 +1,8 @@
-"""Tests for complexity module
-
-NOTE: These tests include AI complexity assessment - integration tests marked as slow.
-Can be excluded with: pytest -m "not slow"
-"""
+"""Tests for complexity module"""
 
 import json
+from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -15,8 +13,6 @@ from spec.complexity import (
     run_ai_complexity_assessment,
     save_assessment,
 )
-
-pytestmark = pytest.mark.slow
 
 
 class TestComplexityAssessment:

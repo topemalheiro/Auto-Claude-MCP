@@ -6,6 +6,7 @@ from merge.types import FileEvolution, TaskSnapshot
 from pathlib import Path
 from datetime import datetime
 from unittest.mock import MagicMock, patch
+import pytest
 
 
 def test_ModificationTracker___init__():

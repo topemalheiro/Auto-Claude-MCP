@@ -1,6 +1,9 @@
 """Tests for regex_analyzer"""
 
 from merge.semantic_analysis.regex_analyzer import analyze_with_regex, get_function_pattern, get_import_pattern
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+import pytest
 
 
 def test_analyze_with_regex():

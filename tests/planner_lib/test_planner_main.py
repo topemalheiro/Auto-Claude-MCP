@@ -1,10 +1,12 @@
 """Tests for planner_lib.main module."""
 
+import json
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
+from implementation_plan import ImplementationPlan
 from planner_lib.context import ContextLoader
 from planner_lib.main import ImplementationPlanner, generate_implementation_plan
 
@@ -30,9 +32,7 @@ class TestImplementationPlanner:
         spec_dir = str(tmp_path / "specs" / "001-test")
         Path(spec_dir).mkdir(parents=True)
         planner = ImplementationPlanner(spec_dir)
-        # Implementation stores spec_dir as-is (str or Path)
-        assert planner.spec_dir == spec_dir
-        assert isinstance(planner.spec_dir, str)
+        assert isinstance(planner.spec_dir, Path)
 
     def test_load_context_calls_context_loader(self, mock_spec_dir):
         """Test that load_context calls ContextLoader."""
@@ -156,9 +156,8 @@ class TestGenerateImplementationPlan:
 
     def test_generate_plan_with_string_path(self, tmp_path):
         """Test generate_implementation_plan with string path."""
-        # Implementation expects Path, so we test with Path object
-        spec_dir = tmp_path / "specs" / "001-test"
-        spec_dir.mkdir(parents=True)
+        spec_dir = str(tmp_path / "specs" / "001-test")
+        Path(spec_dir).mkdir(parents=True)
         mock_plan = MagicMock()
         mock_context = MagicMock()
 
@@ -169,9 +168,8 @@ class TestGenerateImplementationPlan:
                 "planner_lib.main.get_plan_generator",
                 return_value=MagicMock(generate=MagicMock(return_value=mock_plan))
             ):
-                with patch.object(mock_plan, "save"):
-                    result = generate_implementation_plan(spec_dir)
-                    assert result == mock_plan
+                result = generate_implementation_plan(spec_dir)
+                assert result == mock_plan
 
 
 class TestMainCli:

@@ -6,13 +6,15 @@ Tests task creation, status updates, comment addition, and state serialization.
 
 import json
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from integrations.linear.updater import (
     LinearTaskState,
+    STATUS_DONE,
     STATUS_IN_PROGRESS,
+    STATUS_IN_REVIEW,
     STATUS_TODO,
     add_linear_comment,
     create_linear_task,

@@ -19,9 +19,12 @@ Comprehensive test coverage for git utility functions including:
 - Backward compatibility aliases
 """
 
+import json
+import os
 import subprocess
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, call
+import pytest
 
 from core.workspace.git_utils import (
     # Constants

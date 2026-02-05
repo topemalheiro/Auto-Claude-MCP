@@ -1,10 +1,11 @@
 """Comprehensive tests for merge/install_hook.py"""
 
+import argparse
+import shutil
 import stat
-import sys
 import tempfile
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch, mock_open
 import pytest
 
 from merge.install_hook import (
@@ -57,7 +58,6 @@ class TestFindProjectRoot:
 class TestInstallHook:
     """Tests for install_hook function"""
 
-    @pytest.mark.skipif(sys.platform == "win32", reason="Windows doesn't use Unix-style execute permissions")
     def test_install_hook_fresh_install(self):
         """Test installing hook to fresh project (no existing hook)"""
         with tempfile.TemporaryDirectory() as tmpdir:

@@ -1,12 +1,13 @@
 """Tests for ollama_llm"""
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
+import pytest
 
 from integrations.graphiti.providers_pkg.llm_providers.ollama_llm import (
     create_ollama_llm_client,
 )
-from integrations.graphiti.providers_pkg.exceptions import ProviderNotInstalled, ProviderError
+from integrations.graphiti.providers_pkg.exceptions import ProviderNotInstalled
 
 
 def test_create_ollama_llm_client():
@@ -18,16 +19,7 @@ def test_create_ollama_llm_client():
     config.ollama_base_url = "http://localhost:11434"
 
     # Act & Assert
-    # If graphiti-core is not installed, expect ProviderNotInstalled
-    # If it is installed, the function will try to create the client
-    try:
-        result = create_ollama_llm_client(config)
-        # If we get here, graphiti-core is installed and client was created
-        assert result is not None
-    except ProviderNotInstalled:
-        # Expected when graphiti-core is not installed
-        pass
-    except (Exception, ProviderError):
-        # May get other errors if ollama service is not available or config is invalid
-        # The test is primarily checking the function can be called
-        pass
+    # The function requires graphiti-core which may not be installed
+    with pytest.raises(ProviderNotInstalled) as exc_info:
+        create_ollama_llm_client(config)
+    assert "graphiti-core" in str(exc_info.value)

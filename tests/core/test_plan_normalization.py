@@ -1,6 +1,7 @@
 """Tests for plan_normalization"""
 
 from core.plan_normalization import normalize_subtask_aliases
+import pytest
 
 
 class TestNormalizeSubtaskAliases:

@@ -8,7 +8,8 @@ and all context building functionality paths.
 
 import asyncio
 import json
-from unittest.mock import patch, AsyncMock
+from pathlib import Path
+from unittest.mock import patch, MagicMock, AsyncMock
 import pytest
 
 from context.builder import ContextBuilder
@@ -376,8 +377,7 @@ class TestBuildContext:
                             # Should resolve to absolute path
                             called_path = mock_search.call_args[0][0]
                             assert called_path.is_absolute()
-                            # Check path components work on all platforms
-                            assert "services" in called_path.parts and "api" in called_path.parts
+                            assert "services/api" in str(called_path)
 
     def test_build_context_absolute_service_path(self, tmp_path):
         """Test that absolute service paths are used as-is"""

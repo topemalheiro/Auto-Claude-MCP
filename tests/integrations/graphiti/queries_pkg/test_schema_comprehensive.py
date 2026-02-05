@@ -1,5 +1,6 @@
 """Comprehensive tests for schema.py module."""
 
+import pytest
 
 from integrations.graphiti.queries_pkg.schema import (
     EPISODE_TYPE_SESSION_INSIGHT,

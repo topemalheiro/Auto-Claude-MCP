@@ -1,5 +1,6 @@
 """Tests for prediction.models module."""
 
+import pytest
 
 from prediction.models import PredictedIssue, PreImplementationChecklist
 

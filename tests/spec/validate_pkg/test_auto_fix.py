@@ -1,8 +1,10 @@
 """Tests for auto_fix module"""
 
 import json
-from unittest.mock import patch
+from pathlib import Path
+from unittest.mock import MagicMock, patch
 
+import pytest
 
 from spec.validate_pkg.auto_fix import _normalize_status, _repair_json_syntax, auto_fix_plan
 

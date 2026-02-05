@@ -27,8 +27,6 @@ def _run_validate_spec(spec_dir: str, *args: str) -> subprocess.CompletedProcess
         cmd,
         capture_output=True,
         text=True,
-        encoding="utf-8",
-        errors="replace",
         cwd=str(SCRIPT_PATH.parent),
         env=env,
     )
@@ -45,8 +43,6 @@ class TestMainCli:
             [sys.executable, str(SCRIPT_PATH)],
             capture_output=True,
             text=True,
-            encoding="utf-8",
-            errors="replace",
             cwd=str(SCRIPT_PATH.parent),
             env=env,
         )
@@ -319,7 +315,6 @@ class TestMainCli:
         assert result.returncode == 1
         assert "invalid JSON" in result.stdout
 
-    @pytest.mark.skipif(sys.platform == "win32", reason="Windows console cannot encode certain Unicode characters (charmap codec limitation)")
     def test_main_json_output_with_unicode(self, tmp_path):
         """Test main() --json with unicode content"""
         spec_dir = tmp_path / "spec"

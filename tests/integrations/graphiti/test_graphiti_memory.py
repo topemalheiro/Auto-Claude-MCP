@@ -265,7 +265,7 @@ class TestTestGraphitiConnection:
                 success, msg = await test_graphiti_connection()
                 # We expect failure without proper mocking, which is expected
                 assert success is False
-            except Exception:
+            except Exception as e:
                 # Any exception is acceptable for this unit test context
                 # as we're primarily testing error paths
                 pass

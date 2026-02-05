@@ -8,8 +8,10 @@ print_banner, get_project_dir, and find_specs_dir functions.
 import os
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, Mock, patch
+from importlib import reload
 
+import pytest
 
 
 # =============================================================================
@@ -57,6 +59,7 @@ class TestImportDotenv:
         """Test that import_dotenv provides helpful error message."""
         # This is tested implicitly by the SystemExit test above
         # The error message should include installation instructions
+        pass
 
 
 # =============================================================================
@@ -116,6 +119,7 @@ class TestSetupEnvironment:
 
         # This tests the fallback behavior when primary .env doesn't exist
         # but dev .env does
+        pass
 
     def test_setup_environment_no_env_file(self, tmp_path):
         """Test setup_environment works when no .env file exists."""
@@ -339,7 +343,7 @@ class TestFindSpec:
         from cli.utils import find_spec
 
         # Act - search with different case
-        find_spec(project_dir, "001-test-spec")
+        result = find_spec(project_dir, "001-test-spec")
 
         # Assert - should not find due to case sensitivity
         # (depending on filesystem, but logic is case-sensitive)
@@ -669,7 +673,7 @@ class TestValidateEnvironment:
                  "reason": "disabled"
              }):
             # Act
-            validate_environment(spec_dir)
+            result = validate_environment(spec_dir)
 
         # Assert
         mock_validate.assert_called_once()

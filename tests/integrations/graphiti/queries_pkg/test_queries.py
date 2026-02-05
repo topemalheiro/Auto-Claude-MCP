@@ -1,6 +1,8 @@
 """Comprehensive tests for queries.py module."""
 
 import json
+from datetime import datetime, timezone
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -15,20 +17,6 @@ def mock_client():
     client.graphiti = MagicMock()
     client.graphiti.add_episode = AsyncMock()
     return client
-
-
-@pytest.fixture(autouse=True)
-def mock_graphiti_core():
-    """Mock graphiti_core module for all tests."""
-    mock_episode_type = MagicMock()
-    mock_episode_type.text = "text"
-    mock_nodes = MagicMock()
-    mock_nodes.EpisodeType = mock_episode_type
-    mock_graphiti = MagicMock()
-    mock_graphiti.nodes = mock_nodes
-
-    with patch.dict("sys.modules", {"graphiti_core": mock_graphiti, "graphiti_core.nodes": mock_nodes}):
-        yield
 
 
 @pytest.fixture

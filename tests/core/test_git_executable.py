@@ -5,6 +5,7 @@ import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import pytest
 
 from core.git_executable import (
     GIT_ENV_VARS_TO_CLEAR,
@@ -107,15 +108,13 @@ class TestFindGitExecutable:
         bash_path = "C:\\Program Files\\Git\\bin\\bash.exe"
 
         with patch.dict(os.environ, {"CLAUDE_CODE_GIT_BASH_PATH": bash_path}, clear=False):
-            # Mock Path.exists to return False so bash path check fails
-            # This ensures we fall through to shutil.which
-            with patch("pathlib.Path.exists", return_value=False):
-                with patch("shutil.which", return_value="/usr/bin/git"):
-                    # Act
-                    result = _find_git_executable()
+            # When bash path is set but git is not found, it falls through to shutil.which
+            with patch("shutil.which", return_value="/usr/bin/git"):
+                # Act
+                result = _find_git_executable()
 
-                    # Assert - should find git from shutil.which
-                    assert result == "/usr/bin/git"
+                # Assert - should find git from shutil.which
+                assert result == "/usr/bin/git"
 
     def test_find_git_from_bash_path_bin_git(self):
         """Test finding git.exe in bin/ directory from bash path"""

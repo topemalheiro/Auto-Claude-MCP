@@ -3,17 +3,15 @@ Edge case and integration tests for spec.pipeline.orchestrator module.
 
 Tests covering complex scenarios, edge cases, and error handling
 that complement existing unit tests.
-
-NOTE: Integration tests with SpecOrchestrator - marked as slow.
-Can be excluded with: pytest -m "not slow"
 """
 
 import json
-from unittest.mock import AsyncMock, MagicMock, patch
+from datetime import datetime, timedelta
+from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock, patch, call, mock_open
+from typing import Any
 
 import pytest
-
-pytestmark = pytest.mark.slow
 
 from spec.pipeline.orchestrator import SpecOrchestrator
 from spec.phases.models import PhaseResult
@@ -321,7 +319,7 @@ class TestHeuristicAssessment:
         """Test heuristic assessment with malformed project index."""
         project_dir = tmp_path / "project"
         project_dir.mkdir()
-        auto_build = project_dir / ".auto-claude"
+        auto_build = project_dir / "auto-claude"
         auto_build.mkdir()
 
         # Create malformed index
@@ -342,7 +340,7 @@ class TestHeuristicAssessment:
         """Test heuristic assessment when no project index exists."""
         project_dir = tmp_path / "project"
         project_dir.mkdir()
-        auto_build = project_dir / ".auto-claude"
+        auto_build = project_dir / "auto-claude"
         auto_build.mkdir()
 
         orchestrator = SpecOrchestrator(

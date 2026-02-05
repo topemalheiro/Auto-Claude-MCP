@@ -6,9 +6,11 @@ Focuses on the _create_linear_client and _run_linear_agent functions
 which require complex mocking.
 """
 
+import json
+import os
 from pathlib import Path
 from datetime import datetime
-from unittest.mock import patch
+from unittest.mock import AsyncMock, MagicMock, patch, Mock
 import pytest
 
 from integrations.linear.updater import (
@@ -28,9 +30,12 @@ from integrations.linear.updater import (
     linear_task_started,
     linear_subtask_completed,
     linear_subtask_failed,
+    linear_build_complete,
     linear_qa_started,
+    linear_qa_approved,
     linear_qa_rejected,
     linear_qa_max_iterations,
+    linear_task_stuck,
 )
 
 

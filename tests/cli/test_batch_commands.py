@@ -1,6 +1,8 @@
 """Tests for batch_commands"""
 
 import json
+from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -122,10 +124,18 @@ def test_handle_batch_create_command_with_empty_tasks(temp_project_dir, empty_ba
     assert result is False
 
 
-# Note: test_handle_batch_create_command_with_directory_as_batch_file removed
-# The current implementation throws an exception when a directory is passed
-# instead of gracefully returning False. This edge case is not handled.
-# TODO: Add proper file vs directory checking in handle_batch_create_command
+def test_handle_batch_create_command_with_directory_as_batch_file(temp_project_dir):
+    """Test handle_batch_create_command when batch_file is a directory."""
+    # Arrange
+    temp_project_dir.mkdir()
+    # Create a different directory to use as the "batch file"
+    other_dir = temp_project_dir / "other"
+    other_dir.mkdir()
+
+    # Act & Assert - passing a directory should return False
+    result = handle_batch_create_command(str(other_dir), str(temp_project_dir))
+    assert result is False
+
 
 def test_handle_batch_status_command(temp_project_dir):
     """Test handle_batch_status_command with specs."""
