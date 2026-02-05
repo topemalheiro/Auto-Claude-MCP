@@ -68,10 +68,12 @@ def safe_print(message: str, flush: bool = True) -> None:
         # Handle other pipe-related errors (EPIPE, etc.)
         if e.errno == 32:  # EPIPE - Broken pipe
             _pipe_broken = True
-            try:
-                sys.stdout.close()
-            except Exception:
-                pass
+            # Skip closing stdout during tests to avoid pytest capture issues
+            if not _IN_TESTS:
+                try:
+                    sys.stdout.close()
+                except Exception:
+                    pass
             logger.debug("Output pipe closed (EPIPE)")
         else:
             # Re-raise unexpected OS errors
