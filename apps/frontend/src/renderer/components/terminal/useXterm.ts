@@ -72,6 +72,13 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
       return;
     }
 
+    // Reset refs when (re)initializing xterm
+    // This is critical for React StrictMode which unmounts/remounts components,
+    // causing dispose() to set isDisposedRef.current = true on the first unmount.
+    // Without this reset, the remounted component would still have isDisposed = true.
+    isDisposedRef.current = false;
+    dimensionsReadyCalledRef.current = false;
+
     debugLog(`[useXterm] Initializing xterm for terminal: ${terminalId}`);
 
     const xterm = new XTerm({
@@ -501,7 +508,11 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
       serializeAddonRef.current.dispose();
       serializeAddonRef.current = null;
     }
-    fitAddonRef.current = null;
+    // Note: webLinksAddon is local and will be disposed when xterm.dispose() is called
+    if (xtermRef.current) {
+      xtermRef.current.dispose();
+      xtermRef.current = null;
+    }
   }, [serializeBuffer, terminalId]);
 
   return {

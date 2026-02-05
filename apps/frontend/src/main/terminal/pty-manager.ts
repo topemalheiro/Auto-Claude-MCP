@@ -244,10 +244,9 @@ export function setupPtyHandlers(
     // to avoid pty.node SIGABRT from destroyed BrowserWindow resources
     if (isShuttingDown) return;
 
-    const win = getWindow();
-    if (win) {
-      win.webContents.send(IPC_CHANNELS.TERMINAL_EXIT, id, exitCode);
-    }
+    // Send to renderer with isDestroyed() check to prevent crashes
+    // when the window is closed during terminal exit
+    safeSendToRenderer(getWindow, IPC_CHANNELS.TERMINAL_EXIT, id, exitCode);
 
     // Call custom exit handler
     onExitCallback(terminal);
