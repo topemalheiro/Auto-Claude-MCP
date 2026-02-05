@@ -38,8 +38,8 @@ class TestIsGraphitiEnabled:
         result = is_graphiti_enabled()
         assert isinstance(result, bool)
 
-    @patch('context.graphiti_integration.GRAPHITI_AVAILABLE', False)
-    def test_is_graphiti_disabled_when_unavailable(self):
+    @patch('context.graphiti_integration.is_graphiti_enabled', return_value=False)
+    def test_is_graphiti_disabled_when_unavailable(self, mock_enabled):
         """Test that is_graphiti_enabled returns False when unavailable"""
         from context.graphiti_integration import is_graphiti_enabled
         result = is_graphiti_enabled()
