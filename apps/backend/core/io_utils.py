@@ -72,7 +72,7 @@ def safe_print(message: str, flush: bool = True) -> None:
             if not _IN_TESTS:
                 try:
                     sys.stdout.close()
-                except Exception:  # stdout may already be closed
+                except Exception:
                     pass
             logger.debug("Output pipe closed (EPIPE)")
         else:
