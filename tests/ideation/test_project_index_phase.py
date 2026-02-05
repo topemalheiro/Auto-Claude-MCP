@@ -15,8 +15,9 @@ def test_ProjectIndexPhase___init__():
 
     phase = ProjectIndexPhase(project_dir, output_dir, refresh)
 
-    assert phase.project_dir == project_dir
-    assert phase.output_dir == output_dir
+    # Use resolve() for cross-platform compatibility (macOS /tmp -> /private/tmp)
+    assert phase.project_dir == project_dir.resolve()
+    assert phase.output_dir == output_dir.resolve()
     assert phase.refresh is refresh
     assert isinstance(phase.script_runner, ScriptRunner)
 

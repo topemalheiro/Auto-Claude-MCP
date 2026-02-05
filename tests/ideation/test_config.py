@@ -36,7 +36,8 @@ def test_IdeationConfigManager___init__(mock_init):
             append=False,
         )
 
-        assert config.project_dir == project_dir
+        # Use resolve() for cross-platform compatibility (macOS /tmp -> /private/tmp)
+        assert config.project_dir == project_dir.resolve()
         assert config.model == model
         assert config.thinking_level == thinking_level
         assert config.refresh is True
@@ -45,7 +46,7 @@ def test_IdeationConfigManager___init__(mock_init):
         assert config.include_roadmap_context is True
         assert config.include_kanban_context is False
         assert config.max_ideas_per_type == max_ideas_per_type
-        assert config.output_dir == output_dir
+        assert config.output_dir == output_dir.resolve()
 
 
 @patch("ideation.config.init_auto_claude_dir")
@@ -62,7 +63,8 @@ def test_IdeationConfigManager_default_values(mock_init):
 
         config = IdeationConfigManager(project_dir=project_dir)
 
-        assert config.project_dir == project_dir
+        # Use resolve() for cross-platform compatibility (macOS /tmp -> /private/tmp)
+        assert config.project_dir == project_dir.resolve()
         assert config.model == "sonnet"
         assert config.thinking_level == "medium"
         assert config.refresh is False

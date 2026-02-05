@@ -11,7 +11,8 @@ def test_ScriptRunner___init__():
     """Test ScriptRunner.__init__"""
     project_dir = Path("/tmp/test")
     runner = ScriptRunner(project_dir)
-    assert runner.project_dir == project_dir
+    # Use resolve() for cross-platform compatibility (macOS /tmp -> /private/tmp)
+    assert runner.project_dir == project_dir.resolve()
 
 
 @patch("ideation.script_runner.subprocess.run")

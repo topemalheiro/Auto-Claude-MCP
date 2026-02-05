@@ -25,8 +25,9 @@ def test_IdeationGenerator___init__():
             max_ideas_per_type=max_ideas_per_type,
         )
 
-        assert generator.project_dir == project_dir
-        assert generator.output_dir == output_dir
+        # Use resolve() for cross-platform compatibility (macOS /tmp -> /private/tmp)
+        assert generator.project_dir == project_dir.resolve()
+        assert generator.output_dir == output_dir.resolve()
         assert generator.model == model
         assert generator.thinking_level == thinking_level
         assert generator.max_ideas_per_type == max_ideas_per_type
