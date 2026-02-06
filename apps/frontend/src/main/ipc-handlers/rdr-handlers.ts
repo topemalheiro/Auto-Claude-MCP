@@ -51,6 +51,7 @@ interface PendingRdrTask {
 let pendingTasks: PendingRdrTask[] = [];
 let batchTimer: NodeJS.Timeout | null = null;
 const BATCH_COLLECTION_WINDOW_MS = 30000; // 30 seconds
+const ACTIVE_TASK_RECENCY_THRESHOLD_MS = 10 * 60 * 1000; // 10 minutes - skip RDR for recently active tasks
 
 // Types for RDR processing
 interface RdrProcessResult {
@@ -113,8 +114,13 @@ function calculateTaskProgress(task: TaskInfo): number {
     phase.subtasks || (phase as { chunks?: Array<{ status: string }> }).chunks || []
   ).filter(Boolean);
 
+  // If no subtasks exist, check if all phases are completed
+  // This handles tasks that complete all phases but have no individual subtasks
   if (allSubtasks.length === 0) {
-    return 0;
+    const allPhasesComplete = task.phases.every(
+      (p: any) => p.status === 'completed'
+    );
+    return allPhasesComplete ? 100 : 0;
   }
 
   const completed = allSubtasks.filter(s => s.status === 'completed').length;
@@ -161,6 +167,7 @@ function enrichTaskWithWorktreeData(task: TaskInfo, projectPath: string): TaskIn
         status: worktreeStatus,
         phases: worktreePlan.phases || task.phases,
         planStatus: worktreePlan.status,
+        updated_at: worktreePlan.updated_at || worktreePlan.last_updated || task.updated_at,
       };
     }
   } catch (e) {
@@ -168,6 +175,48 @@ function enrichTaskWithWorktreeData(task: TaskInfo, projectPath: string): TaskIn
   }
 
   return task;
+}
+
+/**
+ * Get the most recent activity timestamp for a task.
+ * Checks filesystem mtime of implementation_plan.json (worktree first, then main)
+ * and JSON fields updated_at/last_updated from the plan.
+ * Returns milliseconds since epoch, or 0 if no activity found.
+ */
+function getTaskLastActivityTimestamp(task: TaskInfo, projectPath: string): number {
+  const candidates: number[] = [];
+
+  // Worktree plan mtime (agents write here during active work)
+  const worktreePlanPath = path.join(
+    projectPath, '.auto-claude', 'worktrees', 'tasks', task.specId,
+    '.auto-claude', 'specs', task.specId, 'implementation_plan.json'
+  );
+  try {
+    if (existsSync(worktreePlanPath)) {
+      candidates.push(statSync(worktreePlanPath).mtimeMs);
+      const wp = JSON.parse(readFileSync(worktreePlanPath, 'utf-8'));
+      for (const f of ['updated_at', 'last_updated']) {
+        if (wp[f]) {
+          const ts = new Date(wp[f]).getTime();
+          if (!isNaN(ts)) candidates.push(ts);
+        }
+      }
+    }
+  } catch { /* ignore read errors */ }
+
+  // Main plan mtime (fallback)
+  const mainPlanPath = path.join(projectPath, '.auto-claude', 'specs', task.specId, 'implementation_plan.json');
+  try {
+    if (existsSync(mainPlanPath)) candidates.push(statSync(mainPlanPath).mtimeMs);
+  } catch { /* ignore read errors */ }
+
+  // Task's own updated_at (from enriched TaskInfo)
+  if (task.updated_at) {
+    const ts = new Date(task.updated_at).getTime();
+    if (!isNaN(ts)) candidates.push(ts);
+  }
+
+  return candidates.length > 0 ? Math.max(...candidates) : 0;
 }
 
 /**
@@ -200,7 +249,7 @@ function isLegitimateHumanReview(task: TaskInfo): boolean {
  * - 'stuck': Task bounced to human_review with incomplete subtasks (no clear exit reason)
  * - 'incomplete': Task has pending subtasks in active boards (in_progress, ai_review)
  */
-function determineInterventionType(task: TaskInfo): InterventionType | null {
+function determineInterventionType(task: TaskInfo, lastActivityMs?: number): InterventionType | null {
   // Skip completed/archived/pending tasks - these never need intervention
   if (task.status === 'done' || task.status === 'pr_created' || task.status === 'backlog' || task.status === 'pending') {
     return null;
@@ -234,6 +283,14 @@ function determineInterventionType(task: TaskInfo): InterventionType | null {
   // completed = finished subtasks but didn't transition
   if (task.status === 'in_progress' || task.status === 'ai_review' ||
       task.status === 'qa_approved' || task.status === 'completed') {
+    // Check if the agent recently updated the plan file - if so, it's still actively working
+    if (lastActivityMs !== undefined && lastActivityMs > 0) {
+      const timeSinceLastActivity = Date.now() - lastActivityMs;
+      if (timeSinceLastActivity < ACTIVE_TASK_RECENCY_THRESHOLD_MS) {
+        console.log(`[RDR] Task ${task.specId} in ${task.status} - recently active (${Math.round(timeSinceLastActivity / 1000)}s ago) - SKIPPING`);
+        return null;
+      }
+    }
     console.log(`[RDR] Task ${task.specId} in active status ${task.status} at ${progress}% - needs continuation`);
     return 'incomplete';
   }
@@ -401,8 +458,9 @@ function gatherRichTaskInfo(task: TaskInfo, projectPath: string): RichTaskInfo {
     }
   }
 
-  // Get intervention type
-  const interventionType = determineInterventionType(task);
+  // Get intervention type (with recency check to skip actively-running tasks)
+  const lastActivityMs = getTaskLastActivityTimestamp(task, projectPath);
+  const interventionType = determineInterventionType(task, lastActivityMs);
 
   // Get last logs
   const lastLogs = getLastLogEntries(projectPath, task.specId, 3);
@@ -1685,7 +1743,8 @@ export function registerRdrHandlers(): void {
           ).length || 0;
           console.log(`[RDR] Task ${task.specId}: status=${task.status}, phases=${phaseCount}, subtasks=${subtaskCount}, progress=${progress}%, reviewReason=${task.reviewReason || 'none'}`);
 
-          const interventionType = determineInterventionType(task);
+          const lastActivityMs = projectPath ? getTaskLastActivityTimestamp(task, projectPath) : undefined;
+          const interventionType = determineInterventionType(task, lastActivityMs);
 
           if (interventionType) {
             console.log(`[RDR] ✅ Task ${task.specId} needs intervention: type=${interventionType}`);
@@ -1776,8 +1835,9 @@ export function registerRdrHandlers(): void {
             }
           }
 
-          // Determine intervention type using centralized function
-          const interventionType = determineInterventionType(taskInfo);
+          // Determine intervention type using centralized function (with recency check)
+          const taskActivityMs = projectPath ? getTaskLastActivityTimestamp(taskInfo, projectPath) : undefined;
+          const interventionType = determineInterventionType(taskInfo, taskActivityMs);
 
           // Determine board and phase for display grouping
           const currentPhase = projectPath ? getCurrentPhase(projectPath, task.specId) : undefined;
@@ -1929,14 +1989,16 @@ export function registerRdrHandlers(): void {
             }
 
             // SAFETY CHECK 3: Only recover tasks that actually need intervention
-            const interventionType = determineInterventionType({
+            const taskInfoForCheck: TaskInfo = {
               specId: task.specId,
               status: task.status,
               reviewReason: task.reviewReason,
               phases: task.phases,
               exitReason: task.exitReason,
               planStatus: task.planStatus,
-            });
+            };
+            const recoverActivityMs = getTaskLastActivityTimestamp(taskInfoForCheck, project.path);
+            const interventionType = determineInterventionType(taskInfoForCheck, recoverActivityMs);
 
             if (!interventionType) {
               console.log(`[RDR] ⏭️  Skipping ${task.specId} - no intervention needed (status=${task.status})`);

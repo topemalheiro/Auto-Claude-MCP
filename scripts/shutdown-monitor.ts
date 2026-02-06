@@ -3,7 +3,12 @@
  * Shutdown Monitor (Global)
  *
  * Watches Auto-Claude tasks across MULTIPLE projects and triggers shutdown
- * when ALL active tasks across ALL projects reach Human Review.
+ * when ALL active tasks across ALL projects are complete.
+ *
+ * A task is "complete" when:
+ * - status is 'done' or 'pr_created' (terminal)
+ * - status is 'human_review' with 100% subtask completion
+ * - task is archived (has archivedAt in task_metadata.json)
  *
  * Usage:
  *   npx tsx scripts/shutdown-monitor.ts --project-path /path/to/project1 --project-path /path/to/project2 [--delay-seconds 120]
@@ -15,7 +20,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { spawn } from 'child_process';
 
-const POLL_INTERVAL_MS = 5000; // Check every 5 seconds for testing
+const POLL_INTERVAL_MS = 5000; // Check every 5 seconds
 
 interface TaskStatus {
   taskId: string;
@@ -23,6 +28,48 @@ interface TaskStatus {
   feature: string;
   projectPath: string;
   source: 'worktree' | 'main';
+  progress: number;
+}
+
+// (hasSeenActiveTasks state is tracked in poll() and passed to areAllTasksComplete)
+
+/**
+ * Check if a task is archived by reading task_metadata.json.
+ * Archived tasks have an archivedAt field set to an ISO date string.
+ */
+function isTaskArchived(projectPath: string, taskId: string): boolean {
+  const metadataPath = path.join(projectPath, '.auto-claude', 'specs', taskId, 'task_metadata.json');
+  try {
+    if (!fs.existsSync(metadataPath)) return false;
+    const metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf-8'));
+    if (metadata.archivedAt) {
+      console.log(`[Monitor] Task ${taskId}: ARCHIVED at ${metadata.archivedAt} (skipped)`);
+      return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Calculate task completion percentage from phases/subtasks.
+ * Returns 100 if all subtasks are completed, 0 if no subtasks.
+ * Matches the logic in auto-shutdown-handlers.ts.
+ */
+function calculateTaskProgress(plan: any): number {
+  if (!plan.phases || plan.phases.length === 0) return 0;
+
+  const allSubtasks = plan.phases.flatMap((phase: any) =>
+    phase.subtasks || phase.chunks || []
+  ).filter(Boolean);
+
+  if (allSubtasks.length === 0) {
+    return plan.phases.every((p: any) => p.status === 'completed') ? 100 : 0;
+  }
+
+  const completed = allSubtasks.filter((s: any) => s.status === 'completed').length;
+  return Math.round((completed / allSubtasks.length) * 100);
 }
 
 /**
@@ -49,7 +96,8 @@ function getWorktreePlan(projectPath: string, taskId: string): any | null {
 
 /**
  * Get task statuses across MULTIPLE projects.
- * Prefers worktree plans over main plans (worktrees have actual agent progress).
+ * Skips archived tasks. Prefers worktree plans over main plans.
+ * Includes progress calculation for each task.
  */
 function getTaskStatuses(projectPaths: string[]): TaskStatus[] {
   const statuses: TaskStatus[] = [];
@@ -67,6 +115,9 @@ function getTaskStatuses(projectPaths: string[]): TaskStatus[] {
       .map(d => d.name);
 
     for (const dir of dirs) {
+      // Skip archived tasks - they shouldn't be monitored
+      if (isTaskArchived(projectPath, dir)) continue;
+
       const planPath = path.join(specsDir, dir, 'implementation_plan.json');
       if (fs.existsSync(planPath)) {
         try {
@@ -82,7 +133,8 @@ function getTaskStatuses(projectPaths: string[]): TaskStatus[] {
             status: content.status || 'unknown',
             feature: content.feature || dir,
             projectPath,
-            source
+            source,
+            progress: calculateTaskProgress(content),
           });
         } catch (e) {
           console.error(`[Monitor] Failed to read ${planPath}:`, e);
@@ -94,44 +146,64 @@ function getTaskStatuses(projectPaths: string[]): TaskStatus[] {
   return statuses;
 }
 
-function checkAllReachedTarget(statuses: TaskStatus[], targetStatus: string): boolean {
-  // Filter out 'done' and 'pr_created' tasks - we only care about active tasks
-  const activeTasks = statuses.filter(s => s.status !== 'done' && s.status !== 'pr_created');
+/**
+ * Check if all tasks are complete.
+ *
+ * A task is complete if:
+ * - status is 'done' or 'pr_created' (terminal)
+ * - status is 'human_review' with 100% progress (all subtasks done)
+ *
+ * Returns true when no active (incomplete) tasks remain AND we've seen tasks before.
+ * This prevents triggering on an empty project with no tasks.
+ */
+function areAllTasksComplete(statuses: TaskStatus[], hasSeenActiveTasks: boolean): { complete: boolean; hasActive: boolean } {
+  // Terminal statuses - task is completely done
+  const terminalTasks = statuses.filter(s =>
+    s.status === 'done' || s.status === 'pr_created'
+  );
 
-  if (activeTasks.length === 0) {
-    console.log('[Monitor] No active tasks to monitor across all projects');
-    return false;
-  }
+  // Complete tasks - at human_review with all subtasks done
+  const completeTasks = statuses.filter(s =>
+    s.status === 'human_review' && s.progress === 100
+  );
 
-  // Group by project for better logging
+  // Active tasks - everything else (still needs work)
+  const activeTasks = statuses.filter(s =>
+    s.status !== 'done' && s.status !== 'pr_created' &&
+    !(s.status === 'human_review' && s.progress === 100)
+  );
+
+  const hasActive = activeTasks.length > 0;
+
+  // Log status grouped by project
   const byProject = new Map<string, TaskStatus[]>();
-  for (const task of activeTasks) {
-    const projectName = path.basename(task.projectPath);
-    if (!byProject.has(projectName)) {
-      byProject.set(projectName, []);
-    }
-    byProject.get(projectName)!.push(task);
+  for (const task of statuses) {
+    const name = path.basename(task.projectPath);
+    if (!byProject.has(name)) byProject.set(name, []);
+    byProject.get(name)!.push(task);
   }
 
-  console.log(`[Monitor] Checking ${activeTasks.length} active tasks across ${byProject.size} projects:`);
-  for (const [projectName, tasks] of byProject) {
+  console.log(`[Monitor] ${statuses.length} tasks: ${terminalTasks.length} done, ${completeTasks.length} complete (human_review 100%), ${activeTasks.length} active`);
+  Array.from(byProject.entries()).forEach(([projectName, tasks]) => {
     console.log(`  Project: ${projectName}`);
-    for (const task of tasks) {
-      const reached = task.status === targetStatus;
-      console.log(`    - ${task.taskId}: ${task.status} [${task.source}] ${reached ? '✓' : '...'}`);
-    }
+    tasks.forEach(task => {
+      const isComplete = task.status === 'done' || task.status === 'pr_created' ||
+        (task.status === 'human_review' && task.progress === 100);
+      console.log(`    - ${task.taskId}: ${task.status} ${task.progress}% [${task.source}] ${isComplete ? 'DONE' : '...'}`);
+    });
+  });
+
+  // All active tasks gone AND we've seen tasks before → all work complete
+  if (activeTasks.length === 0 && (hasSeenActiveTasks || statuses.length > 0)) {
+    console.log(`[Monitor] ALL tasks complete! (${terminalTasks.length} done + ${completeTasks.length} at human_review 100%)`);
+    return { complete: true, hasActive };
   }
 
-  const allReached = activeTasks.every(s => s.status === targetStatus);
-  if (allReached) {
-    console.log(`[Monitor] ✓ ALL ${activeTasks.length} tasks reached ${targetStatus}!`);
-  }
-
-  return allReached;
+  return { complete: false, hasActive };
 }
 
 function triggerShutdown(delaySeconds: number): void {
-  console.log(`\n[Monitor] ALL TASKS REACHED HUMAN REVIEW!`);
+  console.log(`\n[Monitor] ALL TASKS COMPLETE!`);
   console.log(`[Monitor] Triggering shutdown in ${delaySeconds} seconds...`);
   console.log(`[Monitor] Run "shutdown /a" to abort!\n`);
 
@@ -183,6 +255,8 @@ async function main() {
   console.log('[Monitor] Poll interval:', POLL_INTERVAL_MS / 1000, 'seconds');
   console.log('');
 
+  let seenActive = false;
+
   const poll = () => {
     const statuses = getTaskStatuses(projectPaths);
 
@@ -192,7 +266,12 @@ async function main() {
       return;
     }
 
-    if (checkAllReachedTarget(statuses, 'human_review')) {
+    const result = areAllTasksComplete(statuses, seenActive);
+    if (result.hasActive) {
+      seenActive = true;
+    }
+
+    if (result.complete) {
       triggerShutdown(delaySeconds);
       process.exit(0);
     } else {
