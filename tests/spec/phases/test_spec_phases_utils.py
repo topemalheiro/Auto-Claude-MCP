@@ -16,7 +16,7 @@ class TestRunScript:
         """Test successful script execution"""
         project_dir = tmp_path / "project"
         project_dir.mkdir()
-        auto_claude = project_dir / "auto-claude"
+        auto_claude = project_dir / ".auto-claude"
         auto_claude.mkdir()
 
         # Create a simple test script
@@ -33,7 +33,7 @@ class TestRunScript:
         """Test script execution with command-line arguments"""
         project_dir = tmp_path / "project"
         project_dir.mkdir()
-        auto_claude = project_dir / "auto-claude"
+        auto_claude = project_dir / ".auto-claude"
         auto_claude.mkdir()
 
         # Create a script that uses arguments
@@ -51,7 +51,7 @@ class TestRunScript:
         """Test script not found error"""
         project_dir = tmp_path / "project"
         project_dir.mkdir()
-        auto_claude = project_dir / "auto-claude"
+        auto_claude = project_dir / ".auto-claude"
         auto_claude.mkdir()
 
         success, output = run_script(project_dir, "nonexistent.py", [])
@@ -64,7 +64,7 @@ class TestRunScript:
         """Test script execution with non-zero exit code"""
         project_dir = tmp_path / "project"
         project_dir.mkdir()
-        auto_claude = project_dir / "auto-claude"
+        auto_claude = project_dir / ".auto-claude"
         auto_claude.mkdir()
 
         # Create a script that exits with error
@@ -80,7 +80,7 @@ class TestRunScript:
         """Test that stderr is captured when script fails"""
         project_dir = tmp_path / "project"
         project_dir.mkdir()
-        auto_claude = project_dir / "auto-claude"
+        auto_claude = project_dir / ".auto-claude"
         auto_claude.mkdir()
 
         # Create a script that writes to stderr and exits with error
@@ -99,7 +99,7 @@ class TestRunScript:
         """Test that stdout is captured when script fails with no stderr"""
         project_dir = tmp_path / "project"
         project_dir.mkdir()
-        auto_claude = project_dir / "auto-claude"
+        auto_claude = project_dir / ".auto-claude"
         auto_claude.mkdir()
 
         # Create a script that writes to stdout but exits with error
@@ -118,7 +118,7 @@ class TestRunScript:
         """Test script execution timeout"""
         project_dir = tmp_path / "project"
         project_dir.mkdir()
-        auto_claude = project_dir / "auto-claude"
+        auto_claude = project_dir / ".auto-claude"
         auto_claude.mkdir()
 
         # Create a script that runs indefinitely
@@ -143,7 +143,7 @@ class TestRunScript:
         """Test that general exceptions are handled"""
         project_dir = tmp_path / "project"
         project_dir.mkdir()
-        auto_claude = project_dir / "auto-claude"
+        auto_claude = project_dir / ".auto-claude"
         auto_claude.mkdir()
 
         # Create a test script
@@ -161,7 +161,7 @@ class TestRunScript:
         """Test that the correct Python executable is used"""
         project_dir = tmp_path / "project"
         project_dir.mkdir()
-        auto_claude = project_dir / "auto-claude"
+        auto_claude = project_dir / ".auto-claude"
         auto_claude.mkdir()
 
         # Create a test script that outputs the executable path
@@ -182,7 +182,7 @@ class TestRunScript:
         """Test that the command is constructed correctly"""
         project_dir = tmp_path / "project"
         project_dir.mkdir()
-        auto_claude = project_dir / "auto-claude"
+        auto_claude = project_dir / ".auto-claude"
         auto_claude.mkdir()
 
         script_path = auto_claude / "test.py"
@@ -216,7 +216,7 @@ class TestRunScript:
         """Test that the script runs in the correct working directory"""
         project_dir = tmp_path / "project"
         project_dir.mkdir()
-        auto_claude = project_dir / "auto-claude"
+        auto_claude = project_dir / ".auto-claude"
         auto_claude.mkdir()
 
         script_path = auto_claude / "cwd_script.py"
@@ -234,7 +234,7 @@ class TestRunScript:
         """Test script execution with empty arguments list"""
         project_dir = tmp_path / "project"
         project_dir.mkdir()
-        auto_claude = project_dir / "auto-claude"
+        auto_claude = project_dir / ".auto-claude"
         auto_claude.mkdir()
 
         script_path = auto_claude / "test.py"

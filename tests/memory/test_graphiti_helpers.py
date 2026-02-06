@@ -170,8 +170,8 @@ class TestGetGraphitiMemory:
         original_import = builtins.__import__
 
         def mock_import(name, *args, **kwargs):
-            if name == "graphiti_memory":
-                raise ImportError("No module named 'graphiti_memory'")
+            if name == "integrations.graphiti.memory":
+                raise ImportError("No module named 'integrations.graphiti.memory'")
             return original_import(name, *args, **kwargs)
 
         with patch(
@@ -187,14 +187,10 @@ class TestGetGraphitiMemory:
         """Test returns None and logs warning on initialization error."""
         import builtins
 
-        # Create a mock that will fail during initialization
-        mock_memory = MagicMock()
-        mock_memory.initialize = AsyncMock(side_effect=RuntimeError("Init failed"))
-
         original_import = builtins.__import__
 
         def mock_import(name, *args, **kwargs):
-            if name == "graphiti_memory":
+            if name == "integrations.graphiti.memory":
                 # Return a module with GraphitiMemory that will fail init
                 class MockGraphitiMemory:
                     def __init__(self, *args, **kwargs):
@@ -231,7 +227,7 @@ class TestGetGraphitiMemory:
         original_import = builtins.__import__
 
         def mock_import(name, *args, **kwargs):
-            if name == "graphiti_memory":
+            if name == "integrations.graphiti.memory":
                 class MockGraphitiMemory:
                     def __init__(self, *args, **kwargs):
                         pass
@@ -262,7 +258,7 @@ class TestGetGraphitiMemory:
         original_import = builtins.__import__
 
         def mock_import(name, *args, **kwargs):
-            if name == "graphiti_memory":
+            if name == "integrations.graphiti.memory":
                 # Raise exception during class construction
                 raise RuntimeError("Connection failed")
             return original_import(name, *args, **kwargs)

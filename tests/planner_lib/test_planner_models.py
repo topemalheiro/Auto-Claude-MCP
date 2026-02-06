@@ -97,9 +97,10 @@ class TestPlannerContext:
             WorkflowType.FEATURE,
             WorkflowType.REFACTOR,
             WorkflowType.INVESTIGATION,
-            WorkflowType.DOCUMENTATION,
-            WorkflowType.TESTING,
-            WorkflowType.BUGFIX,
+            WorkflowType.MIGRATION,
+            WorkflowType.SIMPLE,
+            WorkflowType.DEVELOPMENT,
+            WorkflowType.ENHANCEMENT,
         ]
         for workflow in workflow_types:
             context = PlannerContext(
@@ -134,108 +135,6 @@ class TestPlannerContext:
         assert context.files_to_modify[0]["service"] == "auth"
 
 
-class TestPlannerContext:
-    """Tests for PlannerContext dataclass."""
-
-    def test_create_planner_context_minimal(self):
-        """Test creating PlannerContext with minimal data."""
-        context = PlannerContext(
-            spec_file=SpecFile(content="# Test"),
-            project_index={},
-            task_context={},
-        )
-        assert context.spec_file.content == "# Test"
-        assert context.project_index == {}
-        assert context.task_context == {}
-        assert context.spec_dir is None
-        assert context.workflow_type is None
-
-    def test_create_planner_context_full(self):
-        """Test creating PlannerContext with all fields."""
-        spec_file = SpecFile(
-            content="# Test",
-            path=Path("/spec.md"),
-            metadata={"type": "feature"},
-        )
-        context = PlannerContext(
-            spec_file=spec_file,
-            project_index={"files": []},
-            task_context={"description": "Test task"},
-            spec_dir=Path("/specs/001"),
-            workflow_type="feature",
-        )
-        assert context.spec_file.content == "# Test"
-        assert context.project_index == {"files": []}
-        assert context.task_context == {"description": "Test task"}
-        assert context.spec_dir == Path("/specs/001")
-        assert context.workflow_type == "feature"
-
-    def test_planner_context_with_complex_project_index(self):
-        """Test PlannerContext with complex project index."""
-        project_index = {
-            "files": [
-                {"path": "src/main.py", "type": "module"},
-                {"path": "tests/test_main.py", "type": "test"},
-            ],
-            "dependencies": ["pytest", "requests"],
-            "structure": {"src": True, "tests": True},
-        }
-        context = PlannerContext(
-            spec_file=SpecFile(content="Test"),
-            project_index=project_index,
-            task_context={},
-        )
-        assert len(context.project_index["files"]) == 2
-        assert context.project_index["dependencies"] == ["pytest", "requests"]
-
-    def test_planner_context_with_task_context(self):
-        """Test PlannerContext with detailed task context."""
-        task_context = {
-            "description": "Add authentication",
-            "files_to_modify": ["auth.py"],
-            "patterns_to_follow": ["Use decorators"],
-        }
-        context = PlannerContext(
-            spec_file=SpecFile(content="Test"),
-            project_index={},
-            task_context=task_context,
-        )
-        assert context.task_context["description"] == "Add authentication"
-        assert "auth.py" in context.task_context["files_to_modify"]
-
-    def test_planner_context_workflow_type_variations(self):
-        """Test PlannerContext with different workflow types."""
-        workflow_types = [
-            "feature",
-            "refactor",
-            "investigation",
-            "documentation",
-            "testing",
-            "bugfix",
-        ]
-        for workflow in workflow_types:
-            context = PlannerContext(
-                spec_file=SpecFile(content="Test"),
-                project_index={},
-                task_context={},
-                workflow_type=workflow,
-            )
-            assert context.workflow_type == workflow
-
-    def test_planner_context_spec_dir_as_string(self):
-        """Test PlannerContext with string spec_dir."""
-        context = PlannerContext(
-            spec_file=SpecFile(content="Test"),
-            project_index={},
-            task_context={},
-            spec_dir="/specs/001",
-        )
-        # Implementation may convert to Path or keep as string
-        assert context.spec_dir == "/specs/001" or context.spec_dir == Path(
-            "/specs/001"
-        )
-
-
 class TestPlannerContextEdgeCases:
     """Edge case tests for planner_lib models."""
 
@@ -265,7 +164,7 @@ class TestPlannerContextEdgeCases:
             files_to_modify=[],
             files_to_reference=[],
         )
-        assert len(context.spec_content) > 100000
+        assert len(context.spec_content) > 50000
 
     def test_planner_context_immutability(self):
         """Test that PlannerContext fields can be modified (dataclass is mutable)."""

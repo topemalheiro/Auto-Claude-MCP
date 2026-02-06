@@ -319,7 +319,7 @@ class TestHeuristicAssessment:
         """Test heuristic assessment with malformed project index."""
         project_dir = tmp_path / "project"
         project_dir.mkdir()
-        auto_build = project_dir / "auto-claude"
+        auto_build = project_dir / ".auto-claude"
         auto_build.mkdir()
 
         # Create malformed index
@@ -340,7 +340,7 @@ class TestHeuristicAssessment:
         """Test heuristic assessment when no project index exists."""
         project_dir = tmp_path / "project"
         project_dir.mkdir()
-        auto_build = project_dir / "auto-claude"
+        auto_build = project_dir / ".auto-claude"
         auto_build.mkdir()
 
         orchestrator = SpecOrchestrator(

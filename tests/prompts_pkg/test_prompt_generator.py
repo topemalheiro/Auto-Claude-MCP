@@ -480,22 +480,31 @@ class TestGeneratePlannerPrompt:
         project_dir = tmp_path / "project"
         project_dir.mkdir()
 
-        # Create an empty prompts directory (no planner.md)
-        prompts_dir = tmp_path / "prompts"
-        prompts_dir.mkdir()
+        # Mock the candidate_dirs to point to directories without planner.md
+        nonexistent_dir = tmp_path / "nonexistent_prompts"
 
-        with patch("prompts_pkg.prompt_generator.Path.__new__") as mock_new:
-            # Make Path return our prompts_dir for relative lookups
-            def path_new(cls, *args, **kwargs):
-                if not args:
-                    return prompts_dir
-                return Path(*args)
+        with patch("prompts_pkg.prompt_generator.Path") as mock_path_cls:
+            # When Path is called within generate_planner_prompt for finding prompts
+            # Return our nonexistent directory
+            mock_path_instance = Path(__file__)  # Use real Path for non-mocked calls
 
-            mock_new.side_effect = path_new
-            prompt = generate_planner_prompt(spec_dir, project_dir)
+            # Set up the mock to return a Path that won't have planner.md
+            def path_side_effect(path_like, *args, **kwargs):
+                # For the parent.parent / "prompts" pattern in the function
+                if hasattr(path_like, 'parent'):
+                    # Return a path that doesn't have planner.md
+                    return nonexistent_dir
+                # For other Path calls, use real Path
+                return Path(path_like, *args, **kwargs)
+
+            mock_path_cls.side_effect = path_side_effect
+            # Also need to mock the exists() check
+            with patch.object(Path, "exists", return_value=False):
+                prompt = generate_planner_prompt(spec_dir, project_dir)
 
         # Should contain fallback message
         assert prompt is not None
+        assert "implementation_plan.json" in prompt
 
 
 class TestLoadSubtaskContext:

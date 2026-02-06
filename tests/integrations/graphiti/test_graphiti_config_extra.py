@@ -58,7 +58,7 @@ class TestGraphitiConfigDefaults:
         assert config.google_llm_model == "gemini-2.0-flash"
         assert config.google_embedding_model == "text-embedding-004"
         assert config.openrouter_api_key == ""
-        assert config.openrouter_base_url == "https://openrouter.ai/api/v1"
+        assert config.openrouter_base_url == "https://openrouter.ai/api"
         assert config.openrouter_llm_model == "anthropic/claude-sonnet-4"
         assert config.openrouter_embedding_model == "openai/text-embedding-3-small"
         assert config.ollama_base_url == DEFAULT_OLLAMA_BASE_URL

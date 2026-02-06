@@ -590,23 +590,24 @@ class TestSecretPatternsComprehensive:
     def test_service_specific_patterns(self):
         """Test service-specific secret patterns"""
         # Need to use proper format for each service
-        # NOTE: Using clearly fake/test values to avoid GitHub secret scanner
+        # NOTE: Using clearly fake/test values that match the actual pattern format
         service_secrets = [
             # OpenAI/Anthropic - minimum length (TEST VALUE - clearly fake)
-            ("sk-ant-api03-TEST-SECRET-KEY-DO-NOT-USE-AAAAAAAAAA", "sk-ant"),
-            ("sk-proj-TEST-PROJECT-KEY-DO-NOT-USE-AAAAAAAAAAAAAA", "sk-proj"),
-            # GitHub - need full length (TEST VALUE - clearly fake)
-            ("ghp_TEST_TOKEN_GITHUB_DO_NOT_USE_AAAAAAAAAAAAAAAAAAAAAAA", "ghp_"),
-            ("github_pat_TEST_VALUE_DO_NOT_USE_AAAAAAAAAAAAAAAAAAAAAAAAAAA", "github_pat_"),
-            # AWS - TEST VALUE (clearly fake)
-            ("AKIATESTFABCDEFGHIJKLMNOPQRS", "AKIA"),
-            # Slack - TEST VALUE (clearly fake)
-            ("xoxb-TEST-SLACK-TOKEN-DO-NOT-USE-AAAAAAAAAAAAA", "xoxb-"),
+            ("sk-ant-api03-TEST-SECRET-KEY-DO-NOT-USE-ABCDEFGHIJKLMNOP", "sk-ant"),
+            ("sk-proj-TEST-PROJECT-KEY-DO-NOT-USE-ABCDEFGHIJKLMNOP", "sk-proj"),
+            # GitHub - use proper format: exactly 36 alphanumeric chars after ghp_
+            ("ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890ABCD", "ghp_"),
+            # GitHub fine-grained PAT: 22+ alphanumeric chars after github_pat_
+            ("github_pat_1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZabcd", "github_pat_"),
+            # AWS - exactly 16 uppercase chars after AKIA (20 total)
+            ("AKIATESTFABCDEF12345", "AKIA"),
+            # Slack - 10+ alphanumeric chars after prefix
+            ("xoxb-1234567890ABCDEFGHIJ", "xoxb-"),
         ]
         for secret, identifier in service_secrets:
             matches = scan_content(secret, "config.py")
             # Most patterns should match - verify the ones that do
-            # Note: Discord token pattern may have specific format requirements
+            # Note: These test values match the actual format of each service's tokens
             if identifier in ["ghp_", "github_pat_", "xoxb-", "sk-ant", "sk-proj", "AKIA"]:
                 assert len(matches) > 0, f"Should detect {identifier} key: {secret[:20]}..."
 

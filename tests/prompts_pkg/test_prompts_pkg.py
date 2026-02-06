@@ -195,11 +195,18 @@ class TestDetectBaseBranch:
     def test_detects_main_branch(self, tmp_path):
         """Test detects main branch when it exists."""
         with patch("subprocess.run") as mock_run:
-            # First call for env var validation (fail), second for main detection (success)
-            mock_run.side_effect = [
-                Mock(returncode=1),  # Env var branch doesn't exist
-                Mock(returncode=0),  # main exists
-            ]
+            # Create a function that returns the appropriate mock based on the command
+            def run_side_effect(*args, **kwargs):
+                cmd = args[0] if args else []
+                # git rev-parse --verify <branch>
+                if len(cmd) >= 4 and cmd[0] == "git" and cmd[1] == "rev-parse" and cmd[2] == "--verify":
+                    branch = cmd[3]
+                    # main exists
+                    if branch == "main":
+                        return Mock(returncode=0)
+                return Mock(returncode=1)
+
+            mock_run.side_effect = run_side_effect
             # Mock check for metadata file - needs to be called on Path instance
             original_exists = Path.exists
             def exists_side_effect(self):
@@ -216,11 +223,24 @@ class TestDetectBaseBranch:
     def test_detects_master_branch(self, tmp_path):
         """Test detects master branch when main doesn't exist."""
         with patch("subprocess.run") as mock_run:
-            mock_run.side_effect = [
-                Mock(returncode=1),  # Env var branch doesn't exist
-                Mock(returncode=1),  # main doesn't exist
-                Mock(returncode=0),  # master exists
-            ]
+            # Track which branches we've "checked"
+            branches_checked = []
+
+            # Create a function that returns the appropriate mock based on the command
+            def run_side_effect(*args, **kwargs):
+                cmd = args[0] if args else []
+                # git rev-parse --verify <branch>
+                if len(cmd) >= 4 and cmd[0] == "git" and cmd[1] == "rev-parse" and cmd[2] == "--verify":
+                    branch = cmd[3]
+                    branches_checked.append(branch)
+                    # main doesn't exist, master exists
+                    if branch == "main":
+                        return Mock(returncode=1)
+                    elif branch == "master":
+                        return Mock(returncode=0)
+                return Mock(returncode=1)
+
+            mock_run.side_effect = run_side_effect
             original_exists = Path.exists
             def exists_side_effect(self):
                 if "task_metadata.json" in str(self):
@@ -235,12 +255,22 @@ class TestDetectBaseBranch:
     def test_detects_develop_branch(self, tmp_path):
         """Test detects develop branch when main/master don't exist."""
         with patch("subprocess.run") as mock_run:
-            mock_run.side_effect = [
-                Mock(returncode=1),  # Env var branch doesn't exist
-                Mock(returncode=1),  # main doesn't exist
-                Mock(returncode=1),  # master doesn't exist
-                Mock(returncode=0),  # develop exists
-            ]
+            # Create a function that returns the appropriate mock based on the command
+            def run_side_effect(*args, **kwargs):
+                cmd = args[0] if args else []
+                # git rev-parse --verify <branch>
+                if len(cmd) >= 4 and cmd[0] == "git" and cmd[1] == "rev-parse" and cmd[2] == "--verify":
+                    branch = cmd[3]
+                    # main doesn't exist, master doesn't exist, develop exists
+                    if branch == "main":
+                        return Mock(returncode=1)
+                    elif branch == "master":
+                        return Mock(returncode=1)
+                    elif branch == "develop":
+                        return Mock(returncode=0)
+                return Mock(returncode=1)
+
+            mock_run.side_effect = run_side_effect
             original_exists = Path.exists
             def exists_side_effect(self):
                 if "task_metadata.json" in str(self):

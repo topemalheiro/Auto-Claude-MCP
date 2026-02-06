@@ -32,7 +32,7 @@ class TestDiscoveryPhaseMixin:
         spec_dir.mkdir()
 
         # Create auto-claude directory with index
-        auto_claude = project_dir / "auto-claude"
+        auto_claude = project_dir / ".auto-claude"
         auto_claude.mkdir()
         index_file = auto_claude / "project_index.json"
         index_file.write_text('{"project_type": "test"}', encoding="utf-8")
@@ -110,7 +110,7 @@ class TestDiscoveryPhaseMixin:
         )
 
         # Create context script
-        auto_claude = project_dir / "auto-claude"
+        auto_claude = project_dir / ".auto-claude"
         auto_claude.mkdir()
         context_script = auto_claude / "context.py"
         context_script.write_text("# mock", encoding="utf-8")
@@ -145,7 +145,7 @@ class TestDiscoveryPhaseMixin:
         spec_dir.mkdir()
 
         # Create context script
-        auto_claude = project_dir / "auto-claude"
+        auto_claude = project_dir / ".auto-claude"
         auto_claude.mkdir()
         context_script = auto_claude / "context.py"
         context_script.write_text("# mock", encoding="utf-8")
@@ -177,7 +177,7 @@ class TestDiscoveryPhaseMixin:
         spec_dir.mkdir()
 
         # Create auto-claude directory
-        auto_claude = project_dir / "auto-claude"
+        auto_claude = project_dir / ".auto-claude"
         auto_claude.mkdir()
 
         ui = MagicMock()
@@ -209,7 +209,7 @@ class TestDiscoveryPhaseMixin:
         spec_dir = tmp_path / "spec"
         spec_dir.mkdir()
 
-        auto_claude = project_dir / "auto-claude"
+        auto_claude = project_dir / ".auto-claude"
         auto_claude.mkdir()
 
         ui = MagicMock()
@@ -251,7 +251,7 @@ class TestDiscoveryPhaseMixin:
             encoding="utf-8",
         )
 
-        auto_claude = project_dir / "auto-claude"
+        auto_claude = project_dir / ".auto-claude"
         auto_claude.mkdir()
         context_script = auto_claude / "context.py"
         context_script.write_text("# mock", encoding="utf-8")
@@ -294,7 +294,7 @@ class TestDiscoveryPhaseMixin:
             encoding="utf-8",
         )
 
-        auto_claude = project_dir / "auto-claude"
+        auto_claude = project_dir / ".auto-claude"
         auto_claude.mkdir()
         context_script = auto_claude / "context.py"
         context_script.write_text("# mock", encoding="utf-8")
@@ -329,7 +329,7 @@ class TestDiscoveryPhaseMixin:
         spec_dir = tmp_path / "spec"
         spec_dir.mkdir()
 
-        auto_claude = project_dir / "auto-claude"
+        auto_claude = project_dir / ".auto-claude"
         auto_claude.mkdir()
         context_script = auto_claude / "context.py"
         context_script.write_text("# mock", encoding="utf-8")
@@ -370,7 +370,7 @@ class TestDiscoveryPhaseMixin:
         spec_dir = tmp_path / "spec"
         spec_dir.mkdir()
 
-        auto_claude = project_dir / "auto-claude"
+        auto_claude = project_dir / ".auto-claude"
         auto_claude.mkdir()
         context_script = auto_claude / "context.py"
         context_script.write_text("# mock", encoding="utf-8")
@@ -402,7 +402,7 @@ class TestDiscoveryPhaseMixin:
         spec_dir = tmp_path / "spec"
         spec_dir.mkdir()
 
-        auto_claude = project_dir / "auto-claude"
+        auto_claude = project_dir / ".auto-claude"
         auto_claude.mkdir()
         context_script = auto_claude / "context.py"
         context_script.write_text("# mock", encoding="utf-8")

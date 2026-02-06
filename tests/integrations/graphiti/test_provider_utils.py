@@ -143,10 +143,9 @@ class TestGetGraphHintsBasic:
             return_value=True,
         ):
             # Mock GraphitiMemory to raise an exception
-            mock_graphiti_memory = MagicMock(side_effect=RuntimeError("Connection failed"))
-            with patch.dict(
-                "sys.modules",
-                {"graphiti_memory": MagicMock(GraphitiMemory=mock_graphiti_memory)},
+            with patch(
+                "integrations.graphiti.memory.GraphitiMemory",
+                side_effect=RuntimeError("Connection failed"),
             ):
                 result = await get_graph_hints("test", "proj")
                 assert result == []
@@ -169,9 +168,9 @@ class TestGetGraphHintsBasic:
             "integrations.graphiti.providers_pkg.utils.is_graphiti_enabled",
             return_value=True,
         ):
-            with patch.dict(
-                "sys.modules",
-                {"graphiti_memory": MagicMock(GraphitiMemory=MagicMock(return_value=mock_memory))},
+            with patch(
+                "integrations.graphiti.memory.GraphitiMemory",
+                return_value=mock_memory,
             ):
                 result = await get_graph_hints(
                     query="authentication patterns",
@@ -196,9 +195,9 @@ class TestGetGraphHintsBasic:
             "integrations.graphiti.providers_pkg.utils.is_graphiti_enabled",
             return_value=True,
         ):
-            with patch.dict(
-                "sys.modules",
-                {"graphiti_memory": MagicMock(GraphitiMemory=MagicMock(return_value=mock_memory))},
+            with patch(
+                "integrations.graphiti.memory.GraphitiMemory",
+                return_value=mock_memory,
             ):
                 await get_graph_hints("test", "proj")
 
@@ -218,9 +217,9 @@ class TestGetGraphHintsBasic:
             "integrations.graphiti.providers_pkg.utils.is_graphiti_enabled",
             return_value=True,
         ):
-            with patch.dict(
-                "sys.modules",
-                {"graphiti_memory": MagicMock(GraphitiMemory=MagicMock(return_value=mock_memory))},
+            with patch(
+                "integrations.graphiti.memory.GraphitiMemory",
+                return_value=mock_memory,
             ):
                 # Should not raise, should return empty list
                 result = await get_graph_hints("test", "proj")
@@ -243,9 +242,9 @@ class TestGetGraphHintsParameters:
             "integrations.graphiti.providers_pkg.utils.is_graphiti_enabled",
             return_value=True,
         ):
-            with patch.dict(
-                "sys.modules",
-                {"graphiti_memory": MagicMock(GraphitiMemory=MagicMock(return_value=mock_memory))},
+            with patch(
+                "integrations.graphiti.memory.GraphitiMemory",
+                return_value=mock_memory,
             ):
                 await get_graph_hints(
                     query="test",
@@ -272,9 +271,9 @@ class TestGetGraphHintsParameters:
             "integrations.graphiti.providers_pkg.utils.is_graphiti_enabled",
             return_value=True,
         ):
-            with patch.dict(
-                "sys.modules",
-                {"graphiti_memory": MagicMock(GraphitiMemory=MagicMock(return_value=mock_memory))},
+            with patch(
+                "integrations.graphiti.memory.GraphitiMemory",
+                return_value=mock_memory,
             ):
                 await get_graph_hints("test", "proj")
 
@@ -296,11 +295,10 @@ class TestGetGraphHintsParameters:
             "integrations.graphiti.providers_pkg.utils.is_graphiti_enabled",
             return_value=True,
         ):
-            mock_graphiti_memory = MagicMock(return_value=mock_memory)
-            with patch.dict(
-                "sys.modules",
-                {"graphiti_memory": MagicMock(GraphitiMemory=mock_graphiti_memory)},
-            ):
+            with patch(
+                "integrations.graphiti.memory.GraphitiMemory",
+                return_value=mock_memory,
+            ) as mock_graphiti_memory:
                 await get_graph_hints(
                     query="test",
                     project_id="proj",
@@ -327,13 +325,9 @@ class TestGetGraphHintsParameters:
             with patch("tempfile.mkdtemp") as mock_mkdtemp:
                 mock_mkdtemp.return_value = "/tmp/temp_graphiti_query_123"
 
-                with patch.dict(
-                    "sys.modules",
-                    {
-                        "graphiti_memory": MagicMock(
-                            GraphitiMemory=MagicMock(return_value=mock_memory)
-                        )
-                    },
+                with patch(
+                    "integrations.graphiti.memory.GraphitiMemory",
+                    return_value=mock_memory,
                 ):
                     await get_graph_hints("test", "proj")
 
@@ -356,13 +350,9 @@ class TestGetGraphHintsParameters:
             with patch("pathlib.Path.cwd") as mock_cwd:
                 mock_cwd.return_value = Path("/test/project")
 
-                with patch.dict(
-                    "sys.modules",
-                    {
-                        "graphiti_memory": MagicMock(
-                            GraphitiMemory=MagicMock(return_value=mock_memory)
-                        )
-                    },
+                with patch(
+                    "integrations.graphiti.memory.GraphitiMemory",
+                    return_value=mock_memory,
                 ):
                     await get_graph_hints("test", "proj")
 
@@ -382,11 +372,10 @@ class TestGetGraphHintsParameters:
             "integrations.graphiti.providers_pkg.utils.is_graphiti_enabled",
             return_value=True,
         ):
-            mock_graphiti_memory = MagicMock(return_value=mock_memory)
-            with patch.dict(
-                "sys.modules",
-                {"graphiti_memory": MagicMock(GraphitiMemory=mock_graphiti_memory)},
-            ):
+            with patch(
+                "integrations.graphiti.memory.GraphitiMemory",
+                return_value=mock_memory,
+            ) as mock_graphiti_memory:
                 await get_graph_hints("test", "proj")
 
                 # Verify it was called with group_id_mode parameter
@@ -406,13 +395,9 @@ class TestGetGraphHintsParameters:
             "integrations.graphiti.providers_pkg.utils.is_graphiti_enabled",
             return_value=True,
         ):
-            with patch.dict(
-                "sys.modules",
-                {
-                    "graphiti_memory": MagicMock(
-                        GraphitiMemory=MagicMock(return_value=mock_memory)
-                    )
-                },
+            with patch(
+                "integrations.graphiti.memory.GraphitiMemory",
+                return_value=mock_memory,
             ):
                 await get_graph_hints("test", "proj")
 
@@ -436,13 +421,9 @@ class TestGetGraphHintsQueryHandling:
             "integrations.graphiti.providers_pkg.utils.is_graphiti_enabled",
             return_value=True,
         ):
-            with patch.dict(
-                "sys.modules",
-                {
-                    "graphiti_memory": MagicMock(
-                        GraphitiMemory=MagicMock(return_value=mock_memory)
-                    )
-                },
+            with patch(
+                "integrations.graphiti.memory.GraphitiMemory",
+                return_value=mock_memory,
             ):
                 result = await get_graph_hints("", "proj")
                 assert result == []
@@ -468,13 +449,9 @@ class TestGetGraphHintsQueryHandling:
             "integrations.graphiti.providers_pkg.utils.is_graphiti_enabled",
             return_value=True,
         ):
-            with patch.dict(
-                "sys.modules",
-                {
-                    "graphiti_memory": MagicMock(
-                        GraphitiMemory=MagicMock(return_value=mock_memory)
-                    )
-                },
+            with patch(
+                "integrations.graphiti.memory.GraphitiMemory",
+                return_value=mock_memory,
             ):
                 result = await get_graph_hints(query, "proj")
                 assert result == []
@@ -494,13 +471,9 @@ class TestGetGraphHintsQueryHandling:
             "integrations.graphiti.providers_pkg.utils.is_graphiti_enabled",
             return_value=True,
         ):
-            with patch.dict(
-                "sys.modules",
-                {
-                    "graphiti_memory": MagicMock(
-                        GraphitiMemory=MagicMock(return_value=mock_memory)
-                    )
-                },
+            with patch(
+                "integrations.graphiti.memory.GraphitiMemory",
+                return_value=mock_memory,
             ):
                 result = await get_graph_hints(query, "proj")
                 assert result == []
@@ -520,13 +493,9 @@ class TestGetGraphHintsQueryHandling:
             "integrations.graphiti.providers_pkg.utils.is_graphiti_enabled",
             return_value=True,
         ):
-            with patch.dict(
-                "sys.modules",
-                {
-                    "graphiti_memory": MagicMock(
-                        GraphitiMemory=MagicMock(return_value=mock_memory)
-                    )
-                },
+            with patch(
+                "integrations.graphiti.memory.GraphitiMemory",
+                return_value=mock_memory,
             ):
                 # Should not raise exception for long query
                 result = await get_graph_hints(long_query, "proj")
@@ -547,13 +516,9 @@ class TestGetGraphHintsQueryHandling:
             "integrations.graphiti.providers_pkg.utils.is_graphiti_enabled",
             return_value=True,
         ):
-            with patch.dict(
-                "sys.modules",
-                {
-                    "graphiti_memory": MagicMock(
-                        GraphitiMemory=MagicMock(return_value=mock_memory)
-                    )
-                },
+            with patch(
+                "integrations.graphiti.memory.GraphitiMemory",
+                return_value=mock_memory,
             ):
                 result = await get_graph_hints(query, "proj")
                 assert result == []
@@ -575,13 +540,9 @@ class TestGetGraphHintsReturnValues:
             "integrations.graphiti.providers_pkg.utils.is_graphiti_enabled",
             return_value=True,
         ):
-            with patch.dict(
-                "sys.modules",
-                {
-                    "graphiti_memory": MagicMock(
-                        GraphitiMemory=MagicMock(return_value=mock_memory)
-                    )
-                },
+            with patch(
+                "integrations.graphiti.memory.GraphitiMemory",
+                return_value=mock_memory,
             ):
                 result = await get_graph_hints("test", "proj")
                 assert isinstance(result, list)
@@ -603,13 +564,9 @@ class TestGetGraphHintsReturnValues:
             "integrations.graphiti.providers_pkg.utils.is_graphiti_enabled",
             return_value=True,
         ):
-            with patch.dict(
-                "sys.modules",
-                {
-                    "graphiti_memory": MagicMock(
-                        GraphitiMemory=MagicMock(return_value=mock_memory)
-                    )
-                },
+            with patch(
+                "integrations.graphiti.memory.GraphitiMemory",
+                return_value=mock_memory,
             ):
                 result = await get_graph_hints("test", "proj")
 
@@ -638,13 +595,9 @@ class TestGetGraphHintsReturnValues:
             "integrations.graphiti.providers_pkg.utils.is_graphiti_enabled",
             return_value=True,
         ):
-            with patch.dict(
-                "sys.modules",
-                {
-                    "graphiti_memory": MagicMock(
-                        GraphitiMemory=MagicMock(return_value=mock_memory)
-                    )
-                },
+            with patch(
+                "integrations.graphiti.memory.GraphitiMemory",
+                return_value=mock_memory,
             ):
                 result = await get_graph_hints("test", "proj")
 
@@ -664,13 +617,9 @@ class TestGetGraphHintsReturnValues:
             "integrations.graphiti.providers_pkg.utils.is_graphiti_enabled",
             return_value=True,
         ):
-            with patch.dict(
-                "sys.modules",
-                {
-                    "graphiti_memory": MagicMock(
-                        GraphitiMemory=MagicMock(return_value=mock_memory)
-                    )
-                },
+            with patch(
+                "integrations.graphiti.memory.GraphitiMemory",
+                return_value=mock_memory,
             ):
                 result = await get_graph_hints("test", "proj")
                 assert result == []
@@ -690,13 +639,9 @@ class TestGetGraphHintsReturnValues:
             "integrations.graphiti.providers_pkg.utils.is_graphiti_enabled",
             return_value=True,
         ):
-            with patch.dict(
-                "sys.modules",
-                {
-                    "graphiti_memory": MagicMock(
-                        GraphitiMemory=MagicMock(return_value=mock_memory)
-                    )
-                },
+            with patch(
+                "integrations.graphiti.memory.GraphitiMemory",
+                return_value=mock_memory,
             ):
                 result = await get_graph_hints("test", "proj")
                 assert len(result) == 1
@@ -719,13 +664,9 @@ class TestGetGraphHintsEdgeCases:
             "integrations.graphiti.providers_pkg.utils.is_graphiti_enabled",
             return_value=True,
         ):
-            with patch.dict(
-                "sys.modules",
-                {
-                    "graphiti_memory": MagicMock(
-                        GraphitiMemory=MagicMock(return_value=mock_memory)
-                    )
-                },
+            with patch(
+                "integrations.graphiti.memory.GraphitiMemory",
+                return_value=mock_memory,
             ):
                 await get_graph_hints("test", "proj", max_results=0)
 
@@ -748,13 +689,9 @@ class TestGetGraphHintsEdgeCases:
             "integrations.graphiti.providers_pkg.utils.is_graphiti_enabled",
             return_value=True,
         ):
-            with patch.dict(
-                "sys.modules",
-                {
-                    "graphiti_memory": MagicMock(
-                        GraphitiMemory=MagicMock(return_value=mock_memory)
-                    )
-                },
+            with patch(
+                "integrations.graphiti.memory.GraphitiMemory",
+                return_value=mock_memory,
             ):
                 await get_graph_hints("test", "proj", max_results=1000)
 
@@ -777,13 +714,9 @@ class TestGetGraphHintsEdgeCases:
             "integrations.graphiti.providers_pkg.utils.is_graphiti_enabled",
             return_value=True,
         ):
-            with patch.dict(
-                "sys.modules",
-                {
-                    "graphiti_memory": MagicMock(
-                        GraphitiMemory=MagicMock(return_value=mock_memory)
-                    )
-                },
+            with patch(
+                "integrations.graphiti.memory.GraphitiMemory",
+                return_value=mock_memory,
             ):
                 await get_graph_hints("test", "proj", max_results=-5)
 
@@ -808,13 +741,9 @@ class TestGetGraphHintsEdgeCases:
             "integrations.graphiti.providers_pkg.utils.is_graphiti_enabled",
             return_value=True,
         ):
-            with patch.dict(
-                "sys.modules",
-                {
-                    "graphiti_memory": MagicMock(
-                        GraphitiMemory=MagicMock(return_value=mock_memory)
-                    )
-                },
+            with patch(
+                "integrations.graphiti.memory.GraphitiMemory",
+                return_value=mock_memory,
             ):
                 result = await get_graph_hints("test", "proj")
                 assert result == []
@@ -832,13 +761,9 @@ class TestGetGraphHintsEdgeCases:
             "integrations.graphiti.providers_pkg.utils.is_graphiti_enabled",
             return_value=True,
         ):
-            with patch.dict(
-                "sys.modules",
-                {
-                    "graphiti_memory": MagicMock(
-                        GraphitiMemory=MagicMock(return_value=mock_memory)
-                    )
-                },
+            with patch(
+                "integrations.graphiti.memory.GraphitiMemory",
+                return_value=mock_memory,
             ):
                 # project_id is accepted but not directly used in current implementation
                 result = await get_graph_hints(
@@ -862,13 +787,9 @@ class TestGetGraphHintsEdgeCases:
             "integrations.graphiti.providers_pkg.utils.is_graphiti_enabled",
             return_value=True,
         ):
-            with patch.dict(
-                "sys.modules",
-                {
-                    "graphiti_memory": MagicMock(
-                        GraphitiMemory=MagicMock(return_value=mock_memory)
-                    )
-                },
+            with patch(
+                "integrations.graphiti.memory.GraphitiMemory",
+                return_value=mock_memory,
             ):
                 result = await get_graph_hints("test", "proj", spec_dir=spec_dir)
                 assert result == []
@@ -946,13 +867,9 @@ class TestGetGraphHintsEdgeCases:
             "integrations.graphiti.providers_pkg.utils.is_graphiti_enabled",
             return_value=True,
         ):
-            with patch.dict(
-                "sys.modules",
-                {
-                    "graphiti_memory": MagicMock(
-                        GraphitiMemory=MagicMock(return_value=mock_memory)
-                    )
-                },
+            with patch(
+                "integrations.graphiti.memory.GraphitiMemory",
+                return_value=mock_memory,
             ):
                 # Run multiple concurrent calls
                 results = await asyncio.gather(
@@ -1043,13 +960,9 @@ class TestGetGraphHintsLogging:
             "integrations.graphiti.providers_pkg.utils.is_graphiti_enabled",
             return_value=True,
         ):
-            with patch.dict(
-                "sys.modules",
-                {
-                    "graphiti_memory": MagicMock(
-                        GraphitiMemory=MagicMock(return_value=mock_memory)
-                    )
-                },
+            with patch(
+                "integrations.graphiti.memory.GraphitiMemory",
+                return_value=mock_memory,
             ):
                 with caplog.at_level("INFO"):
                     await get_graph_hints("test query", "proj")
@@ -1150,13 +1063,9 @@ class TestGetGraphHintsModuleImports:
             return_value=True,
         ):
             # The function imports Path internally, verify it works
-            with patch.dict(
-                "sys.modules",
-                {
-                    "graphiti_memory": MagicMock(
-                        GraphitiMemory=MagicMock(return_value=mock_memory)
-                    )
-                },
+            with patch(
+                "integrations.graphiti.memory.GraphitiMemory",
+                return_value=mock_memory,
             ):
                 # This should work without raising ImportError
                 result = await get_graph_hints("test", "proj")
@@ -1175,13 +1084,9 @@ class TestGetGraphHintsModuleImports:
             "integrations.graphiti.providers_pkg.utils.is_graphiti_enabled",
             return_value=True,
         ):
-            with patch.dict(
-                "sys.modules",
-                {
-                    "graphiti_memory": MagicMock(
-                        GraphitiMemory=MagicMock(return_value=mock_memory)
-                    )
-                },
+            with patch(
+                "integrations.graphiti.memory.GraphitiMemory",
+                return_value=mock_memory,
             ):
                 # Call without spec_dir to trigger tempfile usage
                 result = await get_graph_hints("test", "proj")
@@ -1201,13 +1106,9 @@ class TestGetGraphHintsModuleImports:
             return_value=True,
         ):
             # Provide graphiti_memory mock
-            with patch.dict(
-                "sys.modules",
-                {
-                    "graphiti_memory": MagicMock(
-                        GraphitiMemory=MagicMock(return_value=mock_memory)
-                    )
-                },
+            with patch(
+                "integrations.graphiti.memory.GraphitiMemory",
+                return_value=mock_memory,
             ):
                 result = await get_graph_hints("test", "proj")
                 assert result == []

@@ -17,7 +17,7 @@ class TestRunScript:
         """Test successful script execution"""
         project_dir = tmp_path / "project"
         project_dir.mkdir()
-        auto_claude = project_dir / "auto-claude"
+        auto_claude = project_dir / ".auto-claude"
         auto_claude.mkdir()
 
         # Create a simple Python script that succeeds
@@ -33,7 +33,7 @@ class TestRunScript:
         """Test script execution with arguments"""
         project_dir = tmp_path / "project"
         project_dir.mkdir()
-        auto_claude = project_dir / "auto-claude"
+        auto_claude = project_dir / ".auto-claude"
         auto_claude.mkdir()
 
         # Create script that prints arguments
@@ -53,7 +53,7 @@ class TestRunScript:
         """Test handling when script doesn't exist"""
         project_dir = tmp_path / "project"
         project_dir.mkdir()
-        auto_claude = project_dir / "auto-claude"
+        auto_claude = project_dir / ".auto-claude"
         auto_claude.mkdir()
 
         # Don't create the script
@@ -67,7 +67,7 @@ class TestRunScript:
         """Test handling script with non-zero exit code"""
         project_dir = tmp_path / "project"
         project_dir.mkdir()
-        auto_claude = project_dir / "auto-claude"
+        auto_claude = project_dir / ".auto-claude"
         auto_claude.mkdir()
 
         # Create script that exits with error
@@ -82,7 +82,7 @@ class TestRunScript:
         """Test that stderr is captured on failure"""
         project_dir = tmp_path / "project"
         project_dir.mkdir()
-        auto_claude = project_dir / "auto-claude"
+        auto_claude = project_dir / ".auto-claude"
         auto_claude.mkdir()
 
         # Create script that writes to stderr and exits
@@ -101,7 +101,7 @@ class TestRunScript:
         """Test handling script timeout"""
         project_dir = tmp_path / "project"
         project_dir.mkdir()
-        auto_claude = project_dir / "auto-claude"
+        auto_claude = project_dir / ".auto-claude"
         auto_claude.mkdir()
 
         # Create script that runs longer than timeout
@@ -124,7 +124,7 @@ class TestRunScript:
         """Test handling general exception during script run"""
         project_dir = tmp_path / "project"
         project_dir.mkdir()
-        auto_claude = project_dir / "auto-claude"
+        auto_claude = project_dir / ".auto-claude"
         auto_claude.mkdir()
 
         # Create a script
@@ -141,7 +141,7 @@ class TestRunScript:
         """Test script runs in project directory"""
         project_dir = tmp_path / "my_project"
         project_dir.mkdir()
-        auto_claude = project_dir / "auto-claude"
+        auto_claude = project_dir / ".auto-claude"
         auto_claude.mkdir()
 
         # Create script that prints current directory
@@ -160,7 +160,7 @@ class TestRunScript:
         """Test stdout is captured on success"""
         project_dir = tmp_path / "project"
         project_dir.mkdir()
-        auto_claude = project_dir / "auto-claude"
+        auto_claude = project_dir / ".auto-claude"
         auto_claude.mkdir()
 
         script_path = auto_claude / "stdout_script.py"
@@ -176,7 +176,7 @@ class TestRunScript:
         """Test script with empty arguments list"""
         project_dir = tmp_path / "project"
         project_dir.mkdir()
-        auto_claude = project_dir / "auto-claude"
+        auto_claude = project_dir / ".auto-claude"
         auto_claude.mkdir()
 
         script_path = auto_claude / "noargs.py"
@@ -191,7 +191,7 @@ class TestRunScript:
         """Test script with unicode output"""
         project_dir = tmp_path / "project"
         project_dir.mkdir()
-        auto_claude = project_dir / "auto-claude"
+        auto_claude = project_dir / ".auto-claude"
         auto_claude.mkdir()
 
         script_path = auto_claude / "unicode.py"
@@ -208,7 +208,7 @@ class TestRunScript:
         """Test script with syntax error"""
         project_dir = tmp_path / "project"
         project_dir.mkdir()
-        auto_claude = project_dir / "auto-claude"
+        auto_claude = project_dir / ".auto-claude"
         auto_claude.mkdir()
 
         script_path = auto_claude / "syntax_error.py"
@@ -222,7 +222,7 @@ class TestRunScript:
         """Test script with runtime error"""
         project_dir = tmp_path / "project"
         project_dir.mkdir()
-        auto_claude = project_dir / "auto-claude"
+        auto_claude = project_dir / ".auto-claude"
         auto_claude.mkdir()
 
         script_path = auto_claude / "runtime_error.py"
@@ -244,7 +244,7 @@ class TestRunScriptEdgeCases:
         """Test script with many arguments"""
         project_dir = tmp_path / "project"
         project_dir.mkdir()
-        auto_claude = project_dir / "auto-claude"
+        auto_claude = project_dir / ".auto-claude"
         auto_claude.mkdir()
 
         script_path = auto_claude / "many_args.py"
@@ -263,7 +263,7 @@ class TestRunScriptEdgeCases:
         """Test script with special characters in arguments"""
         project_dir = tmp_path / "project"
         project_dir.mkdir()
-        auto_claude = project_dir / "auto-claude"
+        auto_claude = project_dir / ".auto-claude"
         auto_claude.mkdir()
 
         script_path = auto_claude / "special_args.py"
@@ -281,7 +281,7 @@ class TestRunScriptEdgeCases:
         """Test that large output is captured"""
         project_dir = tmp_path / "project"
         project_dir.mkdir()
-        auto_claude = project_dir / "auto-claude"
+        auto_claude = project_dir / ".auto-claude"
         auto_claude.mkdir()
 
         script_path = auto_claude / "large_output.py"
@@ -300,7 +300,7 @@ class TestRunScriptEdgeCases:
         """Test explicit exit code 0"""
         project_dir = tmp_path / "project"
         project_dir.mkdir()
-        auto_claude = project_dir / "auto-claude"
+        auto_claude = project_dir / ".auto-claude"
         auto_claude.mkdir()
 
         script_path = auto_claude / "exit_zero.py"
@@ -314,7 +314,7 @@ class TestRunScriptEdgeCases:
         """Test various non-zero exit codes"""
         project_dir = tmp_path / "project"
         project_dir.mkdir()
-        auto_claude = project_dir / "auto-claude"
+        auto_claude = project_dir / ".auto-claude"
         auto_claude.mkdir()
 
         for exit_code in [1, 2, 127, 255]:
@@ -329,7 +329,7 @@ class TestRunScriptEdgeCases:
         """Test script that only writes to stderr"""
         project_dir = tmp_path / "project"
         project_dir.mkdir()
-        auto_claude = project_dir / "auto-claude"
+        auto_claude = project_dir / ".auto-claude"
         auto_claude.mkdir()
 
         script_path = auto_claude / "stderr_only.py"
@@ -346,7 +346,7 @@ class TestRunScriptEdgeCases:
         """Test script with mixed stdout and stderr"""
         project_dir = tmp_path / "project"
         project_dir.mkdir()
-        auto_claude = project_dir / "auto-claude"
+        auto_claude = project_dir / ".auto-claude"
         auto_claude.mkdir()
 
         script_path = auto_claude / "mixed.py"
@@ -363,7 +363,7 @@ class TestRunScriptEdgeCases:
         """Test script with newline characters in args"""
         project_dir = tmp_path / "project"
         project_dir.mkdir()
-        auto_claude = project_dir / "auto-claude"
+        auto_claude = project_dir / ".auto-claude"
         auto_claude.mkdir()
 
         script_path = auto_claude / "newline_args.py"
@@ -380,7 +380,7 @@ class TestRunScriptEdgeCases:
         """Test with absolute path for project_dir"""
         project_dir = tmp_path / "project"
         project_dir.mkdir()
-        auto_claude = project_dir / "auto-claude"
+        auto_claude = project_dir / ".auto-claude"
         auto_claude.mkdir()
 
         script_path = auto_claude / "abs_path.py"
@@ -395,7 +395,7 @@ class TestRunScriptEdgeCases:
         """Test script names with various extensions"""
         project_dir = tmp_path / "project"
         project_dir.mkdir()
-        auto_claude = project_dir / "auto-claude"
+        auto_claude = project_dir / ".auto-claude"
         auto_claude.mkdir()
 
         # Test .py extension
@@ -411,7 +411,7 @@ class TestRunScriptEdgeCases:
         """Test that return value is a tuple of (bool, str)"""
         project_dir = tmp_path / "project"
         project_dir.mkdir()
-        auto_claude = project_dir / "auto-claude"
+        auto_claude = project_dir / ".auto-claude"
         auto_claude.mkdir()
 
         script_path = auto_claude / "typecheck.py"
@@ -430,7 +430,7 @@ class TestRunScriptEdgeCases:
         # We verify by checking the subprocess.run call
         project_dir = tmp_path / "project"
         project_dir.mkdir()
-        auto_claude = project_dir / "auto-claude"
+        auto_claude = project_dir / ".auto-claude"
         auto_claude.mkdir()
 
         script_path = auto_claude / "test.py"
@@ -453,7 +453,7 @@ class TestRunScriptEdgeCases:
         """Test that capture_output=True is set for subprocess.run"""
         project_dir = tmp_path / "project"
         project_dir.mkdir()
-        auto_claude = project_dir / "auto-claude"
+        auto_claude = project_dir / ".auto-claude"
         auto_claude.mkdir()
 
         script_path = auto_claude / "test.py"
@@ -476,7 +476,7 @@ class TestRunScriptEdgeCases:
         """Test that text=True is set for subprocess.run"""
         project_dir = tmp_path / "project"
         project_dir.mkdir()
-        auto_claude = project_dir / "auto-claude"
+        auto_claude = project_dir / ".auto-claude"
         auto_claude.mkdir()
 
         script_path = auto_claude / "test.py"
@@ -499,7 +499,7 @@ class TestRunScriptEdgeCases:
         """Test that sys.executable is used for Python interpreter"""
         project_dir = tmp_path / "project"
         project_dir.mkdir()
-        auto_claude = project_dir / "auto-claude"
+        auto_claude = project_dir / ".auto-claude"
         auto_claude.mkdir()
 
         script_path = auto_claude / "test.py"

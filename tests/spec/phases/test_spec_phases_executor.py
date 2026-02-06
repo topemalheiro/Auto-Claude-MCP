@@ -112,7 +112,7 @@ class TestPhaseExecutorRunScript:
         project_dir.mkdir()
 
         # Create the script
-        auto_build = project_dir / "auto-claude"
+        auto_build = project_dir / ".auto-claude"
         auto_build.mkdir()
         script_path = auto_build / "test_script.py"
         script_path.write_text('print("Success")', encoding="utf-8")
@@ -145,7 +145,7 @@ class TestPhaseExecutorRunScript:
         project_dir.mkdir()
 
         # Create the script
-        auto_build = project_dir / "auto-claude"
+        auto_build = project_dir / ".auto-claude"
         auto_build.mkdir()
         script_path = auto_build / "test_script.py"
         script_path.write_text(
@@ -207,7 +207,7 @@ class TestPhaseExecutorRunScript:
         project_dir.mkdir()
 
         # Create a script that fails
-        auto_build = project_dir / "auto-claude"
+        auto_build = project_dir / ".auto-claude"
         auto_build.mkdir()
         script_path = auto_build / "failing_script.py"
         script_path.write_text('import sys; sys.exit(1)', encoding="utf-8")
@@ -239,7 +239,7 @@ class TestPhaseExecutorRunScript:
         project_dir.mkdir()
 
         # Create a script that runs indefinitely
-        auto_build = project_dir / "auto-claude"
+        auto_build = project_dir / ".auto-claude"
         auto_build.mkdir()
         script_path = auto_build / "timeout_script.py"
         script_path.write_text('import time; time.sleep(400)', encoding="utf-8")
@@ -277,7 +277,7 @@ class TestPhaseExecutorRunScript:
         project_dir.mkdir()
 
         # Create the script so it passes the existence check
-        auto_claude = project_dir / "auto-claude"
+        auto_claude = project_dir / ".auto-claude"
         auto_claude.mkdir()
         script_path = auto_claude / "exception_script.py"
         script_path.write_text('print("Hello")', encoding="utf-8")

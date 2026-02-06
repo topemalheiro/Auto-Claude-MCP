@@ -261,7 +261,6 @@ class TestReviewMainEdgeCases:
         with patch("sys.argv", ["review.py", "--spec-dir", spec_dir, "--auto-approve"]):
             mock_state = MagicMock()
             mock_state.is_approved.return_value = True
-            mock_review_state.load.return_value = mock_state
             mock_run_checkpoint.return_value = mock_state
 
             from review.main import main
@@ -269,8 +268,8 @@ class TestReviewMainEdgeCases:
             with pytest.raises(SystemExit):
                 main()
 
-            # Verify ReviewState.load was called
-            mock_review_state.load.assert_called()
+            # Verify run_review_checkpoint was called (it handles state loading internally)
+            mock_run_checkpoint.assert_called_once()
 
     @patch("review.main.run_review_checkpoint")
     @patch("review.main.ReviewState")
