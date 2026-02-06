@@ -21,6 +21,7 @@ import {
   SelectValue,
 } from '../ui/select';
 import { Combobox } from '../ui/combobox';
+import { useToast } from '../../hooks/use-toast';
 import { buildBranchOptions } from '../../lib/branch-utils';
 import type { Task, TerminalWorktreeConfig, GitBranchDetail } from '../../../shared/types';
 import { useProjectStore } from '../../stores/project-store';
