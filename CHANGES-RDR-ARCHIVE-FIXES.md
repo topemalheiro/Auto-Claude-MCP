@@ -58,3 +58,28 @@ Clicking the archive button caused tasks to move between boards. The archive sys
  apps/frontend/src/main/project-store.ts | 20 +-------------------
  2 files changed, 17 insertions(+), 21 deletions(-)
 ```
+
+---
+
+## Session 3b: Task Deduplication Fix (upstream PR #1710)
+
+### Problem
+Tasks still moved between boards on ANY cache invalidation (archive, create task, project switch). The root cause: task deduplication blindly preferred worktree version over main project. Worktrees contain stale data (e.g., `in_progress`) while main has the correct status (e.g., `done`).
+
+### Source
+Upstream fix: [AndyMik90/Auto-Claude PR #1710](https://github.com/AndyMik90/Auto-Claude/pull/1710) (merged), fixing [issue #1709](https://github.com/AndyMik90/Auto-Claude/issues/1709).
+
+### Root Cause
+```typescript
+// OLD: Worktree always wins (WRONG - worktree may be stale)
+if (!existing || task.location === 'worktree') {
+  taskMap.set(task.id, task);
+}
+```
+
+### Fixes Applied
+
+| File | Change |
+|------|--------|
+| `apps/frontend/src/shared/constants/task.ts` | Added `TASK_STATUS_PRIORITY` constant mapping each status to a numeric priority (backlog=20 through done=100). Used as tiebreaker when both tasks are from same location. |
+| `apps/frontend/src/main/project-store.ts` (deduplication, line 318) | Main project version now wins over worktree. Status priority only used as tiebreaker for same-location duplicates. Prevents stale worktree data from overriding correct user changes. |

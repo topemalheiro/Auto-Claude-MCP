@@ -3,7 +3,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, Dirent
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import type { Project, ProjectSettings, Task, TaskStatus, TaskMetadata, ImplementationPlan, ReviewReason, PlanSubtask } from '../shared/types';
-import { DEFAULT_PROJECT_SETTINGS, AUTO_BUILD_PATHS, getSpecsDir, JSON_ERROR_PREFIX, JSON_ERROR_TITLE_SUFFIX } from '../shared/constants';
+import { DEFAULT_PROJECT_SETTINGS, AUTO_BUILD_PATHS, getSpecsDir, JSON_ERROR_PREFIX, JSON_ERROR_TITLE_SUFFIX, TASK_STATUS_PRIORITY } from '../shared/constants';
 import { getAutoBuildPath, isInitialized } from './project-initializer';
 import { getTaskWorktreeDir } from './worktree-paths';
 import { debugLog } from '../shared/utils/debug-logger';
@@ -315,12 +315,34 @@ export class ProjectStore {
       }
     }
 
-    // 3. Deduplicate tasks by ID (prefer worktree version if exists in both)
+    // 3. Deduplicate tasks by ID
+    // CRITICAL FIX (upstream PR #1710): Don't blindly prefer worktree - it may be stale!
+    // If main project task is "done", it should win over worktree's "in_progress".
+    // Worktrees can linger after completion, containing outdated task data.
     const taskMap = new Map<string, Task>();
     for (const task of allTasks) {
       const existing = taskMap.get(task.id);
-      if (!existing || task.location === 'worktree') {
+      if (!existing) {
         taskMap.set(task.id, task);
+      } else {
+        const existingIsMain = existing.location === 'main';
+        const newIsMain = task.location === 'main';
+
+        if (existingIsMain && !newIsMain) {
+          // Main wins, keep existing
+          continue;
+        } else if (!existingIsMain && newIsMain) {
+          // New is main, replace existing worktree
+          taskMap.set(task.id, task);
+        } else {
+          // Same location - use status priority to determine which is more complete
+          const existingPriority = TASK_STATUS_PRIORITY[existing.status] || 0;
+          const newPriority = TASK_STATUS_PRIORITY[task.status] || 0;
+
+          if (newPriority > existingPriority) {
+            taskMap.set(task.id, task);
+          }
+        }
       }
     }
 
