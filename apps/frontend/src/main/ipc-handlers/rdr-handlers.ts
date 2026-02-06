@@ -249,9 +249,19 @@ function isLegitimateHumanReview(task: TaskInfo): boolean {
  * - 'stuck': Task bounced to human_review with incomplete subtasks (no clear exit reason)
  * - 'incomplete': Task has pending subtasks in active boards (in_progress, ai_review)
  */
-function determineInterventionType(task: TaskInfo, lastActivityMs?: number): InterventionType | null {
-  // Skip completed/archived/pending tasks - these never need intervention
-  if (task.status === 'done' || task.status === 'pr_created' || task.status === 'backlog' || task.status === 'pending') {
+function determineInterventionType(task: TaskInfo, lastActivityMs?: number, hasWorktree?: boolean): InterventionType | null {
+  // Skip completed/archived tasks - these never need intervention
+  if (task.status === 'done' || task.status === 'pr_created') {
+    return null;
+  }
+
+  // REGRESSED: Task went back to backlog/pending but has a worktree (agent previously started work)
+  // This means the agent crashed or was interrupted and the task regressed
+  if (task.status === 'backlog' || task.status === 'pending') {
+    if (hasWorktree) {
+      console.log(`[RDR] Task ${task.specId} regressed to ${task.status} but has worktree - needs restart`);
+      return 'incomplete';
+    }
     return null;
   }
 
@@ -460,7 +470,9 @@ function gatherRichTaskInfo(task: TaskInfo, projectPath: string): RichTaskInfo {
 
   // Get intervention type (with recency check to skip actively-running tasks)
   const lastActivityMs = getTaskLastActivityTimestamp(task, projectPath);
-  const interventionType = determineInterventionType(task, lastActivityMs);
+  const worktreeDir = path.join(projectPath, '.auto-claude', 'worktrees', 'tasks', task.specId);
+  const hasWorktree = existsSync(worktreeDir);
+  const interventionType = determineInterventionType(task, lastActivityMs, hasWorktree);
 
   // Get last logs
   const lastLogs = getLastLogEntries(projectPath, task.specId, 3);
@@ -1744,7 +1756,9 @@ export function registerRdrHandlers(): void {
           console.log(`[RDR] Task ${task.specId}: status=${task.status}, phases=${phaseCount}, subtasks=${subtaskCount}, progress=${progress}%, reviewReason=${task.reviewReason || 'none'}`);
 
           const lastActivityMs = projectPath ? getTaskLastActivityTimestamp(task, projectPath) : undefined;
-          const interventionType = determineInterventionType(task, lastActivityMs);
+          const wtDir = projectPath ? path.join(projectPath, '.auto-claude', 'worktrees', 'tasks', task.specId) : null;
+          const hasWt = wtDir ? existsSync(wtDir) : undefined;
+          const interventionType = determineInterventionType(task, lastActivityMs, hasWt);
 
           if (interventionType) {
             console.log(`[RDR] ✅ Task ${task.specId} needs intervention: type=${interventionType}`);
@@ -1837,7 +1851,9 @@ export function registerRdrHandlers(): void {
 
           // Determine intervention type using centralized function (with recency check)
           const taskActivityMs = projectPath ? getTaskLastActivityTimestamp(taskInfo, projectPath) : undefined;
-          const interventionType = determineInterventionType(taskInfo, taskActivityMs);
+          const taskWtDir = projectPath ? path.join(projectPath, '.auto-claude', 'worktrees', 'tasks', task.specId) : null;
+          const taskHasWt = taskWtDir ? existsSync(taskWtDir) : undefined;
+          const interventionType = determineInterventionType(taskInfo, taskActivityMs, taskHasWt);
 
           // Determine board and phase for display grouping
           const currentPhase = projectPath ? getCurrentPhase(projectPath, task.specId) : undefined;
@@ -1998,7 +2014,9 @@ export function registerRdrHandlers(): void {
               planStatus: task.planStatus,
             };
             const recoverActivityMs = getTaskLastActivityTimestamp(taskInfoForCheck, project.path);
-            const interventionType = determineInterventionType(taskInfoForCheck, recoverActivityMs);
+            const recoverWtDir = path.join(project.path, '.auto-claude', 'worktrees', 'tasks', task.specId);
+            const recoverHasWt = existsSync(recoverWtDir);
+            const interventionType = determineInterventionType(taskInfoForCheck, recoverActivityMs, recoverHasWt);
 
             if (!interventionType) {
               console.log(`[RDR] ⏭️  Skipping ${task.specId} - no intervention needed (status=${task.status})`);
