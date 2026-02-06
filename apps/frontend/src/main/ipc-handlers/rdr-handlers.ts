@@ -153,8 +153,8 @@ function isLegitimateHumanReview(task: TaskInfo): boolean {
  * - 'incomplete': Task has pending subtasks in active boards (in_progress, ai_review)
  */
 function determineInterventionType(task: TaskInfo): InterventionType | null {
-  // Skip completed/archived tasks
-  if (task.status === 'done' || task.status === 'pr_created' || task.status === 'backlog') {
+  // Skip completed/archived/pending tasks - these never need intervention
+  if (task.status === 'done' || task.status === 'pr_created' || task.status === 'backlog' || task.status === 'pending') {
     return null;
   }
 
@@ -1762,14 +1762,13 @@ export function registerRdrHandlers(): void {
     }
   );
 
-  // Auto-recover all tasks with status="start_requested" (programmatic recover button press)
+  // Auto-recover tasks that need intervention (with safety filtering)
+  // SAFETY: Only recovers tasks that determineInterventionType() flags as needing help.
+  // Never touches done, pr_created, backlog, pending, or archived tasks.
   ipcMain.handle(
     IPC_CHANNELS.AUTO_RECOVER_ALL_TASKS,
     async (event, projectId: string): Promise<IPCResult<{ recovered: number; taskIds: string[] }>> => {
       try {
-        console.log('[RDR] Auto-recovering ALL tasks (setting status to start_requested)');
-
-        // Get all tasks for the project (use projectStore singleton)
         const tasks = projectStore.getTasks(projectId);
 
         if (tasks.length === 0) {
@@ -1777,21 +1776,57 @@ export function registerRdrHandlers(): void {
           return { success: true, data: { recovered: 0, taskIds: [] } };
         }
 
-        console.log(`[RDR] Processing ${tasks.length} tasks for auto-recovery`);
+        console.log(`[RDR] Scanning ${tasks.length} tasks for safe auto-recovery`);
 
-        console.log(`[RDR] Tasks to recover:`, tasks.map(t => t.specId).join(', '));
-
-        // Get project to access path
         const project = projectStore.getProject(projectId);
         if (!project) {
           return { success: false, error: 'Project not found' };
         }
 
-        // Priority 1: Update status to "start_requested" in implementation_plan.json
-        // This triggers the file watcher which auto-starts tasks
+        // SAFETY: Statuses that must NEVER be changed by auto-recovery
+        const NEVER_RECOVER = new Set(['done', 'pr_created', 'backlog', 'pending']);
+
         const recovered: string[] = [];
+        const skipped: string[] = [];
+
         for (const task of tasks) {
           try {
+            // SAFETY CHECK 1: Skip terminal/safe statuses
+            if (NEVER_RECOVER.has(task.status)) {
+              skipped.push(task.specId);
+              continue;
+            }
+
+            // SAFETY CHECK 2: Skip archived tasks
+            if (task.metadata?.archivedAt) {
+              console.log(`[RDR] ⏭️  Skipping ${task.specId} - archived`);
+              skipped.push(task.specId);
+              continue;
+            }
+
+            // SAFETY CHECK 2b: Respect per-task RDR opt-out
+            if (task.metadata?.rdrDisabled) {
+              console.log(`[RDR] ⏭️  Skipping ${task.specId} - RDR disabled by user`);
+              skipped.push(task.specId);
+              continue;
+            }
+
+            // SAFETY CHECK 3: Only recover tasks that actually need intervention
+            const interventionType = determineInterventionType({
+              specId: task.specId,
+              status: task.status,
+              reviewReason: task.reviewReason,
+              phases: task.phases,
+              exitReason: task.exitReason,
+              planStatus: task.planStatus,
+            });
+
+            if (!interventionType) {
+              console.log(`[RDR] ⏭️  Skipping ${task.specId} - no intervention needed (status=${task.status})`);
+              skipped.push(task.specId);
+              continue;
+            }
+
             const planPath = getPlanPath(project.path, task.specId);
 
             if (!existsSync(planPath)) {
@@ -1799,26 +1834,22 @@ export function registerRdrHandlers(): void {
               continue;
             }
 
-            // Read current plan
             const planContent = readFileSync(planPath, 'utf-8');
             const plan = JSON.parse(planContent);
 
-            // Update status to trigger auto-restart
             plan.status = 'start_requested';
             plan.updated_at = new Date().toISOString();
 
-            // Write back
             writeFileSync(planPath, JSON.stringify(plan, null, 2), 'utf-8');
 
-            console.log(`[RDR] ✅ Auto-recovered task: ${task.specId} (status → start_requested)`);
+            console.log(`[RDR] ✅ Recovered ${task.specId} (intervention=${interventionType}, was ${task.status})`);
             recovered.push(task.specId);
           } catch (error) {
-            console.error(`[RDR] ❌ Error auto-recovering ${task.specId}:`, error);
+            console.error(`[RDR] ❌ Error recovering ${task.specId}:`, error);
           }
         }
 
-        console.log(`[RDR] Auto-recovery complete: ${recovered.length}/${tasks.length} tasks recovered`);
-        console.log(`[RDR] File watcher will detect changes and auto-start tasks within 2-3 seconds`);
+        console.log(`[RDR] Recovery complete: ${recovered.length} recovered, ${skipped.length} skipped (safe)`);
 
         return {
           success: true,

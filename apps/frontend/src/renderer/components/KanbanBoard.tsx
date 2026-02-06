@@ -1216,52 +1216,11 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       await window.electronAPI.updateProjectSettings(currentProject.id, updatedSettings);
     }
 
-    // When turning ON, auto-recover ALL stuck tasks and trigger RDR processing
+    // RDR toggle only enables/disables monitoring - NO automatic task modification
+    // Task recovery is handled by the RDR message pipeline (polling + idle events)
+    // which reports tasks needing intervention via messages to Claude Code
     if (checked) {
-      console.log('[KanbanBoard] RDR enabled - triggering auto-recovery for all stuck tasks');
-
-      // FIRST: Auto-recover tasks with start_requested status or incomplete subtasks
-      try {
-        const recoverResult = await window.electronAPI.autoRecoverAllTasks(projectId);
-
-        if (recoverResult.success && recoverResult.data) {
-          const { recovered, taskIds } = recoverResult.data;
-          console.log(`[KanbanBoard] Auto-recovered ${recovered} tasks:`, taskIds);
-
-          if (recovered > 0) {
-            toast({
-              title: `Auto-recovered ${recovered} tasks`,
-              description: 'Tasks have been moved to correct board states',
-              variant: 'default'
-            });
-          }
-        } else {
-          console.warn('[KanbanBoard] Auto-recovery failed:', recoverResult.error);
-        }
-      } catch (error) {
-        console.error('[KanbanBoard] Failed to auto-recover tasks:', error);
-      }
-
-      // SECOND: Also trigger RDR processing for manual/MCP intervention
-      const tasksNeedingHelp = tasks.filter(task =>
-        task.status === 'human_review' &&
-        (task.reviewReason === 'errors' ||
-         task.reviewReason === 'qa_rejected' ||
-         isIncompleteHumanReview(task))
-      );
-
-      if (tasksNeedingHelp.length > 0) {
-        console.log(`[KanbanBoard] Queueing ${tasksNeedingHelp.length} tasks for RDR processing`);
-
-        // Trigger RDR processing via IPC
-        try {
-          await window.electronAPI.triggerRdrProcessing(projectId, tasksNeedingHelp.map(t => t.id));
-        } catch (error) {
-          console.error('[KanbanBoard] Failed to trigger RDR processing:', error);
-        }
-      } else {
-        console.log('[KanbanBoard] No additional tasks need RDR processing');
-      }
+      console.log('[KanbanBoard] RDR enabled - monitoring started (no automatic task changes)');
     }
   };
 
