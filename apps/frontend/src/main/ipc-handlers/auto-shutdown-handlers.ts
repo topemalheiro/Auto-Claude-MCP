@@ -83,6 +83,7 @@ function isTaskArchived(specsDir: string, taskDir: string): boolean {
  */
 function calculateTaskProgress(plan: {
   phases?: Array<{
+    status?: string;
     subtasks?: Array<{ status: string }>;
     chunks?: Array<{ status: string }>;  // Legacy field name
   }>;
@@ -99,8 +100,11 @@ function calculateTaskProgress(plan: {
     phase.subtasks || phase.chunks || []
   ).filter(Boolean);
 
+  // If no subtasks exist, check if all phases are completed
+  // This handles the edge case where tasks complete all phases but have no subtasks
   if (allSubtasks.length === 0) {
-    return 0;
+    const allPhasesComplete = plan.phases.every(p => p.status === 'completed');
+    return allPhasesComplete ? 100 : 0;
   }
 
   const completed = allSubtasks.filter(s => s.status === 'completed').length;
