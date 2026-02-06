@@ -945,8 +945,21 @@ export function registerTaskExecutionHandlers(
               // For recovery, human_review is safer as it requires manual verification
               newStatus = 'human_review';
             } else if (completedCount > 0) {
-              // Some subtasks completed, some still pending - task is in progress
-              newStatus = 'in_progress';
+              // Check if Implementation phase is fully complete (only Validation remains)
+              const phases = plan.phases as Array<{ name: string; subtasks?: Array<{ status: string }> }>;
+              const implPhase = phases.find(p => p.name === 'Implementation');
+              const validationPhase = phases.find(p => p.name === 'Validation');
+              const implSubtasks = implPhase?.subtasks || [];
+              const implComplete = implSubtasks.length > 0 && implSubtasks.every(s => s.status === 'completed');
+              const hasIncompleteValidation = (validationPhase?.subtasks || []).some(s => s.status !== 'completed');
+
+              if (implComplete && hasIncompleteValidation) {
+                // Implementation done, only validation incomplete → ai_review (resume QA)
+                newStatus = 'ai_review';
+              } else {
+                // Coding still incomplete → in_progress
+                newStatus = 'in_progress';
+              }
             }
             // else: no subtasks completed, stay with 'backlog'
           }
