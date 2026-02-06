@@ -28,11 +28,20 @@ if (isElectronContext) {
 const fallbackApp = {
   getPath(name: string): string {
     // Provide fallback paths for MCP server
+    // CRITICAL: userData must match Electron's actual path so MCP server
+    // and Electron app share the same project store (same UUIDs).
+    // Electron uses: {APPDATA|~/Library/Application Support|~/.config}/auto-claude-ui
     const homedir = require('os').homedir();
     const pathModule = require('path');
     switch (name) {
       case 'userData':
-        return pathModule.join(homedir, '.auto-claude');
+        if (process.platform === 'win32') {
+          return pathModule.join(process.env.APPDATA || pathModule.join(homedir, 'AppData', 'Roaming'), 'auto-claude-ui');
+        } else if (process.platform === 'darwin') {
+          return pathModule.join(homedir, 'Library', 'Application Support', 'auto-claude-ui');
+        } else {
+          return pathModule.join(homedir, '.config', 'auto-claude-ui');
+        }
       case 'home':
         return homedir;
       default:
