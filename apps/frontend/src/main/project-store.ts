@@ -392,25 +392,6 @@ export class ProjectStore {
       // Write updated plan
       writeFileSync(planPath, JSON.stringify(plan, null, 2));
 
-      // BUGFIX: Clear archive metadata when moving task to a different board
-      // When a task moves to a different status/board, it should no longer be archived
-      const metadataPath = path.join(path.dirname(planPath), 'task_metadata.json');
-      if (existsSync(metadataPath)) {
-        try {
-          const metadata = JSON.parse(readFileSync(metadataPath, 'utf-8'));
-          if (metadata.archivedAt) {
-            // Task was archived but is being moved to a different board - unarchive it
-            delete metadata.archivedAt;
-            delete metadata.archivedInVersion;
-            writeFileSync(metadataPath, JSON.stringify(metadata, null, 2));
-            console.log(`[ProjectStore] updateTaskStatus: Auto-unarchived ${taskId} (moved to ${newStatus})`);
-          }
-        } catch (metadataError) {
-          console.warn(`[ProjectStore] updateTaskStatus: Failed to clear archive metadata for ${taskId}:`, metadataError);
-          // Non-critical - continue anyway
-        }
-      }
-
       console.log(`[ProjectStore] updateTaskStatus: Updated ${taskId} status to ${newStatus}`);
 
       // Invalidate cache to force refresh
@@ -652,6 +633,7 @@ export class ProjectStore {
     // Status mapping from plan.status values to TaskStatus
     const statusMap: Record<string, TaskStatus> = {
       'pending': 'backlog',
+      'start_requested': 'backlog',
       'planning': 'in_progress',
       'in_progress': 'in_progress',
       'coding': 'in_progress',

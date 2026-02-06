@@ -237,8 +237,15 @@ export class FileWatcher extends EventEmitter {
           const content = readFileSync(filePath, 'utf-8');
           const plan = JSON.parse(content);
           if (plan.status === 'start_requested') {
+            // SAFETY: Skip archived tasks - they should not be auto-started
+            const taskForArchiveCheck = projectStore.getTaskBySpecId(projectId, specId);
+            if (taskForArchiveCheck?.metadata?.archivedAt) {
+              console.log(`[FileWatcher] Skipping archived task ${specId} - not processing start_requested`);
+              return;
+            }
+
             // NEW: Move task back to correct board based on progress BEFORE auto-starting
-            const task = projectStore.getTaskBySpecId(projectId, specId);
+            const task = taskForArchiveCheck;
             if (task && task.status === 'human_review') {
               // Determine where to send task based on subtask progress
               const targetStatus = determineResumeStatus(task, plan);
@@ -286,8 +293,15 @@ export class FileWatcher extends EventEmitter {
             const specDir = path.dirname(filePath);
             const specId = path.basename(specDir);
 
+            // SAFETY: Skip archived tasks - they should not be auto-started
+            const taskForArchiveCheck = projectStore.getTaskBySpecId(projectId, specId);
+            if (taskForArchiveCheck?.metadata?.archivedAt) {
+              console.log(`[FileWatcher] Skipping archived task ${specId} - not processing start_requested`);
+              return;
+            }
+
             // NEW: Move task back to correct board based on progress BEFORE auto-starting
-            const task = projectStore.getTaskBySpecId(projectId, specId);
+            const task = taskForArchiveCheck;
             if (task && task.status === 'human_review') {
               // Determine where to send task based on subtask progress
               const targetStatus = determineResumeStatus(task, plan);
