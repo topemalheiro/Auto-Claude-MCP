@@ -634,32 +634,133 @@ server.tool(
 
 server.tool(
   'recover_stuck_task',
-  'Trigger recovery for a stuck task (equivalent to clicking Recover button)',
+  'Trigger recovery for a stuck task (equivalent to clicking Recover button). Uses file-based recovery.',
   {
     projectId: z.string().describe('The project ID (UUID)'),
     taskId: z.string().describe('The task/spec ID'),
     autoRestart: z.boolean().optional().default(true).describe('Whether to auto-restart after recovery')
   },
-  async ({ projectId, taskId, autoRestart }) => {
-    // Note: Recovery requires IPC access which is only available within Electron context
-    // When running as standalone MCP server, we can only provide guidance
-    return {
-      content: [{
-        type: 'text' as const,
-        text: JSON.stringify({
-          success: false,
-          note: 'Task recovery requires the MCP server to run within the Electron app context. ' +
-                'To recover this task: ' +
-                '1. Open the Auto-Claude UI ' +
-                '2. Find task ' + taskId + ' in Human Review ' +
-                '3. Click the "Recover Task" button ' +
-                'Alternatively, enable RDR toggle in the Kanban header to auto-recover stuck tasks.',
-          taskId,
-          autoRestart
-        }, null, 2)
-      }]
-    };
-  }
+  withMonitoring('recover_stuck_task', async ({ projectId, taskId, autoRestart }) => {
+    // File-based recovery: Read plan, remove stuckSince, set start_requested if autoRestart
+    const { existsSync, writeFileSync, readFileSync } = await import('fs');
+    const path = await import('path');
+
+    // Get project path
+    const tasksResult = await listTasks(projectId);
+    if (!tasksResult.success || !tasksResult.data || tasksResult.data.length === 0) {
+      return {
+        content: [{
+          type: 'text' as const,
+          text: JSON.stringify({ success: false, error: 'Could not determine project path - no tasks found' })
+        }]
+      };
+    }
+
+    const projectPath = tasksResult.data[0].projectPath;
+    const specDir = path.join(projectPath, '.auto-claude', 'specs', taskId);
+    const planPath = path.join(specDir, 'implementation_plan.json');
+
+    if (!existsSync(planPath)) {
+      return {
+        content: [{
+          type: 'text' as const,
+          text: JSON.stringify({ success: false, error: 'Task plan file not found: ' + planPath })
+        }]
+      };
+    }
+
+    try {
+      // Read plan
+      const plan = JSON.parse(readFileSync(planPath, 'utf-8'));
+      let recovered = false;
+      let action = '';
+
+      // Remove stuckSince timestamp (exits recovery mode)
+      if (plan.metadata?.stuckSince) {
+        delete plan.metadata.stuckSince;
+        recovered = true;
+        action = 'removed_stuck_timestamp';
+      }
+
+      // If autoRestart, also set start_requested (triggers Priority 1 auto-resume)
+      if (autoRestart) {
+        plan.status = 'start_requested';
+        plan.start_requested_at = new Date().toISOString();
+        plan.rdr_batch_type = 'recovery';
+        plan.rdr_priority = 1;
+        plan.rdr_iteration = (plan.rdr_iteration || 0) + 1;
+        action += (action ? ' + ' : '') + 'set_start_requested';
+      } else {
+        // Update lastActivity to refresh task (without restarting)
+        plan.updated_at = new Date().toISOString();
+        if (!plan.metadata) plan.metadata = {};
+        plan.metadata.lastActivity = new Date().toISOString();
+        action += (action ? ' + ' : '') + 'updated_last_activity';
+      }
+
+      // Write to main plan
+      writeFileSync(planPath, JSON.stringify(plan, null, 2));
+
+      // Also update worktree plan (if it exists)
+      const worktreePlanPath = path.join(
+        projectPath, '.auto-claude', 'worktrees', 'tasks', taskId,
+        '.auto-claude', 'specs', taskId, 'implementation_plan.json'
+      );
+      if (existsSync(worktreePlanPath)) {
+        try {
+          const worktreePlan = JSON.parse(readFileSync(worktreePlanPath, 'utf-8'));
+
+          if (worktreePlan.metadata?.stuckSince) {
+            delete worktreePlan.metadata.stuckSince;
+          }
+
+          if (autoRestart) {
+            worktreePlan.status = 'start_requested';
+            worktreePlan.start_requested_at = new Date().toISOString();
+            worktreePlan.rdr_batch_type = 'recovery';
+            worktreePlan.rdr_priority = 1;
+            worktreePlan.rdr_iteration = (worktreePlan.rdr_iteration || 0) + 1;
+          } else {
+            worktreePlan.updated_at = new Date().toISOString();
+            if (!worktreePlan.metadata) worktreePlan.metadata = {};
+            worktreePlan.metadata.lastActivity = new Date().toISOString();
+          }
+
+          writeFileSync(worktreePlanPath, JSON.stringify(worktreePlan, null, 2));
+          console.log(`[MCP] Also updated worktree plan for ${taskId}`);
+        } catch (err) {
+          console.warn(`[MCP] Failed to update worktree plan for ${taskId}:`, err);
+        }
+      }
+
+      return {
+        content: [{
+          type: 'text' as const,
+          text: JSON.stringify({
+            success: true,
+            taskId,
+            recovered,
+            autoRestart,
+            action,
+            message: autoRestart
+              ? `Task ${taskId} recovered and set to restart. File watcher will auto-start within 2-3 seconds.`
+              : `Task ${taskId} recovered (exit recovery mode). Task will not auto-restart - manually start if needed.`
+          }, null, 2)
+        }]
+      };
+    } catch (error) {
+      return {
+        content: [{
+          type: 'text' as const,
+          text: JSON.stringify({
+            success: false,
+            error: error instanceof Error ? error.message : String(error),
+            taskId
+          })
+        }]
+      };
+    }
+  })
 );
 
 // ─────────────────────────────────────────────────────────────────────────────
