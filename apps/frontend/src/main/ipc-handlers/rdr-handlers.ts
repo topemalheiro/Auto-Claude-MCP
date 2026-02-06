@@ -288,7 +288,13 @@ function getLastLogEntries(projectPath: string, specId: string, count: number = 
   phase: string;
   content: string;
 }> {
-  const logsPath = path.join(projectPath, '.auto-claude', 'specs', specId, 'task_logs.json');
+  // Prefer worktree logs (has latest agent activity) over main
+  const worktreeLogsPath = path.join(
+    projectPath, '.auto-claude', 'worktrees', 'tasks', specId,
+    '.auto-claude', 'specs', specId, 'task_logs.json'
+  );
+  const mainLogsPath = path.join(projectPath, '.auto-claude', 'specs', specId, 'task_logs.json');
+  const logsPath = existsSync(worktreeLogsPath) ? worktreeLogsPath : mainLogsPath;
 
   if (!existsSync(logsPath)) {
     return [];
@@ -1612,6 +1618,7 @@ export function registerRdrHandlers(): void {
         };
         subtasks?: Array<{ name: string; status: string }>;
         errorSummary?: string;
+        lastLogs?: Array<{ timestamp: string; phase: string; content: string }>;
       }>;
     }>> => {
       console.log(`[RDR] Getting batch details for project ${projectId}`);
@@ -1767,7 +1774,9 @@ export function registerRdrHandlers(): void {
               name: s.title || s.id,
               status: s.status
             })),
-            errorSummary
+            errorSummary,
+            // Get last 3 log entries for context (prefers worktree logs)
+            lastLogs: projectPath ? getLastLogEntries(projectPath, task.specId, 3) : undefined
           };
         });
 

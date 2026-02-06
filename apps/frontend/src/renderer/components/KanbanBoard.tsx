@@ -934,6 +934,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       exitReason?: string;
       subtasks?: Array<{ name: string; status: string }>;
       errorSummary?: string;
+      lastLogs?: Array<{ timestamp: string; phase: string; content: string }>;
     }>;
   }): string => {
     const lines: string[] = ['/auto-claude-rdr'];
@@ -972,6 +973,14 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
 
       if (task.errorSummary) {
         lines.push(`Error: ${task.errorSummary}`);
+      }
+
+      if (task.lastLogs && task.lastLogs.length > 0) {
+        lines.push('Recent Logs:');
+        for (const log of task.lastLogs) {
+          const time = new Date(log.timestamp).toLocaleTimeString('en-US', { hour12: false });
+          lines.push(`  [${time}] (${log.phase}) ${log.content}`);
+        }
       }
 
       lines.push('');
