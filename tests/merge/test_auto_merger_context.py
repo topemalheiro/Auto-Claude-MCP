@@ -413,8 +413,9 @@ export default App;
 
     def test_merge_context_with_completed_timestamp(self):
         """Test MergeContext with snapshots that have completed_at timestamps"""
+        from datetime import timedelta
         now = datetime.now()
-        completed = datetime(now.year, now.month, now.day, now.hour, now.minute + 5)
+        completed = now + timedelta(minutes=5)
 
         snapshot = TaskSnapshot(
             task_id="task_001",

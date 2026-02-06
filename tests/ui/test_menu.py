@@ -56,6 +56,7 @@ def test_select_menu_fallback():
 
     with patch("builtins.input", return_value="1"):
         # Act
+
         result = select_menu("Test Menu", options)
 
         # Assert
@@ -74,6 +75,7 @@ def test_select_menu_fallback_with_quit():
 
     with patch("builtins.input", return_value="q"):
         # Act
+
         result = select_menu("Test Menu", options, allow_quit=True)
 
         # Assert
@@ -92,6 +94,7 @@ def test_select_menu_fallback_with_disabled():
 
     with patch("builtins.input", return_value="2"):
         # Act
+
         result = select_menu("Test Menu", options)
 
         # Assert
@@ -110,6 +113,7 @@ def test_select_menu_fallback_invalid_then_valid():
 
     with patch("builtins.input", side_effect=["invalid", "5", "1"]):
         # Act
+
         result = select_menu("Test Menu", options)
 
         # Assert
@@ -128,6 +132,7 @@ def test_select_menu_fallback_with_description():
 
     with patch("builtins.input", return_value="1"):
         # Act - should not raise
+
         result = select_menu("Test Menu", options, subtitle="Choose an option")
 
         # Assert
@@ -140,13 +145,13 @@ def test_select_menu_empty_options():
     # Arrange
     options = []
 
-    with patch("ui.menu.INTERACTIVE", True):
-        with patch("ui.menu._getch", return_value="q"):
-            # Act - should handle gracefully
-            result = select_menu("Empty Menu", options, allow_quit=True)
+    with patch("ui.menu._getch", return_value="q"):
+        # Act - should handle gracefully
 
-            # Assert
-            assert result is None
+        result = select_menu("Empty Menu", options, allow_quit=True, _interactive=True)
+
+        # Assert
+        assert result is None
 
 
 def test_select_menu_all_disabled():
@@ -158,14 +163,14 @@ def test_select_menu_all_disabled():
         MenuOption(key="2", label="Option 2", disabled=True),
     ]
 
-    with patch("ui.menu.INTERACTIVE", True):
-        with patch("ui.menu._getch", return_value="q"):
-            # Act - should handle gracefully
-            result = select_menu("Disabled Menu", options, allow_quit=True)
+    with patch("ui.menu._getch", return_value="q"):
+        # Act - should handle gracefully
 
-            # Assert
-            # When all options are disabled, valid_options is empty, so it should print message and return None
-            assert result is None
+        result = select_menu("Disabled Menu", options, allow_quit=True, _interactive=True)
+
+        # Assert
+        # When all options are disabled, valid_options is empty, so it should print message and return None
+        assert result is None
 
 
 # ============================================================================
@@ -602,320 +607,320 @@ class TestSelectMenuInteractive:
         """Test select_menu navigation with UP key"""
         # Arrange
         options = [
-            MenuOption(key="1", label="Option 1"),
-            MenuOption(key="2", label="Option 2"),
-            MenuOption(key="3", label="Option 3"),
+        MenuOption(key="1", label="Option 1"),
+        MenuOption(key="2", label="Option 2"),
+        MenuOption(key="3", label="Option 3"),
         ]
 
-        with patch("ui.menu.INTERACTIVE", True):
-            with patch("ui.menu._getch") as mock_getch:
-                # Simulate: UP key moves selection to previous, then Enter to select
-                mock_getch.side_effect = ["UP", "\r"]
+        with patch("ui.menu._getch") as mock_getch:
+            # Simulate: UP key moves selection to previous, then Enter to select
 
-                # Act
-                result = select_menu("Test Menu", options)
+            mock_getch.side_effect = ["UP", "\r"]
 
-                # Assert - starting at option 1 (index 1), UP moves to option 0
-                # Actually looking at code: selected starts at valid_options[0] which is index 0
-                # UP when at index 0 does nothing (current_idx = 0, not > 0)
-                # So we should still be at index 0
-                # Let's trace through: selected=0, valid_options=[0,1,2]
-                # UP: current_idx=0, not > 0, so no change, render() called once
-                # Enter: return options[0].key = "1"
-                assert result == "1"
+            # Act
+            result = select_menu("Test Menu", options)
+
+            # Assert - starting at option 1 (index 1), UP moves to option 0
+            # Actually looking at code: selected starts at valid_options[0] which is index 0
+            # UP when at index 0 does nothing (current_idx = 0, not > 0)
+            # So we should still be at index 0
+            # Let's trace through: selected=0, valid_options=[0,1,2]
+            # UP: current_idx=0, not > 0, so no change, render() called once
+            # Enter: return options[0].key = "1"
+            assert result == "1"
 
     def test_select_menu_interactive_with_down_navigation(self):
         """Test select_menu navigation with DOWN key"""
         # Arrange
         options = [
-            MenuOption(key="1", label="Option 1"),
-            MenuOption(key="2", label="Option 2"),
-            MenuOption(key="3", label="Option 3"),
+        MenuOption(key="1", label="Option 1"),
+        MenuOption(key="2", label="Option 2"),
+        MenuOption(key="3", label="Option 3"),
         ]
 
-        with patch("ui.menu.INTERACTIVE", True):
-            with patch("ui.menu._getch") as mock_getch:
-                # Simulate: DOWN key moves selection to next, then Enter to select
-                mock_getch.side_effect = ["DOWN", "\r"]
+        with patch("ui.menu._getch") as mock_getch:
+            # Simulate: DOWN key moves selection to next, then Enter to select
 
-                # Act
-                result = select_menu("Test Menu", options)
+            mock_getch.side_effect = ["DOWN", "\r"]
 
-                # Assert - starting at index 0, DOWN moves to index 1
-                # selected=0, valid_options=[0,1,2]
-                # DOWN: current_idx=0, < 2, so selected = valid_options[1] = 1
-                # Enter: return options[1].key = "2"
-                assert result == "2"
+            # Act
+            result = select_menu("Test Menu", options)
+
+            # Assert - starting at index 0, DOWN moves to index 1
+            # selected=0, valid_options=[0,1,2]
+            # DOWN: current_idx=0, < 2, so selected = valid_options[1] = 1
+            # Enter: return options[1].key = "2"
+            assert result == "2"
 
     def test_select_menu_interactive_with_vim_keys(self):
         """Test select_menu navigation with vim-style j/k keys"""
         # Arrange
         options = [
-            MenuOption(key="1", label="Option 1"),
-            MenuOption(key="2", label="Option 2"),
-            MenuOption(key="3", label="Option 3"),
+        MenuOption(key="1", label="Option 1"),
+        MenuOption(key="2", label="Option 2"),
+        MenuOption(key="3", label="Option 3"),
         ]
 
-        with patch("ui.menu.INTERACTIVE", True):
-            # Test 'k' key (up)
-            with patch("ui.menu._getch") as mock_getch:
-                mock_getch.side_effect = ["k", "\r"]
-                result = select_menu("Test Menu", options)
-                # 'k' at index 0 does nothing
-                assert result == "1"
+        # Test 'k' key (up)
+        with patch("ui.menu._getch") as mock_getch:
+            mock_getch.side_effect = ["k", "\r"]
+            result = select_menu("Test Menu", options)
+            # 'k' at index 0 does nothing
+            assert result == "1"
 
-            # Test 'j' key (down)
-            with patch("ui.menu._getch") as mock_getch:
-                mock_getch.side_effect = ["j", "\r"]
-                result = select_menu("Test Menu", options)
-                # 'j' at index 0 moves to index 1
-                assert result == "2"
+        # Test 'j' key (down)
+        with patch("ui.menu._getch") as mock_getch:
+            mock_getch.side_effect = ["j", "\r"]
+            result = select_menu("Test Menu", options)
+            # 'j' at index 0 moves to index 1
+            assert result == "2"
 
     def test_select_menu_interactive_enter_selection(self):
         """Test select_menu selects current option with Enter key"""
         # Arrange
         options = [
-            MenuOption(key="1", label="Option 1"),
-            MenuOption(key="2", label="Option 2"),
+        MenuOption(key="1", label="Option 1"),
+        MenuOption(key="2", label="Option 2"),
         ]
 
-        with patch("ui.menu.INTERACTIVE", True):
-            # Test with \r (carriage return)
-            with patch("ui.menu._getch", return_value="\r"):
-                result = select_menu("Test Menu", options)
-                assert result == "1"
+        # Test with \r (carriage return)
+        with patch("ui.menu._getch", return_value="\r"):
+            result = select_menu("Test Menu", options)
+            assert result == "1"
 
-            # Test with \n (newline)
-            with patch("ui.menu._getch", return_value="\n"):
-                result = select_menu("Test Menu", options)
-                assert result == "1"
+        # Test with \n (newline)
+        with patch("ui.menu._getch", return_value="\n"):
+            result = select_menu("Test Menu", options)
+            assert result == "1"
 
     def test_select_menu_interactive_quit_with_q(self):
         """Test select_menu quits with 'q' key"""
         # Arrange
         options = [
-            MenuOption(key="1", label="Option 1"),
-            MenuOption(key="2", label="Option 2"),
+        MenuOption(key="1", label="Option 1"),
+        MenuOption(key="2", label="Option 2"),
         ]
 
-        with patch("ui.menu.INTERACTIVE", True):
-            with patch("ui.menu._getch", return_value="q"):
-                # Act
-                result = select_menu("Test Menu", options, allow_quit=True)
+        with patch("ui.menu._getch", return_value="q"):
+            # Act
 
-                # Assert
-                assert result is None
+            result = select_menu("Test Menu", options, allow_quit=True)
+
+            # Assert
+            assert result is None
 
     def test_select_menu_interactive_q_without_allow_quit(self):
         """Test 'q' key does nothing when allow_quit is False"""
         # Arrange
         options = [
-            MenuOption(key="1", label="Option 1"),
-            MenuOption(key="2", label="Option 2"),
+        MenuOption(key="1", label="Option 1"),
+        MenuOption(key="2", label="Option 2"),
         ]
 
-        with patch("ui.menu.INTERACTIVE", True):
-            with patch("ui.menu._getch") as mock_getch:
-                # 'q' should be ignored, then Enter to select
-                mock_getch.side_effect = ["q", "\r"]
-                result = select_menu("Test Menu", options, allow_quit=False)
-                assert result == "1"
+        with patch("ui.menu._getch") as mock_getch:
+            # 'q' should be ignored, then Enter to select
+
+            mock_getch.side_effect = ["q", "\r"]
+            result = select_menu("Test Menu", options, allow_quit=False)
+            assert result == "1"
 
     def test_select_menu_interactive_number_key_selection(self):
         """Test select_menu direct selection with number keys"""
         # Arrange
         options = [
-            MenuOption(key="1", label="Option 1"),
-            MenuOption(key="2", label="Option 2"),
-            MenuOption(key="3", label="Option 3"),
+        MenuOption(key="1", label="Option 1"),
+        MenuOption(key="2", label="Option 2"),
+        MenuOption(key="3", label="Option 3"),
         ]
 
-        with patch("ui.menu.INTERACTIVE", True):
-            for i in range(1, 4):
-                with patch("ui.menu._getch", return_value=str(i)):
-                    # Act
-                    result = select_menu("Test Menu", options)
+        for i in range(1, 4):
+            with patch("ui.menu._getch", return_value=str(i)):
+                # Act
 
-                    # Assert
-                    assert result == str(i)
+                result = select_menu("Test Menu", options)
+
+                # Assert
+                assert result == str(i)
 
     def test_select_menu_interactive_number_key_disabled_option(self):
         """Test number key doesn't select disabled option"""
         # Arrange
         options = [
-            MenuOption(key="1", label="Option 1", disabled=True),
-            MenuOption(key="2", label="Option 2"),
+        MenuOption(key="1", label="Option 1", disabled=True),
+        MenuOption(key="2", label="Option 2"),
         ]
 
-        with patch("ui.menu.INTERACTIVE", True):
-            with patch("ui.menu._getch") as mock_getch:
-                # Press '1' (disabled), should be ignored, then Enter selects option 2
-                mock_getch.side_effect = ["1", "\r"]
-                result = select_menu("Test Menu", options)
-                # Should skip disabled option and select first valid (index 1)
-                assert result == "2"
+        with patch("ui.menu._getch") as mock_getch:
+            # Press '1' (disabled), should be ignored, then Enter selects option 2
+
+            mock_getch.side_effect = ["1", "\r"]
+            result = select_menu("Test Menu", options)
+            # Should skip disabled option and select first valid (index 1)
+            assert result == "2"
 
     def test_select_menu_interactive_number_key_out_of_range(self):
         """Test number key out of range is ignored"""
         # Arrange
         options = [
-            MenuOption(key="1", label="Option 1"),
-            MenuOption(key="2", label="Option 2"),
+        MenuOption(key="1", label="Option 1"),
+        MenuOption(key="2", label="Option 2"),
         ]
 
-        with patch("ui.menu.INTERACTIVE", True):
-            with patch("ui.menu._getch") as mock_getch:
-                # Press '9' (out of range), should be ignored, then Enter
-                mock_getch.side_effect = ["9", "\r"]
-                result = select_menu("Test Menu", options)
-                assert result == "1"
+        with patch("ui.menu._getch") as mock_getch:
+            # Press '9' (out of range), should be ignored, then Enter
+
+            mock_getch.side_effect = ["9", "\r"]
+            result = select_menu("Test Menu", options)
+            assert result == "1"
 
     def test_select_menu_interactive_arrow_key_at_upper_boundary(self):
         """Test UP key at first option doesn't go out of bounds"""
         # Arrange
         options = [
-            MenuOption(key="1", label="Option 1"),
-            MenuOption(key="2", label="Option 2"),
+        MenuOption(key="1", label="Option 1"),
+        MenuOption(key="2", label="Option 2"),
         ]
 
-        with patch("ui.menu.INTERACTIVE", True):
-            with patch("ui.menu._getch") as mock_getch:
-                # UP at index 0 stays at index 0
-                mock_getch.side_effect = ["UP", "\r"]
-                result = select_menu("Test Menu", options)
-                assert result == "1"
+        with patch("ui.menu._getch") as mock_getch:
+            # UP at index 0 stays at index 0
+
+            mock_getch.side_effect = ["UP", "\r"]
+            result = select_menu("Test Menu", options)
+            assert result == "1"
 
     def test_select_menu_interactive_arrow_key_at_lower_boundary(self):
         """Test DOWN key at last option doesn't go out of bounds"""
         # Arrange
         options = [
-            MenuOption(key="1", label="Option 1"),
-            MenuOption(key="2", label="Option 2"),
+        MenuOption(key="1", label="Option 1"),
+        MenuOption(key="2", label="Option 2"),
         ]
 
-        with patch("ui.menu.INTERACTIVE", True):
-            with patch("ui.menu._getch") as mock_getch:
-                # Move to last option with DOWN, then DOWN again (should stay)
-                # First DOWN: 0 -> 1, second DOWN: at 1, current_idx=1, not < 1, so no change
-                mock_getch.side_effect = ["DOWN", "DOWN", "\r"]
-                result = select_menu("Test Menu", options)
-                assert result == "2"
+        with patch("ui.menu._getch") as mock_getch:
+            # Move to last option with DOWN, then DOWN again (should stay)
+
+            # First DOWN: 0 -> 1, second DOWN: at 1, current_idx=1, not < 1, so no change
+
+            mock_getch.side_effect = ["DOWN", "DOWN", "\r"]
+            result = select_menu("Test Menu", options)
+            assert result == "2"
 
     def test_select_menu_interactive_with_disabled_options(self):
         """Test navigation skips disabled options"""
         # Arrange
         options = [
-            MenuOption(key="1", label="Option 1"),
-            MenuOption(key="2", label="Option 2", disabled=True),
-            MenuOption(key="3", label="Option 3"),
+        MenuOption(key="1", label="Option 1"),
+        MenuOption(key="2", label="Option 2", disabled=True),
+        MenuOption(key="3", label="Option 3"),
         ]
 
-        with patch("ui.menu.INTERACTIVE", True):
-            with patch("ui.menu._getch") as mock_getch:
-                # DOWN should skip disabled option 2
-                # valid_options = [0, 2], selected starts at 0
-                # DOWN: 0 -> 2 (skipping 1 which is disabled)
-                mock_getch.side_effect = ["DOWN", "\r"]
-                result = select_menu("Test Menu", options)
-                assert result == "3"
+        with patch("ui.menu._getch") as mock_getch:
+            # DOWN should skip disabled option 2
+
+            # valid_options = [0, 2], selected starts at 0
+
+            # DOWN: 0 -> 2 (skipping 1 which is disabled)
+
+            mock_getch.side_effect = ["DOWN", "\r"]
+            result = select_menu("Test Menu", options)
+            assert result == "3"
 
     def test_select_menu_interactive_fallback_on_exception(self):
         """Test select_menu falls back to simple menu on _getch exception"""
         # Arrange
         options = [
-            MenuOption(key="1", label="Option 1"),
-            MenuOption(key="2", label="Option 2"),
+        MenuOption(key="1", label="Option 1"),
+        MenuOption(key="2", label="Option 2"),
         ]
 
-        with patch("ui.menu.INTERACTIVE", True):
-            with patch("ui.menu._getch", side_effect=RuntimeError("Terminal error")):
-                with patch("builtins.input", return_value="1"):
-                    # Act
-                    result = select_menu("Test Menu", options)
+        with patch("ui.menu._getch", side_effect=RuntimeError("Terminal error")):
+            with patch("builtins.input", return_value="1"):
+                # Act
+                result = select_menu("Test Menu", options)
 
-                    # Assert
-                    assert result == "1"
+                # Assert
+                assert result == "1"
 
     def test_select_menu_interactive_with_subtitle(self):
         """Test select_menu with subtitle renders correctly"""
         # Arrange
         options = [
-            MenuOption(key="1", label="Option 1"),
+        MenuOption(key="1", label="Option 1"),
         ]
 
-        with patch("ui.menu.INTERACTIVE", True):
-            with patch("ui.menu._getch", return_value="\r"):
-                # Act - should not raise
-                result = select_menu("Test Menu", options, subtitle="Choose wisely")
+        with patch("ui.menu._getch", return_value="\r"):
+            # Act - should not raise
 
-                # Assert
-                assert result == "1"
+            result = select_menu("Test Menu", options, subtitle="Choose wisely")
+
+            # Assert
+            assert result == "1"
 
     def test_select_menu_interactive_with_description(self):
         """Test select_menu renders description for selected option"""
         # Arrange
         options = [
-            MenuOption(key="1", label="Option 1", description="First option description"),
-            MenuOption(key="2", label="Option 2"),
+        MenuOption(key="1", label="Option 1", description="First option description"),
+        MenuOption(key="2", label="Option 2"),
         ]
 
-        with patch("ui.menu.INTERACTIVE", True):
-            with patch("ui.menu._getch", return_value="\r"):
-                # Act - should render description for selected option
-                result = select_menu("Test Menu", options)
+        with patch("ui.menu._getch", return_value="\r"):
+            # Act - should render description for selected option
 
-                # Assert
-                assert result == "1"
+            result = select_menu("Test Menu", options)
+
+            # Assert
+            assert result == "1"
 
     def test_select_menu_interactive_description_shown_only_for_selected(self):
         """Test description is shown only for selected option, not others"""
         # Arrange
         options = [
-            MenuOption(key="1", label="Option 1", description="First option description"),
-            MenuOption(key="2", label="Option 2", description="Second option description"),
-            MenuOption(key="3", label="Option 3", description="Third option description"),
+        MenuOption(key="1", label="Option 1", description="First option description"),
+        MenuOption(key="2", label="Option 2", description="Second option description"),
+        MenuOption(key="3", label="Option 3", description="Third option description"),
         ]
 
-        with patch("ui.menu.INTERACTIVE", True):
-            with patch("ui.menu._getch") as mock_getch:
-                # Select option 2, which should show its description
-                mock_getch.side_effect = ["DOWN", "\r"]
-                result = select_menu("Test Menu", options)
-                assert result == "2"
+        with patch("ui.menu._getch") as mock_getch:
+            # Select option 2, which should show its description
+
+            mock_getch.side_effect = ["DOWN", "\r"]
+            result = select_menu("Test Menu", options)
+            assert result == "2"
 
     def test_select_menu_interactive_multiple_down_moves(self):
         """Test multiple DOWN key presses"""
         # Arrange
         options = [
-            MenuOption(key="1", label="Option 1"),
-            MenuOption(key="2", label="Option 2"),
-            MenuOption(key="3", label="Option 3"),
-            MenuOption(key="4", label="Option 4"),
+        MenuOption(key="1", label="Option 1"),
+        MenuOption(key="2", label="Option 2"),
+        MenuOption(key="3", label="Option 3"),
+        MenuOption(key="4", label="Option 4"),
         ]
 
-        with patch("ui.menu.INTERACTIVE", True):
-            with patch("ui.menu._getch") as mock_getch:
-                # Move down twice
-                mock_getch.side_effect = ["DOWN", "DOWN", "\r"]
-                result = select_menu("Test Menu", options)
-                # Start at 0, DOWN -> 1, DOWN -> 2
-                assert result == "3"
+        with patch("ui.menu._getch") as mock_getch:
+            # Move down twice
+
+            mock_getch.side_effect = ["DOWN", "DOWN", "\r"]
+            result = select_menu("Test Menu", options)
+            # Start at 0, DOWN -> 1, DOWN -> 2
+            assert result == "3"
 
     def test_select_menu_interactive_mixed_navigation(self):
         """Test mixed navigation (UP, DOWN, j, k)"""
         # Arrange
         options = [
-            MenuOption(key="1", label="Option 1"),
-            MenuOption(key="2", label="Option 2"),
-            MenuOption(key="3", label="Option 3"),
+        MenuOption(key="1", label="Option 1"),
+        MenuOption(key="2", label="Option 2"),
+        MenuOption(key="3", label="Option 3"),
         ]
 
-        with patch("ui.menu.INTERACTIVE", True):
-            with patch("ui.menu._getch") as mock_getch:
-                # DOWN to option 2, UP back to option 1
-                mock_getch.side_effect = ["DOWN", "UP", "\r"]
-                result = select_menu("Test Menu", options)
-                assert result == "1"
+        with patch("ui.menu._getch") as mock_getch:
+            # DOWN to option 2, UP back to option 1
+
+            mock_getch.side_effect = ["DOWN", "UP", "\r"]
+            result = select_menu("Test Menu", options)
+            assert result == "1"
 
 
 # ============================================================================
@@ -931,228 +936,243 @@ class TestFallbackMenuExceptions:
         """Test _fallback_menu returns None on EOFError"""
         # Arrange
         options = [
-            MenuOption(key="1", label="Option 1"),
-            MenuOption(key="2", label="Option 2"),
+        MenuOption(key="1", label="Option 1"),
+        MenuOption(key="2", label="Option 2"),
         ]
 
         with patch("builtins.input", side_effect=EOFError):
             # Act
+
             result = select_menu("Test Menu", options)
 
-            # Assert
-            assert result is None
+        # Assert
+        assert result is None
 
     @patch("ui.menu.INTERACTIVE", False)
     def test_fallback_menu_keyboard_interrupt_returns_none(self):
         """Test _fallback_menu returns None on KeyboardInterrupt"""
         # Arrange
         options = [
-            MenuOption(key="1", label="Option 1"),
-            MenuOption(key="2", label="Option 2"),
+        MenuOption(key="1", label="Option 1"),
+        MenuOption(key="2", label="Option 2"),
         ]
 
         with patch("builtins.input", side_effect=KeyboardInterrupt):
             # Act
+
             result = select_menu("Test Menu", options)
 
-            # Assert
-            assert result is None
+        # Assert
+        assert result is None
 
     @patch("ui.menu.INTERACTIVE", False)
     def test_fallback_menu_eoferror_with_allow_quit_false(self):
         """Test EOFError returns None even when allow_quit is False"""
         # Arrange
         options = [
-            MenuOption(key="1", label="Option 1"),
+        MenuOption(key="1", label="Option 1"),
         ]
 
         with patch("builtins.input", side_effect=EOFError):
             # Act
+
             result = select_menu("Test Menu", options, allow_quit=False)
 
-            # Assert
-            assert result is None
+        # Assert
+        assert result is None
 
     @patch("ui.menu.INTERACTIVE", False)
     def test_fallback_menu_keyboard_interrupt_with_allow_quit_false(self):
         """Test KeyboardInterrupt returns None even when allow_quit is False"""
         # Arrange
         options = [
-            MenuOption(key="1", label="Option 1"),
+        MenuOption(key="1", label="Option 1"),
         ]
 
         with patch("builtins.input", side_effect=KeyboardInterrupt):
             # Act
+
             result = select_menu("Test Menu", options, allow_quit=False)
 
-            # Assert
-            assert result is None
+        # Assert
+        assert result is None
 
     @patch("ui.menu.INTERACTIVE", False)
     def test_fallback_menu_invalid_input_then_eoferror(self):
         """Test invalid input followed by EOFError"""
         # Arrange
         options = [
-            MenuOption(key="1", label="Option 1"),
+        MenuOption(key="1", label="Option 1"),
         ]
 
         with patch("builtins.input", side_effect=["invalid", EOFError]):
             # Act
+
             result = select_menu("Test Menu", options)
 
-            # Assert
-            assert result is None
+        # Assert
+        assert result is None
 
     @patch("ui.menu.INTERACTIVE", False)
     def test_fallback_menu_q_without_allow_quit(self):
         """Test 'q' input when allow_quit is False"""
         # Arrange
         options = [
-            MenuOption(key="1", label="Option 1"),
+        MenuOption(key="1", label="Option 1"),
         ]
 
         with patch("builtins.input", side_effect=["q", "1"]):
             # Act - 'q' should be treated as invalid, then '1' selects
+
             result = select_menu("Test Menu", options, allow_quit=False)
 
-            # Assert
-            assert result == "1"
+        # Assert
+        assert result == "1"
 
     @patch("ui.menu.INTERACTIVE", False)
     def test_fallback_menu_selects_disabled_option_invalid(self):
         """Test selecting disabled option shows as invalid"""
         # Arrange
         options = [
-            MenuOption(key="1", label="Option 1", disabled=True),
-            MenuOption(key="2", label="Option 2"),
+        MenuOption(key="1", label="Option 1", disabled=True),
+        MenuOption(key="2", label="Option 2"),
         ]
 
         with patch("builtins.input", side_effect=["1", "2"]):
             # Act - '1' is disabled (invalid), '2' is valid
+
             result = select_menu("Test Menu", options)
 
-            # Assert
-            assert result == "2"
+        # Assert
+        assert result == "2"
 
     @patch("ui.menu.INTERACTIVE", False)
     def test_fallback_menu_zero_input(self):
         """Test '0' input is treated as invalid (1-indexed)"""
         # Arrange
         options = [
-            MenuOption(key="1", label="Option 1"),
+        MenuOption(key="1", label="Option 1"),
         ]
 
         with patch("builtins.input", side_effect=["0", "1"]):
             # Act - '0' is invalid, '1' is valid
+
             result = select_menu("Test Menu", options)
 
-            # Assert
-            assert result == "1"
+        # Assert
+        assert result == "1"
 
     @patch("ui.menu.INTERACTIVE", False)
     def test_fallback_menu_negative_input(self):
         """Test negative number input is treated as invalid"""
         # Arrange
         options = [
-            MenuOption(key="1", label="Option 1"),
+        MenuOption(key="1", label="Option 1"),
         ]
 
         with patch("builtins.input", side_effect=["-1", "1"]):
             # Act - '-1' causes ValueError, '1' is valid
+
             result = select_menu("Test Menu", options)
 
-            # Assert
-            assert result == "1"
+        # Assert
+        assert result == "1"
 
     @patch("ui.menu.INTERACTIVE", False)
     def test_fallback_menu_non_numeric_input(self):
         """Test non-numeric input is treated as invalid"""
         # Arrange
         options = [
-            MenuOption(key="1", label="Option 1"),
+        MenuOption(key="1", label="Option 1"),
         ]
 
         with patch("builtins.input", side_effect=["abc", "1"]):
             # Act - 'abc' causes ValueError, '1' is valid
+
             result = select_menu("Test Menu", options)
 
-            # Assert
-            assert result == "1"
+        # Assert
+        assert result == "1"
 
     @patch("ui.menu.INTERACTIVE", False)
     def test_fallback_menu_empty_input(self):
         """Test empty input is treated as invalid"""
         # Arrange
         options = [
-            MenuOption(key="1", label="Option 1"),
+        MenuOption(key="1", label="Option 1"),
         ]
 
         with patch("builtins.input", side_effect=["", "1"]):
             # Act - empty string causes ValueError, '1' is valid
+
             result = select_menu("Test Menu", options)
 
-            # Assert
-            assert result == "1"
+        # Assert
+        assert result == "1"
 
     @patch("ui.menu.INTERACTIVE", False)
     def test_fallback_menu_with_icon(self):
         """Test _fallback_menu with options that have icons"""
         # Arrange
         options = [
-            MenuOption(key="1", label="Option 1", icon=Icons.SUCCESS),
+        MenuOption(key="1", label="Option 1", icon=Icons.SUCCESS),
         ]
 
         with patch("builtins.input", return_value="1"):
             # Act - should not raise
+
             result = select_menu("Test Menu", options)
 
-            # Assert
-            assert result == "1"
+        # Assert
+        assert result == "1"
 
     @patch("ui.menu.INTERACTIVE", False)
     def test_fallback_menu_q_with_allow_quit(self):
         """Test 'q' input returns None when allow_quit is True"""
         # Arrange
         options = [
-            MenuOption(key="1", label="Option 1"),
+        MenuOption(key="1", label="Option 1"),
         ]
 
         with patch("builtins.input", return_value="q"):
             # Act
+
             result = select_menu("Test Menu", options, allow_quit=True)
 
-            # Assert
-            assert result is None
+        # Assert
+        assert result is None
 
     @patch("ui.menu.INTERACTIVE", False)
     def test_fallback_menu_case_insensitive_q(self):
         """Test 'Q' (uppercase) is treated as quit"""
         # Arrange
         options = [
-            MenuOption(key="1", label="Option 1"),
+        MenuOption(key="1", label="Option 1"),
         ]
 
         with patch("builtins.input", return_value="Q"):
             # Act
+
             result = select_menu("Test Menu", options, allow_quit=True)
 
-            # Assert
-            assert result is None
+        # Assert
+        assert result is None
 
     @patch("ui.menu.INTERACTIVE", False)
     def test_fallback_menu_whitespace_handling(self):
         """Test input with whitespace is stripped"""
         # Arrange
         options = [
-            MenuOption(key="1", label="Option 1"),
+        MenuOption(key="1", label="Option 1"),
         ]
 
         with patch("builtins.input", return_value="  1  "):
             # Act - whitespace should be stripped
+
             result = select_menu("Test Menu", options)
 
-            # Assert
-            assert result == "1"
+        # Assert
+        assert result == "1"
 
 
 # ============================================================================
@@ -1163,119 +1183,118 @@ class TestFallbackMenuExceptions:
 class TestSelectMenuRenderFunction:
     """Tests to ensure render() function is executed"""
 
-    @patch("ui.menu.INTERACTIVE", True)
     def test_render_function_called_on_initial_display(self):
         """Test that render() is called when menu is first displayed"""
         # Arrange
         options = [
-            MenuOption(key="1", label="Option 1"),
-            MenuOption(key="2", label="Option 2"),
+        MenuOption(key="1", label="Option 1"),
+        MenuOption(key="2", label="Option 2"),
         ]
 
         # Don't mock print - let render() execute normally
         with patch("ui.menu._getch", return_value="\r"):
             # Act
+
             result = select_menu("Test Menu", options)
 
-            # Assert
-            assert result == "1"
+        # Assert
+        assert result == "1"
 
-    @patch("ui.menu.INTERACTIVE", True)
     def test_render_function_called_on_navigation(self):
         """Test that render() is called when navigating with arrow keys"""
         # Arrange
         options = [
-            MenuOption(key="1", label="Option 1"),
-            MenuOption(key="2", label="Option 2"),
-            MenuOption(key="3", label="Option 3"),
+        MenuOption(key="1", label="Option 1"),
+        MenuOption(key="2", label="Option 2"),
+        MenuOption(key="3", label="Option 3"),
         ]
 
         with patch("ui.menu._getch") as mock_getch:
             mock_getch.side_effect = ["DOWN", "\r"]
-            # Act
-            result = select_menu("Test Menu", options)
+        # Act
+        result = select_menu("Test Menu", options)
 
-            # Assert
-            assert result == "2"
+        # Assert
+        assert result == "2"
 
-    @patch("ui.menu.INTERACTIVE", True)
     def test_render_function_with_subtitle(self):
         """Test render() with subtitle parameter"""
         # Arrange
         options = [
-            MenuOption(key="1", label="Option 1"),
+        MenuOption(key="1", label="Option 1"),
         ]
 
         with patch("ui.menu._getch", return_value="\r"):
             # Act
+
             result = select_menu("Test Menu", options, subtitle="Choose wisely")
 
-            # Assert
-            assert result == "1"
+        # Assert
+        assert result == "1"
 
-    @patch("ui.menu.INTERACTIVE", True)
     def test_render_function_with_disabled_option(self):
         """Test render() with disabled option"""
         # Arrange
         options = [
-            MenuOption(key="1", label="Option 1", disabled=True),
-            MenuOption(key="2", label="Option 2"),
+        MenuOption(key="1", label="Option 1", disabled=True),
+        MenuOption(key="2", label="Option 2"),
         ]
 
         with patch("ui.menu._getch", return_value="\r"):
             # Act
+
             result = select_menu("Test Menu", options)
 
-            # Assert
-            # Should select option 2 since option 1 is disabled
-            assert result == "2"
+        # Assert
+        # Should select option 2 since option 1 is disabled
+        assert result == "2"
 
-    @patch("ui.menu.INTERACTIVE", True)
     def test_render_function_with_description(self):
         """Test render() displays description for selected option"""
         # Arrange
         options = [
-            MenuOption(key="1", label="Option 1", description="This is option 1"),
-            MenuOption(key="2", label="Option 2", description="This is option 2"),
+        MenuOption(key="1", label="Option 1", description="This is option 1"),
+        MenuOption(key="2", label="Option 2", description="This is option 2"),
         ]
 
         with patch("ui.menu._getch", return_value="\r"):
             # Act
+
             result = select_menu("Test Menu", options)
 
-            # Assert
-            assert result == "1"
+        # Assert
+        assert result == "1"
 
-    @patch("ui.menu.INTERACTIVE", True)
     def test_render_function_no_quit_option(self):
         """Test render() when allow_quit is False"""
         # Arrange
         options = [
-            MenuOption(key="1", label="Option 1"),
+        MenuOption(key="1", label="Option 1"),
         ]
 
         with patch("ui.menu._getch", return_value="\r"):
             # Act
+
             result = select_menu("Test Menu", options, allow_quit=False)
 
-            # Assert
-            assert result == "1"
+        # Assert
+        assert result == "1"
 
-    @patch("ui.menu.INTERACTIVE", True)
     def test_render_function_with_icons(self):
         """Test render() with menu option icons"""
         # Arrange
         options = [
-            MenuOption(key="1", label="Option 1", icon=Icons.SUCCESS),
-            MenuOption(key="2", label="Option 2", icon=Icons.ERROR),
+        MenuOption(key="1", label="Option 1", icon=Icons.SUCCESS),
+        MenuOption(key="2", label="Option 2", icon=Icons.ERROR),
         ]
 
         with patch("ui.menu._getch", return_value="\r"):
             # Act
+
             result = select_menu("Test Menu", options)
 
-            # Assert
-            assert result == "1"
+        # Assert
+        assert result == "1"
 
 
 # ============================================================================
@@ -1328,6 +1347,7 @@ class TestGetchActualExecution:
                     with patch("ui.menu.sys.stdin.read", return_value="Y"):
                         with patch("ui.menu.termios.tcgetattr", return_value=old_settings):
                             # Act
+
                             result = menu_module._getch()
 
                             # Assert - verify Unix path was executed
@@ -1422,11 +1442,11 @@ class TestModuleImportFailure:
         """Test MenuOption with all fields populated"""
         # Arrange & Act
         option = MenuOption(
-            key="test_key",
-            label="Test Label",
-            icon=(Icons.SUCCESS[0], Icons.SUCCESS[1]),
-            description="This is a test description",
-            disabled=True,
+        key="test_key",
+        label="Test Label",
+        icon=(Icons.SUCCESS[0], Icons.SUCCESS[1]),
+        description="This is a test description",
+        disabled=True,
         )
 
         # Assert
@@ -1440,20 +1460,19 @@ class TestModuleImportFailure:
         """Test select_menu with single option"""
         # Arrange
         options = [
-            MenuOption(key="only", label="Only Option"),
+        MenuOption(key="only", label="Only Option"),
         ]
 
-        with patch("ui.menu.INTERACTIVE", True):
-            with patch("ui.menu._getch", return_value="\r"):
-                # Act
+        with patch("ui.menu._getch", return_value="\r"):
+            # Act
+
                 result = select_menu("Single Menu", options)
 
                 # Assert
                 assert result == "only"
 
-    @patch("ui.menu.INTERACTIVE", True)
     def test_select_menu_preserves_selection_on_invalid_key(self):
-        """Test that invalid key presses don't change selection"""
+        """Invalid key presses don't change selection"""
         # Arrange
         options = [
             MenuOption(key="1", label="Option 1"),
@@ -1462,6 +1481,7 @@ class TestModuleImportFailure:
 
         with patch("ui.menu._getch") as mock_getch:
             # Press an invalid key (not handled), then Enter
+
             mock_getch.side_effect = ["x", "\r"]
             # Act
             result = select_menu("Test Menu", options)
