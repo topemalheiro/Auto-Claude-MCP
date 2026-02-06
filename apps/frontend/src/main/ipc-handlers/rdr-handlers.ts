@@ -121,6 +121,52 @@ function calculateTaskProgress(task: TaskInfo): number {
 }
 
 /**
+ * Enrich a task with worktree plan data when the worktree has a more active status.
+ * The ProjectStore dedup prefers main (for KanbanBoard display), but worktrees have
+ * the ACTUAL agent progress. Tasks showing human_review 100% in main may actually be
+ * ai_review or in_progress in the worktree (still being worked on by the agent).
+ *
+ * Path: <project>/.auto-claude/worktrees/tasks/<taskId>/.auto-claude/specs/<taskId>/implementation_plan.json
+ */
+function enrichTaskWithWorktreeData(task: TaskInfo, projectPath: string): TaskInfo {
+  const worktreePlanPath = path.join(
+    projectPath, '.auto-claude', 'worktrees', 'tasks', task.specId,
+    '.auto-claude', 'specs', task.specId, 'implementation_plan.json'
+  );
+
+  if (!existsSync(worktreePlanPath)) {
+    return task;
+  }
+
+  try {
+    const worktreePlan = JSON.parse(readFileSync(worktreePlanPath, 'utf-8'));
+    const worktreeStatus = worktreePlan.status as string;
+
+    // Terminal statuses in worktree mean the agent is done - don't override
+    if (worktreeStatus === 'done' || worktreeStatus === 'pr_created' || worktreeStatus === 'completed') {
+      return task;
+    }
+
+    // If worktree has an "active" status that differs from main, use worktree data
+    // This catches cases where main shows human_review 100% but agent is still working
+    const activeStatuses = ['in_progress', 'ai_review', 'qa_approved', 'planning', 'coding'];
+    if (activeStatuses.includes(worktreeStatus) && worktreeStatus !== task.status) {
+      console.log(`[RDR] Enriching task ${task.specId}: main=${task.status} → worktree=${worktreeStatus}`);
+      return {
+        ...task,
+        status: worktreeStatus,
+        phases: worktreePlan.phases || task.phases,
+        planStatus: worktreePlan.status,
+      };
+    }
+  } catch (e) {
+    // Silently fall through - use main data
+  }
+
+  return task;
+}
+
+/**
  * Check if task is legitimate human review (shouldn't be flagged by RDR)
  * Tasks at 100% completion + completed reviewReason = waiting for merge approval
  *
@@ -1595,7 +1641,17 @@ export function registerRdrHandlers(): void {
       console.log(`[RDR] Getting batch details for project ${projectId}`);
 
       try {
-        const tasks = projectStore.getTasks(projectId);
+        const project = projectStore.getProject(projectId);
+        const projectPath = project?.path;
+        const rawTasks = projectStore.getTasks(projectId);
+
+        // Enrich tasks with worktree data before intervention check.
+        // ProjectStore dedup prefers main (for board display), but worktrees have
+        // actual agent progress. Tasks at human_review 100% in main may be
+        // ai_review/in_progress in the worktree.
+        const tasks = projectPath
+          ? rawTasks.map(t => enrichTaskWithWorktreeData(t, projectPath))
+          : rawTasks;
 
         /**
          * Helper: Check if task needs intervention
