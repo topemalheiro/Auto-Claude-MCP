@@ -106,6 +106,13 @@ export interface TaskAPI {
     oldStatus: TaskStatus;
     newStatus: TaskStatus;
   }) => void) => () => void;
+  onTaskRegressionDetected: (callback: (data: {
+    projectId: string;
+    specId: string;
+    oldStatus: string;
+    newStatus: string;
+    timestamp: string;
+  }) => void) => () => void;
 
   // Task Phase Logs
   getTaskLogs: (projectId: string, specId: string) => Promise<IPCResult<TaskLogs | null>>;
@@ -363,6 +370,21 @@ export const createTaskAPI = (): TaskAPI => ({
     ipcRenderer.on(IPC_CHANNELS.TASK_STATUS_CHANGED, handler);
     return () => {
       ipcRenderer.removeListener(IPC_CHANNELS.TASK_STATUS_CHANGED, handler);
+    };
+  },
+
+  onTaskRegressionDetected: (
+    callback: (data: { projectId: string; specId: string; oldStatus: string; newStatus: string; timestamp: string }) => void
+  ): (() => void) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      data: { projectId: string; specId: string; oldStatus: string; newStatus: string; timestamp: string }
+    ): void => {
+      callback(data);
+    };
+    ipcRenderer.on(IPC_CHANNELS.TASK_REGRESSION_DETECTED, handler);
+    return () => {
+      ipcRenderer.removeListener(IPC_CHANNELS.TASK_REGRESSION_DETECTED, handler);
     };
   },
 

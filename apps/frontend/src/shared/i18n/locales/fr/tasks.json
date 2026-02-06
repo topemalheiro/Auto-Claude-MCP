@@ -120,6 +120,8 @@
     "rdrSendSuccessDesc": "Message RDR envoyé à la fenêtre Claude Code.",
     "rdrSendFailed": "Échec de l'envoi",
     "rdrSendFailedDesc": "Échec de l'envoi du message vers la fenêtre VS Code.",
+    "rdrTaskRegression": "Régression de Tâche",
+    "rdrTaskRegressionDesc": "{{specId}} est retournée en planification après avoir été démarrée",
     "rdrInterventionTypes": {
       "recovery": "Récupération Nécessaire",
       "recoveryDesc": "La tâche a planté ou a échoué - nécessite une récupération",

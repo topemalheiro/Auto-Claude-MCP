@@ -120,6 +120,8 @@
     "rdrSendSuccessDesc": "RDR message sent to Claude Code window.",
     "rdrSendFailed": "Send Failed",
     "rdrSendFailedDesc": "Failed to send message to VS Code window.",
+    "rdrTaskRegression": "Task Regression",
+    "rdrTaskRegressionDesc": "{{specId}} went back to planning after being started",
     "rdrInterventionTypes": {
       "recovery": "Needs Recovery",
       "recoveryDesc": "Task crashed or errored - requires recovery",

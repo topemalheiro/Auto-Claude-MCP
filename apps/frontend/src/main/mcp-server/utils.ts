@@ -13,6 +13,7 @@ import { projectStore } from '../project-store';
 import { titleGenerator } from '../title-generator';
 import { AUTO_BUILD_PATHS, getSpecsDir } from '../../shared/constants';
 import type { Task, TaskMetadata, TaskStatus } from '../../shared/types';
+import type { Project } from '../../shared/types';
 import type {
   TaskOptions,
   CreatedTask,
@@ -22,6 +23,35 @@ import type {
   PhaseModels,
   PhaseThinking
 } from './types';
+
+/**
+ * Resolve a project from either UUID or filesystem path.
+ * Falls back to path-based lookup when UUID doesn't match (common with in-memory vs on-disk UUID mismatch).
+ */
+export function resolveProjectPath(
+  projectId: string,
+  projectPath?: string
+): { projectPath: string; project?: Project } | { error: string } {
+  // Try UUID first
+  const project = projectStore.getProject(projectId);
+  if (project) {
+    return { projectPath: project.path, project };
+  }
+
+  // Fall back to path-based lookup
+  if (projectPath) {
+    const byPath = projectStore.getProjectByPath(projectPath);
+    if (byPath) {
+      return { projectPath: byPath.path, project: byPath };
+    }
+    // Path provided but not in store — use it directly if specs dir exists on disk
+    if (existsSync(path.join(projectPath, '.auto-claude', 'specs'))) {
+      return { projectPath };
+    }
+  }
+
+  return { error: `Project not found: ${projectId}${projectPath ? ` (path: ${projectPath})` : ''}` };
+}
 
 /**
  * Convert MCP TaskOptions to internal TaskMetadata
@@ -80,12 +110,17 @@ export async function createTask(
   projectId: string,
   description: string,
   title?: string,
-  options?: TaskOptions
+  options?: TaskOptions,
+  projectPathFallback?: string
 ): Promise<MCPResult<CreatedTask>> {
   try {
-    const project = projectStore.getProject(projectId);
+    const resolved = resolveProjectPath(projectId, projectPathFallback);
+    if ('error' in resolved) {
+      return { success: false, error: resolved.error };
+    }
+    const project = resolved.project;
     if (!project) {
-      return { success: false, error: `Project not found: ${projectId}` };
+      return { success: false, error: `Project not registered in store. Path: ${resolved.projectPath}` };
     }
 
     // Auto-generate title if empty using Claude AI
@@ -202,15 +237,20 @@ export async function createTask(
  */
 export function listTasks(
   projectId: string,
-  statusFilter?: TaskStatus
+  statusFilter?: TaskStatus,
+  projectPathFallback?: string
 ): MCPResult<TaskSummary[]> {
   try {
-    const project = projectStore.getProject(projectId);
+    const resolved = resolveProjectPath(projectId, projectPathFallback);
+    if ('error' in resolved) {
+      return { success: false, error: resolved.error };
+    }
+    const project = resolved.project;
     if (!project) {
-      return { success: false, error: `Project not found: ${projectId}` };
+      return { success: false, error: `Project not registered in store. Path: ${resolved.projectPath}` };
     }
 
-    const tasks = projectStore.getTasks(projectId);
+    const tasks = projectStore.getTasks(project.id);
 
     let filteredTasks = tasks;
     if (statusFilter) {
@@ -239,10 +279,16 @@ export function listTasks(
  */
 export function getTaskStatus(
   projectId: string,
-  taskId: string
+  taskId: string,
+  projectPathFallback?: string
 ): MCPResult<TaskStatusDetail> {
   try {
-    const tasks = projectStore.getTasks(projectId);
+    const resolved = resolveProjectPath(projectId, projectPathFallback);
+    if ('error' in resolved) {
+      return { success: false, error: resolved.error };
+    }
+    const resolvedId = resolved.project?.id || projectId;
+    const tasks = projectStore.getTasks(resolvedId);
     const task = tasks.find(t => t.specId === taskId || t.id === taskId);
 
     if (!task) {
@@ -333,12 +379,17 @@ export function executeCommand(
  */
 export function startTask(
   projectId: string,
-  taskId: string
+  taskId: string,
+  projectPathFallback?: string
 ): MCPResult<{ message: string }> {
   try {
-    const project = projectStore.getProject(projectId);
+    const resolved = resolveProjectPath(projectId, projectPathFallback);
+    if ('error' in resolved) {
+      return { success: false, error: resolved.error };
+    }
+    const project = resolved.project;
     if (!project) {
-      return { success: false, error: `Project not found: ${projectId}` };
+      return { success: false, error: `Project not registered in store. Path: ${resolved.projectPath}` };
     }
 
     // Find the task's spec directory

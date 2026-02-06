@@ -228,6 +228,16 @@ export class ProjectStore {
   }
 
   /**
+   * Get a project by filesystem path (fallback when UUID doesn't match)
+   */
+  getProjectByPath(projectPath: string): Project | undefined {
+    const normalizedInput = path.resolve(projectPath);
+    return this.data.projects.find(
+      (p) => path.resolve(p.path) === normalizedInput
+    );
+  }
+
+  /**
    * Update project settings
    */
   updateProjectSettings(

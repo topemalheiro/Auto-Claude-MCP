@@ -56,6 +56,7 @@ export const IPC_CHANNELS = {
   TASK_AUTO_START: 'task:autoStart',      // MCP requested task start, UI should trigger execution
   TASK_STATUS_CHANGED: 'task:statusChanged',  // Task status changed (for RDR auto-recovery board movement)
   TASK_AUTO_REFRESH_TRIGGER: 'task:autoRefreshTrigger',  // File watcher detected change, trigger auto-refresh if enabled
+  TASK_REGRESSION_DETECTED: 'task:regressionDetected',  // Task regressed from started/running back to backlog
 
   // Task phase logs (persistent, collapsible logs by phase)
   TASK_LOGS_GET: 'task:logsGet',           // Load logs from spec dir

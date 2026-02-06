@@ -95,6 +95,7 @@ export const taskMock = {
   onTaskListRefresh: () => () => {},
   onTaskAutoStart: () => () => {},
   onTaskStatusChanged: () => () => {},
+  onTaskRegressionDetected: () => () => {},
 
   // RDR (Recover Debug Resend) operations
   triggerRdrProcessing: async () => ({ success: true, data: { processed: 0 } }),

@@ -1037,17 +1037,21 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       for (const batch of data.batches) {
         lines.push(`  mcp__auto-claude-manager__process_rdr_batch({`);
         lines.push(`    projectId: "${data.projectId}",`);
+        if (data.projectPath) {
+          lines.push(`    projectPath: "${data.projectPath}",`);
+        }
         lines.push(`    batchType: "${batch.type}",`);
         lines.push(`    fixes: [${batch.taskIds.map(id => `{ taskId: "${id}" }`).join(', ')}]`);
         lines.push(`  })`);
         lines.push('');
       }
     }
+    const pathParam = data.projectPath ? `, projectPath: "${data.projectPath}"` : '';
     lines.push('**Available MCP Tools:**');
-    lines.push('- `mcp__auto-claude-manager__get_rdr_batches({ projectId })` - Get all recovery batches');
-    lines.push('- `mcp__auto-claude-manager__process_rdr_batch({ projectId, batchType, fixes })` - Auto-recover batch');
-    lines.push('- `mcp__auto-claude-manager__get_task_error_details({ projectId, taskId })` - Get detailed error logs');
-    lines.push('- `mcp__auto-claude-manager__submit_task_fix_request({ projectId, taskId, feedback })` - Manual fix request');
+    lines.push(`- \`mcp__auto-claude-manager__get_rdr_batches({ projectId: "${data.projectId}"${pathParam} })\` - Get all recovery batches`);
+    lines.push(`- \`mcp__auto-claude-manager__process_rdr_batch({ projectId: "${data.projectId}"${pathParam}, batchType, fixes })\` - Auto-recover batch`);
+    lines.push(`- \`mcp__auto-claude-manager__get_task_error_details({ projectId: "${data.projectId}"${pathParam}, taskId })\` - Get detailed error logs`);
+    lines.push(`- \`mcp__auto-claude-manager__submit_task_fix_request({ projectId: "${data.projectId}"${pathParam}, taskId, feedback })\` - Manual fix request`);
 
     return lines.join('\n');
   }, []);
@@ -1199,6 +1203,27 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     }
   }, [rdrEnabled, selectedWindowHandle, handleAutoRdr]);
 
+  // Detect task regression (started → backlog) and trigger immediate RDR
+  useEffect(() => {
+    if (!window.electronAPI?.onTaskRegressionDetected) return;
+
+    const cleanup = window.electronAPI.onTaskRegressionDetected((data) => {
+      if (data.projectId !== projectId) return;
+
+      console.warn(`[KanbanBoard] Task regression: ${data.specId} (${data.oldStatus} → ${data.newStatus})`);
+
+      toast({
+        title: t('tasks:kanban.rdrTaskRegression', 'Task Regression'),
+        description: t('tasks:kanban.rdrTaskRegressionDesc', { specId: data.specId, defaultValue: `${data.specId} went back to planning after being started` }),
+        variant: 'destructive'
+      });
+
+      // Trigger immediate RDR check (bypass 60s timer)
+      handleAutoRdr();
+    });
+    return cleanup;
+  }, [projectId, toast, t, handleAutoRdr]);
+
   // Helper function to start a task with retry logic
   const startTaskWithRetry = useCallback(async (taskId: string, maxRetries = 3, delayMs = 2000) => {
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -1317,7 +1342,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
         let message: string;
 
         if (batchResult.success && batchResult.data?.taskDetails?.length) {
-          message = buildRdrMessage({ ...batchResult.data, projectId });
+          message = buildRdrMessage({ ...batchResult.data, projectId, projectPath: batchResult.data.projectPath });
         } else {
           // Fallback to simple message if no detailed info available
           message = 'Check RDR batches and fix errored tasks';

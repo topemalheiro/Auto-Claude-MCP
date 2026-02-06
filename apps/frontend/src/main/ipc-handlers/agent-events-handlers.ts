@@ -562,6 +562,18 @@ export function registerAgenteventsHandlers(
       projectId: data.projectId,
       specId: data.specId
     });
+
+    // Detect task regression: was started/running but went back to backlog
+    if (data.newStatus === 'backlog' && data.oldStatus !== 'backlog') {
+      console.warn(`[AgentEvents] REGRESSION DETECTED: Task ${data.specId} went ${data.oldStatus} → backlog`);
+      safeSendToRenderer(getMainWindow, IPC_CHANNELS.TASK_REGRESSION_DETECTED, {
+        projectId: data.projectId,
+        specId: data.specId,
+        oldStatus: data.oldStatus,
+        newStatus: data.newStatus,
+        timestamp: new Date().toISOString()
+      });
+    }
   });
 
   // Start watching specs directories for all existing projects

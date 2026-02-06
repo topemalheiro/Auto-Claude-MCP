@@ -1044,6 +1044,7 @@ function generateBatchPrompt(batches: RdrBatch[], projectId: string, projectPath
   for (const batch of batches) {
     lines.push(`  mcp__auto-claude-manager__process_rdr_batch({`);
     lines.push(`    projectId: "${projectId}",`);
+    lines.push(`    projectPath: "${projectPath}",`);
     lines.push(`    batchType: "${batch.type}",`);
     lines.push(`    fixes: [${batch.taskIds.map(id => `{ taskId: "${id}" }`).join(', ')}]`);
     lines.push(`  })`);

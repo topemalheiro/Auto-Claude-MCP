@@ -32,7 +32,8 @@ import {
   getTaskStatus,
   startTask,
   executeCommand,
-  pollTaskStatuses
+  pollTaskStatuses,
+  resolveProjectPath
 } from './utils.js';
 import { projectStore } from '../project-store.js';
 import { readAndClearSignalFile } from '../ipc-handlers/rdr-handlers.js';
@@ -198,12 +199,13 @@ server.tool(
   'Create a new task in Auto-Claude with optional configuration for models, thinking levels, and review settings',
   {
     projectId: z.string().describe('The project ID (UUID) to create the task in'),
+    projectPath: z.string().optional().describe('Fallback filesystem path if projectId UUID not found'),
     description: z.string().describe('Detailed description of the task to implement'),
     title: z.string().optional().describe('Optional title for the task (auto-generated if empty)'),
     options: TaskOptionsSchema.describe('Optional configuration for models, thinking, review, and classification')
   },
-  withMonitoring('create_task', async ({ projectId, description, title, options }) => {
-    const result = await createTask(projectId, description, title, options as TaskOptions);
+  withMonitoring('create_task', async ({ projectId, projectPath, description, title, options }) => {
+    const result = await createTask(projectId, description, title, options as TaskOptions, projectPath);
 
     if (!result.success) {
       return {
@@ -235,10 +237,11 @@ server.tool(
   'List all tasks for a project, optionally filtered by status',
   {
     projectId: z.string().describe('The project ID (UUID) to list tasks from'),
+    projectPath: z.string().optional().describe('Fallback filesystem path if projectId UUID not found'),
     status: TaskStatusSchema.optional().describe('Optional status filter')
   },
-  async ({ projectId, status }) => {
-    const result = listTasks(projectId, status as TaskStatus | undefined);
+  async ({ projectId, projectPath, status }) => {
+    const result = listTasks(projectId, status as TaskStatus | undefined, projectPath);
 
     if (!result.success) {
       return {
@@ -265,10 +268,11 @@ server.tool(
   'Get detailed status of a specific task including progress and phase information',
   {
     projectId: z.string().describe('The project ID (UUID)'),
+    projectPath: z.string().optional().describe('Fallback filesystem path if projectId UUID not found'),
     taskId: z.string().describe('The task ID (spec folder name)')
   },
-  async ({ projectId, taskId }) => {
-    const result = getTaskStatus(projectId, taskId);
+  async ({ projectId, projectPath, taskId }) => {
+    const result = getTaskStatus(projectId, taskId, projectPath);
 
     if (!result.success) {
       return {
@@ -295,10 +299,11 @@ server.tool(
   'Start execution of a task. This writes a start_requested status that the Electron app detects and begins execution.',
   {
     projectId: z.string().describe('The project ID (UUID)'),
+    projectPath: z.string().optional().describe('Fallback filesystem path if projectId UUID not found'),
     taskId: z.string().describe('The task ID (spec folder name) to start')
   },
-  async ({ projectId, taskId }) => {
-    const result = startTask(projectId, taskId);
+  async ({ projectId, projectPath, taskId }) => {
+    const result = startTask(projectId, taskId, projectPath);
 
     if (!result.success) {
       return {
@@ -333,6 +338,7 @@ server.tool(
   'Create and optionally start multiple tasks at once',
   {
     projectId: z.string().describe('The project ID (UUID)'),
+    projectPath: z.string().optional().describe('Fallback filesystem path if projectId UUID not found'),
     tasks: z.array(z.object({
       description: z.string(),
       title: z.string().optional(),
@@ -341,7 +347,7 @@ server.tool(
     options: TaskOptionsSchema.describe('Default options applied to all tasks'),
     startImmediately: z.boolean().optional().default(true).describe('Whether to start tasks after creation')
   },
-  async ({ projectId, tasks, options, startImmediately }) => {
+  async ({ projectId, projectPath, tasks, options, startImmediately }) => {
     const results: BatchResult = {
       taskIds: [],
       created: 0,
@@ -361,7 +367,8 @@ server.tool(
         projectId,
         taskDef.description,
         taskDef.title,
-        mergedOptions
+        mergedOptions,
+        projectPath
       );
 
       if (result.success && result.data) {
@@ -407,12 +414,13 @@ server.tool(
   'Wait for tasks to reach Human Review status, then optionally execute a command (like shutdown). IMPORTANT: Will NOT execute command if any tasks crashed due to rate limit - those tasks will auto-resume when limit resets.',
   {
     projectId: z.string().describe('The project ID (UUID)'),
+    projectPath: z.string().optional().describe('Fallback filesystem path if projectId UUID not found'),
     taskIds: z.array(z.string()).describe('Array of task IDs to monitor'),
     onComplete: OnCompleteSchema.describe('Optional command to execute when all tasks reach Human Review'),
     pollIntervalMs: z.number().optional().default(30000).describe('How often to check status (default: 30000ms)'),
     timeoutMs: z.number().optional().describe('Maximum time to wait (no default = wait indefinitely)')
   },
-  async ({ projectId, taskIds, onComplete, pollIntervalMs, timeoutMs }) => {
+  async ({ projectId, projectPath: _projectPath, taskIds, onComplete, pollIntervalMs, timeoutMs }) => {
     console.warn(`[MCP] Starting wait for ${taskIds.length} tasks to reach Human Review`);
 
     const pollResult = await pollTaskStatuses(
@@ -482,10 +490,11 @@ server.tool(
   'get_tasks_needing_intervention',
   'Get all tasks that need intervention (errors, stuck, incomplete subtasks, QA rejected)',
   {
-    projectId: z.string().describe('The project ID (UUID)')
+    projectId: z.string().describe('The project ID (UUID)'),
+    projectPath: z.string().optional().describe('Fallback filesystem path if projectId UUID not found')
   },
-  async ({ projectId }) => {
-    const result = await listTasks(projectId);
+  async ({ projectId, projectPath }) => {
+    const result = await listTasks(projectId, undefined, projectPath);
 
     if (!result.success || !result.data) {
       return {
@@ -561,10 +570,11 @@ server.tool(
   'Get detailed error information for a task including logs, QA report, and context',
   {
     projectId: z.string().describe('The project ID (UUID)'),
+    projectPath: z.string().optional().describe('Fallback filesystem path if projectId UUID not found'),
     taskId: z.string().describe('The task/spec ID')
   },
-  withMonitoring('get_task_error_details', async ({ projectId, taskId }) => {
-    const statusResult = await getTaskStatus(projectId, taskId);
+  withMonitoring('get_task_error_details', async ({ projectId, projectPath, taskId }) => {
+    const statusResult = await getTaskStatus(projectId, taskId, projectPath);
 
     if (!statusResult.success || !statusResult.data) {
       return {
@@ -637,27 +647,28 @@ server.tool(
   'Trigger recovery for a stuck task (equivalent to clicking Recover button). Uses file-based recovery.',
   {
     projectId: z.string().describe('The project ID (UUID)'),
+    projectPath: z.string().optional().describe('Fallback filesystem path if projectId UUID not found'),
     taskId: z.string().describe('The task/spec ID'),
     autoRestart: z.boolean().optional().default(true).describe('Whether to auto-restart after recovery')
   },
-  withMonitoring('recover_stuck_task', async ({ projectId, taskId, autoRestart }) => {
+  withMonitoring('recover_stuck_task', async ({ projectId, projectPath, taskId, autoRestart }) => {
     // File-based recovery: Read plan, remove stuckSince, set start_requested if autoRestart
     const { existsSync, writeFileSync, readFileSync } = await import('fs');
     const path = await import('path');
 
-    // Get project path
-    const tasksResult = await listTasks(projectId);
-    if (!tasksResult.success || !tasksResult.data || tasksResult.data.length === 0) {
+    // Get project path via UUID or fallback path
+    const resolved = resolveProjectPath(projectId, projectPath);
+    if ('error' in resolved) {
       return {
         content: [{
           type: 'text' as const,
-          text: JSON.stringify({ success: false, error: 'Could not determine project path - no tasks found' })
+          text: JSON.stringify({ success: false, error: resolved.error })
         }]
       };
     }
 
-    const projectPath = tasksResult.data[0].projectPath;
-    const specDir = path.join(projectPath, '.auto-claude', 'specs', taskId);
+    const resolvedProjectPath = resolved.projectPath;
+    const specDir = path.join(resolvedProjectPath, '.auto-claude', 'specs', taskId);
     const planPath = path.join(specDir, 'implementation_plan.json');
 
     if (!existsSync(planPath)) {
@@ -703,7 +714,7 @@ server.tool(
 
       // Also update worktree plan (if it exists)
       const worktreePlanPath = path.join(
-        projectPath, '.auto-claude', 'worktrees', 'tasks', taskId,
+        resolvedProjectPath, '.auto-claude', 'worktrees', 'tasks', taskId,
         '.auto-claude', 'specs', taskId, 'implementation_plan.json'
       );
       if (existsSync(worktreePlanPath)) {
@@ -777,38 +788,28 @@ server.tool(
   - Task auto-restarts and resumes from where it left off`,
   {
     projectId: z.string().describe('The project ID (UUID)'),
+    projectPath: z.string().optional().describe('Fallback filesystem path if projectId UUID not found'),
     taskId: z.string().describe('The task/spec ID'),
     feedback: z.string().describe('Description of what needs to be fixed (include context from Overview, Subtasks, Logs, Files tabs)')
   },
-  withMonitoring('submit_task_fix_request', async ({ projectId, taskId, feedback }) => {
+  withMonitoring('submit_task_fix_request', async ({ projectId, projectPath, taskId, feedback }) => {
     // Import fs functions
     const { existsSync, writeFileSync, readFileSync } = await import('fs');
     const path = await import('path');
 
-    // Get project from cached data
-    const statusResult = await getTaskStatus(projectId, taskId);
-    if (!statusResult.success || !statusResult.data) {
+    // Resolve project path via UUID or fallback path
+    const resolved = resolveProjectPath(projectId, projectPath);
+    if ('error' in resolved) {
       return {
         content: [{
           type: 'text' as const,
-          text: JSON.stringify({ success: false, error: statusResult.error || 'Task not found' })
+          text: JSON.stringify({ success: false, error: resolved.error })
         }]
       };
     }
 
-    // Determine project path from tasks list (get from any task since all have same project)
-    const tasksResult = await listTasks(projectId);
-    if (!tasksResult.success || !tasksResult.data || tasksResult.data.length === 0) {
-      return {
-        content: [{
-          type: 'text' as const,
-          text: JSON.stringify({ success: false, error: 'Could not determine project path - no tasks found' })
-        }]
-      };
-    }
-
-    const projectPath = tasksResult.data[0].projectPath;
-    const specDir = path.join(projectPath, '.auto-claude', 'specs', taskId);
+    const resolvedProjectPath = resolved.projectPath;
+    const specDir = path.join(resolvedProjectPath, '.auto-claude', 'specs', taskId);
     const fixRequestPath = path.join(specDir, 'QA_FIX_REQUEST.md');
     const planPath = path.join(specDir, 'implementation_plan.json');
 
@@ -851,7 +852,7 @@ Source: Claude Code MCP Tool (Priority 2: Request Changes)
 
       // Also write QA_FIX_REQUEST.md to worktree (agent runs there, needs to see it)
       const worktreeSpecDir = path.join(
-        projectPath, '.auto-claude', 'worktrees', 'tasks', taskId,
+        resolvedProjectPath, '.auto-claude', 'worktrees', 'tasks', taskId,
         '.auto-claude', 'specs', taskId
       );
       if (existsSync(worktreeSpecDir)) {
@@ -928,14 +929,15 @@ server.tool(
   'Get detailed phase logs for a task (planning, coding, validation)',
   {
     projectId: z.string().describe('The project ID (UUID)'),
+    projectPath: z.string().optional().describe('Fallback filesystem path if projectId UUID not found'),
     taskId: z.string().describe('The task/spec ID'),
     phase: z.enum(['planning', 'coding', 'validation']).optional().describe('Specific phase to get logs for (all phases if not specified)'),
     lastN: z.number().optional().default(50).describe('Number of recent log entries to return')
   },
-  async ({ projectId, taskId, phase, lastN }) => {
+  async ({ projectId, projectPath, taskId, phase, lastN }) => {
     // Note: Full log access requires IPC which is only available within Electron context
     // When running as standalone MCP server, we provide limited info
-    const statusResult = await getTaskStatus(projectId, taskId);
+    const statusResult = await getTaskStatus(projectId, taskId, projectPath);
 
     if (!statusResult.success || !statusResult.data) {
       return {
@@ -977,22 +979,23 @@ server.tool(
   'get_rdr_batches',
   'Get all pending RDR (Recover Debug Resend) batches categorized by problem type. Returns tasks grouped into: json_error, incomplete, qa_rejected, errors. Also reads and clears any pending signal file from the Electron app.',
   {
-    projectId: z.string().describe('The project ID (UUID)')
+    projectId: z.string().describe('The project ID (UUID)'),
+    projectPath: z.string().optional().describe('Fallback filesystem path if projectId UUID not found')
   },
-  withMonitoring('get_rdr_batches', async ({ projectId }) => {
-    // Get project to check for signal file
-    const project = projectStore.getProject(projectId);
+  withMonitoring('get_rdr_batches', async ({ projectId, projectPath }) => {
+    // Resolve project path via UUID or fallback
+    const resolved = resolveProjectPath(projectId, projectPath);
     let signalData = null;
 
-    if (project) {
+    if (!('error' in resolved)) {
       // Check for and read signal file (clears it after reading)
-      signalData = readAndClearSignalFile(project.path);
+      signalData = readAndClearSignalFile(resolved.projectPath);
       if (signalData) {
         console.log(`[MCP] Found and cleared RDR signal file with ${signalData.batches?.length || 0} batches`);
       }
     }
 
-    const tasksResult = await listTasks(projectId);
+    const tasksResult = await listTasks(projectId, undefined, projectPath);
 
     if (!tasksResult.success || !tasksResult.data) {
       return {
@@ -1161,33 +1164,34 @@ server.tool(
   - errors: Analyze and write fix request (Priority 2), then trigger Priority 1`,
   {
     projectId: z.string().describe('The project ID (UUID)'),
+    projectPath: z.string().optional().describe('Fallback filesystem path if projectId UUID not found'),
     batchType: z.enum(['json_error', 'incomplete', 'qa_rejected', 'errors']).describe('The type of batch to process'),
     fixes: z.array(z.object({
       taskId: z.string().describe('The task/spec ID'),
       feedback: z.string().optional().describe('Fix description for this task (optional for incomplete/json_error batches)')
     })).describe('Array of task fixes to submit')
   },
-  withMonitoring('process_rdr_batch', async ({ projectId, batchType, fixes }) => {
+  withMonitoring('process_rdr_batch', async ({ projectId, projectPath, batchType, fixes }) => {
     // Import fs functions
     const { existsSync, writeFileSync, readFileSync } = await import('fs');
     const path = await import('path');
 
-    // Get project path (from any task since all have same project)
-    const tasksResult = await listTasks(projectId);
-    if (!tasksResult.success || !tasksResult.data || tasksResult.data.length === 0) {
+    // Resolve project path via UUID or fallback path
+    const resolved = resolveProjectPath(projectId, projectPath);
+    if ('error' in resolved) {
       return {
         content: [{
           type: 'text' as const,
-          text: JSON.stringify({ success: false, error: 'Could not determine project path - no tasks found' })
+          text: JSON.stringify({ success: false, error: resolved.error })
         }]
       };
     }
 
-    const projectPath = tasksResult.data[0].projectPath;
+    const resolvedProjectPath = resolved.projectPath;
     const results: Array<{ taskId: string; success: boolean; action: string; priority: number; error?: string }> = [];
 
     for (const fix of fixes) {
-      const specDir = path.join(projectPath, '.auto-claude', 'specs', fix.taskId);
+      const specDir = path.join(resolvedProjectPath, '.auto-claude', 'specs', fix.taskId);
       const fixRequestPath = path.join(specDir, 'QA_FIX_REQUEST.md');
       const planPath = path.join(specDir, 'implementation_plan.json');
 
@@ -1324,7 +1328,7 @@ Batch Type: ${batchType}
         // Also copy QA_FIX_REQUEST.md to worktree (agent runs there, needs to see it)
         if (feedbackWrittenToMain) {
           const worktreeFixPath = path.join(
-            projectPath, '.auto-claude', 'worktrees', 'tasks', fix.taskId,
+            resolvedProjectPath, '.auto-claude', 'worktrees', 'tasks', fix.taskId,
             '.auto-claude', 'specs', fix.taskId, 'QA_FIX_REQUEST.md'
           );
           if (existsSync(path.dirname(worktreeFixPath))) {
@@ -1359,7 +1363,7 @@ Batch Type: ${batchType}
 
         // Also update worktree plan status (agent runs in worktree, needs to see start_requested)
         const worktreePlanPath = path.join(
-          projectPath, '.auto-claude', 'worktrees', 'tasks', fix.taskId,
+          resolvedProjectPath, '.auto-claude', 'worktrees', 'tasks', fix.taskId,
           '.auto-claude', 'specs', fix.taskId, 'implementation_plan.json'
         );
         if (existsSync(worktreePlanPath)) {
