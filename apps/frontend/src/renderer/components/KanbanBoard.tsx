@@ -1222,7 +1222,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
 
       // FIRST: Auto-recover tasks with start_requested status or incomplete subtasks
       try {
-        const recoverResult = await window.api.task.autoRecoverAllTasks(projectId);
+        const recoverResult = await window.electronAPI.autoRecoverAllTasks(projectId);
 
         if (recoverResult.success && recoverResult.data) {
           const { recovered, taskIds } = recoverResult.data;
