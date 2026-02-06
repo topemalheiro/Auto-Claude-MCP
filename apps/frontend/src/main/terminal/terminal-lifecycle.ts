@@ -18,6 +18,7 @@ import type {
 import { isWindows } from '../platform';
 import { debugLog, debugError } from '../../shared/utils/debug-logger';
 import { safeSendToRenderer } from '../ipc-handlers/utils';
+import { getClaudeCodeEnv } from '../claude-code-settings';
 
 /**
  * Options for terminal restoration
