@@ -190,7 +190,7 @@ export interface ElectronAPI {
   triggerRdrProcessing: (projectId: string, taskIds: string[]) => Promise<IPCResult<{ processed: number }>>;
   pingRdrImmediate: (projectId: string, tasks: Task[]) => Promise<IPCResult<{ taskCount: number; signalPath: string }>>;
   getVSCodeWindows: () => Promise<IPCResult<Array<{ handle: number; title: string; processId: number }>>>;
-  sendRdrToWindow: (handle: number, message: string) => Promise<IPCResult<{ success: boolean; error?: string }>>;
+  sendRdrToWindow: (identifier: number | string, message: string) => Promise<IPCResult<{ success: boolean; error?: string }>>;
   getRdrBatchDetails: (projectId: string) => Promise<IPCResult<{
     batches: Array<{ type: string; taskIds: string[]; taskCount: number }>;
     taskDetails: Array<{
@@ -204,7 +204,7 @@ export interface ElectronAPI {
       errorSummary?: string;
     }>;
   }>>;
-  isClaudeCodeBusy: (handle: number) => Promise<IPCResult<boolean>>;
+  isClaudeCodeBusy: (identifier: number | string) => Promise<IPCResult<boolean>>;
 
   // Auto Shutdown
   getAutoShutdownStatus: (projectId: string) => Promise<IPCResult<AutoShutdownStatus>>;

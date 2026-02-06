@@ -118,12 +118,12 @@ if ($windows.Count -eq 0) {
  *
  * Same logic as ClaudeAutoResponse PermissionMonitorService.SendMessageToClaudeCode.
  *
- * @param titlePattern - Window title pattern to match (e.g., "CV Project", "Auto-Claude")
+ * @param identifier - Process ID (number) for stable matching, or title pattern (string) for fuzzy matching
  * @param message - Message to send
  * @returns Promise resolving to success/error result
  */
 export function sendMessageToWindow(
-  titlePattern: string,
+  identifier: number | string,
   message: string
 ): Promise<SendMessageResult> {
   return new Promise((resolve) => {
@@ -132,8 +132,8 @@ export function sendMessageToWindow(
       return;
     }
 
-    if (!titlePattern) {
-      resolve({ success: false, error: 'Window title pattern cannot be empty' });
+    if (!identifier && identifier !== 0) {
+      resolve({ success: false, error: 'Window identifier cannot be empty' });
       return;
     }
 
@@ -143,7 +143,8 @@ export function sendMessageToWindow(
     }
 
     // Re-enumerate windows to get fresh handle (prevents stale handle errors)
-    console.log(`[WindowManager] Looking for window matching: "${titlePattern}"`);
+    const matchType = typeof identifier === 'number' ? 'PID' : 'title';
+    console.log(`[WindowManager] Looking for window by ${matchType}: "${identifier}"`);
     const windows = getVSCodeWindows();
 
     if (windows.length === 0) {
@@ -151,14 +152,14 @@ export function sendMessageToWindow(
       return;
     }
 
-    // Find window by title pattern (case-insensitive)
-    const targetWindow = findWindowByTitle(titlePattern);
+    // Find window by process ID (stable) or title pattern (fuzzy)
+    const targetWindow = findWindow(identifier);
 
     if (!targetWindow) {
       const availableTitles = windows.map(w => w.title).join(', ');
       resolve({
         success: false,
-        error: `No window found matching "${titlePattern}". Available: ${availableTitles}`
+        error: `No window found matching "${identifier}". Available: ${availableTitles}`
       });
       return;
     }
@@ -301,10 +302,10 @@ Write-Output "Message sent successfully"
  *
  * Detection strategy: Monitor VS Code window title for busy indicators
  *
- * @param titlePattern - Window title pattern to match (e.g., "CV Project")
+ * @param identifier - Process ID (number) for stable matching, or title pattern (string) for fuzzy matching
  * @returns Promise resolving to true if Claude Code is busy, false if idle
  */
-export async function isClaudeCodeBusy(titlePattern: string): Promise<boolean> {
+export async function isClaudeCodeBusy(identifier: number | string): Promise<boolean> {
   if (!isWindows()) {
     return false; // Assume idle on non-Windows
   }
@@ -314,7 +315,7 @@ export async function isClaudeCodeBusy(titlePattern: string): Promise<boolean> {
 
     // Get current windows (fresh list)
     const windows = getVSCodeWindows();
-    const targetWindow = findWindowByTitle(titlePattern);
+    const targetWindow = findWindow(identifier);
 
     if (!targetWindow) {
       console.warn('[WindowManager] Window not found, assuming idle');
@@ -399,6 +400,33 @@ export function findWindowByTitle(pattern: string): VSCodeWindow | undefined {
   return windows.find((w) =>
     w.title.toLowerCase().includes(lowerPattern)
   );
+}
+
+/**
+ * Find a VS Code window by process ID
+ *
+ * More stable than title matching since process ID doesn't change
+ * when the user switches editor tabs.
+ *
+ * @param pid - Process ID of the VS Code instance
+ * @returns Matching window or undefined
+ */
+export function findWindowByProcessId(pid: number): VSCodeWindow | undefined {
+  const windows = getVSCodeWindows();
+  return windows.find((w) => w.processId === pid);
+}
+
+/**
+ * Find a VS Code window by identifier (process ID or title pattern)
+ *
+ * @param identifier - Process ID (number) for stable matching, or title pattern (string) for fuzzy matching
+ * @returns Matching window or undefined
+ */
+export function findWindow(identifier: number | string): VSCodeWindow | undefined {
+  if (typeof identifier === 'number') {
+    return findWindowByProcessId(identifier);
+  }
+  return findWindowByTitle(identifier);
 }
 
 /**
