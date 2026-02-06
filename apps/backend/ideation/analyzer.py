@@ -53,14 +53,17 @@ class ProjectAnalyzer:
             try:
                 with open(project_index_path, encoding="utf-8") as f:
                     index = json.load(f)
-                    # Extract tech stack from services
-                    for service_name, service_info in index.get("services", {}).items():
-                        if service_info.get("language"):
-                            context["tech_stack"].append(service_info["language"])
-                        if service_info.get("framework"):
-                            context["tech_stack"].append(service_info["framework"])
-                    context["tech_stack"] = list(set(context["tech_stack"]))
-            except (json.JSONDecodeError, KeyError):
+                    # Extract tech stack from services (only if index is a dict)
+                    if isinstance(index, dict):
+                        for service_name, service_info in index.get(
+                            "services", {}
+                        ).items():
+                            if service_info.get("language"):
+                                context["tech_stack"].append(service_info["language"])
+                            if service_info.get("framework"):
+                                context["tech_stack"].append(service_info["framework"])
+                        context["tech_stack"] = list(set(context["tech_stack"]))
+            except (json.JSONDecodeError, KeyError, AttributeError):
                 pass
 
         # Get roadmap context if enabled

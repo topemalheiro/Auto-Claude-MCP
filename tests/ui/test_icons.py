@@ -4,11 +4,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from ui.icons import Icons, icon
-
 
 def test_icon_unicode():
     """Test icon returns unicode when supported"""
+    from ui.icons import Icons, icon
+
 
     # Arrange
     icon_tuple = ("✓", "[OK]")
@@ -23,6 +23,8 @@ def test_icon_unicode():
 
 def test_icon_ascii_fallback():
     """Test icon returns ASCII fallback when unicode not supported"""
+    from ui.icons import Icons, icon
+
 
     # Arrange
     icon_tuple = ("✓", "[OK]")
@@ -37,6 +39,8 @@ def test_icon_ascii_fallback():
 
 def test_icon_success():
     """Test Icons.SUCCESS"""
+    from ui.icons import Icons, icon
+
 
     # Arrange
     with patch("ui.icons.UNICODE", True):
@@ -49,6 +53,8 @@ def test_icon_success():
 
 def test_icon_error():
     """Test Icons.ERROR"""
+    from ui.icons import Icons, icon
+
 
     # Arrange
     with patch("ui.icons.UNICODE", True):
@@ -61,6 +67,8 @@ def test_icon_error():
 
 def test_icon_warning():
     """Test Icons.WARNING"""
+    from ui.icons import Icons, icon
+
 
     # Arrange
     with patch("ui.icons.UNICODE", True):
@@ -73,6 +81,8 @@ def test_icon_warning():
 
 def test_icon_arrow_right():
     """Test Icons.ARROW_RIGHT"""
+    from ui.icons import Icons, icon
+
 
     # Arrange
     with patch("ui.icons.UNICODE", True):
@@ -85,6 +95,8 @@ def test_icon_arrow_right():
 
 def test_icon_arrow_right_ascii():
     """Test Icons.ARROW_RIGHT ASCII fallback"""
+    from ui.icons import Icons, icon
+
 
     # Arrange
     with patch("ui.icons.UNICODE", False):
@@ -97,6 +109,8 @@ def test_icon_arrow_right_ascii():
 
 def test_icon_subtask():
     """Test Icons.SUBTASK"""
+    from ui.icons import Icons, icon
+
 
     # Arrange
     with patch("ui.icons.UNICODE", True):
@@ -109,6 +123,8 @@ def test_icon_subtask():
 
 def test_icon_phase():
     """Test Icons.PHASE"""
+    from ui.icons import Icons, icon
+
 
     # Arrange
     with patch("ui.icons.UNICODE", True):
@@ -121,6 +137,8 @@ def test_icon_phase():
 
 def test_icon_worker():
     """Test Icons.WORKER"""
+    from ui.icons import Icons, icon
+
 
     # Arrange
     with patch("ui.icons.UNICODE", True):
@@ -133,6 +151,8 @@ def test_icon_worker():
 
 def test_icon_pause():
     """Test Icons.PAUSE"""
+    from ui.icons import Icons, icon
+
 
     # Arrange
     with patch("ui.icons.UNICODE", True):
@@ -145,6 +165,8 @@ def test_icon_pause():
 
 def test_icon_pause_ascii():
     """Test Icons.PAUSE ASCII fallback"""
+    from ui.icons import Icons, icon
+
 
     # Arrange
     with patch("ui.icons.UNICODE", False):
@@ -157,6 +179,8 @@ def test_icon_pause_ascii():
 
 def test_icon_pointer():
     """Test Icons.POINTER"""
+    from ui.icons import Icons, icon
+
 
     # Arrange
     with patch("ui.icons.UNICODE", True):
@@ -169,6 +193,8 @@ def test_icon_pointer():
 
 def test_icon_pointer_ascii():
     """Test Icons.POINTER ASCII fallback"""
+    from ui.icons import Icons, icon
+
 
     # Arrange
     with patch("ui.icons.UNICODE", False):
@@ -181,6 +207,8 @@ def test_icon_pointer_ascii():
 
 def test_icons_class_has_all_attributes():
     """Test Icons class has all expected attributes"""
+    from ui.icons import Icons, icon
+
 
     # Arrange & Act
     attributes = [
@@ -227,6 +255,8 @@ def test_icons_class_has_all_attributes():
 
 def test_icon_all_icons_are_tuples():
     """Test all Icons attributes are tuples"""
+    from ui.icons import Icons, icon
+
 
     # Arrange & Act
     for attr in dir(Icons):

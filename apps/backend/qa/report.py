@@ -192,7 +192,17 @@ def get_recurring_issue_summary(
         all_issues.extend(record.get("issues", []))
 
     if not all_issues:
-        return {"total_issues": 0, "unique_issues": 0, "most_common": []}
+        # Calculate statistics even when no issues
+        approved_count = sum(1 for r in history if r.get("status") == "approved")
+        rejected_count = sum(1 for r in history if r.get("status") == "rejected")
+        return {
+            "total_issues": 0,
+            "unique_issues": 0,
+            "most_common": [],
+            "iterations_approved": approved_count,
+            "iterations_rejected": rejected_count,
+            "fix_success_rate": approved_count / len(history) if history else 0,
+        }
 
     # Group similar issues
     issue_groups: dict[str, list[dict[str, Any]]] = {}

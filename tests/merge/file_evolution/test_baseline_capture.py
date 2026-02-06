@@ -81,15 +81,19 @@ def test_BaselineCapture_capture_baselines():
 
     instance = BaselineCapture(storage=storage)
 
-    # Act
-    result = instance.capture_baselines(task_id, files, intent, {})
+    # Mock subprocess.run for get_current_commit call
+    with patch("subprocess.run") as mock_run:
+        mock_run.return_value.stdout = "abc123def456"
 
-    # Assert
-    assert result is not None
-    assert isinstance(result, dict)
-    assert "test.py" in result
-    storage.read_file_content.assert_called()
-    storage.store_baseline_content.assert_called()
+        # Act
+        result = instance.capture_baselines(task_id, files, intent, {})
+
+        # Assert
+        assert result is not None
+        assert isinstance(result, dict)
+        assert "test.py" in result
+        storage.read_file_content.assert_called()
+        storage.store_baseline_content.assert_called()
 
 
 @patch("subprocess.run")

@@ -534,8 +534,9 @@ class TestWindowsCredentialFiles:
         )
         mock_open.return_value.__enter__.return_value = mock_file
 
-        expanded_dir = str(Path(config_dir).expanduser())
-        mock_exists.side_effect = lambda path: path.startswith(expanded_dir)
+        # Use Path for cross-platform path comparison
+        expanded_dir = Path(config_dir).expanduser()
+        mock_exists.side_effect = lambda path: expanded_dir in Path(path).parents or Path(path) == expanded_dir
 
         # Act
         result = _get_token_from_windows_credential_files(config_dir)
@@ -721,8 +722,12 @@ class TestPlatformDecryption:
             _decrypt_token_windows("encrypted-data")
 
     @patch("core.auth.is_macos", return_value=True)
+    @patch("core.auth.is_linux", return_value=False)
+    @patch("core.auth.is_windows", return_value=False)
     @patch("shutil.which", return_value="/usr/bin/claude")
-    def test_decrypt_token_macos_error_wrapped(self, mock_which, mock_is_macos):
+    def test_decrypt_token_macos_error_wrapped(
+        self, mock_which, mock_is_windows, mock_is_linux, mock_is_macos
+    ):
         """Test macOS NotImplementedError is wrapped in ValueError"""
         # Arrange
         encrypted_token = "enc:test-encrypted-data"
@@ -732,8 +737,12 @@ class TestPlatformDecryption:
             decrypt_token(encrypted_token)
 
     @patch("core.auth.is_linux", return_value=True)
+    @patch("core.auth.is_macos", return_value=False)
+    @patch("core.auth.is_windows", return_value=False)
     @patch("core.auth.secretstorage", MagicMock())
-    def test_decrypt_token_linux_error_wrapped(self, mock_is_linux):
+    def test_decrypt_token_linux_error_wrapped(
+        self, mock_is_windows, mock_is_macos, mock_is_linux
+    ):
         """Test Linux NotImplementedError is wrapped in ValueError"""
         # Arrange
         encrypted_token = "enc:test-encrypted-data"
@@ -743,8 +752,12 @@ class TestPlatformDecryption:
             decrypt_token(encrypted_token)
 
     @patch("core.auth.is_windows", return_value=True)
+    @patch("core.auth.is_macos", return_value=False)
+    @patch("core.auth.is_linux", return_value=False)
     @patch("core.auth._decrypt_token_windows")
-    def test_decrypt_token_windows_error_wrapped(self, mock_decrypt_win, mock_is_windows):
+    def test_decrypt_token_windows_error_wrapped(
+        self, mock_decrypt_win, mock_is_linux, mock_is_macos, mock_is_windows
+    ):
         """Test Windows NotImplementedError is wrapped in ValueError"""
         # Arrange
         encrypted_token = "enc:test-encrypted-data"

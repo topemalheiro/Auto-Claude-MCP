@@ -22,6 +22,7 @@ from unittest.mock import MagicMock
 _original_modules: Dict[str, Any] = {}
 _mocked_module_names: List[str] = [
     'claude_agent_sdk',
+    'claude_agent_sdk.types',
     'ui',
     'progress',
     'task_logger',
@@ -48,6 +49,11 @@ def setup_qa_report_mocks() -> None:
     mock_sdk.ClaudeAgentOptions = MagicMock()
     mock_sdk.ClaudeCodeOptions = MagicMock()
     sys.modules['claude_agent_sdk'] = mock_sdk
+
+    # Mock claude_agent_sdk.types submodule (imported by core/client.py)
+    mock_types = MagicMock()
+    mock_types.HookMatcher = MagicMock()
+    sys.modules['claude_agent_sdk.types'] = mock_types
 
     # Mock UI module (used by progress)
     mock_ui = MagicMock()
@@ -101,12 +107,18 @@ def setup_qa_report_mocks() -> None:
     sys.modules['client'] = mock_client
 
     # Add auto-claude path for imports
-    sys.path.insert(0, str(Path(__file__).parent.parent / "Apps" / "backend"))
+    sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "backend"))
 
 
 def cleanup_qa_report_mocks() -> None:
     """Restore original modules after testing."""
     for name in _mocked_module_names:
+        # First, always remove any submodules
+        for key in list(sys.modules.keys()):
+            if key.startswith(f'{name}.'):
+                del sys.modules[key]
+
+        # Then restore or delete the main module
         if name in _original_modules:
             sys.modules[name] = _original_modules[name]
         elif name in sys.modules:

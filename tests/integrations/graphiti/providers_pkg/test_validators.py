@@ -349,6 +349,8 @@ class TestTestOllamaConnection:
         ):
             mock_response = MagicMock()
             mock_response.status = 200
+            mock_response.__enter__ = MagicMock(return_value=mock_response)
+            mock_response.__exit__ = MagicMock(return_value=False)
 
             with patch(
                 "urllib.request.urlopen",
@@ -417,16 +419,17 @@ class TestTestOllamaConnection:
     @pytest.mark.asyncio
     async def test_test_ollama_connection_url_error(self):
         """Test Ollama connection with URL error."""
-        import aiohttp
-
         with patch.dict(
             "sys.modules",
             {"aiohttp": MagicMock()},
         ):
+            # Create a mock ClientError class
+            mock_client_error = type("ClientError", (Exception,), {})
+
             mock_session = MagicMock()
             mock_get_result = MagicMock()
             mock_get_result.__aenter__ = AsyncMock(
-                side_effect=aiohttp.ClientError("Connection refused")
+                side_effect=mock_client_error("Connection refused")
             )
             mock_get_result.__aexit__ = AsyncMock()
             mock_session.get = MagicMock(return_value=mock_get_result)
@@ -566,6 +569,8 @@ class TestTestOllamaConnection:
         """Test Ollama connection with urllib returning non-200."""
         mock_response = MagicMock()
         mock_response.status = 404
+        mock_response.__enter__ = MagicMock(return_value=mock_response)
+        mock_response.__exit__ = MagicMock(return_value=False)
 
         # Simulate aiohttp not available
         with patch.dict(

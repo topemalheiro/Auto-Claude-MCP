@@ -92,6 +92,7 @@ def select_menu(
     options: list[MenuOption],
     subtitle: str = "",
     allow_quit: bool = True,
+    _interactive: bool | None = None,
 ) -> str | None:
     """
     Display an interactive selection menu.
@@ -101,11 +102,13 @@ def select_menu(
         options: List of MenuOption objects
         subtitle: Optional subtitle text
         allow_quit: Whether 'q' quits the menu
+        _interactive: Override INTERACTIVE flag (for testing)
 
     Returns:
         Selected option key, or None if quit
     """
-    if not INTERACTIVE:
+    effective_interactive = INTERACTIVE if _interactive is None else _interactive
+    if not effective_interactive:
         # Fallback to simple numbered input
         return _fallback_menu(title, options, subtitle, allow_quit)
 

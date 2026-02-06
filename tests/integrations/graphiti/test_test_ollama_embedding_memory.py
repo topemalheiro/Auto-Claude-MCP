@@ -5,6 +5,7 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+import requests
 
 from integrations.graphiti.test_ollama_embedding_memory import (
     apply_ladybug_monkeypatch,
@@ -221,11 +222,11 @@ class TestMemoryCreation:
             "GRAPHITI_DATABASE": "test_ollama_memory",
         }):
             with patch(
-                "integrations.graphiti.test_ollama_embedding_memory.GraphitiConfig.from_env",
+                "integrations.graphiti.config.GraphitiConfig.from_env",
                 return_value=mock_config,
             ):
                 with patch(
-                    "integrations.graphiti.test_ollama_embedding_memory.GraphitiMemory",
+                    "integrations.graphiti.memory.GraphitiMemory",
                     return_value=mock_memory,
                 ):
                     test_db_path = Path("/tmp/test_ollama")
@@ -246,7 +247,7 @@ class TestMemoryCreation:
             "GRAPHITI_DATABASE": "test_ollama_memory",
         }):
             with patch(
-                "integrations.graphiti.test_ollama_embedding_memory.GraphitiMemory",
+                "integrations.graphiti.memory.GraphitiMemory",
                 side_effect=ImportError("Module not found"),
             ):
                 result = await test_memory_creation(test_db_path)
@@ -270,11 +271,11 @@ class TestMemoryCreation:
             "GRAPHITI_DATABASE": "test_ollama_memory",
         }):
             with patch(
-                "integrations.graphiti.test_ollama_embedding_memory.GraphitiConfig.from_env",
+                "integrations.graphiti.config.GraphitiConfig.from_env",
                 return_value=mock_config,
             ):
                 with patch(
-                    "integrations.graphiti.test_ollama_embedding_memory.GraphitiMemory",
+                    "integrations.graphiti.memory.GraphitiMemory",
                     return_value=mock_memory,
                 ):
                     result = await test_memory_creation(test_db_path)

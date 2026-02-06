@@ -139,6 +139,11 @@ async def test_ollama_connection(
     """
     import asyncio
 
+    # Normalize URL first (used in both paths)
+    url = base_url.rstrip("/")
+    if url.endswith("/v1"):
+        url = url[:-3]
+
     try:
         import aiohttp
     except ImportError:
@@ -147,16 +152,12 @@ async def test_ollama_connection(
         import urllib.request
 
         try:
-            # Normalize URL (remove /v1 suffix if present)
-            url = base_url.rstrip("/")
-            if url.endswith("/v1"):
-                url = url[:-3]
-
             req = urllib.request.Request(f"{url}/api/tags", method="GET")
             with urllib.request.urlopen(req, timeout=5) as response:
-                if response.status == 200:
+                status = response.status
+                if status == 200:
                     return True, f"Ollama is running at {url}"
-                return False, f"Ollama returned status {response.status}"
+                return False, f"Ollama returned status {status}"
         except urllib.error.URLError as e:
             return False, f"Cannot connect to Ollama at {url}: {e.reason}"
         except Exception as e:
@@ -164,21 +165,20 @@ async def test_ollama_connection(
 
     # Use aiohttp if available
     try:
-        # Normalize URL
-        url = base_url.rstrip("/")
-        if url.endswith("/v1"):
-            url = url[:-3]
-
         async with aiohttp.ClientSession() as session:
-            async with session.get(
-                f"{url}/api/tags", timeout=aiohttp.ClientTimeout(total=5)
-            ) as response:
-                if response.status == 200:
-                    return True, f"Ollama is running at {url}"
-                return False, f"Ollama returned status {response.status}"
-    except asyncio.TimeoutError:
-        return False, f"Ollama connection timed out at {url}"
-    except aiohttp.ClientError as e:
-        return False, f"Cannot connect to Ollama at {url}: {e}"
-    except Exception as e:
-        return False, f"Ollama connection error: {e}"
+            try:
+                async with session.get(
+                    f"{url}/api/tags", timeout=aiohttp.ClientTimeout(total=5)
+                ) as response:
+                    status = response.status
+                    if status == 200:
+                        return True, f"Ollama is running at {url}"
+                    return False, f"Ollama returned status {status}"
+            except asyncio.TimeoutError:
+                return False, f"Ollama connection timed out at {url}"
+            except Exception:
+                # Catch aiohttp.ClientError and any other exceptions from session.get
+                return False, f"Cannot connect to Ollama at {url}"
+    except Exception:
+        # Catch any exceptions from ClientSession creation
+        return False, f"Cannot connect to Ollama at {url}"

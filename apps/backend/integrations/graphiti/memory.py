@@ -22,7 +22,7 @@ see graphiti/graphiti.py.
 from pathlib import Path
 
 # Import config utilities
-from graphiti_config import (
+from integrations.graphiti.config import (
     GraphitiConfig,
     is_graphiti_enabled,
 )

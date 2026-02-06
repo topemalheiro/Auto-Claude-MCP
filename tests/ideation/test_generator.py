@@ -35,11 +35,14 @@ def test_IdeationGenerator___init__():
 
 
 @pytest.mark.asyncio
-@patch("ideation.generator.Path.exists")
 @patch("ideation.generator.create_client")
-async def test_IdeationGenerator_run_agent_success(mock_create_client, mock_exists):
+async def test_IdeationGenerator_run_agent_success(mock_create_client, tmp_path):
     """Test IdeationGenerator.run_agent with success"""
-    mock_exists.return_value = True
+    # Create a real test prompt file
+    prompts_dir = tmp_path / "prompts"
+    prompts_dir.mkdir()
+    test_prompt_file = prompts_dir / "test_prompt.md"
+    test_prompt_file.write_text("# Test Prompt\n\nTest content")
 
     project_dir = Path("/tmp/test")
     output_dir = Path("/tmp/output")
@@ -49,6 +52,9 @@ async def test_IdeationGenerator_run_agent_success(mock_create_client, mock_exis
             project_dir=project_dir,
             output_dir=output_dir,
         )
+
+    # Override the prompts_dir to use our tmp_path
+    generator.prompts_dir = prompts_dir
 
     # Create mock response message with proper TextBlock
     mock_text_block = Mock()

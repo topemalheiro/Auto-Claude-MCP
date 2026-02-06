@@ -173,4 +173,7 @@ def create_patched_kuzu_driver(db: str = ":memory:", max_concurrent_queries: int
             # Run the parent schema setup (creates tables)
             super().setup_schema()
 
+    # Export the class at module level for tests to import
+    globals()["PatchedKuzuDriver"] = PatchedKuzuDriver
+
     return PatchedKuzuDriver(db=db, max_concurrent_queries=max_concurrent_queries)

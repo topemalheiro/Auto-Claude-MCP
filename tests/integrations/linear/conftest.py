@@ -19,6 +19,12 @@ sys.modules["claude_agent_sdk"] = mock_sdk
 sys.modules["claude_agent_sdk"].ClaudeAgentOptions = mock_claude_agent_options
 sys.modules["claude_agent_sdk"].ClaudeSDKClient = mock_claude_sdk_client
 
+# Also mock the types submodule (needed by core.client.py)
+mock_types = MagicMock()
+mock_types.HookMatcher = MagicMock()
+sys.modules["claude_agent_sdk.types"] = mock_types
+sys.modules["claude_agent_sdk"].types = mock_types
+
 
 @pytest.fixture
 def temp_spec_dir(tmp_path: Path) -> Path:
