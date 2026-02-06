@@ -1465,7 +1465,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
                     />
                     <div className="flex flex-col text-[10px] leading-tight text-muted-foreground">
                       <span className="font-medium">RDR</span>
-                      <span className="text-muted-foreground/70">Recover / Resume</span>
+                      <span className="text-muted-foreground/70">Recover / Continue</span>
                       <span className="text-muted-foreground/70">Debug</span>
                       <span className="text-muted-foreground/70">Resend</span>
                     </div>
