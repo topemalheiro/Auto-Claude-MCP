@@ -889,8 +889,9 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   // RDR 60-second auto timer state
   const [rdrMessageInFlight, setRdrMessageInFlight] = useState(false);
   const rdrIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const rdrSkipBusyCheckRef = useRef(true); // Skip busy check on first send + idle events
   const RDR_INTERVAL_MS = 30000; // 30 seconds (reduced from 60s for faster fallback)
-  const RDR_IN_FLIGHT_TIMEOUT_MS = 30000; // 30 seconds before allowing next message
+  const RDR_IN_FLIGHT_TIMEOUT_MS = 120000; // 2 minutes - gives Claude time to process RDR batch
 
   // Load VS Code windows from system
   const loadVsCodeWindows = useCallback(async () => {
@@ -1037,16 +1038,20 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     const processId = selectedWindow.processId;
     console.log(`[RDR] Using process ID: ${processId} (window: "${selectedWindow.title}")`);
 
-    // Check if Claude Code is busy (in a prompt loop)
-    try {
-      const busyResult = await window.electronAPI.isClaudeCodeBusy(processId);
-      if (busyResult.success && busyResult.data) {
-        console.log('[RDR] Skipping auto-send - Claude Code is busy (in prompt loop)');
-        return;
+    // Check if Claude Code is busy - SKIP on first check after enable and on idle events
+    if (rdrSkipBusyCheckRef.current) {
+      console.log('[RDR] Skipping busy check (first send or idle event)');
+      rdrSkipBusyCheckRef.current = false;
+    } else {
+      try {
+        const busyResult = await window.electronAPI.isClaudeCodeBusy(processId);
+        if (busyResult.success && busyResult.data) {
+          console.log('[RDR] Skipping auto-send - Claude Code is busy');
+          return;
+        }
+      } catch (error) {
+        console.warn('[RDR] Failed to check busy state, proceeding with send:', error);
       }
-    } catch (error) {
-      console.warn('[RDR] Failed to check busy state, proceeding with send:', error);
-      // Continue with send on error (graceful degradation)
     }
 
     // Skip if no project
@@ -1116,10 +1121,11 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
 
       // EVENT-DRIVEN: Subscribe to 'claude-code-idle' IPC event for sequential batching
       const idleListener = (_event: any, data: { from: string; to: string; timestamp: number }) => {
-        console.log(`[RDR] 🚀 EVENT: Claude Code became idle (${data.from} -> ${data.to})`);
-        console.log('[RDR]    🔄 Triggering next RDR check for sequential batching');
+        console.log(`[RDR] EVENT: Claude Code became idle (${data.from} -> ${data.to})`);
 
-        // Trigger RDR check immediately when Claude finishes processing
+        // Skip busy check - the idle event already proves Claude is idle
+        // Re-checking creates a race condition where state changes between emit and check
+        rdrSkipBusyCheckRef.current = true;
         handleAutoRdr();
       };
 
@@ -1138,12 +1144,13 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
         // @ts-ignore
         window.electron?.ipcRenderer.removeListener('claude-code-idle', idleListener);
 
-        // Clear timer
+        // Clear timer and reset skip flag for next enable
         if (rdrIntervalRef.current) {
           clearInterval(rdrIntervalRef.current);
           rdrIntervalRef.current = null;
           console.log('[RDR] Auto-send timer stopped');
         }
+        rdrSkipBusyCheckRef.current = true; // Reset for next enable
       };
     } else {
       console.log('[RDR] Auto-send timer not started (RDR disabled or no window selected)');

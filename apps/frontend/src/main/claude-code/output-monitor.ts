@@ -83,8 +83,10 @@ class ClaudeOutputMonitor extends EventEmitter {
   private watchDebounceTimer: NodeJS.Timeout | null = null;
   private processingRecheckTimer: NodeJS.Timeout | null = null;
   private isUpdatingState: boolean = false; // Guard against concurrent updateState() calls
+  private cachedLatestFile: { path: string; mtime: number; foundAt: number } | null = null;
   private static readonly WATCH_DEBOUNCE_MS = 500; // Debounce rapid file changes
   private static readonly PROCESSING_RECHECK_MS = 15000; // Re-check after 15s to detect idle
+  private static readonly CACHE_TTL_MS = 60000; // Re-scan directories every 60s max
 
   constructor() {
     super();
@@ -316,6 +318,22 @@ class ClaudeOutputMonitor extends EventEmitter {
    */
   private async getLatestOutputFile(): Promise<{ path: string; fileAgeMs: number } | null> {
     try {
+      // Use cached file path if found recently - avoids scanning 34K+ files
+      if (this.cachedLatestFile && Date.now() - this.cachedLatestFile.foundAt < ClaudeOutputMonitor.CACHE_TTL_MS) {
+        try {
+          const stats = await fs.stat(this.cachedLatestFile.path);
+          if (stats.mtimeMs >= this.cachedLatestFile.mtime) {
+            this.cachedLatestFile = { ...this.cachedLatestFile, mtime: stats.mtimeMs };
+            const fileAgeMs = Date.now() - stats.mtimeMs;
+            console.log('[OutputMonitor] Using cached file:', path.basename(this.cachedLatestFile.path), `(${Math.floor(fileAgeMs / 1000)}s old)`);
+            return { path: this.cachedLatestFile.path, fileAgeMs };
+          }
+        } catch {
+          // File gone, fall through to full scan
+          this.cachedLatestFile = null;
+        }
+      }
+
       console.log('[OutputMonitor] Searching for JSONL transcripts in:', this.claudeProjectsDir);
 
       // List all project directories under ~/.claude/projects/
@@ -366,10 +384,13 @@ class ClaudeOutputMonitor extends EventEmitter {
 
       if (latestFile) {
         console.log('[OutputMonitor] Selected latest file:', latestFile.path);
+        // Cache result for future checks
+        this.cachedLatestFile = { ...latestFile, foundAt: Date.now() };
         const fileAgeMs = Date.now() - latestFile.mtime;
         return { path: latestFile.path, fileAgeMs };
       } else {
         console.log('[OutputMonitor] No recent JSONL files found');
+        this.cachedLatestFile = null;
         return null;
       }
     } catch (error) {
