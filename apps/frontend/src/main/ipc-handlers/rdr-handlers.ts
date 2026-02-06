@@ -533,38 +533,72 @@ function categorizeTasks(tasks: TaskInfo[]): RdrBatch[] {
     console.log(`[RDR] Batch 1 - JSON Errors: ${jsonErrors.length} tasks`);
   }
 
-  // Batch 2: Incomplete Tasks (has subtasks but not all completed, NOT an error state)
-  const incomplete = rdrEnabledTasks.filter(t =>
-    t.status === 'human_review' &&
-    t.reviewReason !== 'errors' &&
-    !t.description?.startsWith(JSON_ERROR_PREFIX) &&
-    t.subtasks &&
-    t.subtasks.length > 0 &&
-    t.subtasks.some(s => s.status !== 'completed')
-  );
+  // Track which tasks are already categorized to avoid duplicates
+  const categorized = new Set<string>(jsonErrors.map(t => t.specId));
+
+  // Batch 2: Incomplete Tasks (has incomplete subtasks, NOT an error state)
+  // Accepts ANY active status (human_review, in_progress, ai_review) - not just human_review
+  // Uses both flat subtasks and phases.subtasks for detection
+  const incomplete = rdrEnabledTasks.filter(t => {
+    if (categorized.has(t.specId)) return false;
+    if (t.description?.startsWith(JSON_ERROR_PREFIX)) return false;
+    if (t.reviewReason === 'errors' || t.reviewReason === 'qa_rejected') return false;
+    if (t.exitReason === 'error' || t.exitReason === 'auth_failure') return false;
+
+    // Check flat subtasks (from project-store Task object)
+    if (t.subtasks && t.subtasks.length > 0 && t.subtasks.some(s => s.status !== 'completed')) {
+      return true;
+    }
+
+    // Check phases subtasks (from implementation_plan.json)
+    const progress = calculateTaskProgress(t);
+    if (t.phases && t.phases.length > 0 && progress < 100) {
+      return true;
+    }
+
+    return false;
+  });
   if (incomplete.length > 0) {
     batches.push({ type: 'incomplete', taskIds: incomplete.map(t => t.specId), tasks: incomplete });
+    incomplete.forEach(t => categorized.add(t.specId));
     console.log(`[RDR] Batch 2 - Incomplete Tasks: ${incomplete.length} tasks`);
   }
 
   // Batch 3: QA Rejected
   const qaRejected = rdrEnabledTasks.filter(t =>
+    !categorized.has(t.specId) &&
     t.reviewReason === 'qa_rejected' &&
     !t.description?.startsWith(JSON_ERROR_PREFIX)
   );
   if (qaRejected.length > 0) {
     batches.push({ type: 'qa_rejected', taskIds: qaRejected.map(t => t.specId), tasks: qaRejected });
+    qaRejected.forEach(t => categorized.add(t.specId));
     console.log(`[RDR] Batch 3 - QA Rejected: ${qaRejected.length} tasks`);
   }
 
-  // Batch 4: Other Errors (not JSON errors)
+  // Batch 4: Errors (reviewReason=errors OR exitReason=error/auth_failure)
   const errors = rdrEnabledTasks.filter(t =>
-    t.reviewReason === 'errors' &&
-    !t.description?.startsWith(JSON_ERROR_PREFIX)
+    !categorized.has(t.specId) &&
+    !t.description?.startsWith(JSON_ERROR_PREFIX) &&
+    (t.reviewReason === 'errors' || t.exitReason === 'error' || t.exitReason === 'auth_failure')
   );
   if (errors.length > 0) {
     batches.push({ type: 'errors', taskIds: errors.map(t => t.specId), tasks: errors });
-    console.log(`[RDR] Batch 4 - Other Errors: ${errors.length} tasks`);
+    errors.forEach(t => categorized.add(t.specId));
+    console.log(`[RDR] Batch 4 - Errors: ${errors.length} tasks`);
+  }
+
+  // Batch 5: Catch-all for tasks that need intervention but don't fit above categories
+  // (e.g., empty plans with 0 phases, tasks in active status with no subtasks)
+  const uncategorized = rdrEnabledTasks.filter(t => {
+    if (categorized.has(t.specId)) return false;
+    // Only include tasks that determineInterventionType would flag
+    const intervention = determineInterventionType(t);
+    return intervention !== null;
+  });
+  if (uncategorized.length > 0) {
+    batches.push({ type: 'errors', taskIds: uncategorized.map(t => t.specId), tasks: uncategorized });
+    console.log(`[RDR] Batch 5 - Uncategorized (needs recovery): ${uncategorized.length} tasks`);
   }
 
   return batches;

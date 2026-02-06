@@ -25,6 +25,30 @@ function getProjectSpecsDir(projectPath: string): string {
 }
 
 /**
+ * Get the worktree version of a task's plan, if it exists.
+ * Worktrees contain the ACTUAL agent progress (ai_review, in_progress, etc.)
+ * while the main project directory may have stale status (e.g., human_review).
+ * Path: <project>/.auto-claude/worktrees/tasks/<taskId>/.auto-claude/specs/<taskId>/implementation_plan.json
+ */
+function getWorktreePlan(projectPath: string, taskDir: string): Record<string, unknown> | null {
+  const worktreePlanPath = path.join(
+    projectPath, '.auto-claude', 'worktrees', 'tasks', taskDir,
+    '.auto-claude', 'specs', taskDir, 'implementation_plan.json'
+  );
+
+  if (!fs.existsSync(worktreePlanPath)) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(fs.readFileSync(worktreePlanPath, 'utf-8'));
+  } catch (e) {
+    console.error(`[AutoShutdown] Failed to read worktree plan for ${taskDir}:`, e);
+    return null;
+  }
+}
+
+/**
  * Check if a task is archived by reading task_metadata.json
  * Archived tasks have an archivedAt field set to an ISO date string
  */
@@ -105,18 +129,28 @@ function getActiveTaskIds(projectPath: string): string[] {
     const planPath = path.join(specsDir, dir, 'implementation_plan.json');
     if (fs.existsSync(planPath)) {
       try {
-        const content = JSON.parse(fs.readFileSync(planPath, 'utf-8'));
+        const mainContent = JSON.parse(fs.readFileSync(planPath, 'utf-8'));
+
+        // Prefer worktree plan (has actual agent progress) over main (may be stale)
+        const worktreeContent = getWorktreePlan(projectPath, dir);
+        const content = worktreeContent || mainContent;
+        const source = worktreeContent ? 'worktree' : 'main';
 
         // Skip terminal statuses - these tasks are truly finished
         if (content.status === 'done' || content.status === 'pr_created') {
           continue;
         }
 
-        // Count ALL non-terminal, non-archived tasks as active
-        // Previously this used calculateTaskProgress() and skipped 100% tasks,
-        // but that was wrong: a task in 'human_review' with 100% subtask completion
-        // is NOT done - it still needs human action. Status determines completion,
-        // not subtask progress.
+        // Skip legitimately completed tasks awaiting user merge/approval
+        // These have human_review status with ALL subtasks completed (100%)
+        // They're done with active work - just waiting for the user
+        const progress = calculateTaskProgress(content);
+        if (content.status === 'human_review' && progress === 100) {
+          continue;
+        }
+
+        // Count as active: tasks with incomplete work or non-terminal status
+        console.log(`[AutoShutdown] Active task ${dir}: status=${content.status}, progress=${progress}% (from ${source})`);
         taskIds.push(dir);
       } catch (e) {
         console.error(`[AutoShutdown] Failed to read ${planPath}:`, e);
@@ -154,21 +188,31 @@ function countTasksByStatus(projectPath: string): { total: number; humanReview: 
     const planPath = path.join(specsDir, dir, 'implementation_plan.json');
     if (fs.existsSync(planPath)) {
       try {
-        const content = JSON.parse(fs.readFileSync(planPath, 'utf-8'));
+        const mainContent = JSON.parse(fs.readFileSync(planPath, 'utf-8'));
+
+        // Prefer worktree plan (has actual agent progress) over main (may be stale)
+        const worktreeContent = getWorktreePlan(projectPath, dir);
+        const content = worktreeContent || mainContent;
+        const source = worktreeContent ? 'worktree' : 'main';
 
         // Skip terminal statuses - these tasks are truly finished
         if (content.status === 'done' || content.status === 'pr_created') {
           continue;
         }
 
-        // Count ALL non-terminal, non-archived tasks
-        // Status determines completion, not subtask progress
+        // Skip legitimately completed tasks awaiting user merge/approval
         const progress = calculateTaskProgress(content);
+        if (content.status === 'human_review' && progress === 100) {
+          console.log(`[AutoShutdown] Task ${dir}: 100% complete, status=human_review (NOT counted - awaiting merge) [${source}]`);
+          continue;
+        }
+
+        // Count as active: tasks with incomplete work
         total++;
         if (content.status === 'human_review') {
           humanReview++;
         }
-        console.log(`[AutoShutdown] Task ${dir}: ${progress}% complete, status=${content.status} (counted)`);
+        console.log(`[AutoShutdown] Task ${dir}: ${progress}% complete, status=${content.status} (counted) [${source}]`);
       } catch (e) {
         console.error(`[AutoShutdown] Failed to read ${planPath}:`, e);
       }
