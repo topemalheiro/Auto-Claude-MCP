@@ -81,7 +81,10 @@ class ClaudeOutputMonitor extends EventEmitter {
   private fileWatchers: FSWatcher[] = [];
   private isWatching: boolean = false;
   private watchDebounceTimer: NodeJS.Timeout | null = null;
+  private processingRecheckTimer: NodeJS.Timeout | null = null;
+  private isUpdatingState: boolean = false; // Guard against concurrent updateState() calls
   private static readonly WATCH_DEBOUNCE_MS = 500; // Debounce rapid file changes
+  private static readonly PROCESSING_RECHECK_MS = 15000; // Re-check after 15s to detect idle
 
   constructor() {
     super();
@@ -164,6 +167,11 @@ class ClaudeOutputMonitor extends EventEmitter {
       clearTimeout(this.watchDebounceTimer);
       this.watchDebounceTimer = null;
     }
+
+    if (this.processingRecheckTimer) {
+      clearTimeout(this.processingRecheckTimer);
+      this.processingRecheckTimer = null;
+    }
   }
 
   /**
@@ -223,8 +231,16 @@ class ClaudeOutputMonitor extends EventEmitter {
 
   /**
    * Update Claude's state by checking recent JSONL transcript
+   * Guarded against concurrent calls (timer + file watcher race condition)
    */
   private async updateState(): Promise<void> {
+    // Prevent concurrent updateState() calls from timer and file watcher
+    if (this.isUpdatingState) {
+      return;
+    }
+    this.isUpdatingState = true;
+
+    try {
     // Find the most recent JSONL transcript across all projects
     const result = await this.getLatestOutputFile();
 
@@ -289,6 +305,9 @@ class ClaudeOutputMonitor extends EventEmitter {
     // Parse conversation state (file is old enough to check message content)
     const state = this.parseConversationState(messages);
     this.setState(state);
+    } finally {
+      this.isUpdatingState = false;
+    }
   }
 
   /**
@@ -507,8 +526,19 @@ class ClaudeOutputMonitor extends EventEmitter {
   /**
    * Update state and log transition if changed
    * Emits events for state changes so RDR can respond immediately
+   *
+   * CRITICAL FIX: Schedules a re-check timer when entering PROCESSING state.
+   * Without this, after Claude's last file write, no more file changes trigger
+   * updateState(), so the state stays PROCESSING forever and idle event never fires.
+   * The re-check timer ensures we re-evaluate after 15s to detect the transition to IDLE.
    */
   private setState(newState: ClaudeState): void {
+    // Clear any pending processing re-check timer on ANY state update
+    if (this.processingRecheckTimer) {
+      clearTimeout(this.processingRecheckTimer);
+      this.processingRecheckTimer = null;
+    }
+
     if (newState !== this.currentState) {
       const oldState = this.currentState;
       this.currentState = newState;
@@ -539,6 +569,16 @@ class ClaudeOutputMonitor extends EventEmitter {
         // CRITICAL: Emit 'idle' event for RDR to trigger immediately
         this.emit('idle', eventData);
       }
+    }
+
+    // Schedule re-check when in PROCESSING state
+    // This ensures we detect when Claude finishes (file stops changing)
+    // Without this, state stays PROCESSING forever after the last file write
+    if (newState === 'PROCESSING') {
+      this.processingRecheckTimer = setTimeout(async () => {
+        console.log('[OutputMonitor] Re-checking state after PROCESSING timer...');
+        await this.updateState();
+      }, ClaudeOutputMonitor.PROCESSING_RECHECK_MS);
     }
   }
 

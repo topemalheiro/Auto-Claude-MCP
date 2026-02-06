@@ -889,7 +889,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   // RDR 60-second auto timer state
   const [rdrMessageInFlight, setRdrMessageInFlight] = useState(false);
   const rdrIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const RDR_INTERVAL_MS = 60000; // 60 seconds
+  const RDR_INTERVAL_MS = 30000; // 30 seconds (reduced from 60s for faster fallback)
   const RDR_IN_FLIGHT_TIMEOUT_MS = 30000; // 30 seconds before allowing next message
 
   // Load VS Code windows from system
@@ -1128,7 +1128,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
 
       // FALLBACK POLLING: Set up 60-second interval as fallback if event system fails
       rdrIntervalRef.current = setInterval(() => {
-        console.log('[RDR] Fallback polling check (60s interval)');
+        console.log('[RDR] Fallback polling check (30s interval)');
         handleAutoRdr();
       }, RDR_INTERVAL_MS);
 

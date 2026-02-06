@@ -345,20 +345,27 @@ export async function isClaudeCodeBusy(titlePattern: string): Promise<boolean> {
         await outputMonitor.isAtPrompt(); // Update internal state
         const state = outputMonitor.getCurrentState();
 
-        // If at prompt or processing, Claude is busy
-        if (state === 'AT_PROMPT' || state === 'PROCESSING') {
-          const stateDesc = state === 'AT_PROMPT' ? 'at prompt (waiting for input)' : 'processing (active work)';
-          console.log(`[WindowManager] ⏸️  BUSY: Output monitor state is ${state} (${stateDesc})`);
+        // Only block when actively processing (thinking/using tools)
+        // AT_PROMPT is OK - RDR notification is just another user input
+        if (state === 'PROCESSING') {
+          console.log(`[WindowManager] ⏸️  BUSY: Output monitor state is PROCESSING (active work)`);
           return true;
         }
 
-        // Check minimum idle time (prevents interrupting during rapid tool use)
-        // REDUCED: 30s -> 5s with event-driven RDR and mtime tracking preventing false positives
-        const timeSinceStateChange = outputMonitor.getTimeSinceStateChange();
-        const MINIMUM_IDLE_TIME_MS = 5000; // 5 seconds (was 30s)
+        if (state === 'AT_PROMPT') {
+          console.log(`[WindowManager] ✅ Output monitor: AT_PROMPT (waiting for input - OK for RDR)`);
+          // Don't return true - AT_PROMPT is fine for RDR messages
+        }
 
-        if (timeSinceStateChange < MINIMUM_IDLE_TIME_MS) {
-          console.log(`[WindowManager] ⏸️  BUSY: Recently active (${timeSinceStateChange}ms ago) - waiting for ${MINIMUM_IDLE_TIME_MS}ms idle time`);
+        // Check minimum idle time (prevents interrupting during rapid tool use)
+        // Only enforce when state is NOT already IDLE - if state is IDLE, trust it
+        // Without this check, the idle event triggers RDR but getTimeSinceStateChange()
+        // returns ~0ms (state just changed), blocking the very message the idle event enabled
+        const timeSinceStateChange = outputMonitor.getTimeSinceStateChange();
+        const MINIMUM_IDLE_TIME_MS = 5000; // 5 seconds
+
+        if (state !== 'IDLE' && timeSinceStateChange < MINIMUM_IDLE_TIME_MS) {
+          console.log(`[WindowManager] ⏸️  BUSY: Recently active (${timeSinceStateChange}ms ago, state=${state}) - waiting for ${MINIMUM_IDLE_TIME_MS}ms idle time`);
           return true;
         }
 
