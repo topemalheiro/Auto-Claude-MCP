@@ -340,7 +340,13 @@ function getLastLogEntries(projectPath: string, specId: string, count: number = 
  * Get current active phase from task_logs.json
  */
 function getCurrentPhase(projectPath: string, specId: string): 'planning' | 'coding' | 'validation' | undefined {
-  const logsPath = path.join(projectPath, '.auto-claude', 'specs', specId, 'task_logs.json');
+  // Prefer worktree logs (has latest agent activity) over main
+  const worktreeLogsPath = path.join(
+    projectPath, '.auto-claude', 'worktrees', 'tasks', specId,
+    '.auto-claude', 'specs', specId, 'task_logs.json'
+  );
+  const mainLogsPath = path.join(projectPath, '.auto-claude', 'specs', specId, 'task_logs.json');
+  const logsPath = existsSync(worktreeLogsPath) ? worktreeLogsPath : mainLogsPath;
 
   if (!existsSync(logsPath)) {
     return undefined;
@@ -823,6 +829,22 @@ function getInterventionTypeLabel(type: InterventionType | null): string {
     case 'incomplete': return 'INCOMPLETE';
     default: return 'UNKNOWN';
   }
+}
+
+/**
+ * Derive which Kanban board a task belongs to based on enriched status and phase.
+ * Status (from worktree enrichment) is most reliable; currentPhase is fallback.
+ */
+function getTaskBoard(status: string, currentPhase?: string): string {
+  if (status === 'in_progress' || status === 'coding') return 'In Progress';
+  if (status === 'ai_review' || status === 'qa_approved' || status === 'completed') return 'AI Review';
+  if (status === 'human_review') return 'Human Review';
+  if (status === 'planning') return 'Planning';
+  // Fallback: derive from currentPhase in task_logs.json
+  if (currentPhase === 'coding') return 'In Progress';
+  if (currentPhase === 'validation') return 'AI Review';
+  if (currentPhase === 'planning') return 'Planning';
+  return 'Unknown';
 }
 
 /**
@@ -1619,6 +1641,8 @@ export function registerRdrHandlers(): void {
         subtasks?: Array<{ name: string; status: string }>;
         errorSummary?: string;
         lastLogs?: Array<{ timestamp: string; phase: string; content: string }>;
+        board?: string;           // Kanban board: "In Progress", "AI Review", etc.
+        currentPhase?: string;    // Agent phase: "coding", "validation", etc.
       }>;
     }>> => {
       console.log(`[RDR] Getting batch details for project ${projectId}`);
@@ -1755,6 +1779,10 @@ export function registerRdrHandlers(): void {
           // Determine intervention type using centralized function
           const interventionType = determineInterventionType(taskInfo);
 
+          // Determine board and phase for display grouping
+          const currentPhase = projectPath ? getCurrentPhase(projectPath, task.specId) : undefined;
+          const board = getTaskBoard(task.status, currentPhase);
+
           return {
             specId: task.specId,
             title: task.title || task.specId,
@@ -1776,7 +1804,9 @@ export function registerRdrHandlers(): void {
             })),
             errorSummary,
             // Get last 3 log entries for context (prefers worktree logs)
-            lastLogs: projectPath ? getLastLogEntries(projectPath, task.specId, 3) : undefined
+            lastLogs: projectPath ? getLastLogEntries(projectPath, task.specId, 3) : undefined,
+            board,
+            currentPhase
           };
         });
 

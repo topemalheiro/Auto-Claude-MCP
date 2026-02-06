@@ -935,6 +935,8 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       subtasks?: Array<{ name: string; status: string }>;
       errorSummary?: string;
       lastLogs?: Array<{ timestamp: string; phase: string; content: string }>;
+      board?: string;
+      currentPhase?: string;
     }>;
   }): string => {
     const lines: string[] = ['/auto-claude-rdr'];
@@ -945,21 +947,61 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     lines.push(`**Project Path:** ${data.projectPath || 'unknown'}`);
     lines.push('');
 
-    // Summary: Show batch categorization
-    if (data.batches && data.batches.length > 0) {
-      lines.push('**Recovery Batches:**');
+    // Build task-to-batch mapping for summary display
+    const taskBatchMap: Record<string, string> = {};
+    if (data.batches) {
       for (const batch of data.batches) {
-        const taskList = batch.taskIds.join(', ');
-        lines.push(`- **${batch.type}** (${batch.taskCount} tasks): ${taskList}`);
+        for (const taskId of batch.taskIds) {
+          taskBatchMap[taskId] = batch.type;
+        }
+      }
+    }
+
+    // Board-to-phase label mapping
+    const boardPhaseMap: Record<string, string> = {
+      'In Progress': 'Coding',
+      'AI Review': 'Validation',
+      'Planning': 'Planning',
+      'Human Review': 'Human Review',
+    };
+
+    // Group tasks by board for clean display
+    const boardGroups: Record<string, typeof data.taskDetails> = {};
+    for (const task of data.taskDetails) {
+      const board = task.board || 'Unknown';
+      if (!boardGroups[board]) boardGroups[board] = [];
+      boardGroups[board].push(task);
+    }
+
+    // Recovery Summary grouped by board
+    lines.push('**Recovery Summary:**');
+    lines.push('');
+    for (const [board, tasks] of Object.entries(boardGroups)) {
+      const phaseLabel = boardPhaseMap[board] || '';
+      const header = phaseLabel ? `${board} (${phaseLabel})` : board;
+      lines.push(`### ${header} — ${tasks.length} task${tasks.length !== 1 ? 's' : ''}`);
+      for (const task of tasks) {
+        const completed = task.subtasks?.filter(s => s.status === 'completed').length || 0;
+        const total = task.subtasks?.length || 0;
+        const batchType = taskBatchMap[task.specId] || 'unknown';
+        const exitInfo = task.exitReason ? `, exited: ${task.exitReason}` : '';
+        lines.push(`- ${task.specId}: ${batchType} (${completed}/${total}${exitInfo})`);
       }
       lines.push('');
     }
 
+    // Detailed task info
     lines.push('**Task Details:**');
     lines.push('');
 
     for (const task of data.taskDetails) {
       lines.push(`## ${task.specId}: ${task.title}`);
+
+      if (task.board) {
+        const phaseLabel = task.currentPhase ? ` (${task.currentPhase})` : '';
+        lines.push(`Board: ${task.board}${phaseLabel}`);
+      }
+
       lines.push(`Status: ${task.reviewReason || task.status} | Exit: ${task.exitReason || 'none'}`);
 
       if (task.subtasks && task.subtasks.length > 0) {
