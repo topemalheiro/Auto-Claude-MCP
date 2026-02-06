@@ -62,6 +62,7 @@ interface RdrProcessResult {
 
 interface TaskInfo {
   specId: string;
+  title?: string;
   status: string;
   reviewReason?: string;
   description?: string;
@@ -143,13 +144,16 @@ function enrichTaskWithWorktreeData(task: TaskInfo, projectPath: string): TaskIn
     const worktreeStatus = worktreePlan.status as string;
 
     // Terminal statuses in worktree mean the agent is done - don't override
-    if (worktreeStatus === 'done' || worktreeStatus === 'pr_created' || worktreeStatus === 'completed') {
+    // NOTE: 'completed' is NOT terminal here - it means the agent finished subtasks
+    // but may still need QA/transition. Auto-shutdown treats it as needing attention.
+    if (worktreeStatus === 'done' || worktreeStatus === 'pr_created') {
       return task;
     }
 
     // If worktree has an "active" status that differs from main, use worktree data
     // This catches cases where main shows human_review 100% but agent is still working
-    const activeStatuses = ['in_progress', 'ai_review', 'qa_approved', 'planning', 'coding'];
+    // 'completed' included: agent finished subtasks but task hasn't transitioned to done
+    const activeStatuses = ['in_progress', 'ai_review', 'qa_approved', 'completed', 'planning', 'coding'];
     if (activeStatuses.includes(worktreeStatus) && worktreeStatus !== task.status) {
       console.log(`[RDR] Enriching task ${task.specId}: main=${task.status} → worktree=${worktreeStatus}`);
       return {
@@ -176,14 +180,12 @@ function enrichTaskWithWorktreeData(task: TaskInfo, projectPath: string): TaskIn
 function isLegitimateHumanReview(task: TaskInfo): boolean {
   const progress = calculateTaskProgress(task);
 
-  // 100% subtasks complete + completed = waiting for merge approval
-  if (progress === 100 && task.reviewReason === 'completed') {
-    return true;  // Don't flag - this is normal human review
+  // Match auto-shutdown logic: ANY human_review at 100% = legitimate
+  // Auto-shutdown skips ALL human_review tasks at 100%, not just reviewReason='completed'.
+  // This prevents false positives like 085-templating-backend being flagged.
+  if (progress === 100) {
+    return true;  // Don't flag - task completed all subtasks, waiting for user action
   }
-
-  // REMOVED: plan_review exception was wrong!
-  // plan_review tasks NEED to be flagged to start coding phase
-  // The handler at line 191-193 will catch them and return 'incomplete'
 
   return false;
 }
@@ -204,20 +206,14 @@ function determineInterventionType(task: TaskInfo): InterventionType | null {
     return null;
   }
 
-  // CRITICAL: Skip tasks that are 100% complete - they're done regardless of status/exit
-  // This must be checked BEFORE error/exit checks to prevent flagging completed tasks
   const progress = calculateTaskProgress(task);
-  if (progress === 100) {
-    console.log(`[RDR] ⏭️  Task ${task.specId} at 100% complete - no intervention needed`);
-    return null;
-  }
 
-  // Check if this is legitimate human review (don't flag)
+  // Check if this is legitimate human review (any human_review at 100% = waiting for user)
   if (task.status === 'human_review' && isLegitimateHumanReview(task)) {
     return null;
   }
 
-  // RECOVERY: Crashed with error or QA rejected
+  // RECOVERY: Crashed with error or QA rejected (any status, any progress)
   if (task.exitReason === 'error' ||
       task.exitReason === 'auth_failure' ||
       task.reviewReason === 'errors' ||
@@ -225,60 +221,36 @@ function determineInterventionType(task: TaskInfo): InterventionType | null {
     return 'recovery';
   }
 
-  // RESUME: Rate limited or paused mid-task (incomplete_work)
-  // NOTE: Removed human_review exclusion - incomplete_work ALWAYS means needs resume
+  // RESUME: Rate limited or paused mid-task (any status, any progress)
   if (task.exitReason === 'rate_limit_crash' ||
       task.reviewReason === 'incomplete_work') {
     return 'resume';
   }
 
-  // STUCK: In human_review with incomplete subtasks or problematic reviewReason
-  if (task.status === 'human_review') {
-    const progress = calculateTaskProgress(task);
-    if (progress < 100) {
-      // Has incomplete work - either incomplete_work review reason or just stuck
-      if (task.reviewReason === 'incomplete_work') {
-        return 'resume';  // Can be resumed
-      }
-      return 'stuck';  // Bounced without clear reason
-    }
-    // PLAN_REVIEW: Only flag if subtasks are actually incomplete
-    // At 100% completion, planning is done - no intervention needed
-    if (task.reviewReason === 'plan_review') {
-      if (progress < 100) {
-        console.log(`[RDR] Task ${task.specId} with plan_review at ${progress}% - needs to complete planning`);
-        return 'incomplete';
-      }
-      // At 100% - planning is done, task will progress automatically
-      console.log(`[RDR] ⏭️  Task ${task.specId} with plan_review at 100% - no intervention needed`);
-      return null;
-    }
-    // Also flag if 100% but reviewReason indicates a problem
-    // (e.g., errors, qa_rejected, or other non-'completed' reasons)
-    if (task.reviewReason && task.reviewReason !== 'completed') {
-      console.log(`[RDR] Task ${task.specId} at 100% but has problematic reviewReason: ${task.reviewReason}`);
-      return 'stuck';  // Completed but marked with issue
-    }
+  // ACTIVE TASKS: These statuses mean the agent should be running but isn't.
+  // If the agent isn't running in these statuses, it stopped (prompt_loop, cost_limit,
+  // or just exited). Flag regardless of progress — even 100% means it didn't transition.
+  // qa_approved = passed QA but didn't transition to done
+  // completed = finished subtasks but didn't transition
+  if (task.status === 'in_progress' || task.status === 'ai_review' ||
+      task.status === 'qa_approved' || task.status === 'completed') {
+    console.log(`[RDR] Task ${task.specId} in active status ${task.status} at ${progress}% - needs continuation`);
+    return 'incomplete';
   }
 
-  // INCOMPLETE: Still has pending subtasks in active boards
-  if (task.status === 'in_progress' || task.status === 'ai_review') {
-    const progress = calculateTaskProgress(task);
-    if (progress < 100) {
-      // Check if it has a reviewReason indicating it was interrupted
-      if (task.reviewReason === 'incomplete_work' || task.reviewReason === 'errors') {
-        return task.reviewReason === 'errors' ? 'recovery' : 'resume';
-      }
-      return 'incomplete';
-    }
+  // STUCK: In human_review with incomplete subtasks (< 100%)
+  // Note: human_review at 100% is already caught by isLegitimateHumanReview above
+  if (task.status === 'human_review' && progress < 100) {
+    console.log(`[RDR] Task ${task.specId} in human_review at ${progress}% - stuck with incomplete work`);
+    return 'stuck';
   }
 
   // Empty plan - needs intervention
   if (!task.phases || task.phases.length === 0) {
-    return 'recovery';  // Can't continue without a plan
+    return 'recovery';
   }
 
-  return null;  // No intervention needed
+  return null;
 }
 
 // Interface for rich task info used in RDR messages
@@ -1649,13 +1621,22 @@ export function registerRdrHandlers(): void {
         const projectPath = project?.path;
         const rawTasks = projectStore.getTasks(projectId);
 
+        // Filter out archived tasks BEFORE enrichment (matching auto-shutdown logic)
+        const nonArchivedTasks = rawTasks.filter(t => {
+          if (t.metadata?.archivedAt) {
+            console.log(`[RDR] ⏭️  Skipping ${t.specId} - archived at ${t.metadata.archivedAt}`);
+            return false;
+          }
+          return true;
+        });
+
         // Enrich tasks with worktree data before intervention check.
         // ProjectStore dedup prefers main (for board display), but worktrees have
         // actual agent progress. Tasks at human_review 100% in main may be
         // ai_review/in_progress in the worktree.
         const tasks = projectPath
-          ? rawTasks.map(t => enrichTaskWithWorktreeData(t, projectPath))
-          : rawTasks;
+          ? nonArchivedTasks.map(t => enrichTaskWithWorktreeData(t, projectPath))
+          : nonArchivedTasks;
 
         /**
          * Helper: Check if task needs intervention
@@ -1738,6 +1719,7 @@ export function registerRdrHandlers(): void {
           // Convert task to TaskInfo for helper functions
           const taskInfo: TaskInfo = {
             specId: task.specId,
+            title: task.title,
             status: task.status,
             reviewReason: task.reviewReason,
             description: task.description,
