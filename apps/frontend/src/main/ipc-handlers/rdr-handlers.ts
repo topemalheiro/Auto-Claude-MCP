@@ -20,6 +20,21 @@ import { projectStore } from '../project-store';
 import { isElectron } from '../electron-compat';
 import { outputMonitor } from '../claude-code/output-monitor';
 
+/**
+ * Read the raw plan status directly from implementation_plan.json on disk.
+ * ProjectStore maps start_requested → backlog, losing the original status.
+ * This lets RDR detect tasks that were supposed to start but never did.
+ */
+function getRawPlanStatus(projectPath: string, specId: string): string | undefined {
+  const planPath = path.join(projectPath, '.auto-claude', 'specs', specId, 'implementation_plan.json');
+  try {
+    const plan = JSON.parse(readFileSync(planPath, 'utf-8'));
+    return plan.status;
+  } catch {
+    return undefined;
+  }
+}
+
 // Conditionally import Electron-specific modules
 let ipcMain: any = null;
 let BrowserWindow: any = null;
@@ -249,7 +264,7 @@ function isLegitimateHumanReview(task: TaskInfo): boolean {
  * - 'stuck': Task bounced to human_review with incomplete subtasks (no clear exit reason)
  * - 'incomplete': Task has pending subtasks in active boards (in_progress, ai_review)
  */
-function determineInterventionType(task: TaskInfo, lastActivityMs?: number, hasWorktree?: boolean): InterventionType | null {
+function determineInterventionType(task: TaskInfo, lastActivityMs?: number, hasWorktree?: boolean, rawPlanStatus?: string): InterventionType | null {
   // Skip completed/archived tasks - these never need intervention
   if (task.status === 'done' || task.status === 'pr_created') {
     return null;
@@ -257,9 +272,15 @@ function determineInterventionType(task: TaskInfo, lastActivityMs?: number, hasW
 
   // REGRESSED: Task went back to backlog/pending but has a worktree (agent previously started work)
   // This means the agent crashed or was interrupted and the task regressed
+  // STUCK START: Task has start_requested in raw plan but ProjectStore mapped it to backlog
+  // This means the file watcher never picked it up and the agent never started
   if (task.status === 'backlog' || task.status === 'pending') {
     if (hasWorktree) {
       console.log(`[RDR] Task ${task.specId} regressed to ${task.status} but has worktree - needs restart`);
+      return 'incomplete';
+    }
+    if (rawPlanStatus === 'start_requested') {
+      console.log(`[RDR] Task ${task.specId} has start_requested but never started - needs restart`);
       return 'incomplete';
     }
     return null;
@@ -472,7 +493,8 @@ function gatherRichTaskInfo(task: TaskInfo, projectPath: string): RichTaskInfo {
   const lastActivityMs = getTaskLastActivityTimestamp(task, projectPath);
   const worktreeDir = path.join(projectPath, '.auto-claude', 'worktrees', 'tasks', task.specId);
   const hasWorktree = existsSync(worktreeDir);
-  const interventionType = determineInterventionType(task, lastActivityMs, hasWorktree);
+  const rawPlanStatus = getRawPlanStatus(projectPath, task.specId);
+  const interventionType = determineInterventionType(task, lastActivityMs, hasWorktree, rawPlanStatus);
 
   // Get last logs
   const lastLogs = getLastLogEntries(projectPath, task.specId, 3);
@@ -1758,7 +1780,8 @@ export function registerRdrHandlers(): void {
           const lastActivityMs = projectPath ? getTaskLastActivityTimestamp(task, projectPath) : undefined;
           const wtDir = projectPath ? path.join(projectPath, '.auto-claude', 'worktrees', 'tasks', task.specId) : null;
           const hasWt = wtDir ? existsSync(wtDir) : undefined;
-          const interventionType = determineInterventionType(task, lastActivityMs, hasWt);
+          const rawStatus = projectPath ? getRawPlanStatus(projectPath, task.specId) : undefined;
+          const interventionType = determineInterventionType(task, lastActivityMs, hasWt, rawStatus);
 
           if (interventionType) {
             console.log(`[RDR] ✅ Task ${task.specId} needs intervention: type=${interventionType}`);
@@ -1770,7 +1793,7 @@ export function registerRdrHandlers(): void {
             console.log(`[RDR] ⏭️  Skipping task ${task.specId} - 100% complete, awaiting merge approval`);
           } else if (progress === 100) {
             console.log(`[RDR] ⏭️  Skipping task ${task.specId} - 100% but reviewReason=${task.reviewReason || 'none'} (should have been caught)`);
-          } else if (task.status === 'done' || task.status === 'pr_created' || task.status === 'backlog') {
+          } else if (task.status === 'done' || task.status === 'pr_created') {
             console.log(`[RDR] ⏭️  Skipping task ${task.specId} - status=${task.status}`);
           } else {
             console.log(`[RDR] ⏭️  Skipping task ${task.specId} - no intervention needed (progress=${progress}%)`);
@@ -1853,7 +1876,8 @@ export function registerRdrHandlers(): void {
           const taskActivityMs = projectPath ? getTaskLastActivityTimestamp(taskInfo, projectPath) : undefined;
           const taskWtDir = projectPath ? path.join(projectPath, '.auto-claude', 'worktrees', 'tasks', task.specId) : null;
           const taskHasWt = taskWtDir ? existsSync(taskWtDir) : undefined;
-          const interventionType = determineInterventionType(taskInfo, taskActivityMs, taskHasWt);
+          const taskRawStatus = projectPath ? getRawPlanStatus(projectPath, task.specId) : undefined;
+          const interventionType = determineInterventionType(taskInfo, taskActivityMs, taskHasWt, taskRawStatus);
 
           // Determine board and phase for display grouping
           const currentPhase = projectPath ? getCurrentPhase(projectPath, task.specId) : undefined;
@@ -2016,7 +2040,8 @@ export function registerRdrHandlers(): void {
             const recoverActivityMs = getTaskLastActivityTimestamp(taskInfoForCheck, project.path);
             const recoverWtDir = path.join(project.path, '.auto-claude', 'worktrees', 'tasks', task.specId);
             const recoverHasWt = existsSync(recoverWtDir);
-            const interventionType = determineInterventionType(taskInfoForCheck, recoverActivityMs, recoverHasWt);
+            const recoverRawStatus = getRawPlanStatus(project.path, task.specId);
+            const interventionType = determineInterventionType(taskInfoForCheck, recoverActivityMs, recoverHasWt, recoverRawStatus);
 
             if (!interventionType) {
               console.log(`[RDR] ⏭️  Skipping ${task.specId} - no intervention needed (status=${task.status})`);
