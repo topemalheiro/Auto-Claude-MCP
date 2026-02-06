@@ -81,9 +81,8 @@ function calculateTaskProgress(plan: {
 }
 
 /**
- * Get all active (incomplete) task IDs for a project
- * Only returns tasks with progress < 100%
- * This matches the green dot indicators in the UI
+ * Get all active task IDs for a project
+ * Returns tasks that are not in terminal status (done, pr_created) and not archived
  */
 function getActiveTaskIds(projectPath: string): string[] {
   const specsDir = getProjectSpecsDir(projectPath);
@@ -108,16 +107,17 @@ function getActiveTaskIds(projectPath: string): string[] {
       try {
         const content = JSON.parse(fs.readFileSync(planPath, 'utf-8'));
 
-        // Skip done tasks
-        if (content.status === 'done') {
+        // Skip terminal statuses - these tasks are truly finished
+        if (content.status === 'done' || content.status === 'pr_created') {
           continue;
         }
 
-        // Only monitor tasks that are NOT at 100% completion
-        const progress = calculateTaskProgress(content);
-        if (progress < 100) {
-          taskIds.push(dir);
-        }
+        // Count ALL non-terminal, non-archived tasks as active
+        // Previously this used calculateTaskProgress() and skipped 100% tasks,
+        // but that was wrong: a task in 'human_review' with 100% subtask completion
+        // is NOT done - it still needs human action. Status determines completion,
+        // not subtask progress.
+        taskIds.push(dir);
       } catch (e) {
         console.error(`[AutoShutdown] Failed to read ${planPath}:`, e);
       }
@@ -128,9 +128,8 @@ function getActiveTaskIds(projectPath: string): string[] {
 }
 
 /**
- * Count tasks that are NOT at 100% completion
- * Only tasks with incomplete subtasks should be counted as "remaining"
- * This matches the green dot indicators in the UI
+ * Count tasks that are not in terminal status (done, pr_created) and not archived
+ * Returns total count and how many are in human_review
  */
 function countTasksByStatus(projectPath: string): { total: number; humanReview: number } {
   const specsDir = getProjectSpecsDir(projectPath);
@@ -157,24 +156,19 @@ function countTasksByStatus(projectPath: string): { total: number; humanReview: 
       try {
         const content = JSON.parse(fs.readFileSync(planPath, 'utf-8'));
 
-        // Skip tasks marked as done
-        if (content.status === 'done') {
+        // Skip terminal statuses - these tasks are truly finished
+        if (content.status === 'done' || content.status === 'pr_created') {
           continue;
         }
 
-        // Calculate actual progress from subtasks (green dots)
+        // Count ALL non-terminal, non-archived tasks
+        // Status determines completion, not subtask progress
         const progress = calculateTaskProgress(content);
-
-        // Only count tasks that are NOT at 100% completion
-        if (progress < 100) {
-          total++;
-          if (content.status === 'human_review') {
-            humanReview++;
-          }
-          console.log(`[AutoShutdown] Task ${dir}: ${progress}% complete, status=${content.status} (counted)`);
-        } else {
-          console.log(`[AutoShutdown] Task ${dir}: 100% complete, status=${content.status} (NOT counted - complete)`);
+        total++;
+        if (content.status === 'human_review') {
+          humanReview++;
         }
+        console.log(`[AutoShutdown] Task ${dir}: ${progress}% complete, status=${content.status} (counted)`);
       } catch (e) {
         console.error(`[AutoShutdown] Failed to read ${planPath}:`, e);
       }

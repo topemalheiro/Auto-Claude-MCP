@@ -83,3 +83,19 @@ if (!existing || task.location === 'worktree') {
 |------|--------|
 | `apps/frontend/src/shared/constants/task.ts` | Added `TASK_STATUS_PRIORITY` constant mapping each status to a numeric priority (backlog=20 through done=100). Used as tiebreaker when both tasks are from same location. |
 | `apps/frontend/src/main/project-store.ts` (deduplication, line 318) | Main project version now wins over worktree. Status priority only used as tiebreaker for same-location duplicates. Prevents stale worktree data from overriding correct user changes. |
+
+---
+
+## Session 4: Auto-Shutdown Task Count Mismatch (current, uncommitted)
+
+### Problem
+Auto-shutdown reported only 2 tasks remaining instead of ~8. The KanbanBoard showed 8 tasks in human_review, but auto-shutdown skipped 6 of them.
+
+### Root Cause
+`getActiveTaskIds()` and `countTasksByStatus()` used `calculateTaskProgress()` to skip tasks at 100% subtask completion. Tasks in `human_review` with all subtasks completed were treated as "done" even though they still need human action. The KanbanBoard uses `determineTaskStatusAndReason()` which respects the explicit status field.
+
+### Fix Applied
+
+| File | Change |
+|------|--------|
+| `apps/frontend/src/main/ipc-handlers/auto-shutdown-handlers.ts` | Changed `getActiveTaskIds()` and `countTasksByStatus()` to filter by **status** (`done`, `pr_created` = skip) instead of subtask progress (100% = skip). A task's completion is determined by reaching `done` status, not by subtask progress. |
