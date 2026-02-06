@@ -660,13 +660,17 @@
   },
   "autoShutdown": {
     "title": "Auto Shutdown",
-    "description": "Automatically shut down your computer when all tasks reach Human Review",
+    "description": "Automatically shut down your computer when all tasks reach Human Review across all projects",
     "toggle": "Enable auto shutdown",
     "monitoring": "Monitoring",
+    "monitoringGlobal": "Monitoring {{projects}} projects",
     "disabled": "Disabled",
     "tasksRemaining": "{{count}} tasks remaining",
     "tasksRemaining_one": "{{count}} task remaining",
     "tasksRemaining_other": "{{count}} tasks remaining",
+    "tasksRemainingGlobal": "{{count}} tasks remaining across {{projects}} projects",
+    "tasksRemainingGlobal_one": "{{count}} task remaining across {{projects}} projects",
+    "tasksRemainingGlobal_other": "{{count}} tasks remaining across {{projects}} projects",
     "waitingForCompletion": "Waiting for tasks...",
     "shutdownIn": "Shutdown in {{seconds}}s"
   }

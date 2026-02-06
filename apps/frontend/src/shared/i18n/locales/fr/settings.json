@@ -660,13 +660,17 @@
   },
   "autoShutdown": {
     "title": "Arrêt automatique",
-    "description": "Arrêter automatiquement votre ordinateur lorsque toutes les tâches atteignent la révision humaine",
+    "description": "Arrêter automatiquement votre ordinateur lorsque toutes les tâches atteignent la révision humaine dans tous les projets",
     "toggle": "Activer l'arrêt automatique",
     "monitoring": "Surveillance",
+    "monitoringGlobal": "Surveillance de {{projects}} projets",
     "disabled": "Désactivé",
     "tasksRemaining": "{{count}} tâches restantes",
     "tasksRemaining_one": "{{count}} tâche restante",
     "tasksRemaining_other": "{{count}} tâches restantes",
+    "tasksRemainingGlobal": "{{count}} tâches restantes dans {{projects}} projets",
+    "tasksRemainingGlobal_one": "{{count}} tâche restante dans {{projects}} projets",
+    "tasksRemainingGlobal_other": "{{count}} tâches restantes dans {{projects}} projets",
     "waitingForCompletion": "En attente des tâches...",
     "shutdownIn": "Arrêt dans {{seconds}}s"
   }
