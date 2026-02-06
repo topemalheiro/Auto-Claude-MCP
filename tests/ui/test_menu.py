@@ -923,6 +923,17 @@ class TestSelectMenuInteractive:
             result = select_menu("Test Menu", options, _interactive=True)
             assert result == "1"
 
+    @patch.object(menu_module, "_getch", return_value="\r")
+    def test_mock_verification(self, mock_getch):
+        """Verify that patch.object works correctly for _getch"""
+        options = [MenuOption(key="1", label="Option 1")]
+
+        result = select_menu("Test Menu", options, _interactive=True)
+
+        # Verify mock was called
+        assert mock_getch.called, "Mock was not called!"
+        assert result == "1"
+
 
 # ============================================================================
 # Tests for _fallback_menu() EOFError and KeyboardInterrupt handling
