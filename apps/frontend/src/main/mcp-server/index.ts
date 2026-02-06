@@ -748,6 +748,20 @@ Source: Claude Code MCP Tool (Priority 2: Request Changes)
 `;
       writeFileSync(fixRequestPath, content);
 
+      // Also write QA_FIX_REQUEST.md to worktree (agent runs there, needs to see it)
+      const worktreeSpecDir = path.join(
+        projectPath, '.auto-claude', 'worktrees', 'tasks', taskId,
+        '.auto-claude', 'specs', taskId
+      );
+      if (existsSync(worktreeSpecDir)) {
+        try {
+          writeFileSync(path.join(worktreeSpecDir, 'QA_FIX_REQUEST.md'), content);
+          console.log(`[MCP] Also wrote QA_FIX_REQUEST.md to worktree for ${taskId}`);
+        } catch (err) {
+          console.warn(`[MCP] Failed to write worktree QA_FIX_REQUEST.md for ${taskId}:`, err);
+        }
+      }
+
       // Update implementation_plan.json to trigger Priority 1 (automatic board movement)
       if (existsSync(planPath)) {
         const plan = JSON.parse(readFileSync(planPath, 'utf-8'));
@@ -757,6 +771,23 @@ Source: Claude Code MCP Tool (Priority 2: Request Changes)
         plan.mcp_feedback = feedback;
         plan.mcp_iteration = (plan.mcp_iteration || 0) + 1;
         writeFileSync(planPath, JSON.stringify(plan, null, 2));
+      }
+
+      // Also update worktree plan status (agent runs there, needs to see start_requested)
+      const worktreePlanPath = path.join(worktreeSpecDir, 'implementation_plan.json');
+      if (existsSync(worktreePlanPath)) {
+        try {
+          const worktreePlan = JSON.parse(readFileSync(worktreePlanPath, 'utf-8'));
+          worktreePlan.status = 'start_requested';
+          worktreePlan.start_requested_at = new Date().toISOString();
+          worktreePlan.rdr_priority = 2;
+          worktreePlan.mcp_feedback = feedback;
+          worktreePlan.mcp_iteration = (worktreePlan.mcp_iteration || 0) + 1;
+          writeFileSync(worktreePlanPath, JSON.stringify(worktreePlan, null, 2));
+          console.log(`[MCP] Also updated worktree plan for ${taskId}`);
+        } catch (err) {
+          console.warn(`[MCP] Failed to update worktree plan for ${taskId}:`, err);
+        }
       }
 
       return {
@@ -1067,6 +1098,7 @@ server.tool(
       try {
         let action = '';
         let priority = 1; // Default: Priority 1 (automatic board movement)
+        let feedbackWrittenToMain = false; // Track if we wrote QA_FIX_REQUEST.md
 
         // ─────────────────────────────────────────────────────────────────
         // BATCH TYPE SPECIFIC LOGIC (4-Tier Priority System)
@@ -1107,6 +1139,7 @@ Source: RDR Batch Processing (Priority 3: Technical Blocker Fix)
 Batch Type: ${batchType}
 `;
             writeFileSync(fixRequestPath, feedbackContent);
+            feedbackWrittenToMain = true;
             action = 'json_fix_requested';
           }
 
@@ -1131,6 +1164,7 @@ Source: RDR Batch Processing (Priority 1: Automatic Board Movement)
 Batch Type: ${batchType}
 `;
             writeFileSync(fixRequestPath, feedbackContent);
+            feedbackWrittenToMain = true;
           }
 
         } else if (batchType === 'qa_rejected') {
@@ -1157,6 +1191,7 @@ Source: RDR Batch Processing (Priority 2: Request Changes)
 Batch Type: ${batchType}
 `;
           writeFileSync(fixRequestPath, feedbackContent);
+          feedbackWrittenToMain = true;
 
         } else if (batchType === 'errors') {
           // PRIORITY 2-3: Request changes or fix technical blockers
@@ -1182,6 +1217,24 @@ Source: RDR Batch Processing (Priority 2-3: Fix Errors)
 Batch Type: ${batchType}
 `;
           writeFileSync(fixRequestPath, feedbackContent);
+          feedbackWrittenToMain = true;
+        }
+
+        // Also copy QA_FIX_REQUEST.md to worktree (agent runs there, needs to see it)
+        if (feedbackWrittenToMain) {
+          const worktreeFixPath = path.join(
+            projectPath, '.auto-claude', 'worktrees', 'tasks', fix.taskId,
+            '.auto-claude', 'specs', fix.taskId, 'QA_FIX_REQUEST.md'
+          );
+          if (existsSync(path.dirname(worktreeFixPath))) {
+            try {
+              const fixContent = readFileSync(fixRequestPath, 'utf-8');
+              writeFileSync(worktreeFixPath, fixContent);
+              console.log(`[MCP] Also wrote QA_FIX_REQUEST.md to worktree for ${fix.taskId}`);
+            } catch (err) {
+              console.warn(`[MCP] Failed to write worktree QA_FIX_REQUEST.md for ${fix.taskId}:`, err);
+            }
+          }
         }
 
         // ─────────────────────────────────────────────────────────────────
@@ -1201,6 +1254,26 @@ Batch Type: ${batchType}
           plan.rdr_priority = priority;
           plan.rdr_iteration = (plan.rdr_iteration || 0) + 1;
           writeFileSync(planPath, JSON.stringify(plan, null, 2));
+        }
+
+        // Also update worktree plan status (agent runs in worktree, needs to see start_requested)
+        const worktreePlanPath = path.join(
+          projectPath, '.auto-claude', 'worktrees', 'tasks', fix.taskId,
+          '.auto-claude', 'specs', fix.taskId, 'implementation_plan.json'
+        );
+        if (existsSync(worktreePlanPath)) {
+          try {
+            const worktreePlan = JSON.parse(readFileSync(worktreePlanPath, 'utf-8'));
+            worktreePlan.status = 'start_requested';
+            worktreePlan.start_requested_at = new Date().toISOString();
+            worktreePlan.rdr_batch_type = batchType;
+            worktreePlan.rdr_priority = priority;
+            worktreePlan.rdr_iteration = (worktreePlan.rdr_iteration || 0) + 1;
+            writeFileSync(worktreePlanPath, JSON.stringify(worktreePlan, null, 2));
+            console.log(`[MCP] Also updated worktree plan for ${fix.taskId}`);
+          } catch (err) {
+            console.warn(`[MCP] Failed to update worktree plan for ${fix.taskId}:`, err);
+          }
         }
 
         results.push({ taskId: fix.taskId, success: true, action, priority });

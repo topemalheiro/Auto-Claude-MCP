@@ -247,8 +247,24 @@ export class FileWatcher extends EventEmitter {
             // NEW: Move task back to correct board based on progress BEFORE auto-starting
             const task = taskForArchiveCheck;
             if (task && task.status === 'human_review') {
+              // Prefer worktree plan for accurate progress (main plan may be stale)
+              const worktreePlanPath = path.join(
+                projectPath, '.auto-claude', 'worktrees', 'tasks', specId,
+                '.auto-claude', 'specs', specId, 'implementation_plan.json'
+              );
+              let planForRouting = plan;
+              if (existsSync(worktreePlanPath)) {
+                try {
+                  const worktreePlan = JSON.parse(readFileSync(worktreePlanPath, 'utf-8'));
+                  planForRouting = worktreePlan;
+                  console.log(`[FileWatcher] Using worktree plan for ${specId} routing (has real progress)`);
+                } catch {
+                  console.warn(`[FileWatcher] Failed to read worktree plan for ${specId}, using main`);
+                }
+              }
+
               // Determine where to send task based on subtask progress
-              const targetStatus = determineResumeStatus(task, plan);
+              const targetStatus = determineResumeStatus(task, planForRouting);
 
               console.log(`[FileWatcher] Moving task ${specId} from human_review → ${targetStatus}`);
 
@@ -303,8 +319,24 @@ export class FileWatcher extends EventEmitter {
             // NEW: Move task back to correct board based on progress BEFORE auto-starting
             const task = taskForArchiveCheck;
             if (task && task.status === 'human_review') {
+              // Prefer worktree plan for accurate progress (main plan may be stale)
+              const worktreePlanPath = path.join(
+                projectPath, '.auto-claude', 'worktrees', 'tasks', specId,
+                '.auto-claude', 'specs', specId, 'implementation_plan.json'
+              );
+              let planForRouting = plan;
+              if (existsSync(worktreePlanPath)) {
+                try {
+                  const worktreePlan = JSON.parse(readFileSync(worktreePlanPath, 'utf-8'));
+                  planForRouting = worktreePlan;
+                  console.log(`[FileWatcher] Using worktree plan for ${specId} routing (has real progress)`);
+                } catch {
+                  console.warn(`[FileWatcher] Failed to read worktree plan for ${specId}, using main`);
+                }
+              }
+
               // Determine where to send task based on subtask progress
-              const targetStatus = determineResumeStatus(task, plan);
+              const targetStatus = determineResumeStatus(task, planForRouting);
 
               console.log(`[FileWatcher] Moving task ${specId} from human_review → ${targetStatus}`);
 
