@@ -76,6 +76,9 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(function Termi
   // Track last sent PTY dimensions to prevent redundant resize calls
   // This ensures terminal.resize() stays in sync with PTY dimensions
   const lastPtyDimensionsRef = useRef<{ cols: number; rows: number } | null>(null);
+  // Track if auto-resume has been attempted to prevent duplicate resume calls
+  // This fixes the race condition where isActive and pendingClaudeResume update timing can miss the effect trigger
+  const hasAttemptedAutoResumeRef = useRef(false);
   // Track when the last resize was sent to PTY for grace period logic
   // This prevents false positive mismatch warnings during async resize acknowledgment
   const lastResizeTimeRef = useRef<number>(0);
