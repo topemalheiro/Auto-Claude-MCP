@@ -5,7 +5,7 @@
  * system shutdown when all active tasks reach Human Review.
  */
 
-import { ipcMain, app } from 'electron';
+import { ipcMain, app, Notification } from 'electron';
 import { spawn, ChildProcess } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs';
@@ -307,10 +307,7 @@ ipcMain.handle(
         }
 
         if (totalActiveTasks === 0) {
-          return {
-            success: false,
-            error: 'No active tasks to monitor across all projects'
-          };
+          console.log('[AutoShutdown] No active tasks - monitor will trigger shutdown on first poll');
         }
 
         // Kill existing global process if any
@@ -372,12 +369,22 @@ ipcMain.handle(
           console.log(`[AutoShutdown:global] Monitor exited with code ${code}`);
           monitorProcesses.delete('global');
 
-          // Update status
+          if (code === 0) {
+            // Monitor detected all tasks complete and triggered shutdown
+            if (Notification.isSupported()) {
+              new Notification({
+                title: 'Auto-Shutdown Armed',
+                body: 'All tasks complete! System will shut down in 2 minutes. Run "shutdown /a" to abort.',
+                urgency: 'critical'
+              }).show();
+            }
+          }
+
           const status: AutoShutdownStatus = {
             enabled: false,
             monitoring: false,
             tasksRemaining: 0,
-            shutdownPending: code === 0 // Exit 0 means shutdown triggered
+            shutdownPending: code === 0
           };
           monitorStatuses.set('global', status);
         });
