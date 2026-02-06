@@ -1,6 +1,7 @@
 """Tests for azure_openai_embedder"""
 
 from unittest.mock import MagicMock, patch
+from types import SimpleNamespace
 
 import pytest
 
@@ -13,12 +14,13 @@ from integrations.graphiti.providers_pkg.exceptions import ProviderNotInstalled,
 def test_create_azure_openai_embedder():
     """Test create_azure_openai_embedder successfully creates embedder"""
 
-    # Arrange
-    config = MagicMock()
-    config.azure_openai_api_key = "test-api-key"
-    config.azure_openai_base_url = "https://test.openai.azure.com"
-    config.azure_openai_embedding_deployment = "test-deployment"
-    config.azure_openai_embedding_model = "text-embedding-ada-002"
+    # Arrange - use SimpleNamespace to create config with actual values
+    config = SimpleNamespace(
+        azure_openai_api_key="test-api-key",
+        azure_openai_base_url="https://test.openai.azure.com",
+        azure_openai_embedding_deployment="test-deployment",
+        azure_openai_embedding_model="text-embedding-ada-002",
+    )
 
     # Act
     result = create_azure_openai_embedder(config)
@@ -32,9 +34,12 @@ def test_create_azure_openai_embedder():
 def test_create_azure_openai_embedder_missing_api_key():
     """Test create_azure_openai_embedder raises error when API key is missing"""
 
-    # Arrange
-    config = MagicMock()
-    config.azure_openai_api_key = None
+    # Arrange - SimpleNamespace with None value
+    config = SimpleNamespace(
+        azure_openai_api_key=None,
+        azure_openai_base_url=None,
+        azure_openai_embedding_deployment=None,
+    )
 
     # Act & Assert
     with pytest.raises(ProviderError, match="AZURE_OPENAI_API_KEY"):
@@ -44,10 +49,12 @@ def test_create_azure_openai_embedder_missing_api_key():
 def test_create_azure_openai_embedder_missing_base_url():
     """Test create_azure_openai_embedder raises error when base URL is missing"""
 
-    # Arrange
-    config = MagicMock()
-    config.azure_openai_api_key = "test-api-key"
-    config.azure_openai_base_url = None
+    # Arrange - SimpleNamespace with None for base_url
+    config = SimpleNamespace(
+        azure_openai_api_key="test-api-key",
+        azure_openai_base_url=None,
+        azure_openai_embedding_deployment=None,
+    )
 
     # Act & Assert
     with pytest.raises(ProviderError, match="AZURE_OPENAI_BASE_URL"):
@@ -57,11 +64,12 @@ def test_create_azure_openai_embedder_missing_base_url():
 def test_create_azure_openai_embedder_missing_deployment():
     """Test create_azure_openai_embedder raises error when deployment is missing"""
 
-    # Arrange
-    config = MagicMock()
-    config.azure_openai_api_key = "test-api-key"
-    config.azure_openai_base_url = "https://test.openai.azure.com"
-    config.azure_openai_embedding_deployment = None
+    # Arrange - SimpleNamespace with None for deployment
+    config = SimpleNamespace(
+        azure_openai_api_key="test-api-key",
+        azure_openai_base_url="https://test.openai.azure.com",
+        azure_openai_embedding_deployment=None,
+    )
 
     # Act & Assert
     with pytest.raises(ProviderError, match="AZURE_OPENAI_EMBEDDING_DEPLOYMENT"):
@@ -72,10 +80,11 @@ def test_create_azure_openai_embedder_without_graphiti_core():
     """Test create_azure_openai_embedder raises ProviderNotInstalled when graphiti-core is missing"""
 
     # Arrange
-    config = MagicMock()
-    config.azure_openai_api_key = "test-api-key"
-    config.azure_openai_base_url = "https://test.openai.azure.com"
-    config.azure_openai_embedding_deployment = "test-deployment"
+    config = SimpleNamespace(
+        azure_openai_api_key="test-api-key",
+        azure_openai_base_url="https://test.openai.azure.com",
+        azure_openai_embedding_deployment="test-deployment",
+    )
 
     # Act & Assert
     # Patch the import statement to simulate missing graphiti-core
