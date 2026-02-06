@@ -747,6 +747,17 @@ export class ProjectStore {
         });
         return { status: 'ai_review' };
       }
+
+      // Explicit backlog status should be preserved (user manually stopped task)
+      // Exclude 'start_requested' which is transient (file watcher handles routing)
+      if (storedStatus === 'backlog' && plan.status !== 'start_requested') {
+        debugLog('[determineTaskStatusAndReason] Explicit backlog preserved:', {
+          planStatus: plan.status,
+          subtaskCount: allSubtasks.length,
+          reason: 'Backlog status respected - not overridden by subtask calculation'
+        });
+        return { status: 'backlog' };
+      }
     }
 
     // ========================================================================

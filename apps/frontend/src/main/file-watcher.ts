@@ -35,9 +35,25 @@ function determineResumeStatus(task: Task, plan: ImplementationPlan): TaskStatus
 
   console.log(`[FileWatcher] determineResumeStatus: Task ${task.specId}: ${completedSubtasks}/${totalSubtasks} subtasks complete`);
 
-  // Priority 2: If task has incomplete subtasks → resume in progress
+  // Priority 2: Check which phase has incomplete work
   if (completedSubtasks < totalSubtasks) {
-    console.log(`[FileWatcher] determineResumeStatus: Incomplete subtasks - returning 'in_progress' (resume work)`);
+    // Check if Implementation phase is fully complete
+    const implPhase = plan.phases.find(p => p.name === 'Implementation');
+    const validationPhase = plan.phases.find(p => p.name === 'Validation');
+
+    const implSubtasks = implPhase?.subtasks || [];
+    const implComplete = implSubtasks.length > 0 && implSubtasks.every(s => s.status === 'completed');
+
+    const validationSubtasks = validationPhase?.subtasks || [];
+    const hasIncompleteValidation = validationSubtasks.some(s => s.status !== 'completed');
+
+    // If Implementation is done but Validation has incomplete work → ai_review
+    if (implComplete && hasIncompleteValidation) {
+      console.log(`[FileWatcher] determineResumeStatus: Implementation complete, validation incomplete - returning 'ai_review' (resume QA)`);
+      return 'ai_review';
+    }
+
+    console.log(`[FileWatcher] determineResumeStatus: Incomplete subtasks in coding - returning 'in_progress' (resume work)`);
     return 'in_progress';
   }
 
