@@ -856,6 +856,7 @@ function generateBatchPrompt(batches: RdrBatch[], projectId: string, projectPath
     '/auto-claude-rdr',
     '',
     `**PROJECT_ID:** ${projectId}`,
+    `**PROJECT_PATH:** ${projectPath}`,
     '',
     '# [AUTO-CLAUDE RDR] Recovery Manager Role',
     '',
@@ -949,10 +950,11 @@ function generateBatchPrompt(batches: RdrBatch[], projectId: string, projectPath
   lines.push('Call `mcp__auto-claude-manager__process_rdr_batch` NOW for EACH batch:');
   lines.push('');
   for (const batch of batches) {
-    lines.push(`  mcp__auto-claude-manager__process_rdr_batch(`);
+    lines.push(`  mcp__auto-claude-manager__process_rdr_batch({`);
+    lines.push(`    projectId: "${projectId}",`);
     lines.push(`    batchType: "${batch.type}",`);
-    lines.push(`    fixes: [/* task IDs: ${batch.taskIds.slice(0,3).join(', ')}${batch.taskIds.length > 3 ? '...' : ''} */]`);
-    lines.push(`  )`);
+    lines.push(`    fixes: [${batch.taskIds.map(id => `{ taskId: "${id}" }`).join(', ')}]`);
+    lines.push(`  })`);
     lines.push('');
   }
   lines.push('**REMEMBER:** Call MCP tool ONLY. NO manual fixes. System auto-recovers.');
@@ -1619,6 +1621,7 @@ export function registerRdrHandlers(): void {
   ipcMain.handle(
     IPC_CHANNELS.GET_RDR_BATCH_DETAILS,
     async (event, projectId: string): Promise<IPCResult<{
+      projectPath: string;
       batches: Array<{ type: string; taskIds: string[]; taskCount: number }>;
       taskDetails: Array<{
         specId: string;
@@ -1698,6 +1701,7 @@ export function registerRdrHandlers(): void {
           return {
             success: true,
             data: {
+              projectPath: projectPath || '',
               batches: [],
               taskDetails: []
             }
@@ -1790,6 +1794,7 @@ export function registerRdrHandlers(): void {
         return {
           success: true,
           data: {
+            projectPath: projectPath || '',
             batches: batches.map(b => ({
               type: b.type,
               taskIds: b.taskIds,

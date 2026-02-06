@@ -923,6 +923,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
    */
   const buildRdrMessage = useCallback((data: {
     projectId: string;
+    projectPath?: string;
     batches: Array<{ type: string; taskIds: string[]; taskCount: number }>;
     taskDetails: Array<{
       specId: string;
@@ -935,9 +936,12 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       errorSummary?: string;
     }>;
   }): string => {
-    const lines: string[] = ['[Auto-Claude RDR] Tasks needing intervention:'];
+    const lines: string[] = ['/auto-claude-rdr'];
+    lines.push('');
+    lines.push('[Auto-Claude RDR] Tasks needing intervention:');
     lines.push('');
     lines.push(`**Project UUID:** ${data.projectId}`);
+    lines.push(`**Project Path:** ${data.projectPath || 'unknown'}`);
     lines.push('');
 
     // Summary: Show batch categorization
@@ -976,36 +980,23 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     lines.push('---');
     lines.push('**Recovery Instructions:**');
     lines.push('');
-    lines.push(`Project UUID: \`${data.projectId}\``);
+    lines.push('Call `mcp__auto-claude-manager__process_rdr_batch` NOW for EACH batch:');
     lines.push('');
-    lines.push('**Step 1: Get batch details**');
-    lines.push('```typescript');
-    lines.push(`const batches = await get_rdr_batches("${data.projectId}");`);
-    lines.push('```');
-    lines.push('');
-    lines.push('**Step 2: Process each batch type**');
-    lines.push('```typescript');
     if (data.batches && data.batches.length > 0) {
       for (const batch of data.batches) {
-        lines.push(`// ${batch.type}: ${batch.taskIds.join(', ')}`);
-        lines.push(`await process_rdr_batch("${data.projectId}", "${batch.type}", [`);
-        for (const taskId of batch.taskIds) {
-          lines.push(`  { taskId: "${taskId}" },`);
-        }
-        lines.push(']);');
+        lines.push(`  mcp__auto-claude-manager__process_rdr_batch({`);
+        lines.push(`    projectId: "${data.projectId}",`);
+        lines.push(`    batchType: "${batch.type}",`);
+        lines.push(`    fixes: [${batch.taskIds.map(id => `{ taskId: "${id}" }`).join(', ')}]`);
+        lines.push(`  })`);
         lines.push('');
       }
-    } else {
-      lines.push('// Use process_rdr_batch for each batch type');
-      lines.push(`await process_rdr_batch("${data.projectId}", "incomplete", fixes);`);
     }
-    lines.push('```');
-    lines.push('');
     lines.push('**Available MCP Tools:**');
-    lines.push('- `get_rdr_batches(projectId)` - Get all recovery batches');
-    lines.push('- `process_rdr_batch(projectId, batchType, fixes)` - Auto-recover batch');
-    lines.push('- `get_task_error_details(projectId, taskId)` - Get detailed error logs');
-    lines.push('- `submit_task_fix_request(projectId, taskId, feedback)` - Manual fix request');
+    lines.push('- `mcp__auto-claude-manager__get_rdr_batches({ projectId })` - Get all recovery batches');
+    lines.push('- `mcp__auto-claude-manager__process_rdr_batch({ projectId, batchType, fixes })` - Auto-recover batch');
+    lines.push('- `mcp__auto-claude-manager__get_task_error_details({ projectId, taskId })` - Get detailed error logs');
+    lines.push('- `mcp__auto-claude-manager__submit_task_fix_request({ projectId, taskId, feedback })` - Manual fix request');
 
     return lines.join('\n');
   }, []);
@@ -1072,7 +1063,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       }
 
       // Build detailed message
-      const message = buildRdrMessage({ ...result.data, projectId });
+      const message = buildRdrMessage({ ...result.data, projectId, projectPath: result.data.projectPath });
       console.log(`[RDR] Sending detailed message with ${result.data.taskDetails.length} tasks`);
 
       // Mark message as in-flight
