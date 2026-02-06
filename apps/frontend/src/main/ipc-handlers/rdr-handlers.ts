@@ -1225,9 +1225,15 @@ async function processPendingTasks(skipBusyCheck: boolean = false): Promise<void
 
     const mainWindow = BrowserWindow.getAllWindows()[0] || null;
 
+    // Enrich tasks with worktree data before categorizing
+    // Main project may have stale human_review 100% while worktree has real status (ai_review, in_progress)
+    const enrichedTasks = project.path
+      ? tasks.map(t => enrichTaskWithWorktreeData(t, project.path))
+      : tasks;
+
     // Categorize tasks into batches
-    const batches = categorizeTasks(tasks);
-    console.log(`[RDR] Categorized ${tasks.length} tasks into ${batches.length} batches for project ${projectId}`);
+    const batches = categorizeTasks(enrichedTasks);
+    console.log(`[RDR] Categorized ${enrichedTasks.length} tasks (enriched with worktree data) into ${batches.length} batches for project ${projectId}`);
 
     // Increment RDR attempt counter for all tasks being processed
     const allTaskIds = batches.flatMap(b => b.taskIds);
