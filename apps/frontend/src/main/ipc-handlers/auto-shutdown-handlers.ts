@@ -16,6 +16,7 @@ import type { AutoShutdownStatus } from '../../shared/types/task';
 // Track running monitor processes per project
 const monitorProcesses = new Map<string, ChildProcess>();
 const monitorStatuses = new Map<string, AutoShutdownStatus>();
+const monitorProjectPaths = new Map<string, string>(); // projectId → projectPath for live recalculation
 
 /**
  * Get project specs directory
@@ -225,13 +226,29 @@ function countTasksByStatus(projectPath: string): { total: number; humanReview: 
 
 /**
  * Get auto-shutdown status for a project
+ * When monitoring is active, recalculates task count live from disk
  */
 ipcMain.handle(
   IPC_CHANNELS.GET_AUTO_SHUTDOWN_STATUS,
   async (_, projectId: string): Promise<IPCResult<AutoShutdownStatus>> => {
     try {
-      // Return cached status if available
       const cached = monitorStatuses.get(projectId);
+
+      // If monitoring is active, recalculate task count live
+      if (cached?.monitoring) {
+        const projectPath = monitorProjectPaths.get(projectId);
+        if (projectPath) {
+          const { total } = countTasksByStatus(projectPath);
+          const updatedStatus: AutoShutdownStatus = {
+            ...cached,
+            tasksRemaining: total,
+          };
+          monitorStatuses.set(projectId, updatedStatus);
+          return { success: true, data: updatedStatus };
+        }
+        return { success: true, data: cached };
+      }
+
       if (cached) {
         return { success: true, data: cached };
       }
@@ -336,6 +353,7 @@ ipcMain.handle(
         monitorProcess.on('exit', (code) => {
           console.log(`[AutoShutdown:${projectId}] Monitor exited with code ${code}`);
           monitorProcesses.delete(projectId);
+          monitorProjectPaths.delete(projectId);
 
           // Update status
           const status: AutoShutdownStatus = {
@@ -349,6 +367,7 @@ ipcMain.handle(
 
         monitorProcess.unref();
         monitorProcesses.set(projectId, monitorProcess);
+        monitorProjectPaths.set(projectId, projectPath);
 
         // Get initial task count
         const { total } = countTasksByStatus(projectPath);
@@ -369,6 +388,7 @@ ipcMain.handle(
           process.kill();
           monitorProcesses.delete(projectId);
         }
+        monitorProjectPaths.delete(projectId);
 
         const status: AutoShutdownStatus = {
           enabled: false,
