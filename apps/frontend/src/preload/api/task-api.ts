@@ -127,10 +127,10 @@ export interface TaskAPI {
   getRdrBatchDetails: (projectId: string) => Promise<IPCResult<RdrBatchDetails>>;
   isClaudeCodeBusy: (identifier: number | string) => Promise<IPCResult<boolean>>;
 
-  // Auto Shutdown
-  getAutoShutdownStatus: (projectId: string) => Promise<IPCResult<AutoShutdownStatus>>;
-  setAutoShutdown: (projectId: string, projectPath: string, enabled: boolean) => Promise<IPCResult<AutoShutdownStatus>>;
-  cancelAutoShutdown: (projectId: string) => Promise<IPCResult<void>>;
+  // Auto Shutdown (Global - monitors ALL projects)
+  getAutoShutdownStatus: () => Promise<IPCResult<AutoShutdownStatus>>;
+  setAutoShutdown: (enabled: boolean) => Promise<IPCResult<AutoShutdownStatus>>;
+  cancelAutoShutdown: () => Promise<IPCResult<void>>;
 }
 
 export const createTaskAPI = (): TaskAPI => ({
@@ -451,13 +451,13 @@ export const createTaskAPI = (): TaskAPI => ({
   isClaudeCodeBusy: (identifier: number | string): Promise<IPCResult<boolean>> =>
     ipcRenderer.invoke(IPC_CHANNELS.IS_CLAUDE_CODE_BUSY, identifier),
 
-  // Auto Shutdown
-  getAutoShutdownStatus: (projectId: string) =>
-    ipcRenderer.invoke(IPC_CHANNELS.GET_AUTO_SHUTDOWN_STATUS, projectId),
+  // Auto Shutdown (Global - monitors ALL projects)
+  getAutoShutdownStatus: () =>
+    ipcRenderer.invoke(IPC_CHANNELS.GET_AUTO_SHUTDOWN_STATUS),
 
-  setAutoShutdown: (projectId: string, projectPath: string, enabled: boolean) =>
-    ipcRenderer.invoke(IPC_CHANNELS.SET_AUTO_SHUTDOWN, projectId, projectPath, enabled),
+  setAutoShutdown: (enabled: boolean) =>
+    ipcRenderer.invoke(IPC_CHANNELS.SET_AUTO_SHUTDOWN, enabled),
 
-  cancelAutoShutdown: (projectId: string) =>
-    ipcRenderer.invoke(IPC_CHANNELS.CANCEL_AUTO_SHUTDOWN, projectId)
+  cancelAutoShutdown: () =>
+    ipcRenderer.invoke(IPC_CHANNELS.CANCEL_AUTO_SHUTDOWN)
 });

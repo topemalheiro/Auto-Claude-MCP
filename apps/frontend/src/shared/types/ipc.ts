@@ -206,10 +206,10 @@ export interface ElectronAPI {
   }>>;
   isClaudeCodeBusy: (identifier: number | string) => Promise<IPCResult<boolean>>;
 
-  // Auto Shutdown
-  getAutoShutdownStatus: (projectId: string) => Promise<IPCResult<AutoShutdownStatus>>;
-  setAutoShutdown: (projectId: string, projectPath: string, enabled: boolean) => Promise<IPCResult<AutoShutdownStatus>>;
-  cancelAutoShutdown: (projectId: string) => Promise<IPCResult<void>>;
+  // Auto Shutdown (Global - monitors ALL projects)
+  getAutoShutdownStatus: () => Promise<IPCResult<AutoShutdownStatus>>;
+  setAutoShutdown: (enabled: boolean) => Promise<IPCResult<AutoShutdownStatus>>;
+  cancelAutoShutdown: () => Promise<IPCResult<void>>;
 
   // Task event listeners
   onTaskListRefresh: (callback: (projectId: string) => void) => () => void;

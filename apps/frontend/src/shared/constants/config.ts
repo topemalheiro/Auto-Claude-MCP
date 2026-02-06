@@ -79,7 +79,9 @@ export const DEFAULT_APP_SETTINGS = {
     autoRestart: true,     // Auto-restart after crash (if enabled is true)
     maxRestarts: 3,        // Maximum restarts within cooldown period
     restartCooldown: 60000 // Cooldown period in ms (1 minute)
-  }
+  },
+  // Auto-shutdown when all tasks across ALL projects reach Human Review (disabled by default)
+  autoShutdownEnabled: false
 };
 
 // ============================================

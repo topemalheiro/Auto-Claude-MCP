@@ -1,57 +1,92 @@
 #!/usr/bin/env npx tsx
 /**
- * Shutdown Monitor
+ * Shutdown Monitor (Global)
  *
- * Watches Auto-Claude tasks and triggers shutdown when all active tasks reach Human Review.
+ * Watches Auto-Claude tasks across MULTIPLE projects and triggers shutdown
+ * when ALL active tasks across ALL projects reach Human Review.
  *
  * Usage:
- *   npx tsx scripts/shutdown-monitor.ts [--task-ids task1,task2] [--delay-seconds 120]
+ *   npx tsx scripts/shutdown-monitor.ts --project-path /path/to/project1 --project-path /path/to/project2 [--delay-seconds 120]
  *
- * If no task-ids provided, monitors ALL non-done tasks.
+ * Monitors ALL non-done tasks across all specified projects.
  */
 
 import * as fs from 'fs';
 import * as path from 'path';
 import { spawn } from 'child_process';
 
-let SPECS_DIR = path.join(__dirname, '..', '.auto-claude', 'specs');
 const POLL_INTERVAL_MS = 5000; // Check every 5 seconds for testing
 
 interface TaskStatus {
   taskId: string;
   status: string;
   feature: string;
+  projectPath: string;
+  source: 'worktree' | 'main';
 }
 
-function getTaskStatuses(taskIds?: string[]): TaskStatus[] {
-  const statuses: TaskStatus[] = [];
+/**
+ * Get worktree plan if it exists (agent writes progress to worktree).
+ * Worktree path: <project>/.auto-claude/worktrees/tasks/<taskId>/.auto-claude/specs/<taskId>/implementation_plan.json
+ */
+function getWorktreePlan(projectPath: string, taskId: string): any | null {
+  const worktreePlanPath = path.join(
+    projectPath, '.auto-claude', 'worktrees', 'tasks', taskId,
+    '.auto-claude', 'specs', taskId, 'implementation_plan.json'
+  );
 
-  if (!fs.existsSync(SPECS_DIR)) {
-    console.log('[Monitor] Specs directory not found:', SPECS_DIR);
-    return statuses;
+  if (!fs.existsSync(worktreePlanPath)) {
+    return null;
   }
 
-  const dirs = fs.readdirSync(SPECS_DIR, { withFileTypes: true })
-    .filter(d => d.isDirectory())
-    .map(d => d.name);
+  try {
+    return JSON.parse(fs.readFileSync(worktreePlanPath, 'utf-8'));
+  } catch (e) {
+    console.error(`[Monitor] Failed to read worktree plan for ${taskId}:`, e);
+    return null;
+  }
+}
 
-  for (const dir of dirs) {
-    // Filter by taskIds if provided
-    if (taskIds && taskIds.length > 0 && !taskIds.includes(dir)) {
+/**
+ * Get task statuses across MULTIPLE projects.
+ * Prefers worktree plans over main plans (worktrees have actual agent progress).
+ */
+function getTaskStatuses(projectPaths: string[]): TaskStatus[] {
+  const statuses: TaskStatus[] = [];
+
+  for (const projectPath of projectPaths) {
+    const specsDir = path.join(projectPath, '.auto-claude', 'specs');
+
+    if (!fs.existsSync(specsDir)) {
+      console.log(`[Monitor] Specs directory not found: ${specsDir}`);
       continue;
     }
 
-    const planPath = path.join(SPECS_DIR, dir, 'implementation_plan.json');
-    if (fs.existsSync(planPath)) {
-      try {
-        const content = JSON.parse(fs.readFileSync(planPath, 'utf-8'));
-        statuses.push({
-          taskId: dir,
-          status: content.status || 'unknown',
-          feature: content.feature || dir
-        });
-      } catch (e) {
-        console.error(`[Monitor] Failed to read ${planPath}:`, e);
+    const dirs = fs.readdirSync(specsDir, { withFileTypes: true })
+      .filter(d => d.isDirectory())
+      .map(d => d.name);
+
+    for (const dir of dirs) {
+      const planPath = path.join(specsDir, dir, 'implementation_plan.json');
+      if (fs.existsSync(planPath)) {
+        try {
+          const mainContent = JSON.parse(fs.readFileSync(planPath, 'utf-8'));
+
+          // Prefer worktree plan (has actual agent progress) over main (may be stale)
+          const worktreeContent = getWorktreePlan(projectPath, dir);
+          const content = worktreeContent || mainContent;
+          const source: 'worktree' | 'main' = worktreeContent ? 'worktree' : 'main';
+
+          statuses.push({
+            taskId: dir,
+            status: content.status || 'unknown',
+            feature: content.feature || dir,
+            projectPath,
+            source
+          });
+        } catch (e) {
+          console.error(`[Monitor] Failed to read ${planPath}:`, e);
+        }
       }
     }
   }
@@ -60,21 +95,39 @@ function getTaskStatuses(taskIds?: string[]): TaskStatus[] {
 }
 
 function checkAllReachedTarget(statuses: TaskStatus[], targetStatus: string): boolean {
-  // Filter out 'done' tasks - we only care about active tasks
-  const activeTasks = statuses.filter(s => s.status !== 'done');
+  // Filter out 'done' and 'pr_created' tasks - we only care about active tasks
+  const activeTasks = statuses.filter(s => s.status !== 'done' && s.status !== 'pr_created');
 
   if (activeTasks.length === 0) {
-    console.log('[Monitor] No active tasks to monitor');
+    console.log('[Monitor] No active tasks to monitor across all projects');
     return false;
   }
 
-  console.log(`[Monitor] Checking ${activeTasks.length} active tasks:`);
+  // Group by project for better logging
+  const byProject = new Map<string, TaskStatus[]>();
   for (const task of activeTasks) {
-    const reached = task.status === targetStatus;
-    console.log(`  - ${task.taskId}: ${task.status} ${reached ? '✓' : '...'}`);
+    const projectName = path.basename(task.projectPath);
+    if (!byProject.has(projectName)) {
+      byProject.set(projectName, []);
+    }
+    byProject.get(projectName)!.push(task);
   }
 
-  return activeTasks.every(s => s.status === targetStatus);
+  console.log(`[Monitor] Checking ${activeTasks.length} active tasks across ${byProject.size} projects:`);
+  for (const [projectName, tasks] of byProject) {
+    console.log(`  Project: ${projectName}`);
+    for (const task of tasks) {
+      const reached = task.status === targetStatus;
+      console.log(`    - ${task.taskId}: ${task.status} [${task.source}] ${reached ? '✓' : '...'}`);
+    }
+  }
+
+  const allReached = activeTasks.every(s => s.status === targetStatus);
+  if (allReached) {
+    console.log(`[Monitor] ✓ ALL ${activeTasks.length} tasks reached ${targetStatus}!`);
+  }
+
+  return allReached;
 }
 
 function triggerShutdown(delaySeconds: number): void {
@@ -102,41 +155,39 @@ function triggerShutdown(delaySeconds: number): void {
 async function main() {
   const args = process.argv.slice(2);
 
-  // Parse arguments
-  let taskIds: string[] | undefined;
+  // Parse arguments - support MULTIPLE --project-path arguments
+  const projectPaths: string[] = [];
   let delaySeconds = 120;
-  let projectPath: string | undefined;
 
   for (let i = 0; i < args.length; i++) {
-    if (args[i] === '--task-ids' && args[i + 1]) {
-      taskIds = args[i + 1].split(',').map(s => s.trim());
-      i++;
-    } else if (args[i] === '--delay-seconds' && args[i + 1]) {
+    if (args[i] === '--delay-seconds' && args[i + 1]) {
       delaySeconds = parseInt(args[i + 1], 10);
       i++;
     } else if (args[i] === '--project-path' && args[i + 1]) {
-      projectPath = args[i + 1];
-      i++;
+      projectPaths.push(args[i + 1]);
+      i++; // Skip the next arg (the path value)
     }
   }
 
-  // Update SPECS_DIR if project path provided
-  if (projectPath) {
-    SPECS_DIR = path.join(projectPath, '.auto-claude', 'specs');
+  if (projectPaths.length === 0) {
+    console.error('[Monitor] No project paths provided! Use --project-path <path>');
+    process.exit(1);
   }
 
-  console.log('[Monitor] Starting shutdown monitor...');
-  console.log('[Monitor] Specs directory:', SPECS_DIR);
-  console.log('[Monitor] Monitoring task IDs:', taskIds || 'ALL active tasks');
+  console.log('[Monitor] Starting GLOBAL shutdown monitor...');
+  console.log('[Monitor] Monitoring projects:');
+  for (const projectPath of projectPaths) {
+    console.log(`  - ${projectPath}`);
+  }
   console.log('[Monitor] Shutdown delay:', delaySeconds, 'seconds');
   console.log('[Monitor] Poll interval:', POLL_INTERVAL_MS / 1000, 'seconds');
   console.log('');
 
   const poll = () => {
-    const statuses = getTaskStatuses(taskIds);
+    const statuses = getTaskStatuses(projectPaths);
 
     if (statuses.length === 0) {
-      console.log('[Monitor] No tasks found, waiting...');
+      console.log('[Monitor] No tasks found across all projects, waiting...');
       setTimeout(poll, POLL_INTERVAL_MS);
       return;
     }

@@ -8,6 +8,7 @@ import {
   TooltipTrigger
 } from './ui/tooltip';
 import { useProjectStore } from '../stores/project-store';
+import { useSettingsStore } from '../stores/settings-store';
 import { cn } from '../lib/utils';
 
 interface AutoShutdownStatus {
@@ -18,11 +19,15 @@ interface AutoShutdownStatus {
   countdown?: number;
 }
 
+/**
+ * Global Auto-Shutdown Toggle
+ * Monitors ALL projects simultaneously and triggers shutdown when
+ * ALL tasks across ALL projects reach Human Review.
+ */
 export function AutoShutdownToggle() {
   const { t } = useTranslation(['common', 'settings']);
-  const selectedProjectId = useProjectStore((state) => state.selectedProjectId);
   const projects = useProjectStore((state) => state.projects);
-  const selectedProject = projects.find((p) => p.id === selectedProjectId);
+  const settings = useSettingsStore((state) => state.settings);
 
   const [status, setStatus] = useState<AutoShutdownStatus>({
     enabled: false,
@@ -31,21 +36,19 @@ export function AutoShutdownToggle() {
     shutdownPending: false
   });
 
-  // Load auto-shutdown status for current project
+  // Load initial state from settings
+  useEffect(() => {
+    setStatus(prev => ({
+      ...prev,
+      enabled: settings.autoShutdownEnabled ?? false
+    }));
+  }, [settings.autoShutdownEnabled]);
+
+  // Load global auto-shutdown status (across ALL projects)
   useEffect(() => {
     const loadStatus = async () => {
-      if (!selectedProjectId) {
-        setStatus({
-          enabled: false,
-          monitoring: false,
-          tasksRemaining: 0,
-          shutdownPending: false
-        });
-        return;
-      }
-
       try {
-        const result = await window.electronAPI.getAutoShutdownStatus(selectedProjectId);
+        const result = await window.electronAPI.getAutoShutdownStatus();
         if (result.success && result.data) {
           setStatus(result.data);
         }
@@ -56,20 +59,14 @@ export function AutoShutdownToggle() {
 
     loadStatus();
 
-    // Poll status every 5 seconds while enabled
+    // Poll status every 5 seconds
     const interval = setInterval(loadStatus, 5000);
     return () => clearInterval(interval);
-  }, [selectedProjectId]);
+  }, []);
 
   const handleToggle = async (enabled: boolean) => {
-    if (!selectedProjectId || !selectedProject) return;
-
     try {
-      const result = await window.electronAPI.setAutoShutdown(
-        selectedProjectId,
-        selectedProject.path,
-        enabled
-      );
+      const result = await window.electronAPI.setAutoShutdown(enabled);
       if (result.success && result.data) {
         setStatus(result.data);
       }
@@ -78,8 +75,8 @@ export function AutoShutdownToggle() {
     }
   };
 
-  // Don't show if no project selected
-  if (!selectedProjectId) {
+  // Hide if no projects exist
+  if (projects.length === 0) {
     return null;
   }
 
@@ -88,13 +85,16 @@ export function AutoShutdownToggle() {
       return t('settings:autoShutdown.shutdownIn', { seconds: status.countdown });
     }
     if (status.monitoring && status.tasksRemaining > 0) {
-      return t('settings:autoShutdown.tasksRemaining', { count: status.tasksRemaining });
+      return t('settings:autoShutdown.tasksRemainingGlobal', {
+        count: status.tasksRemaining,
+        projects: projects.length
+      });
     }
     if (status.monitoring && status.tasksRemaining === 0) {
       return t('settings:autoShutdown.waitingForCompletion');
     }
     if (status.enabled) {
-      return t('settings:autoShutdown.monitoring');
+      return t('settings:autoShutdown.monitoringGlobal', { projects: projects.length });
     }
     return t('settings:autoShutdown.disabled');
   };

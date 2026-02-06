@@ -12,6 +12,8 @@ import * as fs from 'fs';
 import { IPC_CHANNELS } from '../../shared/constants';
 import type { IPCResult } from '../../shared/types';
 import type { AutoShutdownStatus } from '../../shared/types/task';
+import { projectStore } from '../project-store';
+import { readSettingsFile, writeSettingsFile } from '../settings-utils';
 
 // Track running monitor processes per project
 const monitorProcesses = new Map<string, ChildProcess>();
@@ -225,28 +227,31 @@ function countTasksByStatus(projectPath: string): { total: number; humanReview: 
 }
 
 /**
- * Get auto-shutdown status for a project
+ * Get global auto-shutdown status across ALL projects
  * When monitoring is active, recalculates task count live from disk
  */
 ipcMain.handle(
   IPC_CHANNELS.GET_AUTO_SHUTDOWN_STATUS,
-  async (_, projectId: string): Promise<IPCResult<AutoShutdownStatus>> => {
+  async (_): Promise<IPCResult<AutoShutdownStatus>> => {
     try {
-      const cached = monitorStatuses.get(projectId);
+      const cached = monitorStatuses.get('global');
 
-      // If monitoring is active, recalculate task count live
+      // If monitoring is active, recalculate task count live from ALL projects
       if (cached?.monitoring) {
-        const projectPath = monitorProjectPaths.get(projectId);
-        if (projectPath) {
-          const { total } = countTasksByStatus(projectPath);
-          const updatedStatus: AutoShutdownStatus = {
-            ...cached,
-            tasksRemaining: total,
-          };
-          monitorStatuses.set(projectId, updatedStatus);
-          return { success: true, data: updatedStatus };
+        const projects = projectStore.getProjects();
+        let totalTasks = 0;
+
+        for (const project of projects) {
+          const { total } = countTasksByStatus(project.path);
+          totalTasks += total;
         }
-        return { success: true, data: cached };
+
+        const updatedStatus: AutoShutdownStatus = {
+          ...cached,
+          tasksRemaining: totalTasks,
+        };
+        monitorStatuses.set('global', updatedStatus);
+        return { success: true, data: updatedStatus };
       }
 
       if (cached) {
@@ -271,38 +276,47 @@ ipcMain.handle(
 );
 
 /**
- * Enable/disable auto-shutdown for a project
+ * Enable/disable auto-shutdown GLOBALLY across ALL projects
  */
 ipcMain.handle(
   IPC_CHANNELS.SET_AUTO_SHUTDOWN,
-  async (_, projectId: string, projectPath: string, enabled: boolean): Promise<IPCResult<AutoShutdownStatus>> => {
+  async (_, enabled: boolean): Promise<IPCResult<AutoShutdownStatus>> => {
     try {
-      if (!projectPath) {
-        return { success: false, error: 'Project path is required' };
-      }
-
       if (enabled) {
-        // Start monitoring
-        const activeTaskIds = getActiveTaskIds(projectPath);
+        // Get ALL projects
+        const projects = projectStore.getProjects();
 
-        if (activeTaskIds.length === 0) {
+        if (projects.length === 0) {
           return {
             success: false,
-            error: 'No active tasks to monitor'
+            error: 'No projects available to monitor'
           };
         }
 
-        // Kill existing process if any
-        const existingProcess = monitorProcesses.get(projectId);
-        if (existingProcess) {
-          existingProcess.kill();
-          monitorProcesses.delete(projectId);
+        // Count total active tasks across all projects
+        const projectPaths = projects.map(p => p.path);
+        let totalActiveTasks = 0;
+
+        for (const projectPath of projectPaths) {
+          const activeTaskIds = getActiveTaskIds(projectPath);
+          totalActiveTasks += activeTaskIds.length;
         }
 
-        // Get script path - use path.resolve for correct parent directory resolution
-        // In development: app.getAppPath() returns the compiled output dir (apps/frontend/out/main)
-        // Scripts folder is at repo root, so we need to go up 4 levels:
-        // out/main -> out -> apps/frontend -> apps -> repo root
+        if (totalActiveTasks === 0) {
+          return {
+            success: false,
+            error: 'No active tasks to monitor across all projects'
+          };
+        }
+
+        // Kill existing global process if any
+        const existingProcess = monitorProcesses.get('global');
+        if (existingProcess) {
+          existingProcess.kill();
+          monitorProcesses.delete('global');
+        }
+
+        // Get script path
         const appPath = app.getAppPath();
         console.log(`[AutoShutdown] App path: ${appPath}`);
 
@@ -320,40 +334,39 @@ ipcMain.handle(
           };
         }
 
+        // Build args for monitor script with ALL project paths
+        const args = [
+          '--import', 'tsx',
+          scriptPath,
+          '--delay-seconds', '120',
+          ...projectPaths.flatMap(p => ['--project-path', p])
+        ];
+
         // Spawn monitoring process
-        // Use node directly without shell to avoid terminal window on Windows
-        // shell: true causes cmd.exe window to appear even with windowsHide: true
         const monitorProcess = spawn(
-          process.execPath,  // Full path to node.exe - no shell needed
-          [
-            '--import', 'tsx',  // Use tsx as ESM loader (replaces npx tsx)
-            scriptPath,
-            '--project-path', projectPath,
-            '--task-ids', activeTaskIds.join(','),
-            '--delay-seconds', '120'
-          ],
+          process.execPath,
+          args,
           {
-            cwd: projectPath,
+            cwd: projectPaths[0], // Use first project as working directory
             detached: true,
             stdio: ['ignore', 'pipe', 'pipe'],
-            windowsHide: true,  // Works properly without shell
+            windowsHide: true,
             env: { ...process.env }
           }
         );
 
         // Log output
         monitorProcess.stdout?.on('data', (data) => {
-          console.log(`[AutoShutdown:${projectId}]`, data.toString().trim());
+          console.log(`[AutoShutdown:global]`, data.toString().trim());
         });
 
         monitorProcess.stderr?.on('data', (data) => {
-          console.error(`[AutoShutdown:${projectId}]`, data.toString().trim());
+          console.error(`[AutoShutdown:global]`, data.toString().trim());
         });
 
         monitorProcess.on('exit', (code) => {
-          console.log(`[AutoShutdown:${projectId}] Monitor exited with code ${code}`);
-          monitorProcesses.delete(projectId);
-          monitorProjectPaths.delete(projectId);
+          console.log(`[AutoShutdown:global] Monitor exited with code ${code}`);
+          monitorProcesses.delete('global');
 
           // Update status
           const status: AutoShutdownStatus = {
@@ -362,33 +375,44 @@ ipcMain.handle(
             tasksRemaining: 0,
             shutdownPending: code === 0 // Exit 0 means shutdown triggered
           };
-          monitorStatuses.set(projectId, status);
+          monitorStatuses.set('global', status);
         });
 
         monitorProcess.unref();
-        monitorProcesses.set(projectId, monitorProcess);
-        monitorProjectPaths.set(projectId, projectPath);
+        monitorProcesses.set('global', monitorProcess);
 
-        // Get initial task count
-        const { total } = countTasksByStatus(projectPath);
+        // Get initial task count across all projects
+        let totalTasks = 0;
+        for (const project of projects) {
+          const { total } = countTasksByStatus(project.path);
+          totalTasks += total;
+        }
 
         const status: AutoShutdownStatus = {
           enabled: true,
           monitoring: true,
-          tasksRemaining: total,
+          tasksRemaining: totalTasks,
           shutdownPending: false
         };
-        monitorStatuses.set(projectId, status);
+        monitorStatuses.set('global', status);
+
+        // Persist to settings
+        const settings = readSettingsFile() || {};
+        writeSettingsFile({
+          ...settings,
+          autoShutdownEnabled: true
+        });
+
+        console.log(`[AutoShutdown] Monitoring ${projects.length} projects with ${totalActiveTasks} active tasks`);
 
         return { success: true, data: status };
       } else {
         // Stop monitoring
-        const process = monitorProcesses.get(projectId);
+        const process = monitorProcesses.get('global');
         if (process) {
           process.kill();
-          monitorProcesses.delete(projectId);
+          monitorProcesses.delete('global');
         }
-        monitorProjectPaths.delete(projectId);
 
         const status: AutoShutdownStatus = {
           enabled: false,
@@ -396,7 +420,14 @@ ipcMain.handle(
           tasksRemaining: 0,
           shutdownPending: false
         };
-        monitorStatuses.set(projectId, status);
+        monitorStatuses.set('global', status);
+
+        // Persist to settings
+        const settings = readSettingsFile() || {};
+        writeSettingsFile({
+          ...settings,
+          autoShutdownEnabled: false
+        });
 
         return { success: true, data: status };
       }
@@ -409,17 +440,17 @@ ipcMain.handle(
 );
 
 /**
- * Cancel pending shutdown
+ * Cancel pending shutdown (global)
  */
 ipcMain.handle(
   IPC_CHANNELS.CANCEL_AUTO_SHUTDOWN,
-  async (_, projectId: string): Promise<IPCResult<void>> => {
+  async (_): Promise<IPCResult<void>> => {
     try {
-      // Kill monitor process if running
-      const process = monitorProcesses.get(projectId);
+      // Kill global monitor process if running
+      const process = monitorProcesses.get('global');
       if (process) {
         process.kill();
-        monitorProcesses.delete(projectId);
+        monitorProcesses.delete('global');
       }
 
       // Cancel system shutdown (Windows)
@@ -434,7 +465,7 @@ ipcMain.handle(
         tasksRemaining: 0,
         shutdownPending: false
       };
-      monitorStatuses.set(projectId, status);
+      monitorStatuses.set('global', status);
 
       return { success: true };
     } catch (error) {
