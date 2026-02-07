@@ -930,18 +930,18 @@ class TestTokenValidationEdgeCases:
             decrypt_token(invalid_token)
 
     @patch("core.auth.is_macos", return_value=False)
-    def test_decrypt_token_minimal_valid_length(self, mock_is_macos):
+    @patch("core.auth.is_linux", return_value=False)
+    @patch("core.auth.is_windows", return_value=False)
+    def test_decrypt_token_minimal_valid_length(self, mock_is_windows, mock_is_linux, mock_is_macos):
         """Test decrypt_token accepts tokens at minimum valid length"""
         # Arrange - Token with exactly 10 characters after enc:
         # (10 is the minimum length that passes validation)
         valid_token = "enc:0123456789"
 
         # This should pass basic length validation
-        # (will fail later during actual decryption attempt with NotImplementedError)
-        # Arrange & Act & Assert
-        # Since is_macos is mocked to False, it will try to decrypt on the actual platform
-        # (Linux/Windows) and the platform function will raise NotImplementedError
-        with pytest.raises(ValueError, match="Encrypted token decryption"):
+        # Since all platform checks are mocked to False, it will raise ValueError
+        # with "Unsupported platform" message
+        with pytest.raises(ValueError, match="Unsupported platform"):
             decrypt_token(valid_token)
 
 
