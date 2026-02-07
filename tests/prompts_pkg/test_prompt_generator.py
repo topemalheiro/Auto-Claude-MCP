@@ -37,7 +37,9 @@ class TestDetectWorktreeIsolation:
         is_worktree, parent_path = detect_worktree_isolation(project_dir)
 
         assert is_worktree is True
-        assert parent_path == Path("/home/user/project")
+        # parent_path is resolved, so compare the last component
+        # On macOS, /home/user/project resolves to /System/Volumes/Data/home/user/project
+        assert parent_path.name == "project"
 
     def test_detect_github_pr_worktree(self):
         """Test detects .auto-claude/github/pr/worktrees/ pattern."""
@@ -45,7 +47,8 @@ class TestDetectWorktreeIsolation:
         is_worktree, parent_path = detect_worktree_isolation(project_dir)
 
         assert is_worktree is True
-        assert parent_path == Path("/home/user/project")
+        # parent_path is resolved, so compare the last component
+        assert parent_path.name == "project"
 
     def test_detect_legacy_worktrees(self):
         """Test detects .worktrees/ pattern."""
