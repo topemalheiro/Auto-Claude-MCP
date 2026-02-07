@@ -28,7 +28,8 @@ class TestFileTimelineTrackerInit:
             instance = FileTimelineTracker(project_path)
 
             assert instance.project_path == project_path.resolve()
-            assert instance.storage_path == project_path / ".auto-claude"
+            # storage_path is computed from resolved project_path
+            assert instance.storage_path == project_path.resolve() / ".auto-claude"
             assert isinstance(instance._timelines, dict)
 
     def test_init_with_custom_storage(self):
