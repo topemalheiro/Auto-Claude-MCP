@@ -2,6 +2,7 @@
 
 import os
 import platform
+import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -492,6 +493,7 @@ def test_get_env_var_case_insensitive_windows():
             assert isinstance(result1, str) or result1 is None
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="Cannot test Unix-specific case-sensitive env var behavior on Windows")
 def test_get_env_var_case_sensitive_unix():
     """Test get_env_var case-sensitive on Unix."""
     with patch("core.platform.is_windows", return_value=False):
