@@ -682,6 +682,7 @@ class TestBackwardCompatibilityAliases:
 class TestSetupEdgeCases:
     """Tests for edge cases in setup functions."""
 
+    @pytest.mark.skipif(sys.platform == "win32", reason="Windows console cannot encode certain Unicode characters (charmap codec limitation)")
     def test_copy_env_files_unicode_content(self, tmp_path):
         """Test copy_env_files_to_worktree with Unicode content."""
         project_dir = tmp_path / "project"

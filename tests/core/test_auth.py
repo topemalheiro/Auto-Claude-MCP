@@ -1767,9 +1767,10 @@ class TestGetAuthTokenSourcePlatform:
         # Assert
         assert result == "macOS Keychain"
 
+    @patch("core.auth.is_macos", return_value=False)
     @patch("core.auth.is_windows", return_value=True)
     @patch("core.auth.get_token_from_keychain")
-    def test_auth_token_source_windows_default(self, mock_keychain, mock_is_windows):
+    def test_auth_token_source_windows_default(self, mock_keychain, mock_is_windows, mock_is_macos):
         """Test default Windows credentials (no profile)"""
         # Arrange
         mock_keychain.return_value = "sk-ant-oat01-default"

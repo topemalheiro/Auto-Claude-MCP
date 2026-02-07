@@ -345,12 +345,17 @@ class TestComputeProjectHash:
 
     def test_hash_with_dockerfile(self, temp_project_dir: Path):
         """Test hash computation with Dockerfile."""
+        import time
+
         analyzer = ProjectAnalyzer(temp_project_dir)
 
         dockerfile = temp_project_dir / "Dockerfile"
         dockerfile.write_text("FROM python:3.11")
 
         hash1 = analyzer.compute_project_hash()
+
+        # Small delay to ensure different mtime on systems with coarse resolution
+        time.sleep(0.01)
 
         # Modify Dockerfile - ensure different content
         dockerfile.write_text("FROM python:3.12")
