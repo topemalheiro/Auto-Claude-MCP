@@ -21,6 +21,9 @@ import pytest
 # Mark all tests in this file as slow (heavy git worktree operations)
 pytestmark = pytest.mark.slow
 
+# Mark all tests in this file as slow (heavy git worktree operations)
+pytestmark = pytest.mark.slow
+
 
 class TestWorktreeManagerInitialization:
     """Tests for WorktreeManager initialization."""

@@ -91,8 +91,6 @@ class TestAgentRunWithMultipleMessageTypes:
         prompt_file = prompts_dir / "test_prompt.md"
         prompt_file.write_text("Test prompt")
 
-        from conftest import MockMessage, MockBlock, create_async_response
-
         runner = AgentRunner(project_dir, spec_dir, "sonnet", None)
 
         mock_client = AsyncMock()
@@ -134,8 +132,6 @@ class TestAgentRunWithMultipleMessageTypes:
         prompts_dir.mkdir()
         prompt_file = prompts_dir / "test_prompt.md"
         prompt_file.write_text("Test prompt")
-
-        from conftest import MockMessage, MockBlock, create_async_response
 
         runner = AgentRunner(project_dir, spec_dir, "sonnet", None)
 
@@ -184,8 +180,6 @@ class TestAgentRunnerToolEdgeCases:
         prompt_file = prompts_dir / "test_prompt.md"
         prompt_file.write_text("Test prompt")
 
-        from conftest import MockMessage, MockBlock, create_async_response
-
         runner = AgentRunner(project_dir, spec_dir, "sonnet", mock_task_logger)
 
         mock_client = AsyncMock()
@@ -230,8 +224,6 @@ class TestAgentRunnerToolEdgeCases:
         prompts_dir.mkdir()
         prompt_file = prompts_dir / "test_prompt.md"
         prompt_file.write_text("Test prompt")
-
-        from conftest import MockMessage, MockBlock, create_async_response
 
         runner = AgentRunner(project_dir, spec_dir, "sonnet", None)
 
@@ -279,8 +271,6 @@ class TestAgentRunnerTaskLoggerInteractions:
         prompt_file = prompts_dir / "test_prompt.md"
         prompt_file.write_text("Test prompt")
 
-        from conftest import MockMessage, MockBlock, create_async_response
-
         mock_task_logger = MagicMock()
         runner = AgentRunner(project_dir, spec_dir, "sonnet", mock_task_logger)
 
@@ -327,8 +317,6 @@ class TestAgentRunnerTaskLoggerInteractions:
         prompt_file = prompts_dir / "test_prompt.md"
         prompt_file.write_text("Test prompt")
 
-        from conftest import MockMessage, MockBlock, create_async_response
-
         mock_task_logger = MagicMock()
         runner = AgentRunner(project_dir, spec_dir, "sonnet", mock_task_logger)
 
@@ -373,8 +361,6 @@ class TestAgentRunnerTaskLoggerInteractions:
         prompts_dir.mkdir()
         prompt_file = prompts_dir / "test_prompt.md"
         prompt_file.write_text("Test prompt")
-
-        from conftest import MockMessage, MockBlock, create_async_response
 
         # No task logger
         runner = AgentRunner(project_dir, spec_dir, "sonnet", None)
@@ -525,8 +511,6 @@ class TestAgentRunnerAsyncContextManager:
         prompt_file = prompts_dir / "test_prompt.md"
         prompt_file.write_text("Test prompt")
 
-        from conftest import MockMessage, MockBlock, create_async_response
-
         runner = AgentRunner(project_dir, spec_dir, "sonnet", None)
 
         mock_client = AsyncMock()
@@ -569,8 +553,6 @@ class TestAgentRunnerAsyncContextManager:
         prompt_file = prompts_dir / "test_prompt.md"
         prompt_file.write_text("Test prompt")
 
-        from conftest import create_async_response
-
         runner = AgentRunner(project_dir, spec_dir, "sonnet", None)
 
         mock_client = AsyncMock()
@@ -608,8 +590,6 @@ class TestAgentRunnerPromptBuilding:
         prompt_file = prompts_dir / "test_prompt.md"
         original_prompt = "Original prompt content"
         prompt_file.write_text(original_prompt)
-
-        from conftest import MockMessage, MockBlock, create_async_response
 
         runner = AgentRunner(project_dir, spec_dir, "sonnet", None)
 
@@ -651,8 +631,6 @@ class TestAgentRunnerPromptBuilding:
         prompts_dir.mkdir()
         prompt_file = prompts_dir / "test_prompt.md"
         prompt_file.write_text("Base prompt")
-
-        from conftest import MockMessage, MockBlock, create_async_response
 
         runner = AgentRunner(project_dir, spec_dir, "sonnet", None)
 

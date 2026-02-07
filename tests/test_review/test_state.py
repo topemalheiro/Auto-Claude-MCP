@@ -3,8 +3,9 @@ Tests for review.state module.
 """
 
 import json
-import sys
 from pathlib import Path
+from unittest.mock import MagicMock, patch
+from datetime import datetime
 
 import pytest
 
@@ -56,11 +57,10 @@ class TestComputeFileHash:
         hash2 = _compute_file_hash(file2)
         assert hash1 == hash2
 
-    @pytest.mark.skipif(sys.platform == "win32", reason="Windows console cannot encode certain Unicode characters (charmap codec limitation)")
     def test_hash_unicode_content(self, tmp_path: Path) -> None:
         """Test computing hash of file with unicode content."""
         test_file = tmp_path / "unicode.txt"
-        test_file.write_text("Hello 世界 🌍", encoding="utf-8")
+        test_file.write_text("Hello 世界 🌍")
 
         result = _compute_file_hash(test_file)
         assert result

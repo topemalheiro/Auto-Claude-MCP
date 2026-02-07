@@ -33,7 +33,8 @@ class TestGetTaskLogger:
         result = get_task_logger(spec_dir)
 
         assert result is not None
-        assert isinstance(result, TaskLogger)
+        # Use type() instead of isinstance to handle module re-import issues
+        assert type(result).__name__ == "TaskLogger"
         assert result.spec_dir == spec_dir
 
     def test_get_task_logger_returns_cached_logger(self, tmp_path):
@@ -100,7 +101,8 @@ class TestGetTaskLogger:
         result = get_task_logger(spec_dir)
 
         assert result is not None
-        assert isinstance(result, TaskLogger)
+        # Use type() instead of isinstance to handle module re-import issues
+        assert type(result).__name__ == "TaskLogger"
 
 
 class TestClearTaskLogger:

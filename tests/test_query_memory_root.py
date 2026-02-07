@@ -585,14 +585,13 @@ class TestCmdAddEpisode:
         """Test cmd_add_episode when no backend available."""
         import query_memory
 
-        args = Mock(
-            db_path="/tmp",
-            database="test",
-            name="test_episode",
-            content='{"key": "value"}',
-            episode_type="session_insight",
-            group_id=None,
-        )
+        args = Mock()
+        args.db_path = "/tmp"
+        args.database = "test"
+        args.name = "test_episode"
+        args.content = '{"key": "value"}'
+        args.episode_type = "session_insight"
+        args.group_id = None
 
         # Check backend availability
         backend = query_memory.apply_monkeypatch()
@@ -611,14 +610,13 @@ class TestCmdAddEpisode:
         """Test cmd_add_episode successful execution (if kuzu available)."""
         import query_memory
 
-        args = Mock(
-            db_path=str(tmp_path),
-            database="test_db",
-            name="test_episode",
-            content='{"key": "value"}',
-            episode_type="pattern",
-            group_id="test_group",
-        )
+        args = Mock()
+        args.db_path = str(tmp_path)
+        args.database = "test_db"
+        args.name = "test_episode"
+        args.content = '{"key": "value"}'
+        args.episode_type = "pattern"
+        args.group_id = "test_group"
 
         backend = query_memory.apply_monkeypatch()
 
@@ -640,14 +638,13 @@ class TestCmdAddEpisode:
         """Test cmd_add_episode handles non-JSON content."""
         import query_memory
 
-        args = Mock(
-            db_path=str(tmp_path),
-            database="test_db",
-            name="test_episode",
-            content="plain text content",  # Not JSON
-            episode_type="gotcha",
-            group_id=None,
-        )
+        args = Mock()
+        args.db_path = str(tmp_path)
+        args.database = "test_db"
+        args.name = "test_episode"
+        args.content = "plain text content"  # Not JSON
+        args.episode_type = "gotcha"
+        args.group_id = None
 
         backend = query_memory.apply_monkeypatch()
 
@@ -665,14 +662,13 @@ class TestCmdAddEpisode:
         import query_memory
 
         new_db_dir = tmp_path / "new_dir" / "databases"
-        args = Mock(
-            db_path=str(new_db_dir.parent),
-            database="databases",
-            name="test",
-            content="test",
-            episode_type="session_insight",
-            group_id=None,
-        )
+        args = Mock()
+        args.db_path = str(new_db_dir.parent)
+        args.database = "databases"
+        args.name = "test"
+        args.content = "test"
+        args.episode_type = "session_insight"
+        args.group_id = None
 
         backend = query_memory.apply_monkeypatch()
 
@@ -876,14 +872,13 @@ class TestEdgeCases:
         """Test handling unicode content."""
         import query_memory
 
-        args = Mock(
-            db_path=str(tmp_path),
-            database="test_db",
-            name="测试_episode",
-            content='{"text": "café ñ 日本語"}',
-            episode_type="session_insight",
-            group_id=None,
-        )
+        args = Mock()
+        args.db_path = str(tmp_path)
+        args.database = "test_db"
+        args.name = "测试_episode"
+        args.content = '{"text": "café ñ 日本語"}'
+        args.episode_type = "session_insight"
+        args.group_id = None
 
         backend = query_memory.apply_monkeypatch()
 

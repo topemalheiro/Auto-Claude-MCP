@@ -44,56 +44,58 @@ os.environ["AUTO_CLAUDE_TESTS"] = "1"
 def pytest_configure(config):
     """Pytest hook called after command line options have been parsed and all plugins initialized.
 
-    This hook ensures that critical modules are not mocked before test collection starts.
-    Some test modules mock sys.modules at import time, which can interfere with other
-    test modules that need the real implementations.
+    This hook ensures that the real ui module is imported before test collection starts.
+    This prevents test_spec_pipeline's mocking from affecting the ui module during
+    collection of ui tests.
     """
-    # List of critical modules that should not be mocked
-    critical_modules = ['claude_agent_sdk', 'claude_agent_sdk.types']
+    import importlib
 
-    for module_name in critical_modules:
-        if module_name in sys.modules:
-            module = sys.modules[module_name]
-            # Check if it's a MagicMock (mocked module)
-            if hasattr(module, '_mock_name') or str(type(module)) == "<class 'unittest.mock.MagicMock'>":
-                # Remove the mocked module
-                del sys.modules[module_name]
-        # Also check and remove submodules
-        for key in list(sys.modules.keys()):
-            if key.startswith(f'{module_name}.') and key != module_name:
-                module = sys.modules[key]
-                if hasattr(module, '_mock_name') or str(type(module)) == "<class 'unittest.mock.MagicMock'>":
-                    del sys.modules[key]
+    # Import the real ui module and its submodules BEFORE test collection
+    # This ensures they exist in sys.modules before any test can mock them
+    try:
+        import ui
+        import ui.icons
+        import ui.progress
+        import ui.capabilities
+        import ui.menu
+    except ImportError:
+        pass  # Module may not exist on all platforms
+
+    # Also ensure init module is real before collection
+    # This prevents test_spec_pipeline's MagicMock from polluting test_init_root
+    if 'init' in sys.modules and isinstance(sys.modules['init'], MagicMock):
+        del sys.modules['init']
+    try:
+        importlib.import_module('init')
+    except ImportError:
+        pass
 
 
 def pytest_collection_modifyitems(session, config, items):
     """Pytest hook called after test collection has been completed.
 
-    This runs after all test modules have been imported, so we need to ensure
-    any mocked modules are cleaned up before test execution starts.
+    This runs after all test modules have been imported. We ensure that any
+    mocked modules are replaced with real modules before tests run.
     """
     import importlib
 
-    # List of critical modules that should not be mocked
-    critical_modules = ['claude_agent_sdk', 'claude_agent_sdk.types']
+    # Replace any MagicMock modules with real ones before tests run
+    # This is needed because test_spec_pipeline.py mocks certain modules
+    # at import time, which affects other test files
+    modules_to_fix = ['init', 'progress']
+    for module_name in modules_to_fix:
+        if module_name in sys.modules and isinstance(sys.modules[module_name], MagicMock):
+            del sys.modules[module_name]
+            try:
+                importlib.import_module(module_name)
+            except ImportError:
+                pass
 
-    for module_name in critical_modules:
-        if module_name in sys.modules:
-            module = sys.modules[module_name]
-            # Check if it's a MagicMock (mocked module)
-            if hasattr(module, '_mock_name') or str(type(module)) == "<class 'unittest.mock.MagicMock'>":
-                # Force reload by deleting from sys.modules
-                del sys.modules[module_name]
-                # Invalidate importlib cache
-                importlib.invalidate_caches()
-
-        # Also check and remove submodules
-        for key in list(sys.modules.keys()):
-            if key.startswith(f'{module_name}.') and key != module_name:
-                module = sys.modules[key]
-                if hasattr(module, '_mock_name') or str(type(module)) == "<class 'unittest.mock.MagicMock'>":
-                    del sys.modules[key]
-        importlib.invalidate_caches()
+    # Reorder tests: put test_spec_pipeline.py tests at the end
+    # This ensures UI tests run before test_spec_pipeline tests
+    spec_pipeline_tests = [item for item in items if 'test_spec_pipeline.py' in str(item.fspath)]
+    other_tests = [item for item in items if 'test_spec_pipeline.py' not in str(item.fspath)]
+    items[:] = other_tests + spec_pipeline_tests
 
 
 # =============================================================================
@@ -758,37 +760,53 @@ def mock_spec_dir(tmp_path: Path) -> Path:
 
 
 @pytest.fixture(autouse=True, scope="function")
-def ensure_modules_not_mocked():
+def ensure_modules_not_mocked(request):
     """Ensure critical modules are not mocked for tests that need real implementations.
 
     This fixture runs before each test to ensure that if critical modules were
-    mocked by a previous test module (e.g., qa_report_helpers, test_queries_pkg_client),
-    they get properly re-imported as the real modules.
+    mocked by a previous test module (e.g., qa_report_helpers, test_queries_pkg_client,
+    test_spec_pipeline), they get properly re-imported as the real modules.
 
     This is necessary because some test files mock sys.modules at import time,
     and the cleanup at module scope doesn't prevent the mock from persisting
     to other test modules.
+
+    NOTE: This fixture is skipped for tests in the ui package since those tests
+    manage their own module patching.
     """
     import importlib
 
-    # List of critical modules that should not be mocked
-    critical_modules = ['ui', 'graphiti_providers', 'progress', 'claude_agent_sdk']
+    # Skip cleanup for ui tests - they manage their own mocking
+    if request and hasattr(request, 'node') and 'tests/ui' in str(request.node.fspath):
+        yield
+        return
 
+    # List of critical modules that should not be mocked
+    # Includes modules mocked by test_spec_pipeline.py and other test files
+    critical_modules = [
+        'ui', 'ui.icons', 'ui.progress', 'ui.capabilities', 'ui.menu',
+        'graphiti_providers', 'progress', 'claude_agent_sdk', 'claude_agent_sdk.types',
+        'task_logger', 'review', 'client', 'validate_spec',
+        # Note: 'init' is handled separately below because test_init_root.py
+        # imports functions from it at module level. We need to update those
+        # references after re-importing the real module.
+    ]
+
+    # Clean up BEFORE test execution
+    modules_to_reload = []
     for module_name in critical_modules:
         module_is_mocked = False
-        needs_cleanup = False
 
         if module_name in sys.modules:
             module = sys.modules[module_name]
             # If it's a MagicMock (mocked module), mark for cleanup
             if hasattr(module, '_mock_name') or str(type(module)) == "<class 'unittest.mock.MagicMock'>":
                 module_is_mocked = True
-                needs_cleanup = True
 
-        # Check if any submodules exist (could be leftover from mock)
-        has_submodules = any(key.startswith(f'{module_name}.') for key in sys.modules)
-
-        if module_is_mocked or has_submodules:
+        # Only remove the module if it's actually mocked (MagicMock)
+        # Do NOT remove it just because it has submodules - that breaks legitimate modules
+        if module_is_mocked:
+            modules_to_reload.append(module_name)
             # Remove the mocked module and all submodules
             if module_name in sys.modules:
                 del sys.modules[module_name]
@@ -796,23 +814,59 @@ def ensure_modules_not_mocked():
                 if key.startswith(f'{module_name}.'):
                     del sys.modules[key]
 
+    # Invalidate importlib cache to force fresh imports
+    importlib.invalidate_caches()
+
+    # Re-import the real modules that were deleted
+    # This ensures test files that imported these modules get the real versions
+    for module_name in modules_to_reload:
+        try:
+            importlib.import_module(module_name)
+        except ImportError:
+            pass  # Module may not exist on all platforms
+
+    # Special handling for 'init' module
+    # test_init_root.py imports functions from init at module level, so we need
+    # to update those references after re-importing the real module
+    if 'init' in sys.modules and isinstance(sys.modules['init'], MagicMock):
+        del sys.modules['init']
+    try:
+        importlib.import_module('init')
+        # Update the references in test_init_root module if it's loaded
+        if 'test_init_root' in sys.modules:
+            test_init_root_module = sys.modules['test_init_root']
+            init_module = sys.modules['init']
+            # Update the module-level references
+            test_init_root_module.AUTO_CLAUDE_GITIGNORE_ENTRIES = init_module.AUTO_CLAUDE_GITIGNORE_ENTRIES
+            test_init_root_module._entry_exists_in_gitignore = init_module._entry_exists_in_gitignore
+            test_init_root_module._is_git_repo = init_module._is_git_repo
+            test_init_root_module._commit_gitignore = init_module._commit_gitignore
+            test_init_root_module.ensure_gitignore_entry = init_module.ensure_gitignore_entry
+            test_init_root_module.ensure_all_gitignore_entries = init_module.ensure_all_gitignore_entries
+            test_init_root_module.init_auto_claude_dir = init_module.init_auto_claude_dir
+            test_init_root_module.get_auto_claude_dir = init_module.get_auto_claude_dir
+            test_init_root_module.repair_gitignore = init_module.repair_gitignore
+    except ImportError:
+        pass  # init module may not exist
+
     yield
 
-    # After test, also ensure critical modules are not mocked
+    # Clean up AFTER test execution
     for module_name in critical_modules:
         module_is_mocked = False
-        needs_cleanup = False
 
         if module_name in sys.modules:
             module = sys.modules[module_name]
             if hasattr(module, '_mock_name') or str(type(module)) == "<class 'unittest.mock.MagicMock'>":
                 module_is_mocked = True
 
-        has_submodules = any(key.startswith(f'{module_name}.') for key in sys.modules)
-
-        if module_is_mocked or has_submodules:
+        # Only remove the module if it's actually mocked (MagicMock)
+        # Do NOT remove it just because it has submodules - that breaks legitimate modules
+        if module_is_mocked:
             if module_name in sys.modules:
                 del sys.modules[module_name]
             for key in list(sys.modules.keys()):
                 if key.startswith(f'{module_name}.'):
                     del sys.modules[key]
+
+    importlib.invalidate_caches()

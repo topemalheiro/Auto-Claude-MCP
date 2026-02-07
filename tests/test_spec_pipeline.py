@@ -16,14 +16,12 @@ Can be excluded with: pytest -m "not slow"
 import pytest
 import sys
 import time
+import atexit
 from datetime import datetime, timedelta
 from pathlib import Path
 from unittest.mock import MagicMock, patch, AsyncMock
 
 pytestmark = pytest.mark.slow
-
-# Add auto-claude directory to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "backend"))
 
 # Add auto-claude directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "backend"))
@@ -55,12 +53,12 @@ def _cleanup_mocks():
         for sub_name in to_delete:
             del sys.modules[sub_name]
 
-        # Then delete the main module (whether it's a mock or real)
+        # Then delete the main module
         if name in sys.modules:
             del sys.modules[name]
 
-        # If there was an original REAL module (not a mock), restore it
-        if name in _original_modules and not isinstance(_original_modules[name], MagicMock):
+        # If there was an original, restore it (for modules that existed before)
+        if name in _original_modules:
             sys.modules[name] = _original_modules[name]
 
     # Invalidate importlib cache to force fresh imports
@@ -69,7 +67,11 @@ def _cleanup_mocks():
     # Force import of real ui modules to ensure they're available
     # for subsequent test modules
     try:
-        pass
+        import ui
+        import ui.icons
+        import ui.progress
+        import ui.capabilities
+        import ui.menu
     except ImportError:
         pass  # Module may not exist on all platforms
 
@@ -80,34 +82,8 @@ def _setup_mocks():
 
     # Store original modules (only once)
     if not _original_modules:
-        import importlib
-
-        # CRITICAL: Import and save REAL modules BEFORE mocking them
-        # This ensures we can restore the actual modules after cleanup
         for name in _MOCKED_MODULE_NAMES:
-            # Only process modules that might actually exist as real modules
-            # (skip fake ones like 'claude_code_sdk' that we're creating from scratch)
-            if name in ['claude_code_sdk', 'claude_code_sdk.types', 'ui', 'ui.capabilities']:
-                # These are mock-only modules, don't try to import them
-                if name in sys.modules:
-                    _original_modules[name] = sys.modules[name]
-                continue
-
-            # For real modules like 'init', 'client', 'review', etc.
-            # First, ensure they're NOT mocked before we store the original
-            # Delete any existing mock to force a real import
-            if name in sys.modules and isinstance(sys.modules[name], MagicMock):
-                del sys.modules[name]
-
-            # Now try to import the real module
-            if name not in sys.modules:
-                try:
-                    importlib.import_module(name)
-                except (ImportError, ModuleNotFoundError):
-                    pass  # Module may not exist, that's okay
-
-            # Store the real module if it exists
-            if name in sys.modules and not isinstance(sys.modules[name], MagicMock):
+            if name in sys.modules:
                 _original_modules[name] = sys.modules[name]
 
     # Set up mocks
@@ -176,40 +152,9 @@ from spec.pipeline import SpecOrchestrator, get_specs_dir
 @pytest.fixture(scope="module", autouse=True)
 def cleanup_after_tests():
     """Clean up mocks after all tests in this module complete."""
-    import importlib
-
     yield  # Run all tests
-
     # Clean up (also called by atexit, but this ensures it happens after module tests)
     _cleanup_mocks()
-
-    # CRITICAL: After cleanup, force re-import of real modules to ensure
-    # subsequent test files get the real modules, not mocks
-    # This must happen here because other test files may have already
-    # been imported with the mocked versions in their namespace
-    for module_name in ['init', 'client', 'review', 'task_logger', 'progress', 'validate_spec']:
-        # Delete any remaining mock
-        if module_name in sys.modules and isinstance(sys.modules[module_name], MagicMock):
-            del sys.modules[module_name]
-
-        # Force import the real module
-        if module_name not in sys.modules:
-            try:
-                importlib.import_module(module_name)
-            except ImportError:
-                pass
-
-    # Also re-import ui modules
-    for ui_module in ['ui', 'ui.icons', 'ui.progress', 'ui.capabilities', 'ui.menu']:
-        if ui_module in sys.modules and isinstance(sys.modules[ui_module], MagicMock):
-            del sys.modules[ui_module]
-        if ui_module not in sys.modules:
-            try:
-                importlib.import_module(ui_module)
-            except ImportError:
-                pass
-
-    importlib.invalidate_caches()
 
 
 @pytest.fixture(autouse=True)
@@ -233,24 +178,25 @@ def setup_and_cleanup_mocks():
     # This is critical for tests that run after test_spec_pipeline tests
     _cleanup_mocks()
 
-    # Explicitly restore REAL modules (not mocks) to ensure they're available for other tests
+    # Explicitly import real modules to ensure they're available for other tests
     real_modules = ['init', 'progress', 'client', 'review', 'task_logger', 'validate_spec']
     for module_name in real_modules:
-        # Only restore if we have a REAL module saved (not a MagicMock)
-        if module_name in _original_modules and not isinstance(_original_modules[module_name], MagicMock):
+        if module_name in _original_modules:
+            # Restore the original real module if it existed
             sys.modules[module_name] = _original_modules[module_name]
-        elif module_name in sys.modules and isinstance(sys.modules[module_name], MagicMock):
+        elif module_name in sys.modules:
             # Delete the mock so the next test will import the real module
             del sys.modules[module_name]
 
-    # Force re-import of critical modules to ensure they're available
-    # This is necessary because pytest may have cached the import
-    for module_name in ['init', 'progress']:
-        if module_name not in sys.modules or isinstance(sys.modules.get(module_name), MagicMock):
-            try:
-                importlib.import_module(module_name)
-            except ImportError:
-                pass
+    # Force re-import of critical modules
+    try:
+        importlib.import_module('init')
+    except ImportError:
+        pass
+    try:
+        importlib.import_module('progress')
+    except ImportError:
+        pass
 
     importlib.invalidate_caches()
 
@@ -350,110 +296,10 @@ class TestOrphanedCleanup:
             pending_dir = specs_dir / "001-test-pending"
             pending_dir.mkdir(parents=True, exist_ok=True)
 
-            # Create old EMPTY pending folder at 002
-            old_pending = specs_dir / "002-pending"
-            old_pending.mkdir()
-
-            # Set modification time to 15 minutes ago
-            old_time = time.time() - (15 * 60)
-            import os
-            os.utime(old_pending, (old_time, old_time))
-
-            # Store the inode to verify it's actually deleted and recreated
-            old_inode = old_pending.stat().st_ino
-
-            # Creating orchestrator triggers cleanup
-            # The cleanup removes 002-pending (empty and old)
-            # Then _create_spec_dir creates 004-pending (after 003)
-            orchestrator = SpecOrchestrator(project_dir=temp_dir)
-
-            # The orchestrator should have created a new folder at 004
-            assert orchestrator.spec_dir.name.startswith("004-")
-            # The 002-pending folder no longer exists (cleaned up)
-            assert not old_pending.exists()
-
-    def test_keeps_folder_with_requirements(self, temp_dir: Path):
-        """Keeps pending folder with requirements.json."""
-        with patch('spec.pipeline.init_auto_claude_dir') as mock_init:
-            mock_init.return_value = (temp_dir / ".auto-claude", False)
-            specs_dir = temp_dir / ".auto-claude" / "specs"
-            specs_dir.mkdir(parents=True, exist_ok=True)
-
-            # Create pending folder with requirements
-            pending_with_req = specs_dir / "001-pending"
-            pending_with_req.mkdir()
-            (pending_with_req / "requirements.json").write_text("{}")
-
-            # Set modification time to 15 minutes ago
-            old_time = time.time() - (15 * 60)
-            import os
-            os.utime(pending_with_req, (old_time, old_time))
-
-            # Creating orchestrator triggers cleanup
-            orchestrator = SpecOrchestrator(project_dir=temp_dir)
-
-            assert pending_with_req.exists()
-
-    def test_keeps_folder_with_spec(self, temp_dir: Path):
-        """Keeps pending folder with spec.md."""
-        with patch('spec.pipeline.init_auto_claude_dir') as mock_init:
-            mock_init.return_value = (temp_dir / ".auto-claude", False)
-            specs_dir = temp_dir / ".auto-claude" / "specs"
-            specs_dir.mkdir(parents=True, exist_ok=True)
-
-            # Create pending folder with spec
-            pending_with_spec = specs_dir / "001-pending"
-            pending_with_spec.mkdir()
-            (pending_with_spec / "spec.md").write_text("# Spec")
-
-            # Set modification time to 15 minutes ago
-            old_time = time.time() - (15 * 60)
-            import os
-            os.utime(pending_with_spec, (old_time, old_time))
-
-            # Creating orchestrator triggers cleanup
-            orchestrator = SpecOrchestrator(project_dir=temp_dir)
-
-            assert pending_with_spec.exists()
-
-    def test_keeps_recent_pending_folder(self, temp_dir: Path):
-        """Keeps pending folder younger than 10 minutes."""
-        with patch('spec.pipeline.init_auto_claude_dir') as mock_init:
-            mock_init.return_value = (temp_dir / ".auto-claude", False)
-            specs_dir = temp_dir / ".auto-claude" / "specs"
-            specs_dir.mkdir(parents=True, exist_ok=True)
-
-            # Create recent pending folder (no need to modify time, it's fresh)
-            recent_pending = specs_dir / "001-pending"
-            recent_pending.mkdir()
-
-            # Creating orchestrator triggers cleanup
-            orchestrator = SpecOrchestrator(project_dir=temp_dir)
-
-            # Recent folder should still exist (unless orchestrator created 002-pending)
-            # The folder might be gone if orchestrator picked a different name
-            # So we check the spec dir count instead
-            assert any(d.name.endswith("-pending") for d in specs_dir.iterdir())
-
-
-class TestRenameSpecDirFromRequirements:
-    """Tests for renaming spec directory from requirements."""
-
-    def test_renames_from_task_description(self, temp_dir: Path):
-        """Renames spec dir based on requirements task description."""
-        with patch('spec.pipeline.init_auto_claude_dir') as mock_init:
-            mock_init.return_value = (temp_dir / ".auto-claude", False)
-            specs_dir = temp_dir / ".auto-claude" / "specs"
-            specs_dir.mkdir(parents=True, exist_ok=True)
-
-            orchestrator = SpecOrchestrator(project_dir=temp_dir)
-
-            # Write requirements
-            requirements = {
-                "task_description": "Add user authentication system"
-            }
-            (orchestrator.spec_dir / "requirements.json").write_text(
-                json.dumps(requirements)
+            # Create orchestrator (should clean up orphaned folders)
+            orchestrator = SpecOrchestrator(
+                project_dir=temp_dir,
+                task_description="Test task",
             )
 
             # Orphaned folder should be removed

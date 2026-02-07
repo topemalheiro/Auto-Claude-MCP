@@ -45,7 +45,7 @@ def test_MenuOption_defaults():
     assert option.disabled is False
 
 
-@patch("ui.menu.INTERACTIVE", False)
+@patch("ui.capabilities.INTERACTIVE", False)
 def test_select_menu_fallback():
     """Test select_menu falls back to simple menu when not interactive"""
 
@@ -64,7 +64,7 @@ def test_select_menu_fallback():
         assert result == "1"
 
 
-@patch("ui.menu.INTERACTIVE", False)
+@patch("ui.capabilities.INTERACTIVE", False)
 def test_select_menu_fallback_with_quit():
     """Test select_menu fallback with quit option"""
 
@@ -83,7 +83,7 @@ def test_select_menu_fallback_with_quit():
         assert result is None
 
 
-@patch("ui.menu.INTERACTIVE", False)
+@patch("ui.capabilities.INTERACTIVE", False)
 def test_select_menu_fallback_with_disabled():
     """Test select_menu fallback with disabled options"""
 
@@ -102,7 +102,7 @@ def test_select_menu_fallback_with_disabled():
         assert result == "2"
 
 
-@patch("ui.menu.INTERACTIVE", False)
+@patch("ui.capabilities.INTERACTIVE", False)
 def test_select_menu_fallback_invalid_then_valid():
     """Test select_menu fallback with invalid then valid input"""
 
@@ -121,7 +121,7 @@ def test_select_menu_fallback_invalid_then_valid():
         assert result == "1"
 
 
-@patch("ui.menu.INTERACTIVE", False)
+@patch("ui.capabilities.INTERACTIVE", False)
 def test_select_menu_fallback_with_description():
     """Test select_menu fallback shows descriptions"""
 
@@ -361,7 +361,7 @@ class TestGetchWindows:
 class TestGetchUnix:
     """Tests for _getch() on Unix (termios/tty)"""
 
-    # Note: These tests require patching at the module level to work around pytest's stdin capture
+    # These tests mock termios/tty to work on all platforms
 
     @patch("ui.menu._HAS_MSVCRT", False)
     @patch("ui.menu._HAS_TERMIOS", True)
@@ -371,203 +371,236 @@ class TestGetchUnix:
         import ui.menu as menu_module
         old_settings = MagicMock()
 
-        with patch("ui.menu.termios"):
-            with patch("ui.menu.tty"):
+        mock_termios = MagicMock()
+        mock_termios.tcgetattr.return_value = old_settings
+        mock_tty = MagicMock()
+
+        with patch("ui.menu.termios", mock_termios):
+            with patch("ui.menu.tty", mock_tty):
                 with patch.object(menu_module.sys.stdin, "fileno", return_value=1):
                     with patch.object(menu_module.sys.stdin, "read", return_value="a"):
-                        with patch("ui.menu.termios.tcgetattr", return_value=old_settings):
-                            # Act
-                            result = menu_module._getch()
+                        # Act
+                        result = menu_module._getch()
 
         # Assert
         assert result == "a"
 
     @patch("ui.menu._HAS_MSVCRT", False)
     @patch("ui.menu._HAS_TERMIOS", True)
-    @patch("ui.menu.termios")
-    @patch("ui.menu.tty")
-    def test_getch_unix_escape_sequence_up_arrow(self, mock_tty, mock_termios):
+    def test_getch_unix_escape_sequence_up_arrow(self):
         """Test _getch handles UP arrow key on Unix"""
         # Arrange
         import ui.menu as menu_module
         old_settings = MagicMock()
-        mock_termios.tcgetattr.return_value = old_settings
 
-        # Act
-        with patch.object(menu_module.sys.stdin, "fileno", return_value=1):
-            with patch.object(menu_module.sys.stdin, "read", side_effect=["\x1b", "[", "A"]):
-                result = menu_module._getch()
+        mock_termios = MagicMock()
+        mock_termios.tcgetattr.return_value = old_settings
+        mock_tty = MagicMock()
+
+        with patch("ui.menu.termios", mock_termios):
+            with patch("ui.menu.tty", mock_tty):
+                with patch.object(menu_module.sys.stdin, "fileno", return_value=1):
+                    with patch.object(menu_module.sys.stdin, "read", side_effect=["\x1b", "[", "A"]):
+                        # Act
+                        result = menu_module._getch()
 
         # Assert
         assert result == "UP"
 
     @patch("ui.menu._HAS_MSVCRT", False)
     @patch("ui.menu._HAS_TERMIOS", True)
-    @patch("ui.menu.termios")
-    @patch("ui.menu.tty")
-    def test_getch_unix_escape_sequence_down_arrow(self, mock_tty, mock_termios):
+    def test_getch_unix_escape_sequence_down_arrow(self):
         """Test _getch handles DOWN arrow key on Unix"""
         # Arrange
         import ui.menu as menu_module
         old_settings = MagicMock()
-        mock_termios.tcgetattr.return_value = old_settings
 
-        # Act
-        with patch.object(menu_module.sys.stdin, "fileno", return_value=1):
-            with patch.object(menu_module.sys.stdin, "read", side_effect=["\x1b", "[", "B"]):
-                result = menu_module._getch()
+        mock_termios = MagicMock()
+        mock_termios.tcgetattr.return_value = old_settings
+        mock_tty = MagicMock()
+
+        with patch("ui.menu.termios", mock_termios):
+            with patch("ui.menu.tty", mock_tty):
+                with patch.object(menu_module.sys.stdin, "fileno", return_value=1):
+                    with patch.object(menu_module.sys.stdin, "read", side_effect=["\x1b", "[", "B"]):
+                        # Act
+                        result = menu_module._getch()
 
         # Assert
         assert result == "DOWN"
 
     @patch("ui.menu._HAS_MSVCRT", False)
     @patch("ui.menu._HAS_TERMIOS", True)
-    @patch("ui.menu.termios")
-    @patch("ui.menu.tty")
-    def test_getch_unix_escape_sequence_right_arrow(self, mock_tty, mock_termios):
+    def test_getch_unix_escape_sequence_right_arrow(self):
         """Test _getch handles RIGHT arrow key on Unix"""
         # Arrange
         import ui.menu as menu_module
         old_settings = MagicMock()
-        mock_termios.tcgetattr.return_value = old_settings
 
-        # Act
-        with patch.object(menu_module.sys.stdin, "fileno", return_value=1):
-            with patch.object(menu_module.sys.stdin, "read", side_effect=["\x1b", "[", "C"]):
-                result = menu_module._getch()
+        mock_termios = MagicMock()
+        mock_termios.tcgetattr.return_value = old_settings
+        mock_tty = MagicMock()
+
+        with patch("ui.menu.termios", mock_termios):
+            with patch("ui.menu.tty", mock_tty):
+                with patch.object(menu_module.sys.stdin, "fileno", return_value=1):
+                    with patch.object(menu_module.sys.stdin, "read", side_effect=["\x1b", "[", "C"]):
+                        # Act
+                        result = menu_module._getch()
 
         # Assert
         assert result == "RIGHT"
 
     @patch("ui.menu._HAS_MSVCRT", False)
     @patch("ui.menu._HAS_TERMIOS", True)
-    @patch("ui.menu.termios")
-    @patch("ui.menu.tty")
-    def test_getch_unix_escape_sequence_left_arrow(self, mock_tty, mock_termios):
+    def test_getch_unix_escape_sequence_left_arrow(self):
         """Test _getch handles LEFT arrow key on Unix"""
         # Arrange
         import ui.menu as menu_module
         old_settings = MagicMock()
-        mock_termios.tcgetattr.return_value = old_settings
 
-        # Act
-        with patch.object(menu_module.sys.stdin, "fileno", return_value=1):
-            with patch.object(menu_module.sys.stdin, "read", side_effect=["\x1b", "[", "D"]):
-                result = menu_module._getch()
+        mock_termios = MagicMock()
+        mock_termios.tcgetattr.return_value = old_settings
+        mock_tty = MagicMock()
+
+        with patch("ui.menu.termios", mock_termios):
+            with patch("ui.menu.tty", mock_tty):
+                with patch.object(menu_module.sys.stdin, "fileno", return_value=1):
+                    with patch.object(menu_module.sys.stdin, "read", side_effect=["\x1b", "[", "D"]):
+                        # Act
+                        result = menu_module._getch()
 
         # Assert
         assert result == "LEFT"
 
     @patch("ui.menu._HAS_MSVCRT", False)
     @patch("ui.menu._HAS_TERMIOS", True)
-    @patch("ui.menu.termios")
-    @patch("ui.menu.tty")
-    def test_getch_unix_partial_escape_sequence(self, mock_tty, mock_termios):
+    def test_getch_unix_partial_escape_sequence(self):
         """Test _getch handles partial escape sequence on Unix"""
         # Arrange - escape but not followed by [
         import ui.menu as menu_module
         old_settings = MagicMock()
-        mock_termios.tcgetattr.return_value = old_settings
 
-        # Act
-        with patch.object(menu_module.sys.stdin, "fileno", return_value=1):
-            with patch.object(menu_module.sys.stdin, "read", side_effect=["\x1b", "x"]):
-                result = menu_module._getch()
+        mock_termios = MagicMock()
+        mock_termios.tcgetattr.return_value = old_settings
+        mock_tty = MagicMock()
+
+        with patch("ui.menu.termios", mock_termios):
+            with patch("ui.menu.tty", mock_tty):
+                with patch.object(menu_module.sys.stdin, "fileno", return_value=1):
+                    with patch.object(menu_module.sys.stdin, "read", side_effect=["\x1b", "x"]):
+                        # Act
+                        result = menu_module._getch()
 
         # Assert - should return the escape character itself
         assert result == "\x1b"
 
     @patch("ui.menu._HAS_MSVCRT", False)
     @patch("ui.menu._HAS_TERMIOS", True)
-    @patch("ui.menu.termios")
-    @patch("ui.menu.tty")
-    def test_getch_unix_unknown_escape_command(self, mock_tty, mock_termios):
+    def test_getch_unix_unknown_escape_command(self):
         """Test _getch handles unknown escape command on Unix"""
         # Arrange - escape [ but unknown third char
         import ui.menu as menu_module
         old_settings = MagicMock()
-        mock_termios.tcgetattr.return_value = old_settings
 
-        # Act
-        with patch.object(menu_module.sys.stdin, "fileno", return_value=1):
-            with patch.object(menu_module.sys.stdin, "read", side_effect=["\x1b", "[", "Z"]):
-                result = menu_module._getch()
+        mock_termios = MagicMock()
+        mock_termios.tcgetattr.return_value = old_settings
+        mock_tty = MagicMock()
+
+        with patch("ui.menu.termios", mock_termios):
+            with patch("ui.menu.tty", mock_tty):
+                with patch.object(menu_module.sys.stdin, "fileno", return_value=1):
+                    with patch.object(menu_module.sys.stdin, "read", side_effect=["\x1b", "[", "Z"]):
+                        # Act
+                        result = menu_module._getch()
 
         # Assert - should return the escape character
         assert result == "\x1b"
 
     @patch("ui.menu._HAS_MSVCRT", False)
     @patch("ui.menu._HAS_TERMIOS", True)
-    @patch("ui.menu.termios")
-    @patch("ui.menu.tty")
-    def test_getch_unix_newline(self, mock_tty, mock_termios):
+    def test_getch_unix_newline(self):
         """Test _getch handles newline on Unix"""
         # Arrange
         import ui.menu as menu_module
         old_settings = MagicMock()
-        mock_termios.tcgetattr.return_value = old_settings
 
-        # Act
-        with patch.object(menu_module.sys.stdin, "fileno", return_value=1):
-            with patch.object(menu_module.sys.stdin, "read", return_value="\n"):
-                result = menu_module._getch()
+        mock_termios = MagicMock()
+        mock_termios.tcgetattr.return_value = old_settings
+        mock_tty = MagicMock()
+
+        with patch("ui.menu.termios", mock_termios):
+            with patch("ui.menu.tty", mock_tty):
+                with patch.object(menu_module.sys.stdin, "fileno", return_value=1):
+                    with patch.object(menu_module.sys.stdin, "read", return_value="\n"):
+                        # Act
+                        result = menu_module._getch()
 
         # Assert
         assert result == "\n"
 
     @patch("ui.menu._HAS_MSVCRT", False)
     @patch("ui.menu._HAS_TERMIOS", True)
-    @patch("ui.menu.termios")
-    @patch("ui.menu.tty")
-    def test_getch_unix_carriage_return(self, mock_tty, mock_termios):
+    def test_getch_unix_carriage_return(self):
         """Test _getch handles carriage return on Unix"""
         # Arrange
         import ui.menu as menu_module
         old_settings = MagicMock()
-        mock_termios.tcgetattr.return_value = old_settings
 
-        # Act
-        with patch.object(menu_module.sys.stdin, "fileno", return_value=1):
-            with patch.object(menu_module.sys.stdin, "read", return_value="\r"):
-                result = menu_module._getch()
+        mock_termios = MagicMock()
+        mock_termios.tcgetattr.return_value = old_settings
+        mock_tty = MagicMock()
+
+        with patch("ui.menu.termios", mock_termios):
+            with patch("ui.menu.tty", mock_tty):
+                with patch.object(menu_module.sys.stdin, "fileno", return_value=1):
+                    with patch.object(menu_module.sys.stdin, "read", return_value="\r"):
+                        # Act
+                        result = menu_module._getch()
 
         # Assert
         assert result == "\r"
 
     @patch("ui.menu._HAS_MSVCRT", False)
     @patch("ui.menu._HAS_TERMIOS", True)
-    @patch("ui.menu.termios")
-    @patch("ui.menu.tty")
-    def test_getch_unix_j_key(self, mock_tty, mock_termios):
+    def test_getch_unix_j_key(self):
         """Test _getch handles 'j' key on Unix"""
         # Arrange
         import ui.menu as menu_module
         old_settings = MagicMock()
-        mock_termios.tcgetattr.return_value = old_settings
 
-        # Act
-        with patch.object(menu_module.sys.stdin, "fileno", return_value=1):
-            with patch.object(menu_module.sys.stdin, "read", return_value="j"):
-                result = menu_module._getch()
+        mock_termios = MagicMock()
+        mock_termios.tcgetattr.return_value = old_settings
+        mock_tty = MagicMock()
+
+        with patch("ui.menu.termios", mock_termios):
+            with patch("ui.menu.tty", mock_tty):
+                with patch.object(menu_module.sys.stdin, "fileno", return_value=1):
+                    with patch.object(menu_module.sys.stdin, "read", return_value="j"):
+                        # Act
+                        result = menu_module._getch()
 
         # Assert
         assert result == "j"
 
     @patch("ui.menu._HAS_MSVCRT", False)
     @patch("ui.menu._HAS_TERMIOS", True)
-    @patch("ui.menu.termios")
-    @patch("ui.menu.tty")
-    def test_getch_unix_k_key(self, mock_tty, mock_termios):
+    def test_getch_unix_k_key(self):
         """Test _getch handles 'k' key on Unix"""
         # Arrange
         import ui.menu as menu_module
         old_settings = MagicMock()
-        mock_termios.tcgetattr.return_value = old_settings
 
-        # Act
-        with patch.object(menu_module.sys.stdin, "fileno", return_value=1):
-            with patch.object(menu_module.sys.stdin, "read", return_value="k"):
-                result = menu_module._getch()
+        mock_termios = MagicMock()
+        mock_termios.tcgetattr.return_value = old_settings
+        mock_tty = MagicMock()
+
+        with patch("ui.menu.termios", mock_termios):
+            with patch("ui.menu.tty", mock_tty):
+                with patch.object(menu_module.sys.stdin, "fileno", return_value=1):
+                    with patch.object(menu_module.sys.stdin, "read", return_value="k"):
+                        # Act
+                        result = menu_module._getch()
 
         # Assert
         assert result == "k"
@@ -922,16 +955,20 @@ class TestSelectMenuInteractive:
             result = select_menu("Test Menu", options, _interactive=True)
             assert result == "1"
 
-    @patch.object(menu_module, "_getch", return_value="\r")
-    def test_mock_verification(self, mock_getch):
+    def test_mock_verification(self):
         """Verify that patch.object works correctly for _getch"""
-        options = [MenuOption(key="1", label="Option 1")]
+        import sys
+        from unittest.mock import patch
 
-        result = select_menu("Test Menu", options, _interactive=True)
+        # Use patch directly on ui.menu._getch to avoid issues with menu_module reference
+        with patch('ui.menu._getch', return_value="\r") as mock_getch:
+            options = [MenuOption(key="1", label="Option 1")]
 
-        # Verify mock was called
-        assert mock_getch.called, "Mock was not called!"
-        assert result == "1"
+            result = select_menu("Test Menu", options, _interactive=True)
+
+            # Verify mock was called
+            assert mock_getch.called, "Mock was not called!"
+            assert result == "1"
 
 
 # ============================================================================
@@ -942,7 +979,7 @@ class TestSelectMenuInteractive:
 class TestFallbackMenuExceptions:
     """Tests for _fallback_menu() exception handling"""
 
-    @patch("ui.menu.INTERACTIVE", False)
+    @patch("ui.capabilities.INTERACTIVE", False)
     def test_fallback_menu_eoferror_returns_none(self):
         """Test _fallback_menu returns None on EOFError"""
         # Arrange
@@ -959,7 +996,7 @@ class TestFallbackMenuExceptions:
         # Assert
         assert result is None
 
-    @patch("ui.menu.INTERACTIVE", False)
+    @patch("ui.capabilities.INTERACTIVE", False)
     def test_fallback_menu_keyboard_interrupt_returns_none(self):
         """Test _fallback_menu returns None on KeyboardInterrupt"""
         # Arrange
@@ -976,7 +1013,7 @@ class TestFallbackMenuExceptions:
         # Assert
         assert result is None
 
-    @patch("ui.menu.INTERACTIVE", False)
+    @patch("ui.capabilities.INTERACTIVE", False)
     def test_fallback_menu_eoferror_with_allow_quit_false(self):
         """Test EOFError returns None even when allow_quit is False"""
         # Arrange
@@ -992,7 +1029,7 @@ class TestFallbackMenuExceptions:
         # Assert
         assert result is None
 
-    @patch("ui.menu.INTERACTIVE", False)
+    @patch("ui.capabilities.INTERACTIVE", False)
     def test_fallback_menu_keyboard_interrupt_with_allow_quit_false(self):
         """Test KeyboardInterrupt returns None even when allow_quit is False"""
         # Arrange
@@ -1008,7 +1045,7 @@ class TestFallbackMenuExceptions:
         # Assert
         assert result is None
 
-    @patch("ui.menu.INTERACTIVE", False)
+    @patch("ui.capabilities.INTERACTIVE", False)
     def test_fallback_menu_invalid_input_then_eoferror(self):
         """Test invalid input followed by EOFError"""
         # Arrange
@@ -1024,7 +1061,7 @@ class TestFallbackMenuExceptions:
         # Assert
         assert result is None
 
-    @patch("ui.menu.INTERACTIVE", False)
+    @patch("ui.capabilities.INTERACTIVE", False)
     def test_fallback_menu_q_without_allow_quit(self):
         """Test 'q' input when allow_quit is False"""
         # Arrange
@@ -1040,7 +1077,7 @@ class TestFallbackMenuExceptions:
         # Assert
         assert result == "1"
 
-    @patch("ui.menu.INTERACTIVE", False)
+    @patch("ui.capabilities.INTERACTIVE", False)
     def test_fallback_menu_selects_disabled_option_invalid(self):
         """Test selecting disabled option shows as invalid"""
         # Arrange
@@ -1057,7 +1094,7 @@ class TestFallbackMenuExceptions:
         # Assert
         assert result == "2"
 
-    @patch("ui.menu.INTERACTIVE", False)
+    @patch("ui.capabilities.INTERACTIVE", False)
     def test_fallback_menu_zero_input(self):
         """Test '0' input is treated as invalid (1-indexed)"""
         # Arrange
@@ -1073,7 +1110,7 @@ class TestFallbackMenuExceptions:
         # Assert
         assert result == "1"
 
-    @patch("ui.menu.INTERACTIVE", False)
+    @patch("ui.capabilities.INTERACTIVE", False)
     def test_fallback_menu_negative_input(self):
         """Test negative number input is treated as invalid"""
         # Arrange
@@ -1089,7 +1126,7 @@ class TestFallbackMenuExceptions:
         # Assert
         assert result == "1"
 
-    @patch("ui.menu.INTERACTIVE", False)
+    @patch("ui.capabilities.INTERACTIVE", False)
     def test_fallback_menu_non_numeric_input(self):
         """Test non-numeric input is treated as invalid"""
         # Arrange
@@ -1105,7 +1142,7 @@ class TestFallbackMenuExceptions:
         # Assert
         assert result == "1"
 
-    @patch("ui.menu.INTERACTIVE", False)
+    @patch("ui.capabilities.INTERACTIVE", False)
     def test_fallback_menu_empty_input(self):
         """Test empty input is treated as invalid"""
         # Arrange
@@ -1121,7 +1158,7 @@ class TestFallbackMenuExceptions:
         # Assert
         assert result == "1"
 
-    @patch("ui.menu.INTERACTIVE", False)
+    @patch("ui.capabilities.INTERACTIVE", False)
     def test_fallback_menu_with_icon(self):
         """Test _fallback_menu with options that have icons"""
         # Arrange
@@ -1137,7 +1174,7 @@ class TestFallbackMenuExceptions:
         # Assert
         assert result == "1"
 
-    @patch("ui.menu.INTERACTIVE", False)
+    @patch("ui.capabilities.INTERACTIVE", False)
     def test_fallback_menu_q_with_allow_quit(self):
         """Test 'q' input returns None when allow_quit is True"""
         # Arrange
@@ -1153,7 +1190,7 @@ class TestFallbackMenuExceptions:
         # Assert
         assert result is None
 
-    @patch("ui.menu.INTERACTIVE", False)
+    @patch("ui.capabilities.INTERACTIVE", False)
     def test_fallback_menu_case_insensitive_q(self):
         """Test 'Q' (uppercase) is treated as quit"""
         # Arrange
@@ -1169,7 +1206,7 @@ class TestFallbackMenuExceptions:
         # Assert
         assert result is None
 
-    @patch("ui.menu.INTERACTIVE", False)
+    @patch("ui.capabilities.INTERACTIVE", False)
     def test_fallback_menu_whitespace_handling(self):
         """Test input with whitespace is stripped"""
         # Arrange
