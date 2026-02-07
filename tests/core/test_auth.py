@@ -2056,9 +2056,10 @@ class TestTriggerLoginPlatformBranches:
         assert result is True
         mock_macos_login.assert_called_once()
 
+    @patch("core.auth.is_macos", return_value=False)
     @patch("core.auth.is_windows", return_value=True)
     @patch("core.auth._trigger_login_windows")
-    def test_trigger_login_windows_branch(self, mock_windows_login, mock_is_windows):
+    def test_trigger_login_windows_branch(self, mock_windows_login, mock_is_windows, mock_is_macos):
         """Test trigger_login calls Windows implementation"""
         # Arrange
         mock_windows_login.return_value = True

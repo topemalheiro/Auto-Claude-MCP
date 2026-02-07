@@ -36,8 +36,9 @@ def test_IdeationConfigManager___init__(mock_init):
             append=False,
         )
 
-        # Use resolve() for cross-platform compatibility (macOS /tmp -> /private/tmp)
-        assert config.project_dir == project_dir.resolve()
+        # Compare paths without resolve() since the implementation stores paths as-is
+        # On Windows, /tmp/test doesn't resolve to D:/tmp/test in the implementation
+        assert str(config.project_dir) == str(project_dir)
         assert config.model == model
         assert config.thinking_level == thinking_level
         assert config.refresh is True
@@ -46,7 +47,7 @@ def test_IdeationConfigManager___init__(mock_init):
         assert config.include_roadmap_context is True
         assert config.include_kanban_context is False
         assert config.max_ideas_per_type == max_ideas_per_type
-        assert config.output_dir == output_dir.resolve()
+        assert str(config.output_dir) == str(output_dir)
 
 
 @patch("ideation.config.init_auto_claude_dir")
