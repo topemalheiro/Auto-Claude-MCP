@@ -1,5 +1,6 @@
 """Comprehensive tests for timeline_tracker.py"""
 
+import sys
 from datetime import datetime
 from pathlib import Path
 from unittest.mock import MagicMock, patch, mock_open
@@ -840,6 +841,7 @@ class TestCaptureWorktreeState:
 
                     assert task_view.worktree_state.content == "worktree content"
 
+    @pytest.mark.skipif(sys.platform == "win32", reason="Windows file encoding may corrupt non-ASCII characters")
     def test_capture_worktree_state_unicode_fallback(self):
         """Test capture_worktree_state handles Unicode decode errors"""
         with tempfile.TemporaryDirectory() as tmpdir:
