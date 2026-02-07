@@ -286,10 +286,15 @@ class TestComputeProjectHash:
 
     def test_hash_with_makefile(self, temp_project_dir: Path):
         """Test hash computation with Makefile."""
+        import time
+
         (temp_project_dir / "Makefile").write_text("build:\n\techo building")
 
         analyzer = ProjectAnalyzer(temp_project_dir)
         hash1 = analyzer.compute_project_hash()
+
+        # Small delay to ensure different mtime on systems with coarse mtime resolution
+        time.sleep(0.01)
 
         # Modify Makefile
         (temp_project_dir / "Makefile").write_text("build:\n\techo modified")

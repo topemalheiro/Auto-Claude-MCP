@@ -1120,9 +1120,10 @@ class TestGetTokenFromKeychainPlatformBranches:
         assert result == "sk-ant-oat01-macos-token"
         mock_macos_keychain.assert_called_once_with(None)
 
+    @patch("core.auth.is_macos", return_value=False)
     @patch("core.auth.is_windows", return_value=True)
     @patch("core.auth._get_token_from_windows_credential_files")
-    def test_get_token_from_keychain_windows_branch(self, mock__get_token_from_windows_credential_files, mock_is_windows):
+    def test_get_token_from_keychain_windows_branch(self, mock__get_token_from_windows_credential_files, mock_is_windows, mock_is_macos):
         """Test get_token_from_keychain calls Windows implementation"""
         # Arrange
         mock__get_token_from_windows_credential_files.return_value = "sk-ant-oat01-windows-token"
