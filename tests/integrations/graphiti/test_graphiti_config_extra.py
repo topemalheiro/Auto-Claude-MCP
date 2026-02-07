@@ -255,7 +255,10 @@ class TestGraphitiConfigGetDbPath:
 
         db_path = config.get_db_path()
 
-        assert "relative/path" in str(db_path)
+        # Check that the path contains the expected parts (cross-platform)
+        # Normalize path separators to forward slashes for comparison
+        normalized_path = str(db_path).replace("\\", "/")
+        assert "relative/path" in normalized_path
         assert db_path.name == "test_db"
 
 
