@@ -1122,17 +1122,17 @@ class TestGetTokenFromKeychainPlatformBranches:
 
     @patch("core.auth.is_windows", return_value=True)
     @patch("core.auth._get_token_from_windows_credential_files")
-    def test_get_token_from_keychain_windows_branch(self, mock_windows_creds, mock_is_windows):
+    def test_get_token_from_keychain_windows_branch(self, mock__get_token_from_windows_credential_files, mock_is_windows):
         """Test get_token_from_keychain calls Windows implementation"""
         # Arrange
-        mock_windows_creds.return_value = "sk-ant-oat01-windows-token"
+        mock__get_token_from_windows_credential_files.return_value = "sk-ant-oat01-windows-token"
 
         # Act
         result = get_token_from_keychain()
 
         # Assert
         assert result == "sk-ant-oat01-windows-token"
-        mock_windows_creds.assert_called_once_with(None)
+        mock__get_token_from_windows_credential_files.assert_called_once_with(None)
 
 
 # ============================================================================
