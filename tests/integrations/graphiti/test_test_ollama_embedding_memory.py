@@ -138,15 +138,20 @@ class TestOllamaEmbeddings:
             "models": [{"name": "llama3"}]  # No embedding model
         }
 
+        # Mock the POST request to return an error (model not found)
+        mock_post_response = MagicMock()
+        mock_post_response.status_code = 404
+        mock_post_response.text = "model not found"
+
         with patch.dict("os.environ", {
             "OLLAMA_EMBEDDING_MODEL": "embeddinggemma",
         }):
             with patch("requests.get", return_value=mock_response):
-                result = await test_ollama_embeddings()
+                with patch("requests.post", return_value=mock_post_response):
+                    result = await test_ollama_embeddings()
 
-                # Should still return True (info only, not error)
-                # Function prints info about available models
-                assert result is True
+                    # Should return False when embedding generation fails
+                    assert result is False
 
     @pytest.mark.asyncio
     async def test_ollama_embeddings_dimension_validation_success(self):
