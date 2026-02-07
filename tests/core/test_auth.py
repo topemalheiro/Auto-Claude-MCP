@@ -937,11 +937,11 @@ class TestTokenValidationEdgeCases:
         valid_token = "enc:0123456789"
 
         # This should pass basic length validation
-        # (will fail later during actual decryption attempt with ValueError)
+        # (will fail later during actual decryption attempt with NotImplementedError)
         # Arrange & Act & Assert
-        # Will fail during platform check since is_macos is mocked to False
-        # and platform is not Linux or Windows either
-        with pytest.raises(ValueError, match="Unsupported platform"):
+        # Since is_macos is mocked to False, it will try to decrypt on the actual platform
+        # (Linux/Windows) and the platform function will raise NotImplementedError
+        with pytest.raises(ValueError, match="Encrypted token decryption"):
             decrypt_token(valid_token)
 
 
