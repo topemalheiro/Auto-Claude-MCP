@@ -16,6 +16,8 @@ from unittest.mock import MagicMock, Mock, call, patch
 import pytest
 
 from core.worktree import WorktreeManager, WorktreeError, WorktreeInfo
+pytestmark = pytest.mark.slow
+
 
 
 # ==================== Fixtures ====================

@@ -100,7 +100,7 @@ class TestSafePrint:
                 assert is_pipe_broken() is True
 
         # Check log message
-        assert any("closed file" in record.message.lower() for record in caplog.records)
+        assert any("output stream" in record.message.lower() for record in caplog.records)
 
     def test_safe_print_value_error_other(self):
         """Test safe_print re-raises unexpected ValueError."""

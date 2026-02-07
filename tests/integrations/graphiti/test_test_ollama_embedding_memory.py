@@ -216,6 +216,7 @@ class TestMemoryCreation:
     """Tests for test_memory_creation function."""
 
     @pytest.mark.asyncio
+    @pytest.mark.slow
     async def test_memory_creation_success(self):
         """Test successful memory creation."""
         mock_config = MagicMock()
@@ -441,6 +442,7 @@ class TestFullCycle:
     """Tests for test_full_cycle function."""
 
     @pytest.mark.asyncio
+    @pytest.mark.slow
     async def test_full_cycle_success(self):
         """Test complete create-store-retrieve cycle."""
         mock_config = MagicMock()
@@ -532,6 +534,7 @@ class TestFullCycle:
                     assert result is False
 
     @pytest.mark.asyncio
+    @pytest.mark.slow
     async def test_full_cycle_semantic_search_fallback(self):
         """Test full cycle with semantic search fallback."""
         mock_config = MagicMock()

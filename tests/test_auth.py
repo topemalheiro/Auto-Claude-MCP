@@ -398,7 +398,8 @@ class TestRequireAuthToken:
 
         error_msg = str(exc_info.value)
         assert "macOS Keychain" in error_msg
-        assert "claude setup-token" in error_msg
+        assert "/login" in error_msg
+        assert "claude" in error_msg
 
     def test_error_message_includes_windows_instructions(self, monkeypatch):
         """Error message includes Windows setup instructions."""
@@ -409,7 +410,8 @@ class TestRequireAuthToken:
 
         error_msg = str(exc_info.value)
         assert "Windows Credential Manager" in error_msg
-        assert "claude setup-token" in error_msg
+        assert "/login" in error_msg
+        assert "claude" in error_msg
 
     def test_error_message_includes_linux_instructions(self, monkeypatch):
         """Error message includes Linux setup instructions."""
@@ -419,9 +421,9 @@ class TestRequireAuthToken:
             require_auth_token()
 
         error_msg = str(exc_info.value)
-        assert "secret service" in error_msg.lower()
-        assert "gnome-keyring" in error_msg.lower()
-        assert "claude setup-token" in error_msg
+        assert "/login" in error_msg
+        assert "claude" in error_msg
+        assert "CLAUDE_CODE_OAUTH_TOKEN" in error_msg
 
 
 class TestEnsureClaudeCodeOAuthToken:

@@ -134,6 +134,7 @@ def test_print_specs_list_with_specs(tmp_path, capsys):
     assert "001-test" in captured.out
 
 
+@pytest.mark.slow
 def test_print_specs_list_auto_create(tmp_path, capsys):
     """Test print_specs_list with auto_create disabled when input provided."""
     # Arrange

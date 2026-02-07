@@ -1,6 +1,9 @@
 """
 Tests for spec.pipeline.orchestrator module
 Comprehensive tests for SpecOrchestrator class.
+
+NOTE: These tests use the real SpecOrchestrator which involves file I/O.
+Marked as slow - can be excluded with: pytest -m "not slow"
 """
 
 import json
@@ -11,6 +14,8 @@ from datetime import datetime, timedelta
 import pytest
 
 from spec.pipeline.orchestrator import SpecOrchestrator
+
+pytestmark = pytest.mark.slow  # Mark all tests in this file as slow
 from spec.phases.models import PhaseResult
 from spec.validate_pkg.models import ValidationResult
 

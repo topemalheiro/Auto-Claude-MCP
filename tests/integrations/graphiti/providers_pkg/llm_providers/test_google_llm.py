@@ -55,6 +55,7 @@ def test_GoogleLLMClient___init__():
         assert "google" in str(e).lower()
 
 
+@pytest.mark.slow
 def test_GoogleLLMClient_generate_response():
     """Test GoogleLLMClient.generate_response"""
 
@@ -71,6 +72,7 @@ def test_GoogleLLMClient_generate_response():
         assert "google" in str(e).lower() or "api" in str(e).lower()
 
 
+@pytest.mark.slow
 def test_GoogleLLMClient_generate_response_with_tools():
     """Test GoogleLLMClient.generate_response_with_tools"""
 

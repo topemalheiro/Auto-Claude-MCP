@@ -191,11 +191,22 @@ class TestEnableWindowsAnsiSupport:
             mock_colorama.init.assert_called_once()
 
     @patch("ui.capabilities.sys.platform", "win32")
-    @patch("builtins.__import__")
-    def test_windows_colorama_import_error_returns_false(self, mock_import):
+    def test_windows_colorama_import_error_returns_false(self):
         """Test when both ctypes and colorama fail"""
-        mock_import.side_effect = ImportError("No module")
-        result = enable_windows_ansi_support()
+        # Patch both ctypes and colorama imports to fail
+        import builtins
+        original_import = builtins.__import__
+
+        def import_side_effect(name, *args, **kwargs):
+            if name == "ctypes":
+                raise ImportError("No module named 'ctypes'")
+            if name == "colorama":
+                raise ImportError("No module named 'colorama'")
+            return original_import(name, *args, **kwargs)
+
+        with patch("builtins.__import__", side_effect=import_side_effect):
+            result = enable_windows_ansi_support()
+
         assert result is False
 
 

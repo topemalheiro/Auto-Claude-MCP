@@ -31,6 +31,10 @@ backend_path = project_root / "apps" / "backend"
 if str(backend_path) not in sys.path:
     sys.path.insert(0, str(backend_path))
 
+# Set environment variable to prevent io_utils from closing stdout during tests
+# This must be set BEFORE importing any modules that use safe_print
+os.environ["AUTO_CLAUDE_TESTS"] = "1"
+
 
 # =============================================================================
 # PYTEST HOOKS - Clean up mocked modules during collection
@@ -176,6 +180,14 @@ def temp_git_repo(tmp_path: Path) -> Generator[Path, None, None]:
             capture_output=True,
         )
 
+        # Rename default branch to main (for tests that expect main)
+        subprocess.run(
+            ["git", "branch", "-M", "main"],
+            cwd=tmp_path,
+            check=True,
+            capture_output=True,
+        )
+
         # Create an initial commit
         test_file = tmp_path / "README.md"
         test_file.write_text("# Test Repository")
@@ -243,11 +255,61 @@ def temp_project(temp_dir: Path) -> Path:
         temp_dir: Temporary directory fixture
 
     Returns:
-        Path: Temporary project path with basic structure
+        Path: Temporary project path with basic structure, sample files, and git initialization
     """
     project = temp_dir / "project"
     project.mkdir(exist_ok=True)
     (project / "src").mkdir(exist_ok=True)
+
+    # Create sample files that tests expect to exist
+    # Sample React/TypeScript component
+    (project / "src" / "App.tsx").write_text("""import React from 'react';
+import { useState } from 'react';
+
+function App() {
+  const [count, setCount] = useState(0);
+
+  return (
+    <div>
+      <h1>Hello World</h1>
+      <button onClick={() => setCount(count + 1)}>
+        Count: {count}
+      </button>
+    </div>
+  );
+}
+
+export default App;
+""")
+
+    # Sample Python module
+    (project / "src" / "utils.py").write_text("""\"\"\"Sample Python module.\"\"\"
+import os
+from pathlib import Path
+
+def hello():
+    \"\"\"Say hello.\"\"\"
+    print("Hello")
+
+def goodbye():
+    \"\"\"Say goodbye.\"\"\"
+    print("Goodbye")
+
+class Greeter:
+    \"\"\"A greeter class.\"\"\"
+
+    def greet(self, name: str) -> str:
+        return f"Hello, {name}"
+""")
+
+    # Initialize as git repository with main branch for merge tests that need git
+    subprocess.run(["git", "init"], cwd=project, capture_output=True, check=True)
+    subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=project, capture_output=True, check=True)
+    subprocess.run(["git", "config", "user.name", "Test User"], cwd=project, capture_output=True, check=True)
+    subprocess.run(["git", "branch", "-M", "main"], cwd=project, capture_output=True, check=True)
+    subprocess.run(["git", "add", "."], cwd=project, capture_output=True, check=True)
+    subprocess.run(["git", "commit", "-m", "Initial commit"], cwd=project, capture_output=True, check=True)
+
     return project
 
 
@@ -392,14 +454,26 @@ def qa_signoff_approved() -> dict:
 
 @pytest.fixture
 def mock_run_agent_fn() -> Callable:
-    """Return a mock run_agent function.
+    """Return a factory that creates a mock run_agent function.
 
     Returns:
-        Callable: Async mock function for running agents
+        Callable: Factory that creates async mock functions for running agents
     """
-    async def _run_agent(*args, **kwargs):
-        return None
-    return _run_agent
+    def _create_agent_fn(success=True, output="Done", **kwargs):
+        """Create a mock run_agent function with specified behavior.
+
+        Args:
+            success: Whether the agent succeeds
+            output: Output to return
+            **kwargs: Additional ignored parameters
+
+        Returns:
+            Callable: Async mock function for running agents
+        """
+        async def _run_agent(*args, **kwargs):
+            return (success, output)
+        return _run_agent
+    return _create_agent_fn
 
 
 @pytest.fixture
@@ -434,15 +508,80 @@ def mock_ui_module() -> MagicMock:
 
 
 @pytest.fixture
-def mock_spec_validator() -> MagicMock:
-    """Return a mock spec validator.
+def mock_spec_validator():
+    """Return a factory function that creates a mock spec validator.
 
     Returns:
-        MagicMock: Mock spec validator that returns valid result when called
+        callable: Factory that creates mock spec validators with configurable behavior
     """
-    validator = MagicMock()
-    validator.return_value = (True, "Valid")
-    return validator
+    from dataclasses import dataclass, field
+    from unittest.mock import MagicMock
+
+    @dataclass
+    class MockValidationResult:
+        """Mock validation result."""
+        valid: bool
+        checkpoint: str
+        errors: list = field(default_factory=list)
+        fixes: list = field(default_factory=list)
+        warnings: list = field(default_factory=list)
+
+    def _create_validator(
+        spec_valid=True,
+        plan_valid=True,
+        context_valid=True,
+        prereqs_valid=True,
+        all_valid=True,
+    ):
+        """Create a mock spec validator with the specified behavior.
+
+        Args:
+            spec_valid: Whether validate_spec_document returns valid
+            plan_valid: Whether validate_implementation_plan returns valid
+            context_valid: Whether validate_context returns valid
+            prereqs_valid: Whether validate_prereqs returns valid
+            all_valid: Whether validate_all returns all valid results
+
+        Returns:
+            MagicMock: Mock spec validator with appropriate methods
+        """
+        validator = MagicMock()
+
+        # Setup validate_prereqs
+        prereqs_result = MockValidationResult(valid=prereqs_valid, checkpoint="prereqs")
+        validator.validate_prereqs = MagicMock(return_value=prereqs_result)
+
+        # Setup validate_context
+        context_result = MockValidationResult(valid=context_valid, checkpoint="context")
+        validator.validate_context = MagicMock(return_value=context_result)
+
+        # Setup validate_spec_document
+        spec_result = MockValidationResult(valid=spec_valid, checkpoint="spec_document")
+        validator.validate_spec_document = MagicMock(return_value=spec_result)
+
+        # Setup validate_implementation_plan
+        plan_result = MockValidationResult(valid=plan_valid, checkpoint="implementation_plan")
+        validator.validate_implementation_plan = MagicMock(return_value=plan_result)
+
+        # Setup validate_all (returns list of results)
+        if all_valid:
+            validator.validate_all = MagicMock(return_value=[
+                MockValidationResult(valid=True, checkpoint="prereqs"),
+                MockValidationResult(valid=True, checkpoint="context"),
+                MockValidationResult(valid=True, checkpoint="spec_document"),
+                MockValidationResult(valid=True, checkpoint="implementation_plan"),
+            ])
+        else:
+            validator.validate_all = MagicMock(return_value=[
+                MockValidationResult(valid=False, checkpoint="prereqs", errors=["Test error"]),
+                MockValidationResult(valid=False, checkpoint="context", errors=["Test error"]),
+                MockValidationResult(valid=False, checkpoint="spec_document", errors=["Test error"]),
+                MockValidationResult(valid=False, checkpoint="implementation_plan", errors=["Test error"]),
+            ])
+
+        return validator
+
+    return _create_validator
 
 
 @pytest.fixture
@@ -524,7 +663,7 @@ def mock_project_dir(tmp_path: Path) -> Path:
         tmp_path: pytest's built-in temporary directory fixture
 
     Returns:
-        Path: Project directory initialized as git repository
+        Path: Project directory initialized as git repository with main branch
     """
     project_dir = tmp_path / "project"
     project_dir.mkdir(exist_ok=True)
@@ -533,6 +672,9 @@ def mock_project_dir(tmp_path: Path) -> Path:
     subprocess.run(["git", "init"], cwd=project_dir, capture_output=True, check=True)
     subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=project_dir, capture_output=True, check=True)
     subprocess.run(["git", "config", "user.name", "Test User"], cwd=project_dir, capture_output=True, check=True)
+
+    # Rename default branch to main (for tests that expect main)
+    subprocess.run(["git", "branch", "-M", "main"], cwd=project_dir, capture_output=True, check=True)
 
     # Create initial commit
     (project_dir / "README.md").write_text("# Test Project")

@@ -22,13 +22,27 @@ def test_create_azure_openai_embedder():
         azure_openai_embedding_model="text-embedding-ada-002",
     )
 
-    # Act
-    result = create_azure_openai_embedder(config)
+    # Create a proper mock for AzureOpenAIEmbedderClient
+    mock_embedder_instance = MagicMock()
+    mock_embedder_instance.__class__.__name__ = "AzureOpenAIEmbedderClient"
 
-    # Assert
-    assert result is not None
-    # Check that it's an AzureOpenAIEmbedderClient
-    assert result.__class__.__name__ == "AzureOpenAIEmbedderClient"
+    mock_azure_client_class = MagicMock(return_value=mock_embedder_instance)
+    mock_async_openai_instance = MagicMock()
+
+    with patch.dict("sys.modules", {
+        "graphiti_core": MagicMock(),
+        "graphiti_core.embedder": MagicMock(),
+        "graphiti_core.embedder.azure_openai": MagicMock(AzureOpenAIEmbedderClient=mock_azure_client_class),
+        "openai": MagicMock(),
+        "openai.AsyncOpenAI": MagicMock(return_value=mock_async_openai_instance)
+    }):
+        # Act
+        result = create_azure_openai_embedder(config)
+
+        # Assert
+        assert result is not None
+        # Check that it's an AzureOpenAIEmbedderClient
+        assert result.__class__.__name__ == "AzureOpenAIEmbedderClient"
 
 
 def test_create_azure_openai_embedder_missing_api_key():
@@ -41,9 +55,19 @@ def test_create_azure_openai_embedder_missing_api_key():
         azure_openai_embedding_deployment=None,
     )
 
-    # Act & Assert
-    with pytest.raises(ProviderError, match="AZURE_OPENAI_API_KEY"):
-        create_azure_openai_embedder(config)
+    # Mock graphiti_core and openai so we get past the import checks
+    mock_azure_client_class = MagicMock()
+
+    with patch.dict("sys.modules", {
+        "graphiti_core": MagicMock(),
+        "graphiti_core.embedder": MagicMock(),
+        "graphiti_core.embedder.azure_openai": MagicMock(AzureOpenAIEmbedderClient=mock_azure_client_class),
+        "openai": MagicMock(),
+        "openai.AsyncOpenAI": MagicMock()
+    }):
+        # Act & Assert
+        with pytest.raises(ProviderError, match="AZURE_OPENAI_API_KEY"):
+            create_azure_openai_embedder(config)
 
 
 def test_create_azure_openai_embedder_missing_base_url():
@@ -56,9 +80,19 @@ def test_create_azure_openai_embedder_missing_base_url():
         azure_openai_embedding_deployment=None,
     )
 
-    # Act & Assert
-    with pytest.raises(ProviderError, match="AZURE_OPENAI_BASE_URL"):
-        create_azure_openai_embedder(config)
+    # Mock graphiti_core and openai so we get past the import checks
+    mock_azure_client_class = MagicMock()
+
+    with patch.dict("sys.modules", {
+        "graphiti_core": MagicMock(),
+        "graphiti_core.embedder": MagicMock(),
+        "graphiti_core.embedder.azure_openai": MagicMock(AzureOpenAIEmbedderClient=mock_azure_client_class),
+        "openai": MagicMock(),
+        "openai.AsyncOpenAI": MagicMock()
+    }):
+        # Act & Assert
+        with pytest.raises(ProviderError, match="AZURE_OPENAI_BASE_URL"):
+            create_azure_openai_embedder(config)
 
 
 def test_create_azure_openai_embedder_missing_deployment():
@@ -71,9 +105,19 @@ def test_create_azure_openai_embedder_missing_deployment():
         azure_openai_embedding_deployment=None,
     )
 
-    # Act & Assert
-    with pytest.raises(ProviderError, match="AZURE_OPENAI_EMBEDDING_DEPLOYMENT"):
-        create_azure_openai_embedder(config)
+    # Mock graphiti_core and openai so we get past the import checks
+    mock_azure_client_class = MagicMock()
+
+    with patch.dict("sys.modules", {
+        "graphiti_core": MagicMock(),
+        "graphiti_core.embedder": MagicMock(),
+        "graphiti_core.embedder.azure_openai": MagicMock(AzureOpenAIEmbedderClient=mock_azure_client_class),
+        "openai": MagicMock(),
+        "openai.AsyncOpenAI": MagicMock()
+    }):
+        # Act & Assert
+        with pytest.raises(ProviderError, match="AZURE_OPENAI_EMBEDDING_DEPLOYMENT"):
+            create_azure_openai_embedder(config)
 
 
 def test_create_azure_openai_embedder_without_graphiti_core():

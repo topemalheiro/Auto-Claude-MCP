@@ -1,4 +1,8 @@
-"""Tests for discovery module"""
+"""Tests for discovery module
+
+NOTE: These tests run actual discovery scripts - integration tests marked as slow.
+Can be excluded with: pytest -m "not slow"
+"""
 
 import json
 import shutil
@@ -8,6 +12,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from spec.discovery import get_project_index_stats, run_discovery_script
+
+pytestmark = pytest.mark.slow
 
 
 class TestRunDiscoveryScript:

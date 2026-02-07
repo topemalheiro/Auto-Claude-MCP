@@ -259,6 +259,7 @@ class TestMergeLock:
         with lock:
             assert lock_dir.exists()
 
+    @pytest.mark.slow
     def test_merge_lock_concurrent_acquisition_blocked(self, project_dir):
         """Test MergeLock blocks concurrent acquisition attempts."""
         lock1 = MergeLock(project_dir, "test-spec")

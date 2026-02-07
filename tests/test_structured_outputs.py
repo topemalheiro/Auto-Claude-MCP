@@ -91,6 +91,11 @@ class TestFollowupFinding:
             "line": 42,
             "suggested_fix": "Use parameterized queries",
             "fixable": True,
+            "verification": {
+                "code_examined": "cursor.execute(f\"SELECT * FROM users WHERE id={user_input}\")",
+                "line_range_examined": [42, 42],
+                "verification_method": "direct_code_inspection",
+            },
         }
         result = FollowupFinding.model_validate(data)
         assert result.id == "new-1"
@@ -108,6 +113,11 @@ class TestFollowupFinding:
             "title": "Missing docstring",
             "description": "Function lacks documentation",
             "file": "utils.py",
+            "verification": {
+                "code_examined": "def my_function():",
+                "line_range_examined": [10, 10],
+                "verification_method": "direct_code_inspection",
+            },
         }
         result = FollowupFinding.model_validate(data)
         assert result.line == 0  # Default
@@ -161,6 +171,11 @@ class TestFollowupReviewResponse:
                     "description": "Complex method",
                     "file": "service.py",
                     "line": 100,
+                    "verification": {
+                        "code_examined": "def complex_method():",
+                        "line_range_examined": [100, 100],
+                        "verification_method": "direct_code_inspection",
+                    },
                 }
             ],
             "comment_findings": [],
@@ -230,7 +245,11 @@ class TestOrchestratorFinding:
             "category": "quality",
             "severity": "medium",
             "suggestion": "Add error handling with proper logging",
-            "evidence": "def handle_request(req):\n    result = db.query(req.id)  # no try-catch",
+            "verification": {
+                "code_examined": "def handle_request(req):\n    result = db.query(req.id)  # no try-catch",
+                "line_range_examined": [25, 25],
+                "verification_method": "direct_code_inspection",
+            },
         }
         result = OrchestratorFinding.model_validate(data)
         assert result.file == "src/api.py"
@@ -245,6 +264,11 @@ class TestOrchestratorFinding:
             "description": "Test finding",
             "category": "quality",
             "severity": "low",
+            "verification": {
+                "code_examined": "pass",
+                "line_range_examined": [1, 1],
+                "verification_method": "direct_code_inspection",
+            },
         }
         result = OrchestratorFinding.model_validate(data)
         assert result.verification.code_examined == "pass"
@@ -266,7 +290,11 @@ class TestOrchestratorReviewResponse:
                     "description": "API key exposed in source",
                     "category": "security",
                     "severity": "critical",
-                    "evidence": "API_KEY = 'sk-prod-12345abcdef'",
+                    "verification": {
+                        "code_examined": "API_KEY = 'sk-prod-12345abcdef'",
+                        "line_range_examined": [10, 10],
+                        "verification_method": "direct_code_inspection",
+                    },
                 }
             ],
             "summary": "Found 1 critical security issue",
@@ -368,6 +396,11 @@ class TestSecurityFinding:
             "description": "Unescaped user input",
             "file": "template.html",
             "line": 50,
+            "verification": {
+                "code_examined": "innerHTML = user_input",
+                "line_range_examined": [50, 50],
+                "verification_method": "direct_code_inspection",
+            },
         }
         result = SecurityFinding.model_validate(data)
         assert result.category == "security"
@@ -386,7 +419,11 @@ class TestDeepAnalysisFinding:
             "file": "worker.py",
             "line": 100,
             "category": "logic",
-            "evidence": "shared_state += 1  # no lock protection",
+            "verification": {
+                "code_examined": "shared_state += 1  # no lock protection",
+                "line_range_examined": [100, 100],
+                "verification_method": "direct_code_inspection",
+            },
         }
         result = DeepAnalysisFinding.model_validate(data)
         assert result.verification.code_examined == "shared_state += 1  # no lock protection"
@@ -400,7 +437,11 @@ class TestDeepAnalysisFinding:
             "description": "Could not verify behavior",
             "file": "lib.py",
             "category": "verification_failed",
-            "verification_note": "Unable to find test coverage",
+            "verification": {
+                "code_examined": "pass",
+                "line_range_examined": [1, 1],
+                "verification_method": "direct_code_inspection",
+            },
         }
         result = DeepAnalysisFinding.model_validate(data)
         assert result.verification.code_examined == "pass"

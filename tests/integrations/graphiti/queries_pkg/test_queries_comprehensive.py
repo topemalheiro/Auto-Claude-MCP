@@ -9,6 +9,20 @@ import pytest
 from integrations.graphiti.queries_pkg.queries import GraphitiQueries
 
 
+@pytest.fixture
+def mock_graphiti_core():
+    """Mock graphiti_core module for all tests."""
+    mock_episode_type = MagicMock()
+    mock_episode_type.text = "text"
+    mock_nodes = MagicMock()
+    mock_nodes.EpisodeType = mock_episode_type
+    mock_graphiti = MagicMock()
+    mock_graphiti.nodes = mock_nodes
+
+    with patch.dict("sys.modules", {"graphiti_core": mock_graphiti, "graphiti_core.nodes": mock_nodes}):
+        yield
+
+
 class TestGraphitiQueriesInit:
     """Tests for GraphitiQueries initialization."""
 
@@ -29,7 +43,7 @@ class TestAddSessionInsight:
     """Tests for add_session_insight method."""
 
     @pytest.mark.asyncio
-    async def test_add_session_insight_success(self):
+    async def test_add_session_insight_success(self, mock_graphiti_core):
         """Test add_session_insight succeeds."""
         client = MagicMock()
         client.graphiti = MagicMock()
@@ -46,7 +60,7 @@ class TestAddSessionInsight:
         assert "session_001_test-spec" in call_args[1]["name"]
 
     @pytest.mark.asyncio
-    async def test_add_session_insight_includes_timestamp(self):
+    async def test_add_session_insight_includes_timestamp(self, mock_graphiti_core):
         """Test add_session_insight includes timestamp."""
         client = MagicMock()
         client.graphiti = MagicMock()
@@ -61,7 +75,7 @@ class TestAddSessionInsight:
         assert episode_body["session_number"] == 1
 
     @pytest.mark.asyncio
-    async def test_add_session_insight_error_handling(self):
+    async def test_add_session_insight_error_handling(self, mock_graphiti_core):
         """Test add_session_insight handles errors gracefully."""
         client = MagicMock()
         client.graphiti = MagicMock()
@@ -73,7 +87,7 @@ class TestAddSessionInsight:
         assert result is False
 
     @pytest.mark.asyncio
-    async def test_add_session_insight_session_number_padding(self):
+    async def test_add_session_insight_session_number_padding(self, mock_graphiti_core):
         """Test session number is zero-padded to 3 digits."""
         client = MagicMock()
         client.graphiti = MagicMock()
@@ -94,7 +108,7 @@ class TestAddCodebaseDiscoveries:
     """Tests for add_codebase_discoveries method."""
 
     @pytest.mark.asyncio
-    async def test_add_codebase_discoveries_success(self):
+    async def test_add_codebase_discoveries_success(self, mock_graphiti_core):
         """Test add_codebase_discoveries with valid discoveries."""
         client = MagicMock()
         client.graphiti = MagicMock()
@@ -109,7 +123,7 @@ class TestAddCodebaseDiscoveries:
         client.graphiti.add_episode.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_add_codebase_discoveries_empty(self):
+    async def test_add_codebase_discoveries_empty(self, mock_graphiti_core):
         """Test add_codebase_discoveries with empty dict returns True."""
         client = MagicMock()
         client.graphiti = MagicMock()
@@ -122,7 +136,7 @@ class TestAddCodebaseDiscoveries:
         client.graphiti.add_episode.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_add_codebase_discoveries_includes_timestamp(self):
+    async def test_add_codebase_discoveries_includes_timestamp(self, mock_graphiti_core):
         """Test add_codebase_discoveries includes timestamp."""
         client = MagicMock()
         client.graphiti = MagicMock()
@@ -137,7 +151,7 @@ class TestAddCodebaseDiscoveries:
         assert episode_body["files"] == {"file.py": "purpose"}
 
     @pytest.mark.asyncio
-    async def test_add_codebase_discoveries_error_handling(self):
+    async def test_add_codebase_discoveries_error_handling(self, mock_graphiti_core):
         """Test add_codebase_discoveries handles errors."""
         client = MagicMock()
         client.graphiti = MagicMock()
@@ -153,7 +167,7 @@ class TestAddPattern:
     """Tests for add_pattern method."""
 
     @pytest.mark.asyncio
-    async def test_add_pattern_success(self):
+    async def test_add_pattern_success(self, mock_graphiti_core):
         """Test add_pattern with valid pattern."""
         client = MagicMock()
         client.graphiti = MagicMock()
@@ -166,7 +180,7 @@ class TestAddPattern:
         client.graphiti.add_episode.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_add_pattern_includes_timestamp(self):
+    async def test_add_pattern_includes_timestamp(self, mock_graphiti_core):
         """Test add_pattern includes timestamp."""
         client = MagicMock()
         client.graphiti = MagicMock()
@@ -181,7 +195,7 @@ class TestAddPattern:
         assert episode_body["pattern"] == "Test pattern"
 
     @pytest.mark.asyncio
-    async def test_add_pattern_long_text(self):
+    async def test_add_pattern_long_text(self, mock_graphiti_core):
         """Test add_pattern with long pattern text."""
         client = MagicMock()
         client.graphiti = MagicMock()
@@ -194,7 +208,7 @@ class TestAddPattern:
         assert result is True
 
     @pytest.mark.asyncio
-    async def test_add_pattern_error_handling(self):
+    async def test_add_pattern_error_handling(self, mock_graphiti_core):
         """Test add_pattern handles errors."""
         client = MagicMock()
         client.graphiti = MagicMock()
@@ -210,7 +224,7 @@ class TestAddGotcha:
     """Tests for add_gotcha method."""
 
     @pytest.mark.asyncio
-    async def test_add_gotcha_success(self):
+    async def test_add_gotcha_success(self, mock_graphiti_core):
         """Test add_gotcha with valid gotcha."""
         client = MagicMock()
         client.graphiti = MagicMock()
@@ -223,7 +237,7 @@ class TestAddGotcha:
         client.graphiti.add_episode.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_add_gotcha_includes_timestamp(self):
+    async def test_add_gotcha_includes_timestamp(self, mock_graphiti_core):
         """Test add_gotcha includes timestamp."""
         client = MagicMock()
         client.graphiti = MagicMock()
@@ -238,7 +252,7 @@ class TestAddGotcha:
         assert episode_body["gotcha"] == "Test gotcha"
 
     @pytest.mark.asyncio
-    async def test_add_gotcha_error_handling(self):
+    async def test_add_gotcha_error_handling(self, mock_graphiti_core):
         """Test add_gotcha handles errors."""
         client = MagicMock()
         client.graphiti = MagicMock()
@@ -254,7 +268,7 @@ class TestAddTaskOutcome:
     """Tests for add_task_outcome method."""
 
     @pytest.mark.asyncio
-    async def test_add_task_outcome_success(self):
+    async def test_add_task_outcome_success(self, mock_graphiti_core):
         """Test add_task_outcome with valid outcome."""
         client = MagicMock()
         client.graphiti = MagicMock()
@@ -271,7 +285,7 @@ class TestAddTaskOutcome:
         client.graphiti.add_episode.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_add_task_outcome_with_metadata(self):
+    async def test_add_task_outcome_with_metadata(self, mock_graphiti_core):
         """Test add_task_outcome with metadata."""
         client = MagicMock()
         client.graphiti = MagicMock()
@@ -293,7 +307,7 @@ class TestAddTaskOutcome:
         assert episode_body["duration_seconds"] == 120
 
     @pytest.mark.asyncio
-    async def test_add_task_outcome_includes_all_fields(self):
+    async def test_add_task_outcome_includes_all_fields(self, mock_graphiti_core):
         """Test add_task_outcome includes all expected fields."""
         client = MagicMock()
         client.graphiti = MagicMock()
@@ -311,7 +325,7 @@ class TestAddTaskOutcome:
         assert "timestamp" in episode_body
 
     @pytest.mark.asyncio
-    async def test_add_task_outcome_name_generation(self):
+    async def test_add_task_outcome_name_generation(self, mock_graphiti_core):
         """Test task outcome name includes task ID."""
         client = MagicMock()
         client.graphiti = MagicMock()
@@ -324,7 +338,7 @@ class TestAddTaskOutcome:
         assert "task_outcome_my-task-123_" in call_args[1]["name"]
 
     @pytest.mark.asyncio
-    async def test_add_task_outcome_error_handling(self):
+    async def test_add_task_outcome_error_handling(self, mock_graphiti_core):
         """Test add_task_outcome handles errors."""
         client = MagicMock()
         client.graphiti = MagicMock()
@@ -340,7 +354,7 @@ class TestAddStructuredInsights:
     """Tests for add_structured_insights method."""
 
     @pytest.mark.asyncio
-    async def test_add_structured_insights_empty(self):
+    async def test_add_structured_insights_empty(self, mock_graphiti_core):
         """Test add_structured_insights with empty dict returns True."""
         client = MagicMock()
         client.graphiti = MagicMock()
@@ -353,7 +367,7 @@ class TestAddStructuredInsights:
         client.graphiti.add_episode.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_add_structured_insights_file_insights(self):
+    async def test_add_structured_insights_file_insights(self, mock_graphiti_core):
         """Test add_structured_insights with file insights."""
         client = MagicMock()
         client.graphiti = MagicMock()
@@ -378,7 +392,7 @@ class TestAddStructuredInsights:
         assert client.graphiti.add_episode.call_count == 1
 
     @pytest.mark.asyncio
-    async def test_add_structured_insights_patterns_discovered(self):
+    async def test_add_structured_insights_patterns_discovered(self, mock_graphiti_core):
         """Test add_structured_insights with patterns."""
         client = MagicMock()
         client.graphiti = MagicMock()
@@ -398,7 +412,7 @@ class TestAddStructuredInsights:
         assert client.graphiti.add_episode.call_count == 2
 
     @pytest.mark.asyncio
-    async def test_add_structured_insights_gotchas_discovered(self):
+    async def test_add_structured_insights_gotchas_discovered(self, mock_graphiti_core):
         """Test add_structured_insights with gotchas."""
         client = MagicMock()
         client.graphiti = MagicMock()
@@ -417,7 +431,7 @@ class TestAddStructuredInsights:
         assert client.graphiti.add_episode.call_count == 1
 
     @pytest.mark.asyncio
-    async def test_add_structured_insights_approach_outcome(self):
+    async def test_add_structured_insights_approach_outcome(self, mock_graphiti_core):
         """Test add_structured_insights with approach outcome."""
         client = MagicMock()
         client.graphiti = MagicMock()
@@ -440,7 +454,7 @@ class TestAddStructuredInsights:
         assert client.graphiti.add_episode.call_count == 1
 
     @pytest.mark.asyncio
-    async def test_add_structured_insights_recommendations(self):
+    async def test_add_structured_insights_recommendations(self, mock_graphiti_core):
         """Test add_structured_insights with recommendations."""
         client = MagicMock()
         client.graphiti = MagicMock()
@@ -462,7 +476,7 @@ class TestAddStructuredInsights:
         assert result is True
 
     @pytest.mark.asyncio
-    async def test_add_structured_insights_all_types(self):
+    async def test_add_structured_insights_all_types(self, mock_graphiti_core):
         """Test add_structured_insights with all insight types."""
         client = MagicMock()
         client.graphiti = MagicMock()
@@ -485,7 +499,7 @@ class TestAddStructuredInsights:
         assert client.graphiti.add_episode.call_count >= 4
 
     @pytest.mark.asyncio
-    async def test_add_structured_insights_string_patterns(self):
+    async def test_add_structured_insights_string_patterns(self, mock_graphiti_core):
         """Test add_structured_insights handles string patterns."""
         client = MagicMock()
         client.graphiti = MagicMock()
@@ -503,7 +517,7 @@ class TestAddStructuredInsights:
         assert client.graphiti.add_episode.call_count == 3
 
     @pytest.mark.asyncio
-    async def test_add_structured_insights_duplicate_facts_error(self):
+    async def test_add_structured_insights_duplicate_facts_error(self, mock_graphiti_core):
         """Test add_structured_insights handles duplicate_facts errors."""
         client = MagicMock()
         client.graphiti = MagicMock()
@@ -522,7 +536,7 @@ class TestAddStructuredInsights:
         assert result is True
 
     @pytest.mark.asyncio
-    async def test_add_structured_insights_partial_failure(self):
+    async def test_add_structured_insights_partial_failure(self, mock_graphiti_core):
         """Test add_structured_insights returns True if some episodes fail."""
         client = MagicMock()
         client.graphiti = MagicMock()
@@ -541,7 +555,7 @@ class TestAddStructuredInsights:
         assert result is True
 
     @pytest.mark.asyncio
-    async def test_add_structured_insights_complete_failure(self):
+    async def test_add_structured_insights_complete_failure(self, mock_graphiti_core):
         """Test add_structured_insights returns False if all fail."""
         client = MagicMock()
         client.graphiti = MagicMock()
@@ -557,7 +571,7 @@ class TestAddStructuredInsights:
         assert result is False
 
     @pytest.mark.asyncio
-    async def test_add_structured_insights_exception_handling(self):
+    async def test_add_structured_insights_exception_handling(self, mock_graphiti_core):
         """Test add_structured_insights outer exception handling."""
         client = MagicMock()
         client.graphiti = MagicMock()
@@ -576,7 +590,7 @@ class TestAddStructuredInsights:
         assert result is False
 
     @pytest.mark.asyncio
-    async def test_add_structured_insights_changed_files(self):
+    async def test_add_structured_insights_changed_files(self, mock_graphiti_core):
         """Test add_structured_insights includes changed_files."""
         client = MagicMock()
         client.graphiti = MagicMock()
@@ -596,7 +610,7 @@ class TestAddStructuredInsights:
         assert episode_body["changed_files"] == ["file1.py", "file2.py"]
 
     @pytest.mark.asyncio
-    async def test_add_structured_insights_recommendations_with_session(self):
+    async def test_add_structured_insights_recommendations_with_session(self, mock_graphiti_core):
         """Test add_structured_insights recommendations include session info."""
         client = MagicMock()
         client.graphiti = MagicMock()
@@ -619,7 +633,7 @@ class TestAddStructuredInsights:
         assert episode_body["success"] is True
 
     @pytest.mark.asyncio
-    async def test_add_structured_insights_outcome_without_subtask_id(self):
+    async def test_add_structured_insights_outcome_without_subtask_id(self, mock_graphiti_core):
         """Test add_structured_insights outcome without subtask_id."""
         client = MagicMock()
         client.graphiti = MagicMock()
@@ -637,7 +651,7 @@ class TestAddStructuredInsights:
         assert episode_body["task_id"] == "unknown"
 
     @pytest.mark.asyncio
-    async def test_add_structured_insights_minimal_dict_pattern(self):
+    async def test_add_structured_insights_minimal_dict_pattern(self, mock_graphiti_core):
         """Test add_structured_insights with minimal dict pattern."""
         client = MagicMock()
         client.graphiti = MagicMock()
@@ -657,7 +671,7 @@ class TestAddStructuredInsights:
         assert client.graphiti.add_episode.call_count == 2
 
     @pytest.mark.asyncio
-    async def test_add_structured_insights_minimal_dict_gotcha(self):
+    async def test_add_structured_insights_minimal_dict_gotcha(self, mock_graphiti_core):
         """Test add_structured_insights with minimal dict gotcha."""
         client = MagicMock()
         client.graphiti = MagicMock()

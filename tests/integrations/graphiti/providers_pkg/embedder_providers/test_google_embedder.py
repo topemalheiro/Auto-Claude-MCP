@@ -11,6 +11,7 @@ from integrations.graphiti.providers_pkg.embedder_providers.google_embedder impo
 from integrations.graphiti.providers_pkg.exceptions import ProviderError
 
 
+@pytest.mark.slow
 def test_create_google_embedder():
     """Test create_google_embedder"""
 
@@ -72,6 +73,7 @@ def test_GoogleEmbedder___init__():
         assert "google" in str(e).lower()
 
 
+@pytest.mark.slow
 def test_GoogleEmbedder_create():
     """Test GoogleEmbedder.create"""
 
