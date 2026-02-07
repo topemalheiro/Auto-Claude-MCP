@@ -115,6 +115,14 @@ class CIDiscovery:
             CIConfig if CI found, None otherwise
         """
         project_dir = Path(project_dir)
+
+        # Return None if project directory doesn't exist or is inaccessible
+        try:
+            if not project_dir.exists():
+                return None
+        except (OSError, PermissionError):
+            return None
+
         cache_key = str(project_dir.resolve())
 
         if cache_key in self._cache:

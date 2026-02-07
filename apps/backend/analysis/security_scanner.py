@@ -108,6 +108,20 @@ class SecurityScanner:
         self._bandit_available: bool | None = None
         self._npm_available: bool | None = None
 
+    def _is_accessible_directory(self, path: Path) -> bool:
+        """Check if a directory is accessible for scanning."""
+        try:
+            return path.is_dir()
+        except (OSError, PermissionError):
+            return False
+
+    def _safe_exists(self, path: Path) -> bool:
+        """Safely check if a path exists, handling permission errors."""
+        try:
+            return path.exists()
+        except (OSError, PermissionError):
+            return False
+
     def scan(
         self,
         project_dir: Path,
@@ -229,9 +243,8 @@ class SecurityScanner:
             src_dirs = []
             for candidate in ["src", "app", project_dir.name, "."]:
                 candidate_path = project_dir / candidate
-                if (
-                    candidate_path.exists()
-                    and (candidate_path / "__init__.py").exists()
+                if self._safe_exists(candidate_path) and self._safe_exists(
+                    candidate_path / "__init__.py"
                 ):
                     src_dirs.append(str(candidate_path))
 
@@ -298,7 +311,7 @@ class SecurityScanner:
     ) -> None:
         """Run dependency vulnerability audits."""
         # npm audit for JavaScript projects
-        if (project_dir / "package.json").exists():
+        if self._safe_exists(project_dir / "package.json"):
             self._run_npm_audit(project_dir, result)
 
         # pip-audit for Python projects (if available)
@@ -407,7 +420,7 @@ class SecurityScanner:
             project_dir / "setup.py",
             project_dir / "setup.cfg",
         ]
-        return any(p.exists() for p in indicators)
+        return any(self._safe_exists(p) for p in indicators)
 
     def _check_bandit_available(self) -> bool:
         """Check if Bandit is available."""

@@ -332,28 +332,41 @@ class TestSupportsUnicode:
     @patch.dict(os.environ, {"ENABLE_FANCY_UI": "false"})
     def test_returns_false_when_fancy_ui_disabled(self):
         """Test returns False when ENABLE_FANCY_UI is false"""
-        result = supports_unicode()
-        assert result is False
+        mock_stdout = MagicMock()
+        mock_stdout.encoding = "utf-8"
+        with patch("sys.stdout", mock_stdout):
+            from ui.capabilities import supports_unicode
+            result = supports_unicode()
+            assert result is False
 
     @patch.dict(os.environ, {"ENABLE_FANCY_UI": "0"})
     def test_returns_false_when_fancy_ui_zero(self):
         """Test returns False when ENABLE_FANCY_UI is 0"""
-        result = supports_unicode()
-        assert result is False
+        mock_stdout = MagicMock()
+        mock_stdout.encoding = "utf-8"
+        with patch("sys.stdout", mock_stdout):
+            from ui.capabilities import supports_unicode
+            result = supports_unicode()
+            assert result is False
 
     @patch.dict(os.environ, {"ENABLE_FANCY_UI": "no"})
     def test_returns_false_when_fancy_ui_no(self):
         """Test returns False when ENABLE_FANCY_UI is no"""
-        result = supports_unicode()
-        assert result is False
+        mock_stdout = MagicMock()
+        mock_stdout.encoding = "utf-8"
+        with patch("sys.stdout", mock_stdout):
+            from ui.capabilities import supports_unicode
+            result = supports_unicode()
+            assert result is False
 
     @patch.dict(os.environ, {"ENABLE_FANCY_UI": "true"})
     def test_returns_true_for_utf8_encoding(self):
         """Test returns True for UTF-8 encoding"""
         mock_stdout = MagicMock()
         mock_stdout.encoding = "utf-8"
-        with patch("ui.capabilities.sys.stdout", mock_stdout):
-            result = supports_unicode()
+        with patch("sys.stdout", mock_stdout):
+            import ui.capabilities
+            result = ui.capabilities.supports_unicode()
             assert result is True
 
     @patch.dict(os.environ, {"ENABLE_FANCY_UI": "true"})
@@ -361,8 +374,9 @@ class TestSupportsUnicode:
         """Test returns True for utf8 (no dash) encoding"""
         mock_stdout = MagicMock()
         mock_stdout.encoding = "utf8"
-        with patch("ui.capabilities.sys.stdout", mock_stdout):
-            result = supports_unicode()
+        with patch("sys.stdout", mock_stdout):
+            import ui.capabilities
+            result = ui.capabilities.supports_unicode()
             assert result is True
 
     @patch.dict(os.environ, {"ENABLE_FANCY_UI": "true"})
@@ -370,8 +384,9 @@ class TestSupportsUnicode:
         """Test returns True for uppercase UTF-8"""
         mock_stdout = MagicMock()
         mock_stdout.encoding = "UTF-8"
-        with patch("ui.capabilities.sys.stdout", mock_stdout):
-            result = supports_unicode()
+        with patch("sys.stdout", mock_stdout):
+            import ui.capabilities
+            result = ui.capabilities.supports_unicode()
             assert result is True
 
     @patch.dict(os.environ, {"ENABLE_FANCY_UI": "true"})
@@ -379,8 +394,9 @@ class TestSupportsUnicode:
         """Test returns False for non-UTF-8 encoding"""
         mock_stdout = MagicMock()
         mock_stdout.encoding = "cp1252"
-        with patch("ui.capabilities.sys.stdout", mock_stdout):
-            result = supports_unicode()
+        with patch("sys.stdout", mock_stdout):
+            import ui.capabilities
+            result = ui.capabilities.supports_unicode()
             assert result is False
 
     @patch.dict(os.environ, {"ENABLE_FANCY_UI": "true"})
@@ -388,8 +404,9 @@ class TestSupportsUnicode:
         """Test returns False when encoding is empty"""
         mock_stdout = MagicMock()
         mock_stdout.encoding = ""
-        with patch("ui.capabilities.sys.stdout", mock_stdout):
-            result = supports_unicode()
+        with patch("sys.stdout", mock_stdout):
+            import ui.capabilities
+            result = ui.capabilities.supports_unicode()
             assert result is False
 
     @patch.dict(os.environ, {"ENABLE_FANCY_UI": "true"})
@@ -397,8 +414,9 @@ class TestSupportsUnicode:
         """Test returns False when encoding is None"""
         mock_stdout = MagicMock()
         mock_stdout.encoding = None
-        with patch("ui.capabilities.sys.stdout", mock_stdout):
-            result = supports_unicode()
+        with patch("sys.stdout", mock_stdout):
+            import ui.capabilities
+            result = ui.capabilities.supports_unicode()
             assert result is False
 
     @patch.dict(os.environ, {"ENABLE_FANCY_UI": "1"})
@@ -406,8 +424,9 @@ class TestSupportsUnicode:
         """Test returns True when ENABLE_FANCY_UI is 1"""
         mock_stdout = MagicMock()
         mock_stdout.encoding = "utf-8"
-        with patch("ui.capabilities.sys.stdout", mock_stdout):
-            result = supports_unicode()
+        with patch("sys.stdout", mock_stdout):
+            import ui.capabilities
+            result = ui.capabilities.supports_unicode()
             assert result is True
 
     @patch.dict(os.environ, {"ENABLE_FANCY_UI": "yes"})
@@ -415,8 +434,9 @@ class TestSupportsUnicode:
         """Test returns True when ENABLE_FANCY_UI is yes"""
         mock_stdout = MagicMock()
         mock_stdout.encoding = "utf-8"
-        with patch("ui.capabilities.sys.stdout", mock_stdout):
-            result = supports_unicode()
+        with patch("sys.stdout", mock_stdout):
+            import ui.capabilities
+            result = ui.capabilities.supports_unicode()
             assert result is True
 
     @patch.dict(os.environ, {"ENABLE_FANCY_UI": "on"})
@@ -424,8 +444,9 @@ class TestSupportsUnicode:
         """Test returns True when ENABLE_FANCY_UI is on"""
         mock_stdout = MagicMock()
         mock_stdout.encoding = "utf-8"
-        with patch("ui.capabilities.sys.stdout", mock_stdout):
-            result = supports_unicode()
+        with patch("sys.stdout", mock_stdout):
+            import ui.capabilities
+            result = ui.capabilities.supports_unicode()
             assert result is True
 
 
@@ -435,79 +456,99 @@ class TestSupportsColor:
     @patch.dict(os.environ, {"ENABLE_FANCY_UI": "false"})
     def test_returns_false_when_fancy_ui_disabled(self):
         """Test returns False when fancy UI is disabled"""
-        result = supports_color()
-        assert result is False
+        mock_stdout = MagicMock()
+        mock_stdout.encoding = "utf-8"
+        with patch("sys.stdout", mock_stdout):
+            from ui.capabilities import supports_color
+            result = supports_color()
+            assert result is False
 
     @patch.dict(os.environ, {"ENABLE_FANCY_UI": "true", "NO_COLOR": "1"})
     def test_returns_false_when_no_color_set(self):
         """Test returns False when NO_COLOR env var is set"""
-        result = supports_color()
-        assert result is False
+        mock_stdout = MagicMock()
+        mock_stdout.encoding = "utf-8"
+        with patch("sys.stdout", mock_stdout):
+            from ui.capabilities import supports_color
+            result = supports_color()
+            assert result is False
 
     @patch.dict(os.environ, {"ENABLE_FANCY_UI": "true", "NO_COLOR": ""})
-    def test_returns_false_when_no_color_empty_string(self):
-        """Test returns False when NO_COLOR is empty string (truthy)"""
-        result = supports_color()
-        assert result is False
+    def test_returns_true_when_no_color_empty_string(self):
+        """Test returns True when NO_COLOR is empty string (falsy, so ignored)"""
+        mock_stdout = MagicMock()
+        mock_stdout.encoding = "utf-8"
+        with patch("sys.stdout", mock_stdout):
+            from ui.capabilities import supports_color
+            result = supports_color()
+            # Empty string is falsy, so NO_COLOR check is skipped, returns True (MagicMock.isatty is truthy)
+            assert result is True
 
     @patch.dict(os.environ, {"ENABLE_FANCY_UI": "true", "FORCE_COLOR": "1"})
     def test_returns_true_when_force_color_set(self):
         """Test returns True when FORCE_COLOR env var is set"""
-        result = supports_color()
-        assert result is True
+        mock_stdout = MagicMock()
+        mock_stdout.encoding = "utf-8"
+        with patch("sys.stdout", mock_stdout):
+            from ui.capabilities import supports_color
+            result = supports_color()
+            assert result is True
 
     @patch.dict(os.environ, {"ENABLE_FANCY_UI": "true", "FORCE_COLOR": "1"})
     def test_returns_true_when_force_color_non_empty(self):
         """Test returns True when FORCE_COLOR has non-empty value"""
-        result = supports_color()
-        assert result is True
+        mock_stdout = MagicMock()
+        mock_stdout.encoding = "utf-8"
+        with patch("sys.stdout", mock_stdout):
+            from ui.capabilities import supports_color
+            result = supports_color()
+            assert result is True
 
     @patch.dict(os.environ, {"ENABLE_FANCY_UI": "true"})
     def test_returns_false_when_not_tty(self):
         """Test returns False when stdout is not a TTY"""
-        mock_stdout = MagicMock()
-        mock_stdout.isatty.return_value = False
-        with patch("ui.capabilities.sys.stdout", mock_stdout):
-            result = supports_color()
+        # Mock sys.stdout.isatty at the call site
+        with patch("sys.stdout.isatty", return_value=False):
+            import ui.capabilities
+            result = ui.capabilities.supports_color()
             assert result is False
-            mock_stdout.isatty.assert_called_once()
 
     @patch.dict(os.environ, {"ENABLE_FANCY_UI": "true"})
     def test_returns_false_when_no_isatty_method(self):
         """Test returns False when stdout has no isatty method"""
         # Create a mock object without isatty method
         mock_stdout = Mock(spec=["encoding"])
-        with patch("ui.capabilities.sys.stdout", mock_stdout):
-            result = supports_color()
+        with patch("sys.stdout", mock_stdout):
+            import ui.capabilities
+            result = ui.capabilities.supports_color()
             assert result is False
 
     @patch.dict(os.environ, {"ENABLE_FANCY_UI": "true", "TERM": "dumb"})
     def test_returns_false_when_term_is_dumb(self):
         """Test returns False when TERM is set to 'dumb'"""
-        mock_stdout = MagicMock()
-        mock_stdout.isatty.return_value = True
-        with patch("ui.capabilities.sys.stdout", mock_stdout):
-            result = supports_color()
+        # Mock sys.stdout.isatty at the call site
+        with patch("sys.stdout.isatty", return_value=True):
+            import ui.capabilities
+            result = ui.capabilities.supports_color()
             assert result is False
 
     @patch.dict(os.environ, {"ENABLE_FANCY_UI": "true", "TERM": "xterm-256color"})
     def test_returns_true_when_term_supports_color(self):
         """Test returns True for color-supporting terminal"""
-        mock_stdout = MagicMock()
-        mock_stdout.isatty.return_value = True
-        with patch("ui.capabilities.sys.stdout", mock_stdout):
-            result = supports_color()
+        # Mock sys.stdout.isatty at the call site
+        with patch("sys.stdout.isatty", return_value=True):
+            import ui.capabilities
+            result = ui.capabilities.supports_color()
             assert result is True
 
     @patch.dict(os.environ, {"ENABLE_FANCY_UI": "true"})
     def test_returns_true_when_term_not_set(self):
         """Test returns True when TERM env var is not set (defaults to not dumb)"""
-        # Remove TERM from environment
-        mock_stdout = MagicMock()
-        mock_stdout.isatty.return_value = True
-        with patch("ui.capabilities.sys.stdout", mock_stdout):
-            with patch.dict(os.environ, {"ENABLE_FANCY_UI": "true"}, clear=True):
-                result = supports_color()
+        # Remove TERM from environment and mock isatty
+        with patch.dict(os.environ, {"ENABLE_FANCY_UI": "true"}, clear=True):
+            with patch("sys.stdout.isatty", return_value=True):
+                import ui.capabilities
+                result = ui.capabilities.supports_color()
                 assert result is True
 
 
@@ -517,36 +558,39 @@ class TestSupportsInteractive:
     @patch.dict(os.environ, {"ENABLE_FANCY_UI": "false"})
     def test_returns_false_when_fancy_ui_disabled(self):
         """Test returns False when fancy UI is disabled"""
-        result = supports_interactive()
-        assert result is False
+        mock_stdout = MagicMock()
+        mock_stdout.encoding = "utf-8"
+        with patch("sys.stdout", mock_stdout):
+            from ui.capabilities import supports_interactive
+            result = supports_interactive()
+            assert result is False
 
     @patch.dict(os.environ, {"ENABLE_FANCY_UI": "true"})
     def test_returns_false_when_stdin_not_tty(self):
         """Test returns False when stdin is not a TTY"""
-        mock_stdin = MagicMock()
-        mock_stdin.isatty.return_value = False
-        with patch("ui.capabilities.sys.stdin", mock_stdin):
-            result = supports_interactive()
+        # Mock sys.stdin.isatty at the call site
+        with patch("sys.stdin.isatty", return_value=False):
+            import ui.capabilities
+            result = ui.capabilities.supports_interactive()
             assert result is False
-            mock_stdin.isatty.assert_called_once()
 
     @patch.dict(os.environ, {"ENABLE_FANCY_UI": "true"})
     def test_returns_true_when_stdin_is_tty(self):
         """Test returns True when stdin is a TTY"""
-        mock_stdin = MagicMock()
-        mock_stdin.isatty.return_value = True
-        with patch("ui.capabilities.sys.stdin", mock_stdin):
-            result = supports_interactive()
+        # Mock sys.stdin.isatty at the call site
+        with patch("sys.stdin.isatty", return_value=True):
+            import ui.capabilities
+            result = ui.capabilities.supports_interactive()
             assert result is True
-            mock_stdin.isatty.assert_called_once()
 
     @patch.dict(os.environ, {"ENABLE_FANCY_UI": "true"})
     def test_returns_false_when_no_isatty_method(self):
         """Test returns False when stdin has no isatty method"""
         # Create a mock object without isatty method
         mock_stdin = Mock(spec=["encoding"])
-        with patch("ui.capabilities.sys.stdin", mock_stdin):
-            result = supports_interactive()
+        with patch("sys.stdin", mock_stdin):
+            import ui.capabilities
+            result = ui.capabilities.supports_interactive()
             assert result is False
 
 

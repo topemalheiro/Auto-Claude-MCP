@@ -4,6 +4,9 @@ Tests for prompt_generator module functions.
 Tests for worktree detection and environment context generation.
 """
 
+import sys
+
+import pytest
 from pathlib import Path
 
 # Note: sys.path manipulation is handled by conftest.py line 46
@@ -36,6 +39,7 @@ class TestDetectWorktreeIsolation:
         assert "opt/dev/project" in norm_forbidden
         assert ".auto-claude" not in norm_forbidden
 
+    @pytest.mark.skipif(sys.platform != "win32", reason="Windows path test only valid on Windows")
     def test_new_worktree_windows_path(self):
         """Test detection of new worktree location on Windows."""
         # Windows path with backslashes
@@ -64,6 +68,7 @@ class TestDetectWorktreeIsolation:
         assert "opt/dev/project" in norm_forbidden
         assert ".worktrees" not in norm_forbidden
 
+    @pytest.mark.skipif(sys.platform != "win32", reason="Windows path test only valid on Windows")
     def test_legacy_worktree_windows_path(self):
         """Test detection of legacy worktree location on Windows."""
         project_dir = Path("C:/projects/x/.worktrees/009-audit")
@@ -91,6 +96,7 @@ class TestDetectWorktreeIsolation:
         assert "opt/dev/project" in norm_forbidden
         assert ".auto-claude" not in norm_forbidden
 
+    @pytest.mark.skipif(sys.platform != "win32", reason="Windows path test only valid on Windows")
     def test_pr_worktree_windows_path(self):
         """Test detection of PR review worktree location on Windows."""
         project_dir = Path("E:/projects/auto-claude/.auto-claude/github/pr/worktrees/1528")

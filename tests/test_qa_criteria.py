@@ -133,6 +133,29 @@ mock_report.get_recurring_issue_summary = MagicMock(return_value={})
 # =============================================================================
 
 
+@pytest.fixture(autouse=True)
+def patch_progress_import():
+    """Patch the progress.is_build_complete import in qa.criteria module.
+
+    This fixture ensures that even if the real progress module was imported
+    before test_qa_criteria.py sets up its mocks (e.g., during pytest collection
+    with -k filter), the qa.criteria module uses the mocked version.
+    """
+    # Import here to get the module reference
+    import qa.criteria
+
+    # Save the original function reference
+    original_is_build_complete = qa.criteria.is_build_complete
+
+    # Replace with our mock
+    qa.criteria.is_build_complete = mock_progress.is_build_complete
+
+    yield
+
+    # Restore original
+    qa.criteria.is_build_complete = original_is_build_complete
+
+
 # Cleanup fixture to restore original modules after all tests in this module
 @pytest.fixture(scope="module", autouse=True)
 def cleanup_mocked_modules():

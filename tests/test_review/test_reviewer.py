@@ -283,6 +283,82 @@ class TestRunReviewCheckpoint:
     """Tests for run_review_checkpoint function."""
 
     @pytest.fixture
+    def mock_select_menu(self, monkeypatch):
+        """Fixture to mock select_menu function."""
+        # Track calls and return values
+        calls = []
+        return_values = []
+
+        def mock_select_menu_func(title, options, subtitle="", allow_quit=True, _interactive=None):
+            calls.append({
+                "title": title,
+                "options_count": len(options),
+                "subtitle": subtitle,
+                "allow_quit": allow_quit,
+            })
+            if return_values:
+                return return_values.pop(0)
+            return "approve"  # Default return value
+
+        # Patch at module level
+        monkeypatch.setattr("review.reviewer.select_menu", mock_select_menu_func)
+        # Also patch in the globals of run_review_checkpoint
+        run_review_checkpoint.__globals__['select_menu'] = mock_select_menu_func
+        # And patch in the sys.modules to be safe
+        import sys
+        if 'review.reviewer' in sys.modules:
+            sys.modules['review.reviewer'].select_menu = mock_select_menu_func
+
+        # Return an object that allows tests to configure return values
+        class MockController:
+            def __init__(self):
+                self.calls = calls
+                self.return_values = return_values
+
+            def set_return_values(self, values):
+                return_values.clear()
+                return_values.extend(values)
+
+            def get_calls(self):
+                return list(calls)
+
+            def clear_calls(self):
+                calls.clear()
+
+        return MockController()
+
+    @pytest.fixture
+    def mock_open_file_in_editor(self, monkeypatch):
+        """Fixture to mock open_file_in_editor function."""
+        import review.reviewer
+
+        def mock_open_func(path):
+            return True
+
+        monkeypatch.setattr("review.reviewer.open_file_in_editor", mock_open_func)
+        run_review_checkpoint.__globals__['open_file_in_editor'] = mock_open_func
+
+        return mock_open_func
+
+        # Return an object that allows tests to configure return values
+        class MockController:
+            def __init__(self):
+                self.calls = calls
+                self.return_values = return_values
+
+            def set_return_values(self, values):
+                return_values.clear()
+                return_values.extend(values)
+
+            def get_calls(self):
+                return list(calls)
+
+            def clear_calls(self):
+                calls.clear()
+
+        return MockController()
+
+    @pytest.fixture
     def spec_dir(self, tmp_path: Path) -> Path:
         """Create a temporary spec directory."""
         spec_dir = tmp_path / "specs" / "001-test"
@@ -331,7 +407,7 @@ class TestRunReviewCheckpoint:
         assert "approved" in output
 
     def test_spec_changed_shows_warning(
-        self, populated_spec_dir: Path, capsys: pytest.CaptureFixture
+        self, mock_select_menu, populated_spec_dir: Path, capsys: pytest.CaptureFixture
     ) -> None:
         """Test that spec changed after approval shows warning."""
         # Approve original
@@ -343,8 +419,7 @@ class TestRunReviewCheckpoint:
         (populated_spec_dir / "spec.md").write_text("# Modified Spec")
 
         # Run checkpoint
-        with patch("review.reviewer.select_menu", return_value="approve"):
-            run_review_checkpoint(populated_spec_dir)
+        run_review_checkpoint(populated_spec_dir)
 
         captured = capsys.readouterr()
         # Should show warning about spec change
@@ -352,10 +427,8 @@ class TestRunReviewCheckpoint:
         # The implementation shows "SPEC CHANGED SINCE APPROVAL"
         assert "changed" in output or "stale" in output
 
-    @patch("review.reviewer.select_menu")
-    @patch("review.reviewer.open_file_in_editor")
     def test_edit_spec_invalidates_approval(
-        self, mock_open, mock_menu, populated_spec_dir: Path
+        self, mock_select_menu, mock_open_file_in_editor, populated_spec_dir: Path
     ) -> None:
         """Test that editing spec invalidates previous approval."""
         # Approve first
@@ -367,8 +440,7 @@ class TestRunReviewCheckpoint:
         (populated_spec_dir / "spec.md").write_text("# Modified Spec")
 
         # Now the approval should be invalid, so it enters the menu loop
-        mock_menu.side_effect = ["edit_spec", "approve"]
-        mock_open.return_value = True
+        mock_select_menu.set_return_values(["edit_spec", "approve"])
 
         with patch("review.reviewer.display_spec_summary"):
             with patch("review.reviewer.display_plan_summary"):
@@ -382,10 +454,8 @@ class TestRunReviewCheckpoint:
         # The review count should have increased
         assert loaded_state.review_count >= 2
 
-    @patch("review.reviewer.select_menu")
-    @patch("review.reviewer.open_file_in_editor")
     def test_edit_plan_invalidates_approval(
-        self, mock_open, mock_menu, populated_spec_dir: Path
+        self, mock_select_menu, mock_open_file_in_editor, populated_spec_dir: Path
     ) -> None:
         """Test that editing plan invalidates previous approval."""
         # Approve first
@@ -397,8 +467,7 @@ class TestRunReviewCheckpoint:
         (populated_spec_dir / "implementation_plan.json").write_text('{"modified": true}')
 
         # Now the approval should be invalid, so it enters the menu loop
-        mock_menu.side_effect = ["edit_plan", "approve"]
-        mock_open.return_value = True
+        mock_select_menu.set_return_values(["edit_plan", "approve"])
 
         with patch("review.reviewer.display_spec_summary"):
             with patch("review.reviewer.display_plan_summary"):
@@ -411,12 +480,16 @@ class TestRunReviewCheckpoint:
         # The review count should have increased
         assert loaded_state.review_count >= 2
 
-    @patch("review.reviewer.select_menu")
-    @patch("review.reviewer.prompt_feedback")
-    def test_add_feedback(self, mock_prompt, mock_menu, populated_spec_dir: Path) -> None:
+    def test_add_feedback(self, mock_select_menu, populated_spec_dir: Path, monkeypatch) -> None:
         """Test adding feedback."""
-        mock_menu.side_effect = ["feedback", "approve"]
-        mock_prompt.return_value = "Great work!"
+        mock_select_menu.set_return_values(["feedback", "approve"])
+
+        def mock_prompt():
+            return "Great work!"
+
+        monkeypatch.setattr("review.reviewer.prompt_feedback", mock_prompt)
+        # Also patch in the globals of run_review_checkpoint
+        run_review_checkpoint.__globals__['prompt_feedback'] = mock_prompt
 
         with patch("review.reviewer.display_spec_summary"):
             with patch("review.reviewer.display_plan_summary"):
@@ -427,10 +500,9 @@ class TestRunReviewCheckpoint:
         assert len(result_state.feedback) > 0
         assert "Great work!" in result_state.feedback[0]
 
-    @patch("review.reviewer.select_menu")
-    def test_reject_exits(self, mock_menu, populated_spec_dir: Path) -> None:
+    def test_reject_exits(self, mock_select_menu, populated_spec_dir: Path) -> None:
         """Test that reject choice causes exit."""
-        mock_menu.return_value = "reject"
+        mock_select_menu.set_return_values(["reject"])
 
         with pytest.raises(SystemExit) as exc_info:
             with patch("review.reviewer.display_spec_summary"):
@@ -441,10 +513,18 @@ class TestRunReviewCheckpoint:
         # Should exit with code 1
         assert exc_info.value.code == 1
 
-    @patch("review.reviewer.select_menu")
-    def test_keyboard_interrupt_handled(self, mock_menu, populated_spec_dir: Path) -> None:
+    def test_keyboard_interrupt_handled(self, mock_select_menu, populated_spec_dir: Path) -> None:
         """Test that KeyboardInterrupt is handled gracefully."""
-        mock_menu.side_effect = KeyboardInterrupt()
+        def mock_func_with_interrupt(*args, **kwargs):
+            raise KeyboardInterrupt()
+
+        # Override the mock to raise KeyboardInterrupt
+        import review.reviewer
+        import sys
+        review.reviewer.select_menu = mock_func_with_interrupt
+        run_review_checkpoint.__globals__['select_menu'] = mock_func_with_interrupt
+        if 'review.reviewer' in sys.modules:
+            sys.modules['review.reviewer'].select_menu = mock_func_with_interrupt
 
         with pytest.raises(SystemExit) as exc_info:
             with patch("review.reviewer.display_spec_summary"):
@@ -455,10 +535,9 @@ class TestRunReviewCheckpoint:
         # Should exit with code 0 (graceful)
         assert exc_info.value.code == 0
 
-    @patch("review.reviewer.select_menu")
-    def test_quit_option_exits(self, mock_menu, populated_spec_dir: Path) -> None:
+    def test_quit_option_exits(self, mock_select_menu, populated_spec_dir: Path) -> None:
         """Test that quit (None return) exits gracefully."""
-        mock_menu.return_value = None
+        mock_select_menu.set_return_values([None])
 
         with pytest.raises(SystemExit) as exc_info:
             with patch("review.reviewer.display_spec_summary"):
@@ -469,11 +548,8 @@ class TestRunReviewCheckpoint:
         # Should exit with code 0
         assert exc_info.value.code == 0
 
-    @patch("review.reviewer.select_menu")
-    def test_approve_sets_correct_fields(self, mock_menu, populated_spec_dir: Path) -> None:
+    def test_approve_sets_correct_fields(self, mock_select_menu, populated_spec_dir: Path) -> None:
         """Test that approve sets all required fields."""
-        mock_menu.return_value = "approve"
-
         with patch("review.reviewer.display_spec_summary"):
             with patch("review.reviewer.display_plan_summary"):
                 with patch("review.reviewer.display_review_status"):
@@ -485,17 +561,14 @@ class TestRunReviewCheckpoint:
         assert result_state.spec_hash  # Should have computed hash
         assert result_state.review_count > 0
 
-    @patch("review.reviewer.select_menu")
-    @patch("review.reviewer.open_file_in_editor")
     def test_edit_spec_missing_file(
-        self, mock_open, mock_menu, populated_spec_dir: Path, capsys
+        self, mock_select_menu, mock_open_file_in_editor, populated_spec_dir: Path, capsys
     ) -> None:
         """Test handling when spec.md doesn't exist."""
         # Remove spec.md
         (populated_spec_dir / "spec.md").unlink()
 
-        mock_menu.side_effect = ["edit_spec", "approve"]
-        mock_open.return_value = True
+        mock_select_menu.set_return_values(["edit_spec", "approve"])
 
         with patch("review.reviewer.display_spec_summary"):
             with patch("review.reviewer.display_plan_summary"):
@@ -507,17 +580,14 @@ class TestRunReviewCheckpoint:
         output = captured.out.lower()
         assert "not found" in output
 
-    @patch("review.reviewer.select_menu")
-    @patch("review.reviewer.open_file_in_editor")
     def test_edit_plan_missing_file(
-        self, mock_open, mock_menu, populated_spec_dir: Path, capsys
+        self, mock_select_menu, mock_open_file_in_editor, populated_spec_dir: Path, capsys
     ) -> None:
         """Test handling when implementation_plan.json doesn't exist."""
         # Remove plan file
         (populated_spec_dir / "implementation_plan.json").unlink()
 
-        mock_menu.side_effect = ["edit_plan", "approve"]
-        mock_open.return_value = True
+        mock_select_menu.set_return_values(["edit_plan", "approve"])
 
         with patch("review.reviewer.display_spec_summary"):
             with patch("review.reviewer.display_plan_summary"):
@@ -529,12 +599,16 @@ class TestRunReviewCheckpoint:
         output = captured.out.lower()
         assert "not found" in output
 
-    @patch("review.reviewer.select_menu")
-    @patch("review.reviewer.prompt_feedback")
-    def test_feedback_empty(self, mock_prompt, mock_menu, populated_spec_dir: Path) -> None:
+    def test_feedback_empty(self, mock_select_menu, populated_spec_dir: Path, monkeypatch) -> None:
         """Test handling when feedback is empty."""
-        mock_menu.side_effect = ["feedback", "approve"]
-        mock_prompt.return_value = None  # User cancelled
+        mock_select_menu.set_return_values(["feedback", "approve"])
+
+        def mock_prompt():
+            return None  # User cancelled
+
+        monkeypatch.setattr("review.reviewer.prompt_feedback", mock_prompt)
+        # Also patch in the globals of run_review_checkpoint
+        run_review_checkpoint.__globals__['prompt_feedback'] = mock_prompt
 
         with patch("review.reviewer.display_spec_summary"):
             with patch("review.reviewer.display_plan_summary"):

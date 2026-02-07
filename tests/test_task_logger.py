@@ -312,10 +312,17 @@ class TestTaskLoggerPublicAPI:
 
     def test_strip_ansi_codes_is_exported(self):
         """strip_ansi_codes should be importable from task_logger package."""
-        from task_logger import strip_ansi_codes as exported_strip
+        # Import fresh to avoid any module-level import issues
+        import importlib
+        task_logger = importlib.import_module('task_logger')
+        exported_strip = task_logger.strip_ansi_codes
+
+        # Import directly from the ansi module for comparison
+        ansi_module = importlib.import_module('task_logger.ansi')
+        direct_strip = ansi_module.strip_ansi_codes
 
         # Verify it's the same function
-        assert exported_strip is strip_ansi_codes
+        assert exported_strip is direct_strip
 
         # Verify it works
         assert exported_strip("\x1b[31mtest\x1b[0m") == "test"

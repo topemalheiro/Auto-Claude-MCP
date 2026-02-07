@@ -128,77 +128,77 @@ class TestProgressBarWidthEdgeCases:
 class TestProgressBarColorGradientDetailed:
     """Detailed tests for color gradient behavior"""
 
-    @patch("ui.progress.COLOR", True)
+    @patch("ui.capabilities.COLOR", True)
     def test_color_gradient_at_0_percent(self):
         """Test color at 0% (muted color)"""
         result = ui.progress.progress_bar(0, 100, color_gradient=True)
         assert isinstance(result, str)
         assert "0/100" in result
 
-    @patch("ui.progress.COLOR", True)
+    @patch("ui.capabilities.COLOR", True)
     def test_color_gradient_at_1_percent(self):
         """Test color at 1% (warning color)"""
         result = ui.progress.progress_bar(1, 100, color_gradient=True)
         assert isinstance(result, str)
         assert "1/100" in result
 
-    @patch("ui.progress.COLOR", True)
+    @patch("ui.capabilities.COLOR", True)
     def test_color_gradient_at_25_percent(self):
         """Test color at 25% (warning color)"""
         result = ui.progress.progress_bar(25, 100, color_gradient=True)
         assert isinstance(result, str)
         assert "25/100" in result
 
-    @patch("ui.progress.COLOR", True)
+    @patch("ui.capabilities.COLOR", True)
     def test_color_gradient_at_49_percent(self):
         """Test color at 49% (warning color, threshold boundary)"""
         result = ui.progress.progress_bar(49, 100, color_gradient=True)
         assert isinstance(result, str)
         assert "49/100" in result
 
-    @patch("ui.progress.COLOR", True)
+    @patch("ui.capabilities.COLOR", True)
     def test_color_gradient_at_50_percent(self):
         """Test color at 50% (info color, threshold boundary)"""
         result = ui.progress.progress_bar(50, 100, color_gradient=True)
         assert isinstance(result, str)
         assert "50/100" in result
 
-    @patch("ui.progress.COLOR", True)
+    @patch("ui.capabilities.COLOR", True)
     def test_color_gradient_at_75_percent(self):
         """Test color at 75% (info color)"""
         result = ui.progress.progress_bar(75, 100, color_gradient=True)
         assert isinstance(result, str)
         assert "75/100" in result
 
-    @patch("ui.progress.COLOR", True)
+    @patch("ui.capabilities.COLOR", True)
     def test_color_gradient_at_99_percent(self):
         """Test color at 99% (info color)"""
         result = ui.progress.progress_bar(99, 100, color_gradient=True)
         assert isinstance(result, str)
         assert "99/100" in result
 
-    @patch("ui.progress.COLOR", True)
+    @patch("ui.capabilities.COLOR", True)
     def test_color_gradient_at_100_percent(self):
         """Test color at 100% (success color)"""
         result = ui.progress.progress_bar(100, 100, color_gradient=True)
         assert isinstance(result, str)
         assert "100/100" in result
 
-    @patch("ui.progress.COLOR", True)
+    @patch("ui.capabilities.COLOR", True)
     def test_color_gradient_above_100_percent(self):
         """Test color above 100% (success color)"""
         result = ui.progress.progress_bar(150, 100, color_gradient=True)
         assert isinstance(result, str)
         assert "150/100" in result
 
-    @patch("ui.progress.COLOR", False)
+    @patch("ui.capabilities.COLOR", False)
     def test_no_color_codes_when_disabled(self):
         """Test that no ANSI codes when color is disabled"""
         result = ui.progress.progress_bar(75, 100, color_gradient=True)
         # Should not have ANSI escape sequences
         assert "\033[" not in result
 
-    @patch("ui.progress.COLOR", False)
+    @patch("ui.capabilities.COLOR", False)
     def test_plain_text_when_color_disabled(self):
         """Test that output is plain text when color disabled"""
         result = ui.progress.progress_bar(50, 100, color_gradient=False)

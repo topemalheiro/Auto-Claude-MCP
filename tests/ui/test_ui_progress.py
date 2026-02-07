@@ -122,7 +122,7 @@ class TestProgressBar:
 class TestProgressBarColorGradients:
     """Tests for progress_bar color gradient functionality"""
 
-    @patch("ui.progress.COLOR", True)
+    @patch("ui.capabilities.COLOR", True)
     def test_color_gradient_success_at_100_percent(self):
         """Test color gradient applies success color at 100%"""
         result = progress_bar(100, 100, color_gradient=True)
@@ -131,7 +131,7 @@ class TestProgressBarColorGradients:
         assert isinstance(result, str)
         assert "100/100" in result
 
-    @patch("ui.progress.COLOR", True)
+    @patch("ui.capabilities.COLOR", True)
     def test_color_gradient_info_at_50_percent(self):
         """Test color gradient applies info color at 50%"""
         result = progress_bar(50, 100, color_gradient=True)
@@ -140,7 +140,7 @@ class TestProgressBarColorGradients:
         assert isinstance(result, str)
         assert "50/100" in result
 
-    @patch("ui.progress.COLOR", True)
+    @patch("ui.capabilities.COLOR", True)
     def test_color_gradient_warning_below_50_percent(self):
         """Test color gradient applies warning color below 50%"""
         result = progress_bar(25, 100, color_gradient=True)
@@ -149,7 +149,7 @@ class TestProgressBarColorGradients:
         assert isinstance(result, str)
         assert "25/100" in result
 
-    @patch("ui.progress.COLOR", True)
+    @patch("ui.capabilities.COLOR", True)
     def test_color_gradient_muted_at_zero_percent(self):
         """Test color gradient applies muted color at 0%"""
         result = progress_bar(0, 100, color_gradient=True)
@@ -158,7 +158,7 @@ class TestProgressBarColorGradients:
         assert isinstance(result, str)
         assert "0/100" in result
 
-    @patch("ui.progress.COLOR", False)
+    @patch("ui.capabilities.COLOR", False)
     def test_no_color_when_color_disabled(self):
         """Test no color codes when COLOR capability is disabled"""
         result = progress_bar(75, 100, color_gradient=True)

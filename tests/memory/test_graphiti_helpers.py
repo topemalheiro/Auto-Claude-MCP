@@ -29,30 +29,25 @@ class TestIsGraphitiMemoryEnabled:
     def test_returns_false_on_import_error(self):
         """Test returns False when graphiti_config import fails."""
         # When graphiti_config is not available, returns False
-        # This happens when the module is not installed
         result = is_graphiti_memory_enabled()
-        # If graphiti_config is not installed, returns False
         assert isinstance(result, bool)
 
-        # Also test by temporarily blocking import
-        import sys
-        original_modules = sys.modules.copy()
-        try:
-            # Remove graphiti_config from sys.modules if it exists
-            sys.modules.pop("graphiti_config", None)
-            sys.modules.pop("graphiti_config.is_graphiti_enabled", None)
+        # Test by mocking the import to fail
+        import builtins
+        original_import = builtins.__import__
 
-            # Force reimport
-            import importlib
-            import memory.graphiti_helpers
-            importlib.reload(memory.graphiti_helpers)
+        def mock_import(name, *args, **kwargs):
+            if name == "graphiti_config" or name.startswith("graphiti_config."):
+                raise ImportError(f"No module named '{name}'")
+            return original_import(name, *args, **kwargs)
 
-            result = memory.graphiti_helpers.is_graphiti_memory_enabled()
+        with patch("builtins.__import__", side_effect=mock_import):
+            # Re-import the module to test the error path
+            # We need to test the function logic directly
+            from memory import graphiti_helpers as gh
+            # The function should handle ImportError gracefully
+            result = gh.is_graphiti_memory_enabled()
             assert isinstance(result, bool)
-        finally:
-            # Restore original modules
-            sys.modules.clear()
-            sys.modules.update(original_modules)
 
     def test_returns_false_from_is_graphiti_enabled(self):
         """Test returns False when is_graphiti_enabled returns False."""

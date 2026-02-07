@@ -240,7 +240,12 @@ class TestFalsePositiveDetection:
             line=1,
         )
 
-        assert validator._is_false_positive(finding)
+        # This should fail _is_valid checks:
+        # - Title too short (min 10 chars, this is 22 chars - OK)
+        # - Description too short (min 30 chars, this is 73 chars - OK)
+        # - Will be filtered due to low actionability score + short title description pattern
+        result = validator.validate_findings([finding])
+        assert len(result) == 0
 
     def test_generic_without_fix_filtered(self, validator):
         """Test that generic suggestions without fixes are filtered."""
@@ -252,10 +257,14 @@ class TestFalsePositiveDetection:
             description="This code should be improved for better quality and maintainability.",
             file="src/utils.py",
             line=1,
-            suggested_fix="Fix it",  # Too short
+            suggested_fix="Fix it",  # Too short (min 20 chars)
         )
 
-        assert validator._is_false_positive(finding)
+        # This should fail _is_valid checks:
+        # - Suggested fix too short (min 20 chars)
+        # - Will be filtered due to insufficient actionability
+        result = validator.validate_findings([finding])
+        assert len(result) == 0
 
     def test_style_without_suggestion_filtered(self, validator):
         """Test that style findings without good suggestions are filtered."""
@@ -270,7 +279,11 @@ class TestFalsePositiveDetection:
             suggested_fix="",  # No suggestion
         )
 
-        assert validator._is_false_positive(finding)
+        # This should fail _is_valid checks:
+        # - Suggested fix too short (empty, min 20 chars)
+        # - Will be filtered due to insufficient actionability
+        result = validator.validate_findings([finding])
+        assert len(result) == 0
 
     def test_specific_high_severity_not_filtered(self, validator):
         """Test that specific high-severity findings are not filtered."""
@@ -285,7 +298,14 @@ class TestFalsePositiveDetection:
             suggested_fix="Use parameterized queries with placeholders instead of string formatting",
         )
 
-        assert not validator._is_false_positive(finding)
+        # This should pass validation:
+        # - Valid file and line
+        # - Good title and description lengths
+        # - Specific suggested fix
+        # - High severity with actionability score
+        result = validator.validate_findings([finding])
+        assert len(result) == 1
+        assert result[0].id == "SEC001"
 
 
 class TestActionabilityScoring:
@@ -384,15 +404,12 @@ class TestConfidenceThreshold:
             suggested_fix="",  # No fix
         )
 
-        # Should fail - low severity + vague + no fix + short title
-        # Score should be 0.5 (base) + 0.1 (file+line) + 0.1 (desc>50) = 0.7
-        # But vague pattern makes it a false positive, so it should fail validation before threshold check
-        # This test should check that the actionability score alone is insufficient
-        score = validator._score_actionability(finding)
-        # With no fix, short title, and low severity: 0.5 (base) + 0.1 (file+line) = 0.6
-        # But this still meets 0.6 threshold for low severity
-        # Let's check the finding gets filtered as false positive instead
-        assert validator._is_false_positive(finding)  # Should be filtered as FP
+        # This should fail _is_valid checks:
+        # - Title too short (min 10 chars, this is 9 chars)
+        # - Suggested fix too short (empty, min 20 chars)
+        # - Will be filtered before reaching threshold check
+        result = validator.validate_findings([finding])
+        assert len(result) == 0
 
 
 class TestFindingEnhancement:

@@ -10,8 +10,13 @@ import sys
 from pathlib import Path
 from pprint import pprint
 
+import pytest
+
 # Add backend to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "backend"))
+
+# Mark all tests in this file as slow (requires API calls)
+pytestmark = pytest.mark.slow
 
 # Add pydantic_models path
 _pydantic_models_path = (
@@ -37,6 +42,7 @@ class SimpleReviewResponse(BaseModel):
     score: int = Field(ge=0, le=100, description="Score from 0-100")
 
 
+@pytest.mark.asyncio
 async def test_structured_output():
     """Test the SDK's structured output functionality."""
 

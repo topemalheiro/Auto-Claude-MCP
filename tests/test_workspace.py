@@ -24,6 +24,9 @@ from workspace import (
 )
 from worktree import WorktreeManager
 
+# Mark all tests in this file as slow (heavy git operations)
+pytestmark = pytest.mark.slow
+
 # Test constant - in the new per-spec architecture, each spec has its own worktree
 # named after the spec itself. This constant is used for test assertions.
 TEST_SPEC_NAME = "test-spec"

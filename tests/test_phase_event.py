@@ -11,6 +11,7 @@ Tests the phase_event.py module including:
 """
 
 import json
+import os
 import sys
 from io import StringIO
 from pathlib import Path
@@ -44,8 +45,8 @@ class TestExecutionPhaseEnum:
 
     def test_phase_count(self):
         """Expected number of phases exists."""
-        # planning, coding, qa_review, qa_fixing, complete, failed
-        assert len(ExecutionPhase) == 6
+        # planning, coding, qa_review, qa_fixing, complete, failed, rate_limit_paused, auth_failure_paused
+        assert len(ExecutionPhase) == 8
 
     def test_planning_phase_exists(self):
         """PLANNING phase has correct value."""
@@ -334,32 +335,27 @@ class TestErrorHandling:
         # Should not raise
         emit_phase(ExecutionPhase.CODING, "Test")
 
-    def test_debug_mode_logs_errors(self, monkeypatch, capsys):
+    @patch.dict(os.environ, {"DEBUG": "true"}, clear=False)
+    def test_debug_mode_logs_errors(self, capsys):
         """In debug mode, errors are logged to stderr."""
-        monkeypatch.setenv("DEBUG", "true")
+        import core.phase_event as phase_event_module
 
-        import importlib
-        from core import phase_event
+        # Patch _DEBUG directly since it's set at module import time
+        with patch.object(phase_event_module, "_DEBUG", True):
+            call_count = [0]
+            original_print = print
 
-        importlib.reload(phase_event)
+            def raise_oserror_once(*args, **kwargs):
+                call_count[0] += 1
+                if call_count[0] == 1:
+                    raise OSError("Test error")
+                return original_print(*args, **kwargs)
 
-        call_count = [0]
-        original_print = print
+            with patch("builtins.print", raise_oserror_once):
+                emit_phase(ExecutionPhase.CODING, "Test")
 
-        def raise_oserror_once(*args, **kwargs):
-            call_count[0] += 1
-            if call_count[0] == 1:
-                raise OSError("Test error")
-            return original_print(*args, **kwargs)
-
-        monkeypatch.setattr("builtins.print", raise_oserror_once)
-
-        from core.phase_event import emit_phase as emit_phase_reloaded
-
-        emit_phase_reloaded(ExecutionPhase.CODING, "Test")
-
-        captured = capsys.readouterr()
-        assert "emit failed" in captured.err
+                captured = capsys.readouterr()
+                assert "emit failed" in captured.err
 
 
 class TestPhaseTransitions:

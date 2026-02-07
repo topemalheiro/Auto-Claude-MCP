@@ -11,7 +11,7 @@ Tests for ReviewState approval and rejection methods:
 """
 
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -35,8 +35,12 @@ class TestReviewStateApproval:
         state = ReviewState()
 
         # Freeze time for consistent testing
+        class MockDateTime:
+            def isoformat(self):
+                return "2024-07-01T10:00:00"
+
         with patch("review.state.datetime") as mock_datetime:
-            mock_datetime.now.return_value.isoformat.return_value = "2024-07-01T10:00:00"
+            mock_datetime.now.return_value = MockDateTime()
             state.approve(review_spec_dir, approved_by="approver")
 
         assert state.approved is True
