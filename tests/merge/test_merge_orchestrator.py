@@ -37,7 +37,8 @@ class TestMergeOrchestratorInit:
             assert instance.project_dir == project_dir.resolve()
             assert instance.enable_ai is True
             assert instance.dry_run is False
-            assert instance.storage_dir == project_dir / ".auto-claude"
+            # storage_dir is computed from resolved project_dir
+            assert instance.storage_dir == project_dir.resolve() / ".auto-claude"
 
     def test_init_custom_storage_dir(self):
         """Test initialization with custom storage directory"""
