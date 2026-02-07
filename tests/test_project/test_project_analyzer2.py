@@ -352,11 +352,16 @@ class TestComputeProjectHash:
 
         hash1 = analyzer.compute_project_hash()
 
-        # Modify Dockerfile
+        # Modify Dockerfile - ensure different content
         dockerfile.write_text("FROM python:3.12")
+
+        # Verify file was actually modified
+        assert dockerfile.read_text() == "FROM python:3.12"
+
         hash2 = analyzer.compute_project_hash()
 
-        assert hash1 != hash2
+        # Hashes should be different since Dockerfile content changed
+        assert hash1 != hash2, f"Hashes should differ but got same value: {hash1}"
 
     def test_hash_with_go_mod(self, temp_project_dir: Path):
         """Test hash computation with go.mod."""
