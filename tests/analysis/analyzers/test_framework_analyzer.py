@@ -1,18 +1,15 @@
 """Tests for framework_analyzer"""
 
-from analysis.analyzers.framework_analyzer import FrameworkAnalyzer
 from pathlib import Path
+
+from analysis.analyzers.framework_analyzer import FrameworkAnalyzer
 
 
 def test_FrameworkAnalyzer___init__():
     """Test FrameworkAnalyzer.__init__"""
 
-    # Arrange
-    path = Path("/tmp/test")  # TODO: Set up test data
-    analysis = ""  # TODO: Set up test data
-
-    # Act
-    instance = FrameworkAnalyzer(Path("/tmp/test"), {})  # Constructor called during instantiation
+    # Act - Constructor called during instantiation
+    FrameworkAnalyzer(Path("/tmp/test"), {})
 
     # Assert
     assert True  # Function runs without error
@@ -24,7 +21,7 @@ def test_FrameworkAnalyzer_detect_language_and_framework():
     instance = FrameworkAnalyzer(Path("/tmp/test"), {})  # TODO: Set up instance
 
     # Act
-    result = instance.detect_language_and_framework()
+    _ = instance.detect_language_and_framework()
 
     # Assert
     assert True  # Function runs without error

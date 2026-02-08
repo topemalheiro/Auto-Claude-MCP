@@ -27,7 +27,7 @@ def test_create_ollama_llm_client():
     except ProviderNotInstalled:
         # Expected when graphiti-core is not installed
         pass
-    except (Exception, ProviderError) as e:
+    except (Exception, ProviderError):
         # May get other errors if ollama service is not available or config is invalid
         # The test is primarily checking the function can be called
         pass

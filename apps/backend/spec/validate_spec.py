@@ -51,7 +51,8 @@ if sys.platform == "win32":
             pass
     # Clean up temporary variables
     del _stream_name, _stream
-    if "_new_stream" in dir():
+    # _new_stream is only defined in the except block, so check locals()
+    if "_new_stream" in locals():
         del _new_stream
 
 import argparse

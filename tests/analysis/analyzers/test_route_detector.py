@@ -1,17 +1,15 @@
 """Tests for route_detector"""
 
-from analysis.analyzers.route_detector import RouteDetector
 from pathlib import Path
+
+from analysis.analyzers.route_detector import RouteDetector
 
 
 def test_RouteDetector___init__():
     """Test RouteDetector.__init__"""
 
-    # Arrange
-    path = Path("/tmp/test")  # TODO: Set up test data
-
-    # Act
-    instance = RouteDetector(Path("/tmp/test"))  # Constructor called during instantiation
+    # Act - Constructor called during instantiation
+    RouteDetector(Path("/tmp/test"))
 
     # Assert
     assert True  # Function runs without error
@@ -23,7 +21,7 @@ def test_RouteDetector_detect_all_routes():
     instance = RouteDetector(Path("/tmp/test"))  # TODO: Set up instance
 
     # Act
-    result = instance.detect_all_routes()
+    _ = instance.detect_all_routes()
 
     # Assert
     assert result is not None  # TODO: Add specific assertions

@@ -141,6 +141,7 @@ def handle_batch_status_command(project_dir: str) -> bool:
         req_file = spec_dir / "requirements.json"
 
         # Get title from requirements file, default to spec name
+        title = spec_name  # Default value
         if req_file.exists():
             try:
                 with open(req_file, encoding="utf-8") as f:
@@ -149,9 +150,7 @@ def handle_batch_status_command(project_dir: str) -> bool:
             except (
                 json.JSONDecodeError
             ):  # Invalid JSON; use default title from directory name
-                title = spec_name
-        else:
-            title = spec_name
+                pass  # Keep default title
 
         # Determine status
         if (spec_dir / "spec.md").exists():

@@ -1,18 +1,15 @@
 """Tests for context_analyzer"""
 
-from analysis.analyzers.context_analyzer import ContextAnalyzer
 from pathlib import Path
+
+from analysis.analyzers.context_analyzer import ContextAnalyzer
 
 
 def test_ContextAnalyzer___init__():
     """Test ContextAnalyzer.__init__"""
 
-    # Arrange
-    path = Path("/tmp/test")  # TODO: Set up test data
-    analysis = ""  # TODO: Set up test data
-
-    # Act
-    instance = ContextAnalyzer(Path("/tmp/test"), {})  # Constructor called during instantiation
+    # Act - Constructor called during instantiation
+    ContextAnalyzer(Path("/tmp/test"), {})
 
     # Assert
     assert True  # Function runs without error
@@ -24,7 +21,7 @@ def test_ContextAnalyzer_detect_environment_variables():
     instance = ContextAnalyzer(Path("/tmp/test"), {})  # TODO: Set up instance
 
     # Act
-    result = instance.detect_environment_variables()
+    _ = instance.detect_environment_variables()
 
     # Assert
     assert True  # Function runs without error
@@ -36,7 +33,7 @@ def test_ContextAnalyzer_detect_external_services():
     instance = ContextAnalyzer(Path("/tmp/test"), {})  # TODO: Set up instance
 
     # Act
-    result = instance.detect_external_services()
+    _ = instance.detect_external_services()
 
     # Assert
     assert True  # Function runs without error
@@ -48,7 +45,7 @@ def test_ContextAnalyzer_detect_auth_patterns():
     instance = ContextAnalyzer(Path("/tmp/test"), {})  # TODO: Set up instance
 
     # Act
-    result = instance.detect_auth_patterns()
+    _ = instance.detect_auth_patterns()
 
     # Assert
     assert True  # Function runs without error
@@ -60,7 +57,7 @@ def test_ContextAnalyzer_detect_migrations():
     instance = ContextAnalyzer(Path("/tmp/test"), {})  # TODO: Set up instance
 
     # Act
-    result = instance.detect_migrations()
+    _ = instance.detect_migrations()
 
     # Assert
     assert True  # Function runs without error
@@ -72,7 +69,7 @@ def test_ContextAnalyzer_detect_background_jobs():
     instance = ContextAnalyzer(Path("/tmp/test"), {})  # TODO: Set up instance
 
     # Act
-    result = instance.detect_background_jobs()
+    _ = instance.detect_background_jobs()
 
     # Assert
     assert True  # Function runs without error
@@ -84,7 +81,7 @@ def test_ContextAnalyzer_detect_api_documentation():
     instance = ContextAnalyzer(Path("/tmp/test"), {})  # TODO: Set up instance
 
     # Act
-    result = instance.detect_api_documentation()
+    _ = instance.detect_api_documentation()
 
     # Assert
     assert True  # Function runs without error
@@ -96,7 +93,7 @@ def test_ContextAnalyzer_detect_monitoring():
     instance = ContextAnalyzer(Path("/tmp/test"), {})  # TODO: Set up instance
 
     # Act
-    result = instance.detect_monitoring()
+    _ = instance.detect_monitoring()
 
     # Assert
     assert True  # Function runs without error

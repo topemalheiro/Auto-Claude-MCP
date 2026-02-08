@@ -123,15 +123,16 @@ function updatePackageJson(newVersion) {
   const frontendPath = path.join(__dirname, '..', 'apps', 'frontend', 'package.json');
   const rootPath = path.join(__dirname, '..', 'package.json');
 
-  // Read and parse package.json directly - handle ENOENT if file doesn't exist
+  // Read and parse package.json directly - handle errors appropriately
   let frontendJson;
   try {
     frontendJson = JSON.parse(fs.readFileSync(frontendPath, 'utf8'));
   } catch (err) {
-    if (err.code === 'ENOENT') {
-      error(`package.json not found at ${frontendPath}`);
-    }
-    error(`Failed to read ${frontendPath}: ${err.message}`);
+    // Handle both ENOENT (file not found) and other read errors
+    const message = err.code === 'ENOENT'
+      ? `package.json not found at ${frontendPath}`
+      : `Failed to read ${frontendPath}: ${err.message}`;
+    error(message);
   }
 
   const oldVersion = frontendJson.version;
@@ -144,7 +145,7 @@ function updatePackageJson(newVersion) {
     rootJson.version = newVersion;
     fs.writeFileSync(rootPath, JSON.stringify(rootJson, null, 2) + '\n');
   } catch (err) {
-    // Root package.json is optional - ignore if not found
+    // Root package.json is optional - ignore if not found, warn on other errors
     if (err.code !== 'ENOENT') {
       warning(`Failed to update root package.json: ${err.message}`);
     }
@@ -157,16 +158,16 @@ function updatePackageJson(newVersion) {
 function updateBackendInit(newVersion) {
   const initPath = path.join(__dirname, '..', 'apps', 'backend', '__init__.py');
 
-  // Read file directly - handle ENOENT if file doesn't exist
+  // Read file directly - handle errors appropriately
   let content;
   try {
     content = fs.readFileSync(initPath, 'utf8');
   } catch (err) {
-    if (err.code === 'ENOENT') {
-      warning(`Backend __init__.py not found at ${initPath}, skipping`);
-      return false;
-    }
-    warning(`Failed to read __init__.py: ${err.message}`);
+    // Handle both ENOENT (file not found) and other read errors
+    const message = err.code === 'ENOENT'
+      ? `Backend __init__.py not found at ${initPath}, skipping`
+      : `Failed to read __init__.py: ${err.message}`;
+    warning(message);
     return false;
   }
 

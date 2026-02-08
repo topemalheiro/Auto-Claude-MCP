@@ -807,11 +807,6 @@ class TestHandleMergePreviewCommand:
             assert result["success"] is True
             # Lock file should be excluded
             assert "package-lock.json" in result.get("lockFilesExcluded", [])
-            # Check git conflicts excludes lock file
-            non_lock_conflicts = [
-                f for f in result["gitConflicts"]["conflictingFiles"]
-                if not is_lock_file(f)
-            ]
 
     def test_preview_with_base_branch_provided(self, tmp_path):
         """Test preview with explicitly provided base branch."""
@@ -888,7 +883,6 @@ class TestGenerateAndSaveCommitMessage:
         spec_dir.mkdir(parents=True)
 
         diff_summary = "2 files changed, 10 insertions(+), 5 deletions(-)"
-        files_changed = ["src/main.py", "src/utils.py"]
 
         with patch(
             "commit_message.generate_commit_message_sync",
@@ -1451,7 +1445,7 @@ def test_handle_merge_command_with_empty_inputs(capsys):
 
     with patch("workspace.get_existing_build_worktree", return_value=None):
         # Act
-        result = handle_merge_command(project_dir, spec_name, False, None)
+        handle_merge_command(project_dir, spec_name, False, None)
 
     # Assert
     captured = capsys.readouterr()
@@ -1466,7 +1460,7 @@ def test_handle_review_command_no_worktree(capsys):
 
     with patch("workspace.get_existing_build_worktree", return_value=None):
         # Act
-        result = handle_review_command(project_dir, spec_name)
+        handle_review_command(project_dir, spec_name)
 
     # Assert
     captured = capsys.readouterr()
@@ -1481,7 +1475,7 @@ def test_handle_review_command_with_empty_inputs(capsys):
 
     with patch("workspace.get_existing_build_worktree", return_value=None):
         # Act
-        result = handle_review_command(project_dir, spec_name)
+        handle_review_command(project_dir, spec_name)
 
     # Assert
     captured = capsys.readouterr()
@@ -1496,7 +1490,7 @@ def test_handle_discard_command_no_worktree(capsys):
 
     with patch("workspace.get_existing_build_worktree", return_value=None):
         # Act
-        result = handle_discard_command(project_dir, spec_name)
+        handle_discard_command(project_dir, spec_name)
 
     # Assert
     captured = capsys.readouterr()
@@ -1511,7 +1505,7 @@ def test_handle_discard_command_with_empty_inputs(capsys):
 
     with patch("workspace.get_existing_build_worktree", return_value=None):
         # Act
-        result = handle_discard_command(project_dir, spec_name)
+        handle_discard_command(project_dir, spec_name)
 
     # Assert
     captured = capsys.readouterr()

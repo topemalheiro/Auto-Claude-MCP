@@ -50,7 +50,7 @@ export function extractChangelog(output: string): string {
   // This handles cases where AI includes preamble like "I'll analyze..." or "Here's the changelog:"
   const changelogStartPatterns = [
     /^(##\s*\[[\d.]+\])/m,           // Keep-a-changelog: ## [1.0.0]
-    /^(##\s+What['']s\s+New)/im,     // GitHub release: ## What's New
+    /^(##\s+What's\s+New)/im,        // GitHub release: ## What's New
     /^(#\s*Release\s+v?[\d.]+)/im,   // Simple: # Release v1.0.0
     /^(#\s*Changelog)/im,            // # Changelog
     /^(##\s*v?[\d.]+)/m              // ## v1.0.0 or ## 1.0.0
@@ -67,9 +67,9 @@ export function extractChangelog(output: string): string {
 
   // Additional cleanup - remove common AI preambles if they somehow remain
   const prefixes = [
-    /^I['']ll\s+analyze[^#]*(?=#)/is,
-    /^I['']ll\s+generate[^#]*(?=#)/is,
-    /^Here['']s\s+the\s+changelog[:\s]*/i,
+    /^I'll\s+analyze[^#]*(?=#)/is,
+    /^I'll\s+generate[^#]*(?=#)/is,
+    /^Here's\s+the\s+changelog[:\s]*/i,
     /^The\s+changelog[:\s]*/i,
     /^Changelog[:\s]*/i,
     /^Based\s+on[^#]*(?=#)/is,

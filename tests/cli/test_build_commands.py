@@ -966,7 +966,7 @@ def test_handle_build_command_with_mocked_dependencies(
                 force_bypass_approval=True,
                 base_branch=None,
             )
-        except Exception as e:
+        except Exception:
             # Some imports may fail in test environment, that's ok
             pass
 

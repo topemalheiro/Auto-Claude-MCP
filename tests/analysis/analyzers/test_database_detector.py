@@ -7,11 +7,8 @@ from pathlib import Path
 def test_DatabaseDetector___init__():
     """Test DatabaseDetector.__init__"""
 
-    # Arrange
-    path = Path("/tmp/test")  # TODO: Set up test data
-
-    # Act
-    instance = DatabaseDetector(Path("/tmp/test"))  # Constructor called during instantiation
+    # Act - Constructor called during instantiation
+    DatabaseDetector(Path("/tmp/test"))
 
     # Assert
     assert True  # Function runs without error
@@ -23,7 +20,7 @@ def test_DatabaseDetector_detect_all_models():
     instance = DatabaseDetector(Path("/tmp/test"))  # TODO: Set up instance
 
     # Act
-    result = instance.detect_all_models()
+    _ = instance.detect_all_models()
 
     # Assert
     assert result is not None  # TODO: Add specific assertions

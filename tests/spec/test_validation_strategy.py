@@ -198,7 +198,7 @@ class TestMain:
         except SystemExit:
             # argparse may call exit
             pass
-        except Exception as e:
+        except Exception:
             # Some error is acceptable for this test
             pass
 

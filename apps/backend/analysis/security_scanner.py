@@ -436,11 +436,11 @@ class SecurityScanner:
         return self._bandit_available
 
     def _redact_secret(self, text: str) -> str:
-        """Redact a secret for safe logging.
-
-        Shows only first 4 and last 4 characters for false positive identification.
-        The middle is completely redacted with asterisks.
-        """
+        """Redact a secret for safe logging."""
+        if len(text) <= 8:
+            return "*" * len(text)
+        # Show only first 4 and last 4 characters, redact the middle
+        return text[:4] + "*" * (len(text) - 8) + text[-4:]
 
     def _redact_log_message(self, message: str) -> str:
         """Redact potentially sensitive information from log messages."""

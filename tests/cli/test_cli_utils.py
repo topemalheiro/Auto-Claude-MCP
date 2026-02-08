@@ -339,7 +339,7 @@ class TestFindSpec:
         from cli.utils import find_spec
 
         # Act - search with different case
-        result = find_spec(project_dir, "001-test-spec")
+        find_spec(project_dir, "001-test-spec")
 
         # Assert - should not find due to case sensitivity
         # (depending on filesystem, but logic is case-sensitive)
@@ -669,7 +669,7 @@ class TestValidateEnvironment:
                  "reason": "disabled"
              }):
             # Act
-            result = validate_environment(spec_dir)
+            validate_environment(spec_dir)
 
         # Assert
         mock_validate.assert_called_once()

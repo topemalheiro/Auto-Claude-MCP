@@ -280,9 +280,8 @@ async function main() {
 if (require.main === module) {
   main().catch((err) => {
     // Sanitize error message to prevent log injection
-    const safeMessage = JSON.stringify(String(err.message || 'Unknown error'))
-      // Remove quotes for cleaner output (still escaped internally)
-      .slice(1, -1)
+    const safeMessage = String(err.message || 'Unknown error')
+      .replace(/[\r\n\t]/g, ' ')
       .slice(0, 200);
     console.error(`[package] Error: ${safeMessage}`);
     process.exitCode = 1;
