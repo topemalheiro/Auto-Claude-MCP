@@ -3,7 +3,7 @@
  */
 
 import { ipcMain } from 'electron';
-import { execSync, execFileSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import { existsSync, readFileSync } from 'fs';
 import path from 'path';
 import { IPC_CHANNELS } from '../../../shared/constants';
@@ -45,11 +45,37 @@ function checkGhAuth(projectPath: string): { authenticated: boolean; error?: str
 }
 
 /**
+ * Sanitize release notes to prevent command injection
+ * Removes shell metacharacters that could be interpreted by gh CLI
+ */
+function sanitizeReleaseNotes(notes: string): string {
+  // Remove null bytes and other dangerous characters
+  // gh CLI processes --notes as a single argument, but we sanitize for defense-in-depth
+  return notes
+    .replace(/\x00/g, '') // Null bytes
+    .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, ''); // Control characters except \t\n\r
+}
+
+/**
+ * Validate version string format
+ */
+function validateVersion(version: string): boolean {
+  // Only allow semantic version characters: digits, dots, dashes, plus, v prefix, and alphanumeric
+  return /^v?\d+\.\d+\.\d+([a-zA-Z0-9+\-.]+)?$/.test(version);
+}
+
+/**
  * Build gh release command arguments
  */
 function buildReleaseArgs(version: string, releaseNotes: string, options?: ReleaseOptions): string[] {
+  // Validate version format
+  if (!validateVersion(version)) {
+    throw new Error(`Invalid version format: ${version}`);
+  }
+
   const tag = version.startsWith('v') ? version : `v${version}`;
-  const args = ['release', 'create', tag, '--title', tag, '--notes', releaseNotes];
+  const sanitizedNotes = sanitizeReleaseNotes(releaseNotes);
+  const args = ['release', 'create', tag, '--title', tag, '--notes', sanitizedNotes];
 
   if (options?.draft) {
     args.push('--draft');

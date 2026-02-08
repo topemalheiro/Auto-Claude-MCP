@@ -94,7 +94,31 @@ function bumpVersion(currentVersion, bumpType) {
 }
 
 // Execute git command with arguments (safer than shell string)
+// All arguments are validated to prevent command injection
+const SAFE_GIT_ARGS = /^(status|add|commit|log|describe|diff|branch|tag|show|rev-parse)$/;
+const SAFE_COMMIT_MSG_CHARS = /^[a-zA-Z0-9\s\-.,'":@+()\/_]+$/;
+
 function execGitCommand(...args) {
+  // Validate git subcommand is in whitelist
+  if (args.length > 0 && typeof args[0] === 'string') {
+    if (!SAFE_GIT_ARGS.test(args[0])) {
+      error(`Invalid git subcommand: ${args[0]}`);
+    }
+  }
+
+  // Validate commit message arguments (for 'git commit -m')
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    const prevArg = i > 0 ? args[i - 1] : '';
+
+    // Check if this is a commit message value (after -m flag)
+    if (prevArg === '-m' && typeof arg === 'string') {
+      if (!SAFE_COMMIT_MSG_CHARS.test(arg)) {
+        error(`Invalid commit message characters detected`);
+      }
+    }
+  }
+
   try {
     return execFileSync('git', args, { encoding: 'utf8', stdio: 'pipe' }).trim();
   } catch (err) {

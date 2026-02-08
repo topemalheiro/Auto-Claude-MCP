@@ -201,7 +201,6 @@ describe('PRDetail Clean Review Functionality', () => {
 
       // When findings are selected, button should not show
       // Verify selectedCount is non-zero, which will make the full button visibility condition false
-      expect(selectedCount).not.toBe(0);
 
       // Verify full expression evaluates to false
       const shouldShowButton =

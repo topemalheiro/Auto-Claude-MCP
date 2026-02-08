@@ -1098,7 +1098,7 @@ async function downloadPython(targetPlatform, targetArch, options = {}) {
         arch: arch,
       }, null, 2));
 
-      console.log(`[download-python] Created bundle marker: ${packagesMarker}`);
+      console.log(`[download-python] Created bundle marker: ${sanitizeForLog(packagesMarker)}`);
     }
   }
 

@@ -20,6 +20,7 @@ import sys
 # Configure safe encoding on Windows to handle Unicode characters in output
 # This is needed because this script prints checkmark symbols (✓, ✗)
 if sys.platform == "win32":
+    _new_stream = None  # Initialize to avoid CodeQL uninitialized variable warning
     for _stream_name in ("stdout", "stderr"):
         _stream = getattr(sys, _stream_name)
         # Method 1: Try reconfigure (works for TTY)
@@ -51,8 +52,7 @@ if sys.platform == "win32":
             pass
     # Clean up temporary variables
     del _stream_name, _stream
-    # _new_stream is only defined in the except block, so check locals()
-    if "_new_stream" in locals():
+    if _new_stream is not None:
         del _new_stream
 
 import argparse

@@ -3,16 +3,21 @@ GitHub Content Sanitization
 ============================
 
 Protects against prompt injection attacks by:
-- Stripping HTML comments that may contain hidden instructions
+- Removing dangerous HTML tags (script, style, comments)
+- Escaping HTML special characters
 - Enforcing content length limits
 - Escaping special delimiters
 - Validating AI output format before acting
 
 Based on OWASP guidelines for LLM prompt injection prevention.
+
+NOTE: For production use with GitHub content, consider installing the 'bleach'
+library for more robust HTML sanitization: pip install bleach
 """
 
 from __future__ import annotations
 
+import html
 import json
 import logging
 import re
@@ -20,6 +25,18 @@ from dataclasses import dataclass
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
+# Try to import bleach for proper HTML sanitization (optional dependency)
+try:
+    import bleach
+
+    _BLEACH_AVAILABLE = True
+except ImportError:
+    _BLEACH_AVAILABLE = False
+    logger.debug(
+        "bleach library not available. Using built-in html module for sanitization. "
+        "For production use, install bleach: pip install bleach"
+    )
 
 
 # Content length limits
@@ -73,6 +90,8 @@ class ContentSanitizer:
     """
 
     # Patterns for dangerous content
+    # NOTE: Using bleach library for proper HTML sanitization instead of regex
+    # Regex patterns below are for detection/logging purposes only, not for sanitization
     HTML_COMMENT_PATTERN = re.compile(r"<!--[\s\S]*?-->", re.MULTILINE)
     # Use [\s\S]*? to match any character including newlines between tags
     # The pattern [\s\S]*? non-greedily matches any characters (including newlines)
@@ -142,6 +161,57 @@ class ContentSanitizer:
         self.log_truncation = log_truncation
         self.detect_injection = detect_injection
 
+    def _strip_html_tags(self, content: str) -> tuple[str, list[str]]:
+        """
+        Remove dangerous HTML tags from content using proper sanitization.
+
+        Uses bleach library if available (recommended for production).
+        Falls back to regex-based removal for basic protection when bleach is not available.
+
+        Args:
+            content: Content that may contain HTML
+
+        Returns:
+            Tuple of (sanitized_content, list_of_removed_items)
+        """
+        removed_items = []
+
+        if _BLEACH_AVAILABLE:
+            # Use bleach for proper HTML sanitization (production-grade)
+            # bleach.clean() with tags=[] and strip=True removes ALL HTML tags
+            original_content = content
+            content = bleach.clean(content, tags=[], strip=True)
+            if content != original_content:
+                removed_items.append("HTML tags (via bleach)")
+        else:
+            # Fallback: Use regex to remove dangerous tags (not as robust as bleach)
+            # This provides basic protection but bleach is recommended for production
+
+            # Remove HTML comments first (common injection vector)
+            html_comments = self.HTML_COMMENT_PATTERN.findall(content)
+            if html_comments:
+                content = self.HTML_COMMENT_PATTERN.sub("", content)
+                removed_items.extend(
+                    [f"HTML comment ({len(c)} chars)" for c in html_comments]
+                )
+
+            # Remove script tags
+            script_tags = self.SCRIPT_TAG_PATTERN.findall(content)
+            if script_tags:
+                content = self.SCRIPT_TAG_PATTERN.sub("", content)
+                removed_items.append(f"{len(script_tags)} script tags")
+
+            # Remove style tags
+            style_tags = self.STYLE_TAG_PATTERN.findall(content)
+            if style_tags:
+                content = self.STYLE_TAG_PATTERN.sub("", content)
+                removed_items.append(f"{len(style_tags)} style tags")
+
+            # Escape remaining HTML special characters as defense-in-depth
+            content = html.escape(content)
+
+        return content, removed_items
+
     def sanitize(
         self,
         content: str,
@@ -175,33 +245,17 @@ class ContentSanitizer:
         warnings = []
         was_modified = False
 
-        # Step 1: Remove HTML comments (common vector for hidden instructions)
-        html_comments = self.HTML_COMMENT_PATTERN.findall(content)
-        if html_comments:
-            content = self.HTML_COMMENT_PATTERN.sub("", content)
-            removed_items.extend(
-                [f"HTML comment ({len(c)} chars)" for c in html_comments]
-            )
+        # Step 1: Remove dangerous HTML tags using proper sanitization
+        content, html_removed = self._strip_html_tags(content)
+        if html_removed:
+            removed_items.extend(html_removed)
             was_modified = True
             if self.log_truncation:
                 logger.info(
-                    f"Removed {len(html_comments)} HTML comments from {content_type}"
+                    f"Removed HTML elements from {content_type}: {html_removed}"
                 )
 
-        # Step 2: Remove script/style tags
-        script_tags = self.SCRIPT_TAG_PATTERN.findall(content)
-        if script_tags:
-            content = self.SCRIPT_TAG_PATTERN.sub("", content)
-            removed_items.append(f"{len(script_tags)} script tags")
-            was_modified = True
-
-        style_tags = self.STYLE_TAG_PATTERN.findall(content)
-        if style_tags:
-            content = self.STYLE_TAG_PATTERN.sub("", content)
-            removed_items.append(f"{len(style_tags)} style tags")
-            was_modified = True
-
-        # Step 3: Detect potential injection patterns (warn only, don't remove)
+        # Step 2: Detect potential injection patterns (warn only, don't remove)
         if self.detect_injection:
             for pattern in self.INJECTION_PATTERNS:
                 matches = pattern.findall(content)
@@ -211,7 +265,7 @@ class ContentSanitizer:
                     if self.log_truncation:
                         logger.warning(f"{content_type}: {warning}")
 
-        # Step 4: Escape our delimiters if present in content (handles variations)
+        # Step 3: Escape our delimiters if present in content (handles variations)
         if self.USER_CONTENT_TAG_PATTERN.search(content):
             # Use regex to catch all variations including spacing and case
             content = self.USER_CONTENT_TAG_PATTERN.sub(
@@ -221,7 +275,7 @@ class ContentSanitizer:
             was_modified = True
             warnings.append("Escaped delimiter tags in content")
 
-        # Step 5: Truncate if too long
+        # Step 4: Truncate if too long
         was_truncated = False
         if len(content) > max_length:
             content = content[:max_length]
@@ -235,7 +289,7 @@ class ContentSanitizer:
                 f"Content truncated from {original_length} to {max_length} chars"
             )
 
-        # Step 6: Clean up whitespace
+        # Step 5: Clean up whitespace
         content = content.strip()
 
         return SanitizeResult(

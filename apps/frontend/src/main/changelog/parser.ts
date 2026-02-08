@@ -53,7 +53,7 @@ export function extractChangelog(output: string): string {
     /^(##\s+What's\s+New)/im,        // GitHub release: ## What's New
     /^(#\s*Release\s+v?[\d.]+)/im,   // Simple: # Release v1.0.0
     /^(#\s*Changelog)/im,            // # Changelog
-    /^(##\s*v?[\d.]+)/m              // ## v1.0.0 or ## 1.0.0
+    /^(##\s*v?\d+\.\d+\.\d+)/m      // ## v1.0.0 or ## 1.0.0
   ];
 
   for (const pattern of changelogStartPatterns) {
@@ -69,7 +69,7 @@ export function extractChangelog(output: string): string {
   const prefixes = [
     /^I'll\s+analyze[^#]*(?=#)/is,
     /^I'll\s+generate[^#]*(?=#)/is,
-    /^Here's\s+the\s+changelog[\s:]*/i,
+    /^Here['']s\s+the\s+changelog[\s:]*/i,
     /^The\s+changelog[\s:]*/i,
     /^Changelog[\s:]*/i,
     /^Based\s+on[^#]*(?=#)/is,

@@ -15,10 +15,14 @@ from typing import Any
 from .config import GraphitiConfig, validate_graphiti_config
 
 # Module-level placeholders for CodeQL static analysis.
-# Use list placeholder to satisfy CodeQL's "defined but not set to None" check.
-GraphitiMemory: Any = []
-create_llm_client: Any = []
-create_embedder: Any = []
+_GraphitiMemory: Any | None = None
+_create_llm_client: Any | None = None
+_create_embedder: Any | None = None
+
+# Public names that reference the placeholders above
+GraphitiMemory = _GraphitiMemory
+create_llm_client = _create_llm_client
+create_embedder = _create_embedder
 
 __all__ = [
     "GraphitiConfig",
@@ -31,16 +35,32 @@ __all__ = [
 
 def __getattr__(name: str) -> Any:
     """Lazy import to avoid requiring graphiti package for config-only imports."""
+    private_map = {
+        "GraphitiMemory": "_GraphitiMemory",
+        "create_llm_client": "_create_llm_client",
+        "create_embedder": "_create_embedder",
+    }
+
+    if name in private_map:
+        private_name = private_map[name]
+        globals()[private_name] = _do_lazy_import(name)
+        return globals()[private_name]
+
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+def _do_lazy_import(name: str) -> Any:
+    """Perform the actual lazy import for a given name."""
     if name == "GraphitiMemory":
         from .memory import GraphitiMemory
 
         return GraphitiMemory
-    elif name == "create_llm_client":
+    if name == "create_llm_client":
         from .providers import create_llm_client
 
         return create_llm_client
-    elif name == "create_embedder":
+    if name == "create_embedder":
         from .providers import create_embedder
 
         return create_embedder
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    raise AssertionError(f"Unknown lazy import name: {name}")

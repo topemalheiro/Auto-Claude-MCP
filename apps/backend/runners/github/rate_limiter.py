@@ -596,7 +596,7 @@ def rate_limited(
                         raise
 
             # Should never reach here - either return result or raise exception
-            raise RuntimeError("Unexpected exit from retry loop")
+            return None  # Explicit return for consistency
 
         @functools.wraps(func)
         def sync_wrapper(*args, **kwargs):

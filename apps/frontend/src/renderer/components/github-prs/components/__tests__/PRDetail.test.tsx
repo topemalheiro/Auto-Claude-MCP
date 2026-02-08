@@ -12,32 +12,8 @@
  */
 import { describe, it, expect } from 'vitest';
 // @ts-expect-error - vitest resolves this correctly
-import type { PRData, PRReviewResult, PRReviewProgress } from '../../../hooks/useGitHubPRs';
+import type { PRReviewResult, PRReviewProgress } from '../../../hooks/useGitHubPRs';
 import type { NewCommitsCheck } from '@preload/api/modules/github-api';
-
-/**
- * Factory function to create a mock PR data object
- */
-function _createMockPR(overrides: Partial<PRData> = {}): PRData {
-  return {
-    number: 123,
-    title: 'Test PR',
-    body: 'Test PR description',
-    state: 'open',
-    author: { login: 'testuser' },
-    headRefName: 'feature-branch',
-    baseRefName: 'main',
-    additions: 100,
-    deletions: 50,
-    changedFiles: 5,
-    assignees: [],
-    files: [],
-    createdAt: '2024-01-01T00:00:00Z',
-    updatedAt: '2024-01-01T00:00:00Z',
-    htmlUrl: 'https://github.com/test/repo/pull/123',
-    ...overrides,
-  };
-}
 
 /**
  * Factory function to create a mock PR review result
@@ -129,12 +105,10 @@ function computePRStatus(params: {
     (f: { severity: string }) => f.severity === 'critical' || f.severity === 'high'
   );
   const hasNewCommits = newCommitsCheck?.hasNewCommits ?? false;
-  const _newCommitCount = newCommitsCheck?.newCommitCount ?? 0; // Reserved for future use
   const hasCommitsAfterPosting = newCommitsCheck?.hasCommitsAfterPosting ?? false;
 
   // Follow-up review specific statuses
   if (reviewResult.isFollowupReview) {
-    const _resolvedCount = reviewResult.resolvedFindings?.length ?? 0; // Reserved for future use
     const unresolvedCount = reviewResult.unresolvedFindings?.length ?? 0;
     const newIssuesCount = reviewResult.newFindingsSinceLastReview?.length ?? 0;
     const hasBlockingIssuesRemaining = reviewResult.findings.some(

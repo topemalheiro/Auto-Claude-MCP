@@ -1824,19 +1824,6 @@ For EACH finding above:
                 # Fail-safe: return original findings
                 return findings
 
-        # Check if validation succeeded after all retries
-        if not validation_succeeded:
-            # All retries exhausted
-            logger.error(
-                f"[PRReview] Validation failed after {MAX_VALIDATION_RETRIES} retries. "
-                f"Last error: {last_error}"
-            )
-            safe_print(
-                f"[FindingValidator] ERROR: Validation failed after {MAX_VALIDATION_RETRIES} retries"
-            )
-            # Fail-safe: return original findings
-            return findings
-
         # Parse validation results
         try:
             response = FindingValidationResponse.model_validate(structured_output)

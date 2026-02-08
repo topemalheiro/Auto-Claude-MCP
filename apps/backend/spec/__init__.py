@@ -45,9 +45,12 @@ from .complexity import (
 from .phases import PhaseExecutor, PhaseResult
 
 # Module-level placeholders for CodeQL static analysis.
-# Use list placeholder to satisfy CodeQL's "defined but not set to None" check.
-SpecOrchestrator: Any = []
-get_specs_dir: Any = []
+_SpecOrchestrator: Any | None = None
+_get_specs_dir: Any | None = None
+
+# Public names that reference the placeholders above
+SpecOrchestrator = _SpecOrchestrator
+get_specs_dir = _get_specs_dir
 
 __all__ = [
     # Main orchestrator
@@ -76,12 +79,27 @@ def __getattr__(name: str) -> Any:
     By deferring these imports via __getattr__, the import chain only
     executes when these symbols are actually accessed, breaking the cycle.
     """
+    private_map = {
+        "SpecOrchestrator": "_SpecOrchestrator",
+        "get_specs_dir": "_get_specs_dir",
+    }
+
+    if name in private_map:
+        private_name = private_map[name]
+        globals()[private_name] = _do_lazy_import(name)
+        return globals()[private_name]
+
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+def _do_lazy_import(name: str) -> Any:
+    """Perform the actual lazy import for a given name."""
     if name == "SpecOrchestrator":
         from .pipeline import SpecOrchestrator
 
         return SpecOrchestrator
-    elif name == "get_specs_dir":
+    if name == "get_specs_dir":
         from .pipeline import get_specs_dir
 
         return get_specs_dir
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    raise AssertionError(f"Unknown lazy import name: {name}")
