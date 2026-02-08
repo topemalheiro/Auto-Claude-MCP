@@ -127,11 +127,21 @@ function getTaskStatuses(projectPaths: string[]): TaskStatus[] {
           const content = worktreeContent || mainContent;
           const source: 'worktree' | 'main' = worktreeContent ? 'worktree' : 'main';
 
-          // Normalize: start_requested with completed planStatus = task lifecycle done
+          // Tasks with error exitReason stay as-is (NOT complete, matches RDR logic)
+          const hasErrorExit = content.exitReason === 'error' || content.exitReason === 'auth_failure' ||
+              content.exitReason === 'prompt_loop' || content.exitReason === 'rate_limit_crash';
+
+          // Normalize non-standard statuses to terminal for shutdown purposes (only if no error)
           let effectiveStatus = content.status || 'unknown';
-          if (effectiveStatus === 'start_requested' &&
-              (content.planStatus === 'completed' || content.planStatus === 'approved')) {
-            effectiveStatus = 'human_review'; // Treat as complete for shutdown purposes
+          if (!hasErrorExit) {
+            if (effectiveStatus === 'start_requested' &&
+                (content.planStatus === 'completed' || content.planStatus === 'approved')) {
+              effectiveStatus = 'human_review';
+            }
+            if ((effectiveStatus === 'complete' || effectiveStatus === 'completed') &&
+                (content.planStatus === 'completed' || content.planStatus === 'approved')) {
+              effectiveStatus = 'human_review';
+            }
           }
 
           statuses.push({

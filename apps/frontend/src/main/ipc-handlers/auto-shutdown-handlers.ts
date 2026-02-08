@@ -108,16 +108,27 @@ function getActiveTaskIds(projectPath: string): string[] {
         const content = worktreeContent || mainContent;
         const source = worktreeContent ? 'worktree' : 'main';
 
-        // Complete = done, pr_created, or human_review (QA passed, ready for human)
-        // ai_review is NOT complete - QA validation is still running
-        if (content.status === 'done' || content.status === 'pr_created' || content.status === 'human_review') {
-          continue;
-        }
+        // Tasks with error exitReason are NOT complete - need intervention (matches RDR logic)
+        const hasErrorExit = content.exitReason === 'error' || content.exitReason === 'auth_failure' ||
+            content.exitReason === 'prompt_loop' || content.exitReason === 'rate_limit_crash';
 
-        // start_requested + completed planStatus = task lifecycle done (RDR re-triggered after QA approval)
-        if (content.status === 'start_requested' &&
-            (content.planStatus === 'completed' || content.planStatus === 'approved')) {
-          continue;
+        if (!hasErrorExit) {
+          // Complete = done, pr_created, or human_review (QA passed, ready for human)
+          if (content.status === 'done' || content.status === 'pr_created' || content.status === 'human_review') {
+            continue;
+          }
+
+          // start_requested + completed planStatus = task lifecycle done
+          if (content.status === 'start_requested' &&
+              (content.planStatus === 'completed' || content.planStatus === 'approved')) {
+            continue;
+          }
+
+          // complete/completed + approved planStatus = agent done + QA approved
+          if ((content.status === 'complete' || content.status === 'completed') &&
+              (content.planStatus === 'completed' || content.planStatus === 'approved')) {
+            continue;
+          }
         }
 
         taskIds.push(dir);
@@ -164,15 +175,27 @@ function countTasksByStatus(projectPath: string): { total: number; humanReview: 
         const content = worktreeContent || mainContent;
         const source = worktreeContent ? 'worktree' : 'main';
 
-        // Complete = done, pr_created, or human_review (QA passed, ready for human)
-        if (content.status === 'done' || content.status === 'pr_created' || content.status === 'human_review') {
-          continue;
-        }
+        // Tasks with error exitReason are NOT complete - need intervention (matches RDR logic)
+        const hasErrorExit = content.exitReason === 'error' || content.exitReason === 'auth_failure' ||
+            content.exitReason === 'prompt_loop' || content.exitReason === 'rate_limit_crash';
 
-        // start_requested + completed planStatus = task lifecycle done (RDR re-triggered after QA approval)
-        if (content.status === 'start_requested' &&
-            (content.planStatus === 'completed' || content.planStatus === 'approved')) {
-          continue;
+        if (!hasErrorExit) {
+          // Complete = done, pr_created, or human_review (QA passed, ready for human)
+          if (content.status === 'done' || content.status === 'pr_created' || content.status === 'human_review') {
+            continue;
+          }
+
+          // start_requested + completed planStatus = task lifecycle done
+          if (content.status === 'start_requested' &&
+              (content.planStatus === 'completed' || content.planStatus === 'approved')) {
+            continue;
+          }
+
+          // complete/completed + approved planStatus = agent done + QA approved
+          if ((content.status === 'complete' || content.status === 'completed') &&
+              (content.planStatus === 'completed' || content.planStatus === 'approved')) {
+            continue;
+          }
         }
 
         total++;
