@@ -187,6 +187,10 @@ class TestRunScript:
         assert success is True
         assert "No args" in output
 
+    @pytest.mark.skipif(
+        sys.platform == "win32",
+        reason="Windows console cannot properly handle Unicode characters (emoji, special chars) due to charmap codec limitations"
+    )
     def test_run_script_unicode_output(self, tmp_path):
         """Test script with unicode output"""
         project_dir = tmp_path / "project"
