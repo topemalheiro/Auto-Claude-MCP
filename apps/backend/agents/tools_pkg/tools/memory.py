@@ -313,7 +313,7 @@ def create_memory_tools(spec_dir: Path, project_dir: Path) -> list:
                         desc = info.get("description", "No description")
                         result_parts.append(f"- `{path}`: {desc}")
             except Exception:  # Non-critical error; continue
-                pass
+                pass  # no-op: memory files are optional
 
         # Load gotchas
         gotchas_file = memory_dir / "gotchas.md"
@@ -327,7 +327,7 @@ def create_memory_tools(spec_dir: Path, project_dir: Path) -> list:
                         content[-1000:] if len(content) > 1000 else content
                     )
             except Exception:  # Non-critical error; continue
-                pass
+                pass  # no-op: memory files are optional
 
         # Load patterns
         patterns_file = memory_dir / "patterns.md"
@@ -340,7 +340,7 @@ def create_memory_tools(spec_dir: Path, project_dir: Path) -> list:
                         content[-1000:] if len(content) > 1000 else content
                     )
             except Exception:  # Non-critical error; continue
-                pass
+                pass  # no-op: memory files are optional
 
         if not result_parts:
             return {

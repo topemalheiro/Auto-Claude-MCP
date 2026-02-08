@@ -46,9 +46,9 @@ from typing import Any
 
 # Import learning tracker if available
 try:
-    from .learning import LearningPattern, LearningTracker  # noqa: F401 (re-export)
+    from .learning import LearningTracker  # noqa: F401 (re-export)
 except (ImportError, ValueError, SystemError):
-    pass
+    LearningTracker = None  # type: ignore[assignment]
 
 
 class FalsePositiveRisk(str, Enum):

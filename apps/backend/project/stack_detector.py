@@ -254,7 +254,7 @@ class StackDetector:
                             self.stack.infrastructure.append("kubernetes")
                             break
                 except OSError:  # Non-critical failure; continue
-                    pass
+                    pass  # no-op: skip inaccessible files
 
         # Helm
         if self.parser.file_exists("Chart.yaml", "charts/"):

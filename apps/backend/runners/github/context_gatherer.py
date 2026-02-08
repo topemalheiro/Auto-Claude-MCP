@@ -790,7 +790,7 @@ class PRContextGatherer:
                             f"**Workspaces**: {', '.join(pkg_data['workspaces'])}"
                         )
             except (json.JSONDecodeError, KeyError):  # Invalid JSON; skip
-                pass
+                pass  # no-op: non-critical, skip invalid files
 
         # Check for Python project structure
         if (self.project_dir / "pyproject.toml").exists():

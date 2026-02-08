@@ -308,7 +308,7 @@ class CIDiscovery:
                 result.environment_variables.extend(variables.keys())
 
         except Exception:  # Non-critical error; continue
-            pass
+            pass  # no-op: CI parsing is best-effort
 
         return result
 
@@ -366,7 +366,7 @@ class CIDiscovery:
                 )
 
         except Exception:  # Non-critical error; continue
-            pass
+            pass  # no-op: CI parsing is best-effort
 
         return result
 
@@ -405,7 +405,7 @@ class CIDiscovery:
                 )
 
         except Exception:  # Non-critical error; continue
-            pass
+            pass  # no-op: CI parsing is best-effort
 
         return result
 

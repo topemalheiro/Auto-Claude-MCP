@@ -292,4 +292,4 @@ class StatusManager:
             try:
                 self.status_file.unlink()
             except OSError:  # Non-critical error; continue
-                pass
+                pass  # no-op: status file cleanup is best-effort
