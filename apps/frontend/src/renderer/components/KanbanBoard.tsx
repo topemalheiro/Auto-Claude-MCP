@@ -983,7 +983,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     lines.push('**Recovery Summary:**');
     lines.push('');
     if (recoverTasks.length > 0) {
-      lines.push(`### Priority 1: RECOVER / CONTINUE (Needs Recovering / Wrong Board) — ${recoverTasks.length} task${recoverTasks.length !== 1 ? 's' : ''}`);
+      lines.push(`### Priority 1: CONTINUE / RECOVER (Wrong Board / Needs Recovering) — ${recoverTasks.length} task${recoverTasks.length !== 1 ? 's' : ''}`);
       for (const task of recoverTasks) {
         const completed = task.subtasks?.filter(s => s.status === 'completed').length || 0;
         const total = task.subtasks?.length || 0;

@@ -276,12 +276,14 @@ export class FileWatcher extends EventEmitter {
             }
 
             // Recovery: Move task to correct board based on subtask progress
+            let taskWasMoved = false;
             const task = taskForArchiveCheck;
             if (task && task.status !== 'done' && task.status !== 'pr_created') {
               const targetStatus = determineResumeStatus(task, bestPlan);
 
               if (targetStatus !== task.status) {
-                console.log(`[FileWatcher] Moving task ${specId} from ${task.status} → ${targetStatus}`);
+                taskWasMoved = true;
+                console.log(`[FileWatcher] RECOVER: Moving task ${specId} from ${task.status} → ${targetStatus}`);
                 const success = projectStore.updateTaskStatus(projectId, task.id, targetStatus);
                 if (success) {
                   this.emit('task-status-changed', {
@@ -297,9 +299,10 @@ export class FileWatcher extends EventEmitter {
               }
             }
 
-            // Only emit task-start-requested for tasks with NO subtasks (genuine first start).
-            // Tasks WITH subtasks are RECOVERY — board routing only, no agent restart.
-            // Agent start always writes 'in_progress' which overwrites the routing.
+            // Emit task-start-requested for:
+            // 1. Tasks with NO subtasks (genuine first start → backlog)
+            // 2. CONTINUE tasks (already on correct board, need agent restart)
+            // Skip for RECOVER tasks (just moved board — agent start writes 'in_progress' which overwrites routing)
             const allSubtasks = (bestPlan.phases || []).flatMap((p: any) => p.subtasks || []);
             if (allSubtasks.length === 0) {
               console.log(`[FileWatcher] start_requested for ${specId} (no subtasks) - emitting task-start-requested`);
@@ -309,8 +312,16 @@ export class FileWatcher extends EventEmitter {
                 specDir,
                 specId
               });
+            } else if (!taskWasMoved) {
+              console.log(`[FileWatcher] CONTINUE: ${specId} on correct board (${allSubtasks.length} subtasks) - emitting task-start-requested`);
+              this.emit('task-start-requested', {
+                projectId,
+                projectPath,
+                specDir,
+                specId
+              });
             } else {
-              console.log(`[FileWatcher] start_requested for ${specId} (${allSubtasks.length} subtasks) - RECOVERY ONLY, skipping agent start`);
+              console.log(`[FileWatcher] RECOVER: ${specId} board moved (${allSubtasks.length} subtasks) - skipping agent start to preserve routing`);
             }
           }
         } catch (err) {
@@ -354,12 +365,14 @@ export class FileWatcher extends EventEmitter {
             }
 
             // Recovery: Move task to correct board based on subtask progress
+            let taskWasMoved = false;
             const task = taskForArchiveCheck;
             if (task && task.status !== 'done' && task.status !== 'pr_created') {
               const targetStatus = determineResumeStatus(task, bestPlan);
 
               if (targetStatus !== task.status) {
-                console.log(`[FileWatcher] Moving task ${specId} from ${task.status} → ${targetStatus}`);
+                taskWasMoved = true;
+                console.log(`[FileWatcher] RECOVER: Moving task ${specId} from ${task.status} → ${targetStatus}`);
                 const success = projectStore.updateTaskStatus(projectId, task.id, targetStatus);
                 if (success) {
                   this.emit('task-status-changed', {
@@ -375,9 +388,10 @@ export class FileWatcher extends EventEmitter {
               }
             }
 
-            // Only emit task-start-requested for tasks with NO subtasks (genuine first start).
-            // Tasks WITH subtasks are RECOVERY — board routing only, no agent restart.
-            // Agent start always writes 'in_progress' which overwrites the routing.
+            // Emit task-start-requested for:
+            // 1. Tasks with NO subtasks (genuine first start → backlog)
+            // 2. CONTINUE tasks (already on correct board, need agent restart)
+            // Skip for RECOVER tasks (just moved board — agent start writes 'in_progress' which overwrites routing)
             const allSubtasks = (bestPlan.phases || []).flatMap((p: any) => p.subtasks || []);
             if (allSubtasks.length === 0) {
               console.log(`[FileWatcher] start_requested for ${specId} (no subtasks) - emitting task-start-requested`);
@@ -387,8 +401,16 @@ export class FileWatcher extends EventEmitter {
                 specDir,
                 specId
               });
+            } else if (!taskWasMoved) {
+              console.log(`[FileWatcher] CONTINUE: ${specId} on correct board (${allSubtasks.length} subtasks) - emitting task-start-requested`);
+              this.emit('task-start-requested', {
+                projectId,
+                projectPath,
+                specDir,
+                specId
+              });
             } else {
-              console.log(`[FileWatcher] start_requested for ${specId} (${allSubtasks.length} subtasks) - RECOVERY ONLY, skipping agent start`);
+              console.log(`[FileWatcher] RECOVER: ${specId} board moved (${allSubtasks.length} subtasks) - skipping agent start to preserve routing`);
             }
           }
         } catch (err) {
