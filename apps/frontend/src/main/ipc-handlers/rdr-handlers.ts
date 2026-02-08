@@ -280,14 +280,6 @@ function determineInterventionType(task: TaskInfo, lastActivityMs?: number, hasW
     return null;
   }
 
-  // PLAN_REVIEW: Tasks where planning finished but coding never started
-  // Catches tasks with reviewReason=plan_review in ANY status (human_review, plan_review, etc.)
-  // These tasks need to transition to coding phase, regardless of progress or exitReason
-  if (task.reviewReason === 'plan_review') {
-    console.log(`[RDR] Task ${task.specId} has reviewReason=plan_review (status=${task.status}) - needs to transition to coding`);
-    return 'incomplete';
-  }
-
   // REGRESSED: Task went back to backlog/pending but has a worktree (agent previously started work)
   // This means the agent crashed or was interrupted and the task regressed
   // STUCK START: Task has start_requested in raw plan but ProjectStore mapped it to backlog
