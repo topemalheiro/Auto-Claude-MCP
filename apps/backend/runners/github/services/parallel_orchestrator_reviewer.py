@@ -1714,6 +1714,7 @@ For EACH finding above:
         # Retry loop for transient API errors
         last_error = None
         structured_output = None
+        validation_succeeded = False
         for attempt in range(MAX_VALIDATION_RETRIES + 1):
             if attempt > 0:
                 logger.info(
@@ -1778,8 +1779,9 @@ For EACH finding above:
 
                     structured_output = stream_result.get("structured_output")
 
-                    # Success - break out of retry loop
+                    # Success - mark as succeeded and exit retry loop
                     if structured_output:
+                        validation_succeeded = True
                         break
 
             except Exception as e:
@@ -1798,7 +1800,9 @@ For EACH finding above:
                 logger.error(f"[PRReview] Validation stream error: {e}")
                 # Fail-safe: return original findings
                 return findings
-        else:
+
+        # Check if validation succeeded after all retries
+        if not validation_succeeded:
             # All retries exhausted
             logger.error(
                 f"[PRReview] Validation failed after {MAX_VALIDATION_RETRIES} retries. "

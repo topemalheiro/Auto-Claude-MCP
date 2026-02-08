@@ -402,7 +402,7 @@ class SecurityScanner:
                             )
                         )
                 except json.JSONDecodeError:  # Invalid JSON; skip
-                    pass  # no-op: skip invalid JSON
+                    pass  # no-op: invalid audit output, skip
 
         except FileNotFoundError:
             pass  # pip-audit not available

@@ -68,7 +68,7 @@ class MergeProgressCallback(Protocol):
         details: dict[str, Any] | None = None,
     ) -> None:
         """no-op (abstract method)"""
-        pass
+        ...
 
 
 def emit_progress(

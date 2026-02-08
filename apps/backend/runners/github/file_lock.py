@@ -250,7 +250,7 @@ def atomic_write(filepath: str | Path, mode: str = "w", encoding: str = "utf-8")
         try:
             os.unlink(tmp_path)
         except Exception:  # Non-critical error; continue
-            pass
+            pass  # no-op: cleanup is best-effort
         raise
 
 
@@ -316,7 +316,7 @@ async def locked_write(
                     None, os.unlink, tmp_path
                 )
             except Exception:  # Non-critical error; continue
-                pass
+                pass  # no-op: cleanup is best-effort
             raise
 
     finally:
@@ -479,7 +479,7 @@ async def locked_json_update(
                     None, os.unlink, tmp_path
                 )
             except Exception:  # Non-critical error; continue
-                pass
+                pass  # no-op: cleanup is best-effort
             raise
 
         return updated_data

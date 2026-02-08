@@ -129,7 +129,8 @@ console.error = (...args: unknown[]) => {
     const sanitizedArgs = args.map((arg) => {
       if (typeof arg === 'string') {
         // Remove control characters that could be used for log injection
-        return arg.replace(/[\r\n\t]/g, ' ').slice(0, 500);
+        // biome-ignore lint/suspicious/noControlCharactersInRegex: Intentionally matching control chars for sanitization
+        return arg.replace(/[\x00-\x1F\x7F]/g, ' ').slice(0, 500);
       }
       if (arg === null || arg === undefined) {
         return arg;

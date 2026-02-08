@@ -95,10 +95,13 @@ class ContentSanitizer:
     HTML_COMMENT_PATTERN = re.compile(r"<!--[\s\S]*?-->", re.MULTILINE)
     # Use [\s\S]*? to match any character including newlines between tags
     # The pattern [\s\S]*? non-greedily matches any characters (including newlines)
+    # Note: [\s\S]*? is used instead of .*? with DOTALL to handle newlines consistently
     SCRIPT_TAG_PATTERN = re.compile(
-        r"<script\b[^>]*>[\s\S]*?</script\s*>", re.IGNORECASE
+        r"<script\b[^>]*\s*>[\s\S]*?</script\s*>", re.IGNORECASE
     )
-    STYLE_TAG_PATTERN = re.compile(r"<style\b[^>]*>[\s\S]*?</style\s*>", re.IGNORECASE)
+    STYLE_TAG_PATTERN = re.compile(
+        r"<style\b[^>]*\s*>[\s\S]*?</style\s*>", re.IGNORECASE
+    )
 
     # Patterns that look like prompt injection attempts
     INJECTION_PATTERNS = [

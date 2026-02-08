@@ -117,7 +117,7 @@ class ContextBuilder:
             try:
                 # Run the async function in a new event loop if necessary
                 try:
-                    asyncio.get_running_loop()
+                    _ = asyncio.get_running_loop()
                     # We're already in an async context - this shouldn't happen in CLI
                     # but handle it gracefully
                     graph_hints = []

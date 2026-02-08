@@ -146,7 +146,7 @@ def handle_batch_status_command(project_dir: str) -> bool:
             try:
                 with open(req_file, encoding="utf-8") as f:
                     req = json.load(f)
-                    title = req.get("task_description", spec_name)
+                    title = req.get("task_description", title)
             except (
                 json.JSONDecodeError
             ):  # Invalid JSON; use default title from directory name

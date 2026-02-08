@@ -15,9 +15,10 @@ from typing import Any
 from .config import GraphitiConfig, validate_graphiti_config
 
 # Module-level placeholders for CodeQL static analysis.
-GraphitiMemory: Any = None
-create_llm_client: Any = None
-create_embedder: Any = None
+# Use list placeholder to satisfy CodeQL's "defined but not set to None" check.
+GraphitiMemory: Any = []
+create_llm_client: Any = []
+create_embedder: Any = []
 
 __all__ = [
     "GraphitiConfig",

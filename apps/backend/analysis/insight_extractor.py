@@ -27,7 +27,6 @@ try:
     SDK_AVAILABLE = True
 except ImportError:
     SDK_AVAILABLE = False
-    ClaudeSDKClient = None  # type: ignore[assignment]
 
 from core.auth import ensure_claude_code_oauth_token, get_auth_token
 

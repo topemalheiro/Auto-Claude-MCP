@@ -262,7 +262,8 @@ async function downloadPrebuilds() {
     }
     // Sanitize error message to prevent log injection
     const safeMessage = String(err.message || 'Unknown error')
-      .replace(/[\r\n\t]/g, ' ')
+      // biome-ignore lint/suspicious/noControlCharactersInRegex: Intentionally matching control chars for sanitization
+      .replace(/[\x00-\x1F\x7F]/g, ' ')
       .slice(0, 200);
     console.log(`[prebuilds] Download/extract failed: ${safeMessage}`);
     return { success: false, reason: 'install-failed', error: err.message };

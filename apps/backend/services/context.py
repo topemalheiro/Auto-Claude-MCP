@@ -141,7 +141,7 @@ class ServiceContextGenerator:
                         if pkg and pkg not in context.dependencies:
                             context.dependencies.append(pkg)
             except OSError:  # File or directory not accessible; skip
-                pass
+                pass  # no-op: skip inaccessible files
 
         # Node.js
         package_json = service_path / "package.json"
@@ -158,7 +158,7 @@ class ServiceContextGenerator:
                 json.JSONDecodeError,
                 UnicodeDecodeError,
             ):  # File or directory not accessible; skip
-                pass
+                pass  # no-op: skip inaccessible files
 
     def _discover_api_patterns(self, service_path: Path, context: ServiceContext):
         """Discover API patterns (routes, endpoints)."""
@@ -186,7 +186,7 @@ class ServiceContextGenerator:
                 OSError,
                 UnicodeDecodeError,
             ):  # File or directory not accessible; skip
-                pass
+                pass  # no-op: skip inaccessible files
 
     def _discover_common_commands(self, service_path: Path, context: ServiceContext):
         """Discover common commands from package files and Makefiles."""
@@ -205,7 +205,7 @@ class ServiceContextGenerator:
                 json.JSONDecodeError,
                 UnicodeDecodeError,
             ):  # File or directory not accessible; skip
-                pass
+                pass  # no-op: skip inaccessible files
 
         # From Makefile
         makefile = service_path / "Makefile"
@@ -255,7 +255,7 @@ class ServiceContextGenerator:
                             if var_name and var_name not in context.environment_vars:
                                 context.environment_vars.append(var_name)
                 except OSError:  # File or directory not accessible; skip
-                    pass
+                    pass  # no-op: skip inaccessible files
                 break  # Only use first found
 
     def generate_markdown(self, context: ServiceContext) -> str:

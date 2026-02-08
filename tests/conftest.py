@@ -13,7 +13,6 @@ import pytest
 
 # Import merge fixtures for availability across all tests
 from merge import (
-    SemanticAnalyzer,
     ConflictDetector,
     AutoMerger,
 )

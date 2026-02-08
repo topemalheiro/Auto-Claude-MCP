@@ -289,7 +289,7 @@ async def test_memory_save_flow():
                     )
                     print("[INFO] Exception captured to Sentry")
             except Exception:  # Sentry capture failed; non-critical for test completion
-                pass
+                pass  # no-op: sentry is optional
 
             return False
 

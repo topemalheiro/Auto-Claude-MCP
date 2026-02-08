@@ -15,7 +15,6 @@ import json
 import pytest
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock
 
 # Store original modules for cleanup
 _original_modules = {}

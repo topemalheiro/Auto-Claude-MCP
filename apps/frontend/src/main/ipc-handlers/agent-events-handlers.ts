@@ -1,6 +1,6 @@
 import type { BrowserWindow } from "electron";
 import path from "path";
-import { existsSync, readFileSync } from "fs";
+import { readFileSync } from "fs";
 import { IPC_CHANNELS, AUTO_BUILD_PATHS, getSpecsDir } from "../../shared/constants";
 import type {
   SDKRateLimitInfo,
@@ -177,9 +177,8 @@ export function registerAgenteventsHandlers(
         task.specId,
         AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN
       );
-      if (existsSync(worktreePlanPath)) {
-        persistPlanLastEventSync(worktreePlanPath, event);
-      }
+      // persistPlanLastEventSync handles missing files gracefully
+      persistPlanLastEventSync(worktreePlanPath, event);
     }
   });
 
@@ -217,9 +216,8 @@ export function registerAgenteventsHandlers(
           task.specId,
           AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN
         );
-        if (existsSync(worktreePlanPath)) {
-          persistPlanPhaseSync(worktreePlanPath, progress.phase, project.id);
-        }
+        // persistPlanPhaseSync handles missing files gracefully
+        persistPlanPhaseSync(worktreePlanPath, progress.phase, project.id);
       }
     } else if (xstateInTerminalState && progress.phase) {
       console.debug(`[agent-events-handlers] Skipping persistPlanPhaseSync for ${taskId}: XState in '${currentXState}', not overwriting with phase '${progress.phase}'`);
@@ -272,9 +270,8 @@ export function registerAgenteventsHandlers(
           task.specId,
           AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN
         );
-        if (existsSync(worktreePlanPath)) {
-          persistPlanStatusAndReasonSync(worktreePlanPath, status, reviewReason, project.id, currentXState, phase);
-        }
+        // persistPlanStatusAndReasonSync handles missing files gracefully
+        persistPlanStatusAndReasonSync(worktreePlanPath, status, reviewReason, project.id, currentXState, phase);
       }
     }
   });

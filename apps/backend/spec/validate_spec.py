@@ -108,9 +108,6 @@ def main() -> None:
         results = [validator.validate_spec_document()]
     elif args.checkpoint == "plan":
         results = [validator.validate_implementation_plan()]
-    else:
-        # This should never happen due to argparse choices, but included for completeness
-        results = []
 
     # Output
     all_valid = all(r.valid for r in results)

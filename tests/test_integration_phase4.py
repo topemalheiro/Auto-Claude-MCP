@@ -14,8 +14,6 @@ and the finding-validator agent.
 
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock
-
 import pytest
 
 # Add the backend directory to path for imports

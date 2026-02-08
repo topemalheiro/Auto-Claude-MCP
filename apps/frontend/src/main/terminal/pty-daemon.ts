@@ -170,7 +170,10 @@ class PtyDaemon {
     });
 
     socket.on('error', (err) => {
-      const safeMsg = err instanceof Error ? err.message : String(err);
+      const safeMsg = String(err instanceof Error ? err.message : err)
+        // biome-ignore lint/suspicious/noControlCharactersInRegex: Intentionally matching control chars for sanitization
+        .replace(/[\x00-\x1F\x7F]/g, ' ')
+        .slice(0, 200);
       console.error('[PTY Daemon] Socket error:', safeMsg);
     });
   }
@@ -240,10 +243,11 @@ class PtyDaemon {
           throw new Error(`Unknown message type: ${(msg as DaemonMessage).type}`);
       }
     } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      // Sanitize error message for logging to prevent log injection
-      const safeErrorMsg = errorMsg.replace(/[\x00-\x1F\x7F]/g, '').slice(0, 200);
-      console.error('[PTY Daemon] Error handling message:', safeErrorMsg);
+      const errorMsg = String(error instanceof Error ? error.message : error)
+        // biome-ignore lint/suspicious/noControlCharactersInRegex: Intentionally matching control chars for sanitization
+        .replace(/[\x00-\x1F\x7F]/g, ' ')
+        .slice(0, 200);
+      console.error('[PTY Daemon] Error handling message:', errorMsg);
       this.sendError(socket, errorMsg, msg.requestId);
     }
   }

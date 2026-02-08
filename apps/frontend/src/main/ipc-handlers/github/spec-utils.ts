@@ -41,23 +41,6 @@ function isValidSpecId(specId: string): boolean {
 }
 
 /**
- * Validate that a spec directory path is safe and doesn't escape the specs directory.
- * This prevents path traversal attacks by ensuring the resolved path is within the base specs directory.
- */
-function validateSpecPath(baseDir: string, targetPath: string): boolean {
-  try {
-    // Resolve both paths to absolute paths to detect traversal
-    const resolvedBase = path.resolve(baseDir);
-    const resolvedTarget = path.resolve(targetPath);
-
-    // Ensure target path is within base directory
-    return resolvedTarget.startsWith(resolvedBase + path.sep) || resolvedTarget === resolvedBase;
-  } catch {
-    return false;
-  }
-}
-
-/**
  * Create a slug from a title
  */
 function slugifyTitle(title: string): string {
@@ -145,12 +128,6 @@ export async function createSpecForIssue(
 
   // mkdirSync with recursive: true doesn't error if directory exists (no TOCTOU issue)
   mkdirSync(specsDir, { recursive: true });
-
-  // Sanitize network-sourced data before writing to disk
-  const safeTitle = sanitizeText(issueTitle, 500);
-  const safeDescription = sanitizeText(taskDescription, 50000, true);
-  const safeGithubUrl = sanitizeUrl(githubUrl);
-  const safeLabels = sanitizeStringArray(labels, 50, 200);
 
   // Sanitize network-sourced data before writing to disk
   const safeTitle = sanitizeText(issueTitle, 500);

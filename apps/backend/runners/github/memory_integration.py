@@ -564,7 +564,7 @@ class GitHubMemoryIntegration:
                     return "Historical context:\n" + "\n".join(explanations)
 
         except Exception:  # Non-critical error; continue
-            pass
+            pass  # no-op: memory is optional, skip errors
 
         return None
 
