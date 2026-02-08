@@ -17,6 +17,8 @@ from merge import (
     ConflictDetector,
     AutoMerger,
 )
+from merge.ai_resolver.resolver import AIResolver
+from merge.file_evolution.tracker import FileEvolutionTracker
 
 # Add project root to Python path for "apps.backend.*" style imports
 # The structure is: repo_root/tests/conftest.py, repo_root/apps/backend/
