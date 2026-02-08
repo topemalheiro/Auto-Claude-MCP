@@ -66,7 +66,9 @@ class MergeProgressCallback(Protocol):
         percent: int,
         message: str,
         details: dict[str, Any] | None = None,
-    ) -> None: ...
+    ) -> None:
+        """no-op (abstract method)"""
+        pass
 
 
 def emit_progress(

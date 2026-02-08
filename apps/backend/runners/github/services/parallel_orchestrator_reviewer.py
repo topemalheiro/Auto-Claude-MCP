@@ -1731,6 +1731,7 @@ For EACH finding above:
 
         # Retry loop for transient API errors
         last_error = None
+        structured_output = None
         for attempt in range(MAX_VALIDATION_RETRIES + 1):
             if attempt > 0:
                 logger.info(
