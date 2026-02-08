@@ -891,7 +891,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   const rdrIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const rdrSkipBusyCheckRef = useRef(true); // Skip busy check on first send + idle events
   const RDR_INTERVAL_MS = 30000; // 30 seconds (reduced from 60s for faster fallback)
-  const RDR_IN_FLIGHT_TIMEOUT_MS = 30000; // 30 seconds - safety net (polling + idle events clear in-flight sooner)
+  const RDR_IN_FLIGHT_TIMEOUT_MS = 90000; // 90 seconds - safety net (3x polling interval to prevent double-send)
 
   // Load VS Code windows from system
   const loadVsCodeWindows = useCallback(async () => {
@@ -957,35 +957,49 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       }
     }
 
-    // Board-to-phase label mapping
-    const boardPhaseMap: Record<string, string> = {
-      'In Progress': 'Coding',
-      'AI Review': 'Validation',
-      'Planning': 'Planning',
-      'Human Review': 'Human Review',
+    // Calculate expected board from subtask progress (mirrors determineResumeStatus)
+    const getExpectedBoard = (task: typeof data.taskDetails[0]): string => {
+      const subtasks = task.subtasks || [];
+      if (subtasks.length === 0) return 'Planning';
+      const completed = subtasks.filter(s => s.status === 'completed').length;
+      if (completed === subtasks.length) return 'AI Review';
+      return 'In Progress';
     };
 
-    // Group tasks by board for clean display
-    const boardGroups: Record<string, typeof data.taskDetails> = {};
+    // Classify tasks by priority
+    const recoverTasks: typeof data.taskDetails = []; // Priority 1: wrong board
+    const continueTasks: typeof data.taskDetails = []; // Priority 2-3: correct board, needs restart
     for (const task of data.taskDetails) {
-      const board = task.board || 'Unknown';
-      if (!boardGroups[board]) boardGroups[board] = [];
-      boardGroups[board].push(task);
+      const expected = getExpectedBoard(task);
+      const current = task.board || 'Unknown';
+      if (current !== expected) {
+        recoverTasks.push(task);
+      } else {
+        continueTasks.push(task);
+      }
     }
 
-    // Recovery Summary grouped by board
+    // Recovery Summary grouped by priority
     lines.push('**Recovery Summary:**');
     lines.push('');
-    for (const [board, tasks] of Object.entries(boardGroups)) {
-      const phaseLabel = boardPhaseMap[board] || '';
-      const header = phaseLabel ? `${board} (${phaseLabel})` : board;
-      lines.push(`### ${header} — ${tasks.length} task${tasks.length !== 1 ? 's' : ''}`);
-      for (const task of tasks) {
+    if (recoverTasks.length > 0) {
+      lines.push(`### Priority 1: RECOVER / CONTINUE (Needs Recovering / Wrong Board) — ${recoverTasks.length} task${recoverTasks.length !== 1 ? 's' : ''}`);
+      for (const task of recoverTasks) {
         const completed = task.subtasks?.filter(s => s.status === 'completed').length || 0;
         const total = task.subtasks?.length || 0;
-        const batchType = taskBatchMap[task.specId] || 'unknown';
+        const expected = getExpectedBoard(task);
         const exitInfo = task.exitReason ? `, exited: ${task.exitReason}` : '';
-        lines.push(`- ${task.specId}: ${batchType} (${completed}/${total}${exitInfo})`);
+        lines.push(`- ${task.specId}: ${task.board} → **${expected}** (${completed}/${total}${exitInfo})`);
+      }
+      lines.push('');
+    }
+    if (continueTasks.length > 0) {
+      lines.push(`### Priority 2-3: CONTINUE (Correct Board, Needs Restart) — ${continueTasks.length} task${continueTasks.length !== 1 ? 's' : ''}`);
+      for (const task of continueTasks) {
+        const completed = task.subtasks?.filter(s => s.status === 'completed').length || 0;
+        const total = task.subtasks?.length || 0;
+        const exitInfo = task.exitReason ? `, exited: ${task.exitReason}` : '';
+        lines.push(`- ${task.specId}: ${task.board} (${completed}/${total}${exitInfo})`);
       }
       lines.push('');
     }
@@ -995,11 +1009,16 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     lines.push('');
 
     for (const task of data.taskDetails) {
+      const expected = getExpectedBoard(task);
+      const current = task.board || 'Unknown';
+      const needsRecover = current !== expected;
+      const priorityLabel = needsRecover ? `**RECOVER → ${expected}**` : 'CONTINUE';
+
       lines.push(`## ${task.specId}: ${task.title}`);
 
       if (task.board) {
         const phaseLabel = task.currentPhase ? ` (${task.currentPhase})` : '';
-        lines.push(`Board: ${task.board}${phaseLabel}`);
+        lines.push(`Board: ${task.board}${phaseLabel} | Expected: ${expected} | Action: ${priorityLabel}`);
       }
 
       lines.push(`Status: ${task.reviewReason || task.status} | Exit: ${task.exitReason || 'none'}`);
