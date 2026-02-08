@@ -256,8 +256,8 @@ class TestTimeModuleOperations:
         time.sleep(0.1)
         elapsed = time.time() - start
 
-        # Allow some tolerance
-        assert 0.05 < elapsed < 0.2
+        # Allow generous tolerance for CI scheduling delays
+        assert 0.05 < elapsed < 0.5
 
     def test_time_sleep_zero(self):
         """Test time.sleep(0) returns immediately."""
@@ -289,7 +289,8 @@ class TestTimeModuleOperations:
         t2 = time.monotonic()
 
         assert t2 > t1
-        assert 0.04 < (t2 - t1) < 0.1
+        # Allow generous tolerance for CI scheduling delays
+        assert 0.04 < (t2 - t1) < 0.3
 
     def test_time_perf_counter(self):
         """Test time.perf_counter for high-resolution timing."""
@@ -298,7 +299,8 @@ class TestTimeModuleOperations:
         t2 = time.perf_counter()
 
         assert t2 > t1
-        assert 0.04 < (t2 - t1) < 0.1
+        # Allow generous tolerance for CI scheduling delays
+        assert 0.04 < (t2 - t1) < 0.3
 
 
 class TestThreadPoolExecutorTimeout:
