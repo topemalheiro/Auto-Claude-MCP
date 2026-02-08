@@ -796,7 +796,7 @@ export function registerTaskExecutionHandlers(
 
         return { success: true };
       } catch (error) {
-        console.error('Failed to update task status:', error);
+        console.error('Failed to update task status:', error instanceof Error ? error.message : String(error));
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Failed to update task status'
@@ -874,7 +874,7 @@ export function registerTaskExecutionHandlers(
 
         return { success: true };
       } catch (error) {
-        console.error('[TASK_RESUME_PAUSED] Failed to write RESUME file:', error);
+        console.error('[TASK_RESUME_PAUSED] Failed to write RESUME file:', error instanceof Error ? error.message : String(error));
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Failed to signal resume'
@@ -1233,7 +1233,7 @@ export function registerTaskExecutionHandlers(
           }
         };
       } catch (error) {
-        console.error('Failed to recover stuck task:', error);
+        console.error('Failed to recover stuck task:', error instanceof Error ? error.message : String(error));
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Failed to recover task'

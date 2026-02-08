@@ -84,6 +84,8 @@ class TestImportIsolation:
 
     def test_import_creates_submodule_entries(self, fresh_import_context):
         """Test that importing main creates submodule entries"""
+        # Import ui.main to trigger module loading
+        import ui.main
 
         # Check that submodules are registered
         assert "ui.main" in sys.modules

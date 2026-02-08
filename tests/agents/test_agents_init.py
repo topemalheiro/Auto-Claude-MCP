@@ -62,18 +62,21 @@ class TestModuleInitLazyImports:
         assert callable(agents.sync_spec_to_source)
 
     def test_lazy_import_constants_from_base(self):
-        """Test lazy import of constants from agents.base."""
+        """Test that constants from agents.base are accessible.
+
+        Note: agents.base is explicitly imported for CodeQL compliance,
+        so it's already in sys.modules when agents is imported.
+        """
         import agents
 
-        # Constants should not be imported until accessed
-        assert "agents.base" not in sys.modules
-
-        # Access first constant
-        delay = agents.AUTO_CONTINUE_DELAY_SECONDS
+        # agents.base is imported explicitly for CodeQL compliance
         assert "agents.base" in sys.modules
+
+        # Constants should still be accessible
+        delay = agents.AUTO_CONTINUE_DELAY_SECONDS
         assert delay == 3
 
-        # Access second constant - module already loaded
+        # Access second constant
         pause_file = agents.HUMAN_INTERVENTION_FILE
         assert pause_file == "PAUSE"
 

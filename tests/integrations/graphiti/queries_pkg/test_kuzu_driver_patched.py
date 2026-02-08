@@ -10,6 +10,7 @@ import pytest
 def _has_db():
     """Check if graphiti_core.driver.kuzu_driver can be imported (requires kuzu or real_ladybug)."""
     try:
+        import kuzu  # noqa: F401
         return True
     except ImportError:
         return False

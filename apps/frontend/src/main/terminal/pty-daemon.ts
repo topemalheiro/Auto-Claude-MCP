@@ -101,7 +101,7 @@ class PtyDaemon {
         fs.unlinkSync(SOCKET_PATH);
         console.error('[PTY Daemon] Cleaned up stale socket');
       } catch (error) {
-        console.error('[PTY Daemon] Failed to clean up socket:', error);
+        console.error('[PTY Daemon] Failed to clean up socket:', error instanceof Error ? error.message : String(error));
       }
     }
   }
@@ -130,7 +130,7 @@ class PtyDaemon {
         try {
           fs.chmodSync(SOCKET_PATH, 0o600);
         } catch (error) {
-          console.error('[PTY Daemon] Failed to set socket permissions:', error);
+          console.error('[PTY Daemon] Failed to set socket permissions:', error instanceof Error ? error.message : String(error));
         }
       }
     });
@@ -324,7 +324,7 @@ class PtyDaemon {
 
       return id;
     } catch (error) {
-      console.error('[PTY Daemon] Failed to create PTY:', error);
+      console.error('[PTY Daemon] Failed to create PTY:', error instanceof Error ? error.message : String(error));
       throw error;
     }
   }
@@ -524,7 +524,7 @@ if (require.main === module) {
     new PtyDaemon();
     console.error('[PTY Daemon] Running - PID:', process.pid);
   } catch (error) {
-    console.error('[PTY Daemon] Fatal error:', error);
+    console.error('[PTY Daemon] Fatal error:', error instanceof Error ? error.message : String(error));
     process.exit(1);
   }
 }

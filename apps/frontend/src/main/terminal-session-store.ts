@@ -185,7 +185,7 @@ export class TerminalSessionStore {
       console.warn('[TerminalSessionStore] Version mismatch, resetting sessions');
       return { success: false };
     } catch (error) {
-      console.error(`[TerminalSessionStore] Error loading ${filePath}:`, error);
+      console.error(`[TerminalSessionStore] Error loading ${filePath}:`, error instanceof Error ? error.message : String(error));
       return { success: false, error: error as Error };
     }
   }
@@ -224,7 +224,7 @@ export class TerminalSessionStore {
       // Step 3: Atomic rename temp to target
       renameSync(this.tempPath, this.storePath);
     } catch (error) {
-      console.error('[TerminalSessionStore] Error saving sessions:', error);
+      console.error('[TerminalSessionStore] Error saving sessions:', error instanceof Error ? error.message : String(error));
       // Clean up temp file if it exists
       try {
         if (existsSync(this.tempPath)) {
@@ -293,7 +293,7 @@ export class TerminalSessionStore {
       this.consecutiveFailures = 0;
     } catch (error) {
       this.consecutiveFailures++;
-      console.error('[TerminalSessionStore] Error saving sessions:', error);
+      console.error('[TerminalSessionStore] Error saving sessions:', error instanceof Error ? error.message : String(error));
 
       // Clean up temp file if it exists
       try {

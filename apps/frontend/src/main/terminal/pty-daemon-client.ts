@@ -142,7 +142,7 @@ class PtyDaemonClient {
       // Wait for daemon to start listening
       await new Promise((resolve) => setTimeout(resolve, 1000));
     } catch (error) {
-      console.error('[PtyDaemonClient] Failed to spawn daemon:', error);
+      console.error('[PtyDaemonClient] Failed to spawn daemon:', error instanceof Error ? error.message : String(error));
       throw error;
     }
   }

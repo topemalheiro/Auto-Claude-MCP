@@ -128,7 +128,7 @@ export class LogService {
       appendFileSync(session.logPath, content);
       this.logBuffers.set(taskId, []); // Clear buffer
     } catch (error) {
-      console.error(`[LogService] Failed to flush logs for task ${taskId}:`, error);
+      console.error(`[LogService] Failed to flush logs for task ${taskId}:`, error instanceof Error ? error.message : String(error));
     }
   }
 
@@ -167,7 +167,7 @@ export class LogService {
       const logContent = readFileSync(session.logPath, 'utf-8');
       writeFileSync(latestPath, logContent, 'utf-8');
     } catch (error) {
-      console.error(`[LogService] Failed to end session for task ${taskId}:`, error);
+      console.error(`[LogService] Failed to end session for task ${taskId}:`, error instanceof Error ? error.message : String(error));
     }
 
     // Clean up
@@ -264,7 +264,7 @@ export class LogService {
     try {
       return readFileSync(logFile, 'utf-8');
     } catch (error) {
-      console.error(`[LogService] Failed to load logs from ${logFile}:`, error);
+      console.error(`[LogService] Failed to load logs from ${logFile}:`, error instanceof Error ? error.message : String(error));
       return '';
     }
   }

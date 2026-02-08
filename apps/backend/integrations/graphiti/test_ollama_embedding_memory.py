@@ -45,6 +45,9 @@ Usage:
     python integrations/graphiti/test_ollama_embedding_memory.py --test full-cycle
 """
 
+# Exclude this file from pytest collection - this is a standalone test script
+__test__ = False
+
 import argparse
 import asyncio
 import os

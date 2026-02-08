@@ -95,7 +95,7 @@ class SessionPersistence {
       );
       return validSessions;
     } catch (error) {
-      console.error('[SessionPersistence] Failed to load sessions:', error);
+      console.error('[SessionPersistence] Failed to load sessions:', error instanceof Error ? error.message : String(error));
       return [];
     }
   }
@@ -190,7 +190,7 @@ class SessionPersistence {
       this.saveSession(session);
       console.warn(`[SessionPersistence] Saved buffer for session ${sessionId} (${serializedBuffer.length} bytes)`);
     } catch (error) {
-      console.error(`[SessionPersistence] Failed to save buffer for ${sessionId}:`, error);
+      console.error(`[SessionPersistence] Failed to save buffer for ${sessionId}:`, error instanceof Error ? error.message : String(error));
     }
   }
 
@@ -210,7 +210,7 @@ class SessionPersistence {
     try {
       return fs.readFileSync(bufferPath, 'utf8');
     } catch (error) {
-      console.error(`[SessionPersistence] Failed to load buffer for ${sessionId}:`, error);
+      console.error(`[SessionPersistence] Failed to load buffer for ${sessionId}:`, error instanceof Error ? error.message : String(error));
       return null;
     }
   }
@@ -225,7 +225,7 @@ class SessionPersistence {
         fs.unlinkSync(bufferPath);
         console.warn(`[SessionPersistence] Deleted buffer file: ${bufferFile}`);
       } catch (error) {
-        console.error(`[SessionPersistence] Failed to delete buffer file ${bufferFile}:`, error);
+        console.error(`[SessionPersistence] Failed to delete buffer file ${bufferFile}:`, error instanceof Error ? error.message : String(error));
       }
     }
   }
@@ -268,7 +268,7 @@ class SessionPersistence {
       fs.writeFileSync(SESSIONS_FILE, JSON.stringify(data, null, 2), 'utf8');
       console.warn(`[SessionPersistence] Saved ${data.sessions.length} sessions to disk`);
     } catch (error) {
-      console.error('[SessionPersistence] Failed to save sessions:', error);
+      console.error('[SessionPersistence] Failed to save sessions:', error instanceof Error ? error.message : String(error));
     }
   }
 
@@ -299,7 +299,7 @@ class SessionPersistence {
         console.warn(`[SessionPersistence] Cleaned up ${cleanedCount} orphaned buffer files`);
       }
     } catch (error) {
-      console.error('[SessionPersistence] Failed to cleanup orphaned buffers:', error);
+      console.error('[SessionPersistence] Failed to cleanup orphaned buffers:', error instanceof Error ? error.message : String(error));
     }
   }
 }

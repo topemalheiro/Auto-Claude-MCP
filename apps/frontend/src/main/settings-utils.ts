@@ -38,7 +38,7 @@ export function readSettingsFile(): Record<string, unknown> | undefined {
     const errorCode = (error as NodeJS.ErrnoException)?.code;
     if (errorCode !== 'ENOENT') {
       // Log unexpected errors but don't crash
-      console.error('Settings file read error:', error);
+      console.error('Settings file read error:', error instanceof Error ? error.message : String(error));
     }
     return undefined;
   }
@@ -82,7 +82,7 @@ export async function readSettingsFileAsync(): Promise<Record<string, unknown> |
     const errorCode = (error as NodeJS.ErrnoException)?.code;
     if (errorCode !== 'ENOENT') {
       // Log unexpected errors but don't crash
-      console.error('Settings file async read error:', error);
+      console.error('Settings file async read error:', error instanceof Error ? error.message : String(error));
     }
     return undefined;
   }

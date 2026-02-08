@@ -103,6 +103,28 @@ def pytest_collection_modifyitems(session, config, items):
     """
     import importlib
 
+    # Skip test functions that come from standalone test scripts
+    # These scripts are meant to be run directly, not as pytest tests
+    standalone_scripts = [
+        'integrations.graphiti.test_graphiti_memory',
+        'integrations.graphiti.test_ollama_embedding_memory',
+    ]
+
+    items_to_skip = []
+    for item in items:
+        # Check if the test is defined in a standalone test script
+        if hasattr(item, 'obj') and hasattr(item.obj, '__module__'):
+            module_name = item.obj.__module__
+            if any(script in module_name for script in standalone_scripts):
+                # Also ensure the function is not part of a test class
+                # (classes in test_test_*.py files should still run)
+                if not hasattr(item, 'cls') or item.cls is None:
+                    items_to_skip.append(item)
+
+    # Skip the collected items from standalone scripts
+    for item in items_to_skip:
+        items.remove(item)
+
     # Replace any MagicMock modules with real ones before tests run
     # This is needed because test_spec_pipeline.py mocks certain modules
     # at import time, which affects other test files
@@ -951,3 +973,120 @@ def ensure_modules_not_mocked(request):
                     del sys.modules[key]
 
     importlib.invalidate_caches()
+
+
+# =============================================================================
+# REVIEW STATE FIXTURES
+# =============================================================================
+
+
+@pytest.fixture
+def review_spec_dir(tmp_path: Path) -> Generator[Path, None, None]:
+    """Create a review spec directory with spec.md and implementation_plan.json for testing.
+
+    Args:
+        tmp_path: pytest's built-in temporary directory fixture
+
+    Yields:
+        Path: Path to review spec directory with spec.md and implementation_plan.json files
+    """
+    import json
+
+    review_dir = tmp_path / "review_spec"
+    review_dir.mkdir(exist_ok=True)
+    # Create a spec.md file that tests may modify
+    spec_file = review_dir / "spec.md"
+    spec_file.write_text("# Test Spec\n\nInitial content.")
+    # Create an implementation_plan.json file that tests may modify
+    plan_file = review_dir / "implementation_plan.json"
+    plan_data = {
+        "feature": "Test Feature",
+        "workflow_type": "feature",
+        "phases": [
+            {
+                "phase": 1,
+                "name": "Test Phase",
+                "chunks": [
+                    {"id": "chunk-1", "description": "Test chunk", "status": "pending"}
+                ],
+            }
+        ],
+    }
+    plan_file.write_text(json.dumps(plan_data, indent=2))
+    yield review_dir
+    # Cleanup is handled by tmp_path
+
+
+@pytest.fixture
+def approved_state() -> "ReviewState":
+    """Return an approved ReviewState instance.
+
+    Returns:
+        ReviewState: Instance with approved=True, approved_by="test_user",
+            and other expected values matching test expectations
+    """
+    from review import ReviewState
+    return ReviewState(
+        approved=True,
+        approved_by="test_user",
+        approved_at="2024-01-15T10:30:00",
+        spec_hash="abc123",
+        review_count=2,
+        feedback=["Looks good!", "Minor suggestion added."],
+    )
+
+
+@pytest.fixture
+def pending_state() -> "ReviewState":
+    """Return a pending (not approved) ReviewState instance.
+
+    Returns:
+        ReviewState: Instance with approved=False, empty approval fields
+    """
+    from review import ReviewState
+    return ReviewState(
+        approved=False,
+        approved_by="",
+        approved_at="",
+        spec_hash="",
+        review_count=0,
+    )
+
+
+@pytest.fixture
+def complete_spec_dir(tmp_path: Path) -> Generator[Path, None, None]:
+    """Create a complete spec directory with spec.md and implementation_plan.json for testing.
+
+    This is an alias for review_spec_dir since they provide the same structure.
+
+    Args:
+        tmp_path: pytest's built-in temporary directory fixture
+
+    Yields:
+        Path: Path to complete spec directory with spec.md and implementation_plan.json files
+    """
+    import json
+
+    complete_dir = tmp_path / "complete_spec"
+    complete_dir.mkdir(exist_ok=True)
+    # Create a spec.md file that tests may modify
+    spec_file = complete_dir / "spec.md"
+    spec_file.write_text("# Complete Spec\n\nThis is a complete spec for testing.")
+    # Create an implementation_plan.json file that tests may modify
+    plan_file = complete_dir / "implementation_plan.json"
+    plan_data = {
+        "feature": "Complete Test Feature",
+        "workflow_type": "feature",
+        "phases": [
+            {
+                "phase": 1,
+                "name": "Test Phase",
+                "chunks": [
+                    {"id": "chunk-1", "description": "Test chunk", "status": "pending"}
+                ],
+            }
+        ],
+    }
+    plan_file.write_text(json.dumps(plan_data, indent=2))
+    yield complete_dir
+    # Cleanup is handled by tmp_path

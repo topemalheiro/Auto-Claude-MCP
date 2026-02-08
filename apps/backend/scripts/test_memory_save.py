@@ -97,10 +97,18 @@ async def test_memory_imports():
 
     # Test graphiti queries_pkg imports
     try:
-        from integrations.graphiti.queries_pkg.client import GraphitiClient  # noqa: F401
-        from integrations.graphiti.queries_pkg.graphiti import GraphitiMemory  # noqa: F401
-        from integrations.graphiti.queries_pkg.queries import GraphitiQueries  # noqa: F401
-        from integrations.graphiti.queries_pkg.search import GraphitiSearch  # noqa: F401
+        from integrations.graphiti.queries_pkg.client import (  # noqa: F401
+            GraphitiClient,
+        )
+        from integrations.graphiti.queries_pkg.graphiti import (  # noqa: F401
+            GraphitiMemory,
+        )
+        from integrations.graphiti.queries_pkg.queries import (  # noqa: F401
+            GraphitiQueries,
+        )
+        from integrations.graphiti.queries_pkg.search import (  # noqa: F401
+            GraphitiSearch,
+        )
 
         print("[OK] integrations.graphiti.queries_pkg imports successful")
     except ImportError as e:

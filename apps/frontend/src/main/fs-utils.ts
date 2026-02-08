@@ -24,7 +24,7 @@ export function ensureDir(dirPath: string): boolean {
     }
     return true;
   } catch (error) {
-    console.error(`[fs-utils] Failed to create directory ${dirPath}:`, error);
+    console.error(`[fs-utils] Failed to create directory ${dirPath}:`, error instanceof Error ? error.message : String(error));
     return false;
   }
 }
@@ -102,7 +102,7 @@ export function safeWriteFile(filePath: string, content: string): string {
     fs.writeFileSync(writablePath, content, 'utf-8');
     return writablePath;
   } catch (error) {
-    console.error(`[fs-utils] Failed to write file ${writablePath}:`, error);
+    console.error(`[fs-utils] Failed to write file ${writablePath}:`, error instanceof Error ? error.message : String(error));
     throw error;
   }
 }
@@ -120,7 +120,7 @@ export function safeReadFile(originalPath: string): string | null {
       return fs.readFileSync(originalPath, 'utf-8');
     }
   } catch (error) {
-    console.error(`[fs-utils] Failed to read file ${originalPath}:`, error);
+    console.error(`[fs-utils] Failed to read file ${originalPath}:`, error instanceof Error ? error.message : String(error));
     // Fall through to try XDG fallback
   }
 
@@ -133,7 +133,7 @@ export function safeReadFile(originalPath: string): string | null {
         return fs.readFileSync(fallbackPath, 'utf-8');
       }
     } catch (error) {
-      console.error(`[fs-utils] Failed to read fallback file ${fallbackPath}:`, error);
+      console.error(`[fs-utils] Failed to read fallback file ${fallbackPath}:`, error instanceof Error ? error.message : String(error));
     }
   }
 

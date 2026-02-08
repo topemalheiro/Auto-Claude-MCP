@@ -268,7 +268,6 @@ describe('claude-integration-handler', () => {
         env: { PATH: '/opt/claude/bin:/usr/bin' },
       });
       mockGetClaudeProfileManager.mockReturnValue(profileManager);
-      const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(1234);
 
       const terminal = createMockTerminal({ id: 'term-3' });
 
@@ -277,9 +276,10 @@ describe('claude-integration-handler', () => {
 
       const tokenPath = vi.mocked(writeFileSync).mock.calls[0]?.[0] as string;
       const tokenContents = vi.mocked(writeFileSync).mock.calls[0]?.[1] as string;
-      const tokenPrefix = path.join(tmpdir(), '.claude-token-1234-');
+      // The actual implementation uses crypto.randomBytes(16).toString('hex') which generates 32 hex chars
+      const tokenPrefix = path.join(tmpdir(), '.claude-token-');
       const tokenExt = getTempFileExtension(platform);
-      expect(tokenPath).toMatch(new RegExp(`^${escapeForRegex(tokenPrefix)}[0-9a-f]{16}${escapeForRegex(tokenExt)}$`));
+      expect(tokenPath).toMatch(new RegExp(`^${escapeForRegex(tokenPrefix)}[0-9a-f]{32}${escapeForRegex(tokenExt)}$`));
       expect(tokenContents).toBe(getTokenFileContent(platform, 'token-value'));
 
       const written = mockWriteToPty.mock.calls[0][1] as string;
@@ -294,8 +294,6 @@ describe('claude-integration-handler', () => {
       expect(written).toContain(`${cmdQuote}${command}${cmdQuote}`);
       expect(profileManager.getProfile).toHaveBeenCalledWith('prof-1');
       expect(mockPersistSession).toHaveBeenCalledWith(terminal);
-
-      nowSpy.mockRestore();
     });
 
     it('prefers the config dir flow when profile has both oauth token and config dir', async () => {

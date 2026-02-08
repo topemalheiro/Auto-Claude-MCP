@@ -73,9 +73,13 @@ def __getattr__(name: str) -> Any:
     when accessed via 'from module import name' syntax.
     """
     if name in ("AUTO_CONTINUE_DELAY_SECONDS", "HUMAN_INTERVENTION_FILE"):
-        from .base import AUTO_CONTINUE_DELAY_SECONDS, HUMAN_INTERVENTION_FILE  # noqa: F401
+        from .base import AUTO_CONTINUE_DELAY_SECONDS, HUMAN_INTERVENTION_FILE
 
-        return locals()[name]
+        return (
+            AUTO_CONTINUE_DELAY_SECONDS
+            if name == "AUTO_CONTINUE_DELAY_SECONDS"
+            else HUMAN_INTERVENTION_FILE
+        )
     elif name == "run_autonomous_agent":
         from .coder import run_autonomous_agent
 

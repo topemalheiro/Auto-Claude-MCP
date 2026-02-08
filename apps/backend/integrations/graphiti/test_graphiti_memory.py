@@ -31,6 +31,9 @@ Usage:
     python integrations/graphiti/test_graphiti_memory.py --test ollama
 """
 
+# Exclude this file from pytest collection - this is a standalone test script
+__test__ = False
+
 import argparse
 import asyncio
 import json
