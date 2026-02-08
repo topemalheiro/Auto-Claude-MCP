@@ -13,6 +13,7 @@ Comprehensive tests for platform abstraction utilities including:
 
 import os
 import platform
+import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -278,6 +279,7 @@ class TestToolDetection:
         result = find_executable("git")
         assert result == "/usr/bin/git"
 
+    @pytest.mark.skipif(sys.platform == "win32", reason="Test uses Unix-specific paths and expects is_windows=False")
     @patch("shutil.which", return_value=None)
     @patch("core.platform.is_windows", return_value=False)
     @patch("os.path.isdir", return_value=True)
