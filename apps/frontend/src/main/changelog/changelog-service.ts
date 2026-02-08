@@ -516,14 +516,12 @@ export class ChangelogService extends EventEmitter {
       };
     } catch (error) {
       this.debug('Error in AI version suggestion, falling back to patch bump', error);
-      // Fallback to patch bump if AI fails
+      // Fallback to patch bump if AI fails.
       // currentVersion is guaranteed to be valid here because:
-      // 1. Line 499-501: Returns early if currentVersion is falsy
-      // 2. Line 503-506: Returns early if currentVersion is invalid format
-      // 3. Therefore, if we reach line 510 (where AI is called), currentVersion is valid
-      // 4. The catch block can only be reached from line 510 onward
-      const versionStr = currentVersion!; // Non-null assertion: control flow guarantees validity
-      const parts = versionStr.split('.').map(Number);
+      // 1. Lines 497-499 return early if currentVersion is falsy
+      // 2. Lines 501-504 return early if currentVersion has invalid format
+      // 3. The catch block can only be reached from line 508 (suggestVersionBump) onwards
+      const parts = currentVersion!.split('.').map(Number);
       const [major, minor, patch] = parts;
       return {
         version: `${major}.${minor}.${patch + 1}`,

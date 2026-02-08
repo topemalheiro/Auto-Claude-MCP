@@ -7,6 +7,23 @@
  */
 
 const https = require('https');
+
+/**
+ * Sanitize a value for safe logging to prevent log injection attacks.
+ * Uses JSON.stringify which CodeQL recognizes as a sanitizer, then
+ * removes the surrounding quotes for cleaner log output.
+ */
+function sanitizeForLog(value) {
+  // JSON.stringify escapes control characters and is recognized by CodeQL
+  // as a sanitizer for log injection. We slice off the quotes for cleaner output.
+  const escaped = JSON.stringify(String(value).slice(0, 200));
+  return escaped.slice(1, -1);
+}
+
+// Export for testing
+if (typeof module !== 'undefined') {
+  module.exports.sanitizeForLog = sanitizeForLog;
+}
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
@@ -173,7 +190,8 @@ async function downloadPrebuilds() {
   try {
     release = await getLatestRelease();
   } catch (err) {
-    console.log(`[prebuilds] Could not fetch releases: ${err.message}`);
+    const safeMsg = sanitizeForLog(err.message || 'Unknown error');
+    console.log(`[prebuilds] Could not fetch releases: ${safeMsg}`);
     return { success: false, reason: 'fetch-failed' };
   }
 
@@ -184,12 +202,16 @@ async function downloadPrebuilds() {
 
   const asset = findPrebuildAsset(release, arch, electronAbi);
   if (!asset) {
-    console.log(`[prebuilds] No prebuild found for win32-${arch}-electron-${electronAbi}`);
-    console.log('[prebuilds] Available assets:', release.assets?.map((a) => a.name).join(', ') || 'none');
+    const safeArch = sanitizeForLog(arch);
+    const safeAbi = sanitizeForLog(electronAbi);
+    console.log(`[prebuilds] No prebuild found for win32-${safeArch}-electron-${safeAbi}`);
+    // Sanitize asset names before logging
+    const assetNames = release.assets?.map((a) => sanitizeForLog(a.name)).join(', ') || 'none';
+    console.log('[prebuilds] Available assets:', assetNames);
     return { success: false, reason: 'no-matching-prebuild' };
   }
 
-  console.log(`[prebuilds] Found prebuild: ${asset.name}`);
+  console.log(`[prebuilds] Found prebuild: ${sanitizeForLog(asset.name)}`);
 
   // Download the prebuild
   const tempDir = path.join(__dirname, '..', '.prebuild-temp');
@@ -201,7 +223,7 @@ async function downloadPrebuilds() {
     // Create temp directory
     fs.mkdirSync(tempDir, { recursive: true });
 
-    console.log(`[prebuilds] Downloading ${asset.name}...`);
+    console.log(`[prebuilds] Downloading ${sanitizeForLog(asset.name)}...`);
     await downloadFile(asset.browser_download_url, zipPath);
 
     console.log('[prebuilds] Extracting...');
@@ -211,7 +233,9 @@ async function downloadPrebuilds() {
     const extractedDir = path.join(tempDir, 'prebuilds', `win32-${arch}-electron-${electronAbi}`);
 
     if (!fs.existsSync(extractedDir)) {
-      throw new Error(`Extracted directory not found: ${extractedDir}`);
+      // Sanitize path before logging to prevent log injection
+      const safePath = sanitizeForLog(extractedDir);
+      throw new Error(`Extracted directory not found: ${safePath}`);
     }
 
     // Ensure build/Release directory exists
@@ -223,7 +247,7 @@ async function downloadPrebuilds() {
       const src = path.join(extractedDir, file);
       const dest = path.join(buildDir, file);
       fs.copyFileSync(src, dest);
-      console.log(`[prebuilds] Installed: ${file}`);
+      console.log(`[prebuilds] Installed: ${sanitizeForLog(file)}`);
     }
 
     // Cleanup temp directory
@@ -258,7 +282,8 @@ if (require.main === module) {
       }
     })
     .catch((err) => {
-      console.error('[prebuilds] Error:', err);
+      const safeMsg = sanitizeForLog(err.message || 'Unknown error');
+      console.error('[prebuilds] Error:', safeMsg);
       process.exit(1);
     });
 }

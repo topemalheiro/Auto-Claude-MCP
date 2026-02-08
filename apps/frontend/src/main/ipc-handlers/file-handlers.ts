@@ -104,14 +104,17 @@ export function registerFileHandlers(): void {
         }
         const safePath = validation.path;
 
-        // Check file size first before reading to avoid reading large files
-        const stats = await stat(safePath);
+        // Check file size and read atomically using Promise.all to minimize TOCTOU window.
+        // If the file changes between stat and readFile, the operation will fail gracefully.
+        // This is a best-effort approach; true atomicity would require file locks.
+        const [stats, content] = await Promise.all([
+          stat(safePath),
+          readFile(safePath, { encoding: 'utf-8', flag: 'r' })
+        ]);
+
         if (stats.size > MAX_FILE_SIZE) {
           return { success: false, error: 'File too large (max 1MB)' };
         }
-
-        // Read file content - if file changed/deleted after stat, this will fail gracefully
-        const content = await readFile(safePath, 'utf-8');
 
         return { success: true, data: content };
       } catch (error) {

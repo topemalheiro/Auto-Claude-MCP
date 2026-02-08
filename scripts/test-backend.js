@@ -34,7 +34,9 @@ if (!fs.existsSync(pytestPath)) {
   const pipPath = isWindows
     ? path.join(venvDir, 'Scripts', 'pip.exe')
     : path.join(venvDir, 'bin', 'pip');
-  console.error(`  "${pipPath}" install -r tests/requirements-test.txt`);
+  // Escape path for safe display in shell command (handle backslashes on Windows)
+  const escapedPipPath = pipPath.replace(/\\/g, '\\\\');
+  console.error(`  "${escapedPipPath}" install -r tests/requirements-test.txt`);
   process.exit(1);
 }
 

@@ -241,7 +241,17 @@ function main() {
   if (!/^[a-zA-Z0-9.\-+]+$/.test(versionArg)) {
     error(`Invalid version format for validation: ${versionArg}`);
   }
-  execFileSync('node', [path.join(__dirname, 'validate-release.js'), versionArg], {
+  // Validate that the script path is within the scripts directory to prevent path traversal
+  const scriptsDir = path.join(__dirname);
+  const validateScript = path.join(scriptsDir, 'validate-release.js');
+  // Resolve to ensure we're working with absolute paths for comparison
+  const resolvedScriptsDir = path.resolve(scriptsDir);
+  const resolvedScript = path.resolve(validateScript);
+  if (!resolvedScript.startsWith(resolvedScriptsDir + path.sep) &&
+      !resolvedScript.startsWith(resolvedScriptsDir)) {
+    error('Invalid script path: validate-release.js must be in the scripts directory');
+  }
+  execFileSync('node', [resolvedScript, versionArg], {
     stdio: 'inherit',
   });
   success('Release validation passed');

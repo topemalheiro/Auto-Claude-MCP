@@ -23,6 +23,18 @@ const os = require('os');
 const nodeCrypto = require('crypto');
 const { toNodePlatform } = require('../src/shared/platform.cjs');
 
+/**
+ * Sanitize a value for safe logging to prevent log injection attacks.
+ * Uses JSON.stringify which CodeQL recognizes as a sanitizer, then
+ * removes the surrounding quotes for cleaner log output.
+ */
+function sanitizeForLog(value) {
+  // JSON.stringify escapes control characters and is recognized by CodeQL
+  // as a sanitizer for log injection. We slice off the quotes for cleaner output.
+  const escaped = JSON.stringify(String(value).slice(0, 200));
+  return escaped.slice(1, -1);
+}
+
 // Python version to bundle (must be 3.10+ for claude-agent-sdk, 3.12+ for full Graphiti support)
 const PYTHON_VERSION = '3.12.8';
 
@@ -551,7 +563,9 @@ function stripSitePackages(sitePackagesDir) {
       } catch (err) {
         // ENOENT means file was already gone - not an error
         if (err.code !== 'ENOENT') {
-          console.warn(`[download-python] Failed to remove ${pkgPath}: ${err.message}`);
+          const safePath = sanitizeForLog(pkgPath);
+          const safeMsg = sanitizeForLog(err.message || 'Unknown error');
+          console.warn(`[download-python] Failed to remove ${safePath}: ${safeMsg}`);
         }
       }
     }
@@ -695,9 +709,11 @@ function fixPywin32(sitePackagesDir) {
     if (fs.existsSync(srcPath)) {
       try {
         fs.copyFileSync(srcPath, destPath);
-        console.log(`[download-python] Copied ${pyModule} to site-packages root`);
+        console.log(`[download-python] Copied ${sanitizeForLog(pyModule)} to site-packages root`);
       } catch (err) {
-        console.warn(`[download-python] Failed to copy ${pyModule}: ${err.message}`);
+        const safeModule = sanitizeForLog(pyModule);
+        const safeMsg = sanitizeForLog(err.message || 'Unknown error');
+        console.warn(`[download-python] Failed to copy ${safeModule}: ${safeMsg}`);
       }
     }
   }
@@ -706,7 +722,8 @@ function fixPywin32(sitePackagesDir) {
   // This is required by pywintypes.py to locate and load the DLLs
   // Filter for .pyd extension to avoid matching unrelated files
   if (!fs.existsSync(win32Dir)) {
-    console.warn(`[download-python] win32 directory not found: ${win32Dir}`);
+    const safeDir = sanitizeForLog(win32Dir);
+    console.warn(`[download-python] win32 directory not found: ${safeDir}`);
     return;
   }
   const sysloaderFiles = fs.readdirSync(win32Dir).filter(f => f.startsWith('_win32sysloader') && f.endsWith('.pyd'));
@@ -716,9 +733,11 @@ function fixPywin32(sitePackagesDir) {
 
     try {
       fs.copyFileSync(srcPath, destPath);
-      console.log(`[download-python] Copied ${sysloader} to site-packages root`);
+      console.log(`[download-python] Copied ${sanitizeForLog(sysloader)} to site-packages root`);
     } catch (err) {
-      console.warn(`[download-python] Failed to copy ${sysloader}: ${err.message}`);
+      const safeLoader = sanitizeForLog(sysloader);
+      const safeMsg = sanitizeForLog(err.message || 'Unknown error');
+      console.warn(`[download-python] Failed to copy ${safeLoader}: ${safeMsg}`);
     }
   }
 
@@ -740,7 +759,8 @@ __path__ = [os.path.dirname(__file__)]
   } catch (err) {
     // EEXIST means file already exists - that's fine, we wanted to avoid overwriting
     if (err.code !== 'EEXIST') {
-      console.warn(`[download-python] Failed to create __init__.py: ${err.message}`);
+      const safeMsg = sanitizeForLog(err.message || 'Unknown error');
+      console.warn(`[download-python] Failed to create __init__.py: ${safeMsg}`);
     }
   }
 
@@ -764,9 +784,11 @@ __path__ = [os.path.dirname(__file__)]
 
     try {
       fs.copyFileSync(srcPath, destPath);
-      console.log(`[download-python] Copied ${dll} to win32/`);
+      console.log(`[download-python] Copied ${sanitizeForLog(dll)} to win32/`);
     } catch (err) {
-      console.warn(`[download-python] Failed to copy ${dll} to win32/: ${err.message}`);
+      const safeDll = sanitizeForLog(dll);
+      const safeMsg = sanitizeForLog(err.message || 'Unknown error');
+      console.warn(`[download-python] Failed to copy ${safeDll} to win32/: ${safeMsg}`);
     }
   }
 
@@ -777,9 +799,11 @@ __path__ = [os.path.dirname(__file__)]
 
     try {
       fs.copyFileSync(srcPath, destPath);
-      console.log(`[download-python] Copied ${dll} to site-packages root`);
+      console.log(`[download-python] Copied ${sanitizeForLog(dll)} to site-packages root`);
     } catch (err) {
-      console.warn(`[download-python] Failed to copy ${dll}: ${err.message}`);
+      const safeDll = sanitizeForLog(dll);
+      const safeMsg = sanitizeForLog(err.message || 'Unknown error');
+      console.warn(`[download-python] Failed to copy ${safeDll}: ${safeMsg}`);
     }
   }
 
@@ -1007,7 +1031,8 @@ async function downloadPython(targetPlatform, targetArch, options = {}) {
         verifyChecksum(archivePath, info.checksum);
         needsDownload = false;
       } catch (err) {
-        console.log(`[download-python] Cached archive failed verification: ${err.message}`);
+        const safeMsg = sanitizeForLog(err.message || 'Unknown error');
+        console.log(`[download-python] Cached archive failed verification: ${safeMsg}`);
         fs.unlinkSync(archivePath);
       }
     }

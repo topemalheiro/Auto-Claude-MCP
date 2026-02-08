@@ -53,9 +53,11 @@ function validateArgs(commandArgs) {
 
     for (const char of SHELL_METACHARACTERS) {
       if (arg.includes(char)) {
+        // Sanitize argument before logging to prevent log injection
+        const safeArg = JSON.stringify(arg).slice(1, -1).slice(0, 100);
         throw new Error(
           `Security: Argument contains shell metacharacter '${char}' which could enable command injection. ` +
-          `Argument: "${arg}"`
+          `Argument: "${safeArg}"`
         );
       }
     }
