@@ -76,22 +76,8 @@ async def run_qa_validation_loop(
     Returns:
         True if QA approved, False otherwise
     """
-    # Local imports to avoid circular imports
-    from .criteria import (
-        get_qa_iteration_count,
-        get_qa_signoff_status,
-        is_qa_approved,
-    )
+    # Local imports for functions that aren't needed at module level
     from .fixer import run_qa_fixer_session
-    from .report import (
-        create_manual_test_plan,
-        escalate_to_human,
-        get_iteration_history,
-        get_recurring_issue_summary,
-        has_recurring_issues,
-        is_no_test_project,
-        record_iteration,
-    )
     from .reviewer import run_qa_agent_session
 
     # Set environment variable for security hooks to find the correct project directory
@@ -609,3 +595,25 @@ async def run_qa_validation_loop(
 
     print("\nManual intervention required.")
     return False
+
+
+# =============================================================================
+# MODULE-LEVEL IMPORTS (for testing and external access)
+# =============================================================================
+# These are imported here (after all function definitions) to avoid circular imports
+# while still making them available for testing and external modules.
+
+from .criteria import (
+    get_qa_iteration_count,
+    get_qa_signoff_status,
+    is_qa_approved,
+)
+from .report import (
+    create_manual_test_plan,
+    escalate_to_human,
+    get_iteration_history,
+    get_recurring_issue_summary,
+    has_recurring_issues,
+    is_no_test_project,
+    record_iteration,
+)
