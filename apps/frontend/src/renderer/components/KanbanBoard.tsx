@@ -891,7 +891,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   const rdrIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const rdrSkipBusyCheckRef = useRef(true); // Skip busy check on first send + idle events
   const RDR_INTERVAL_MS = 30000; // 30 seconds (reduced from 60s for faster fallback)
-  const RDR_IN_FLIGHT_TIMEOUT_MS = 120000; // 2 minutes - gives Claude time to process RDR batch
+  const RDR_IN_FLIGHT_TIMEOUT_MS = 30000; // 30 seconds - safety net (polling + idle events clear in-flight sooner)
 
   // Load VS Code windows from system
   const loadVsCodeWindows = useCallback(async () => {
@@ -1061,12 +1061,6 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
    * Skips if a message is already in-flight (Claude Code is processing)
    */
   const handleAutoRdr = useCallback(async () => {
-    // Skip if message is in-flight (Claude Code still processing previous request)
-    if (rdrMessageInFlight) {
-      console.log('[RDR] Skipping auto-send - message in flight');
-      return;
-    }
-
     // Skip if no window selected
     if (!selectedWindowHandle) {
       console.log('[RDR] Skipping auto-send - no window selected');
@@ -1082,7 +1076,6 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
 
     // Use process ID for stable matching (title changes when user switches editor tabs)
     const processId = selectedWindow.processId;
-    console.log(`[RDR] Using process ID: ${processId} (window: "${selectedWindow.title}")`);
 
     // Check if Claude Code is busy - SKIP on first check after enable and on idle events
     if (rdrSkipBusyCheckRef.current) {
@@ -1095,9 +1088,20 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
           console.log('[RDR] Skipping auto-send - Claude Code is busy');
           return;
         }
+        // Claude is NOT busy — if we were in-flight, clear it (Claude finished processing)
+        if (rdrMessageInFlight) {
+          console.log('[RDR] Claude is idle while in-flight — clearing in-flight flag');
+          setRdrMessageInFlight(false);
+        }
       } catch (error) {
         console.warn('[RDR] Failed to check busy state, proceeding with send:', error);
       }
+    }
+
+    // Still in-flight after busy check — Claude is actively processing our last message
+    if (rdrMessageInFlight) {
+      console.log('[RDR] Message still in-flight, will retry next poll');
+      return;
     }
 
     // Skip if no project
@@ -1168,6 +1172,9 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       // EVENT-DRIVEN: Subscribe to 'claude-code-idle' IPC event for sequential batching
       const idleListener = (_event: any, data: { from: string; to: string; timestamp: number }) => {
         console.log(`[RDR] EVENT: Claude Code became idle (${data.from} -> ${data.to})`);
+
+        // Clear in-flight flag — idle event proves Claude finished processing
+        setRdrMessageInFlight(false);
 
         // Skip busy check - the idle event already proves Claude is idle
         // Re-checking creates a race condition where state changes between emit and check
