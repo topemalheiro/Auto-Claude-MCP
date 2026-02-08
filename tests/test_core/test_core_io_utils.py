@@ -31,7 +31,7 @@ def reset_io_utils_state():
     try:
         reset_pipe_state()
     except Exception:
-        pass  # Module state may be broken, ignore
+        pass  # Module state may be broken, ignore (no-op)
 
 
 # ============================================================================

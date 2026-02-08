@@ -412,8 +412,19 @@ async function startAutoFix(
   const sanitizedRepo = typeof ghConfig.repo === 'string' ? ghConfig.repo : '';
   const sanitizedSpecId = typeof specData.specId === 'string' ? specData.specId : '';
 
+  // Validate issueNumber is safe for filename (defense-in-depth)
+  if (!Number.isInteger(issueNumber) || issueNumber <= 0 || issueNumber > 100000000) {
+    throw new Error(`Invalid issue number for autofix state file: ${issueNumber}`);
+  }
+
+  const filename = `autofix_${issueNumber}.json`;
+  // Additional validation: ensure filename only contains safe characters
+  if (!/^[a-zA-Z0-9_.-]+\.json$/.test(filename)) {
+    throw new Error(`Invalid autofix filename generated: ${filename}`);
+  }
+
   fs.writeFileSync(
-    path.join(issuesDir, `autofix_${issueNumber}.json`),
+    path.join(issuesDir, filename),
     JSON.stringify({
       issue_number: issueNumber,
       repo: sanitizedRepo,

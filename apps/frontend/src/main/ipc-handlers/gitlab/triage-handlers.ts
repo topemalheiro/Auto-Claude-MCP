@@ -419,9 +419,15 @@ export function registerTriageHandlers(
               continue;
             }
 
-            // Save result
+            // Save result - validate filename is safe for filesystem
+            const filename = `triage_${sanitizedResult.issue_iid}.json`;
+            // Additional validation: ensure filename only contains safe characters
+            if (!/^[a-zA-Z0-9_.-]+\.json$/.test(filename)) {
+              debugLog('Skipping triage result with invalid filename', { filename });
+              continue;
+            }
             fs.writeFileSync(
-              path.join(triageDir, `triage_${sanitizedResult.issue_iid}.json`),
+              path.join(triageDir, filename),
               JSON.stringify(sanitizedResult, null, 2),
               'utf-8'
             );

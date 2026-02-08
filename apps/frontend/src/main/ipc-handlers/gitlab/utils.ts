@@ -222,6 +222,34 @@ export function encodeProjectPath(projectPath: string): string {
 const GITLAB_API_TIMEOUT_MS = 30000;
 
 /**
+ * Validate that a GitLab API endpoint is safe to use.
+ * Prevents path traversal and ensures the endpoint stays within the API v4 namespace.
+ */
+function validateEndpoint(endpoint: string): void {
+  // Must start with / for API path
+  if (!endpoint.startsWith('/')) {
+    throw new Error('GitLab endpoint must be a relative path starting with /');
+  }
+
+  // Prevent path traversal - reject .. or encoded variants
+  if (endpoint.includes('..') || endpoint.includes('%2e%2e') || endpoint.includes('%2E%2E')) {
+    throw new Error('GitLab endpoint contains invalid path traversal');
+  }
+
+  // Prevent breaking out of API v4 namespace with absolute paths
+  if (endpoint.match(/^\/(api\/v4\/)?https?:\/\//i)) {
+    throw new Error('GitLab endpoint contains invalid URL');
+  }
+
+  // Only allow safe characters in endpoints (alphanumeric, -._~,/?=&%)
+  // This prevents injection attacks while still supporting query parameters
+  const safePattern = /^[/a-zA-Z0-9._~,/?=&%-]+$/;
+  if (!safePattern.test(endpoint)) {
+    throw new Error('GitLab endpoint contains invalid characters');
+  }
+}
+
+/**
  * Make a request to the GitLab API with timeout
  */
 export async function gitlabFetch(
@@ -235,9 +263,10 @@ export async function gitlabFetch(
   if (!baseUrl) {
     throw new Error('Invalid GitLab instance URL');
   }
-  if (!endpoint.startsWith('/')) {
-    throw new Error('GitLab endpoint must be a relative path');
-  }
+
+  // Validate endpoint to prevent path traversal and injection attacks
+  validateEndpoint(endpoint);
+
   const url = `${baseUrl}/api/v4${endpoint}`;
   const safeToken = sanitizeToken(token);
   if (!safeToken) {
@@ -290,9 +319,10 @@ export async function gitlabFetchWithCount(
   if (!baseUrl) {
     throw new Error('Invalid GitLab instance URL');
   }
-  if (!endpoint.startsWith('/')) {
-    throw new Error('GitLab endpoint must be a relative path');
-  }
+
+  // Validate endpoint to prevent path traversal and injection attacks
+  validateEndpoint(endpoint);
+
   const url = `${baseUrl}/api/v4${endpoint}`;
   const safeToken = sanitizeToken(token);
   if (!safeToken) {

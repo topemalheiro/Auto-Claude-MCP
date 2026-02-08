@@ -792,7 +792,7 @@ class TestMainCLI:
                 try:
                     query_memory.main()
                 except SystemExit:
-                    pass
+                    pass  # Expected exit from CLI (no-op)
 
         captured = capsys.readouterr()
         # Should print usage or error message

@@ -646,8 +646,7 @@ class TestShouldRefreshProjectIndex:
             # The key is that it doesn't raise an exception
             assert isinstance(result, bool)
         except OSError:
-            # If it raises OSError, that's also acceptable behavior
-            pass
+            pass  # If it raises OSError, that's also acceptable behavior (no-op)
 
 
 class TestGetMcpToolsForProject:

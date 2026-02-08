@@ -79,9 +79,13 @@ export async function readSettingsFileAsync(): Promise<Record<string, unknown> |
     return JSON.parse(content);
   } catch (error: unknown) {
     // ENOENT (file not found) or parse error - return undefined so caller uses defaults
-    // Use a type guard to check error code without triggering TOCTOU alerts
-    const err = error as NodeJS.ErrnoException;
-    if (err?.code === 'ENOENT') {
+    // Check if error is a Node.js error with code property
+    if (
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      error.code === 'ENOENT'
+    ) {
       // File not found is expected - return undefined
       return undefined;
     }

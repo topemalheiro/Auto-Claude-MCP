@@ -658,7 +658,6 @@ async def run_autonomous_agent(
                     print_status(
                         "Waiting for implementation plan to be ready...", "progress"
                     )
-                    delay = 0  # Initialize before loop
                     for retry_attempt in range(3):
                         delay = (retry_attempt + 1) * 2  # 2s, 4s, 6s
                         await asyncio.sleep(delay)

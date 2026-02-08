@@ -68,8 +68,7 @@ def test_IdeationFormatter_merge_ideation_outputs_new(mock_file, mock_exists):
         )
         assert result_path == output_dir / "ideation.json"
     except Exception:
-        # If mocking fails, just verify the method is callable
-        pass
+        pass  # If mocking fails, just verify the method is callable (no-op)
 
 
 @patch("ideation.formatter.Path.exists")

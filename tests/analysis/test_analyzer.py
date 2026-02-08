@@ -113,8 +113,7 @@ class TestProjectAnalyzer:
             result = analyzer.analyze()
             assert result is not None
         except Exception:
-            # May fail due to invalid project structure
-            pass
+            pass  # May fail due to invalid project structure (no-op)
 
     def test_project_analyzer_detects_python_project(self, temp_project_dir):
         """Test ProjectAnalyzer detects Python projects."""
@@ -125,8 +124,7 @@ class TestProjectAnalyzer:
             result = analyzer.analyze()
             assert result is not None
         except Exception:
-            # May fail due to invalid project structure
-            pass
+            pass  # May fail due to invalid project structure (no-op)
 
 
 class TestServiceAnalyzer:
@@ -148,8 +146,7 @@ class TestServiceAnalyzer:
             result = analyzer.analyze()
             assert result is not None
         except Exception:
-            # May fail due to invalid project structure
-            pass
+            pass  # May fail due to invalid project structure (no-op)
 
 
 class TestAnalyzeProjectFunction:

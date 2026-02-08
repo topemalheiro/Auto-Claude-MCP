@@ -76,8 +76,8 @@ export function registerInvestigateIssue(
 ): void {
   ipcMain.on(
     IPC_CHANNELS.GITLAB_INVESTIGATE_ISSUE,
-    async (_event, projectId: string, issueIid: number, _selectedNoteIds?: number[]) => {
-      debugLog('investigateGitLabIssue handler called', { projectId, issueIid, _selectedNoteIds });
+    async (_event, projectId: string, issueIid: number, selectedNoteIds?: number[]) => {
+      debugLog('investigateGitLabIssue handler called', { projectId, issueIid, selectedNoteIds });
 
       const project = projectStore.getProject(projectId);
       if (!project) {

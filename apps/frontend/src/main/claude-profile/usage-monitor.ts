@@ -1433,9 +1433,11 @@ export class UsageMonitor extends EventEmitter {
       });
 
       if (!response.ok) {
+        // Sanitize endpoint for logging (remove any sensitive paths)
+        const sanitizedEndpoint = usageEndpoint.replace(/\/[^\/]+@[^\\/]+/g, '/***@***');
         console.error('[UsageMonitor] API error:', response.status, response.statusText, {
           provider,
-          endpoint: usageEndpoint
+          endpoint: sanitizedEndpoint
         });
 
         // Check for auth failures via status code (works for all providers)

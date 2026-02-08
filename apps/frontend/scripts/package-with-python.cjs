@@ -280,9 +280,9 @@ async function main() {
 if (require.main === module) {
   main().catch((err) => {
     // Sanitize error message to prevent log injection
-    const safeMessage = String(err.message || 'Unknown error')
-      // biome-ignore lint/suspicious/noControlCharactersInRegex: Intentionally matching control chars for sanitization
-      .replace(/[\x00-\x1F\x7F]/g, ' ')
+    const safeMessage = JSON.stringify(String(err.message || 'Unknown error'))
+      // Remove quotes for cleaner output (still escaped internally)
+      .slice(1, -1)
       .slice(0, 200);
     console.error(`[package] Error: ${safeMessage}`);
     process.exitCode = 1;

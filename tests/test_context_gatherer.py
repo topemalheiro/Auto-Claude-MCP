@@ -10,7 +10,6 @@ Tests the context gathering logic, specifically:
 
 import sys
 from pathlib import Path
-from unittest.mock import AsyncMock, patch
 from datetime import datetime
 import tempfile
 

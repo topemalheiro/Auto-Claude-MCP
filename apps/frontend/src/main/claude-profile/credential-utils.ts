@@ -1823,6 +1823,12 @@ function updateLinuxFileCredentials(
       mkdirSync(dirPath, { recursive: true, mode: 0o700 });
     }
 
+    // Final validation before write (defense-in-depth)
+    // Ensure credentialsPath hasn't been modified and is still valid
+    if (!isValidCredentialsPath(credentialsPath)) {
+      return { success: false, error: 'Credentials path validation failed before write' };
+    }
+
     // Write to file with secure permissions (0600)
     writeFileSync(credentialsPath, credentialsJson, { mode: 0o600, encoding: 'utf-8' });
 
@@ -2083,7 +2089,14 @@ function updateWindowsFileCredentials(
     // Atomic file write: write to temp file, set permissions, then rename.
     // This prevents a race condition where the file briefly exists with default permissions.
     // Use cryptographically random suffix for secure temp file creation
-    const tempPath = `${credentialsPath}.${randomBytes(16).toString('hex')}.tmp`;
+    const tempSuffix = `${randomBytes(16).toString('hex')}.tmp`;
+    const tempPath = `${credentialsPath}.${tempSuffix}`;
+
+    // Validate temp path is safe (same directory as credentials path)
+    if (!isValidCredentialsPath(tempPath)) {
+      return { success: false, error: 'Invalid temp file path generated' };
+    }
+
     try {
       // Write to temp file
       writeFileSync(tempPath, credentialsJson, { encoding: 'utf-8' });

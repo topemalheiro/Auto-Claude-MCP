@@ -85,7 +85,7 @@ class TestAtomicWrite:
                 f.write("Partial")
                 raise ValueError("Test error")
         except ValueError:
-            pass
+            pass  # Expected test error (no-op)
 
         # File should not exist because write failed before completion
         assert not filepath.exists()

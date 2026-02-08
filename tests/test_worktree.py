@@ -17,7 +17,6 @@ from datetime import datetime
 from pathlib import Path
 
 import pytest
-from worktree import WorktreeManager
 
 # Mark all tests in this file as slow (heavy git worktree operations)
 pytestmark = pytest.mark.slow

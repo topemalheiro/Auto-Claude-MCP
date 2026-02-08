@@ -28,19 +28,19 @@ from .utils import sync_spec_to_source
 # Module-level placeholders for CodeQL static analysis.
 # These define the symbols as existing at module level (satisfying CodeQL),
 # but __getattr__ is called to provide the actual values (Python 3.7+).
-_debug_memory_system_status: Any | None = None
-_get_graphiti_context: Any | None = None
-_save_session_memory: Any | None = None
-_save_session_to_graphiti: Any | None = None
-_run_autonomous_agent: Any | None = None
-_run_followup_planner: Any | None = None
-_post_session_processing: Any | None = None
-_run_agent_session: Any | None = None
-_get_latest_commit: Any | None = None
-_get_commit_count: Any | None = None
-_load_implementation_plan: Any | None = None
-_find_subtask_in_plan: Any | None = None
-_find_phase_for_subtask: Any | None = None
+_debug_memory_system_status = None  # type: Any
+_get_graphiti_context = None  # type: Any
+_save_session_memory = None  # type: Any
+_save_session_to_graphiti = None  # type: Any
+_run_autonomous_agent = None  # type: Any
+_run_followup_planner = None  # type: Any
+_post_session_processing = None  # type: Any
+_run_agent_session = None  # type: Any
+_get_latest_commit = None  # type: Any
+_get_commit_count = None  # type: Any
+_load_implementation_plan = None  # type: Any
+_find_subtask_in_plan = None  # type: Any
+_find_phase_for_subtask = None  # type: Any
 
 # Public names that reference the placeholders above
 debug_memory_system_status = _debug_memory_system_status

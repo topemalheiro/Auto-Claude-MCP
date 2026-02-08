@@ -1609,8 +1609,7 @@ class TestDiscoverServicesEdgeCases:
             try:
                 orchestrator._discover_monorepo_services()
             except PermissionError:
-                # The code may not handle this case gracefully
-                pass
+                pass  # The code may not handle this case gracefully (no-op)
 
         # Services list should be unchanged (empty in this case)
         assert len(orchestrator._services) == 0

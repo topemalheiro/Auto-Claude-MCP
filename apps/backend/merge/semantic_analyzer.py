@@ -29,10 +29,13 @@ except ImportError:
     def debug(*args, **kwargs):
         pass
 
+    def debug_success(*args, **kwargs):
+        pass
+
     def debug_verbose(*args, **kwargs):
         pass
 
-    def debug_success(*args, **kwargs):
+    def debug_error(*args, **kwargs):
         pass
 
 

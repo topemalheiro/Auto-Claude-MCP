@@ -45,8 +45,8 @@ from .complexity import (
 from .phases import PhaseExecutor, PhaseResult
 
 # Module-level placeholders for CodeQL static analysis.
-_SpecOrchestrator: Any | None = None
-_get_specs_dir: Any | None = None
+_SpecOrchestrator = None  # type: Any
+_get_specs_dir = None  # type: Any
 
 # Public names that reference the placeholders above
 SpecOrchestrator = _SpecOrchestrator

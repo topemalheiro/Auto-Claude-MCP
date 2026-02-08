@@ -41,6 +41,23 @@ function isValidSpecId(specId: string): boolean {
 }
 
 /**
+ * Validate that a spec directory path is safe and doesn't escape the specs directory.
+ * This prevents path traversal attacks by ensuring the resolved path is within the base specs directory.
+ */
+function validateSpecPath(baseDir: string, targetPath: string): boolean {
+  try {
+    // Resolve both paths to absolute paths to detect traversal
+    const resolvedBase = path.resolve(baseDir);
+    const resolvedTarget = path.resolve(targetPath);
+
+    // Ensure target path is within base directory
+    return resolvedTarget.startsWith(resolvedBase + path.sep) || resolvedTarget === resolvedBase;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Create a slug from a title
  */
 function slugifyTitle(title: string): string {
@@ -149,6 +166,12 @@ export async function createSpecForIssue(
 
     // Create spec directory (inside lock to ensure atomicity)
     const specDir = path.join(specsDir, specId);
+
+    // Validate that specDir is within specsDir (prevents path traversal)
+    if (!validateSpecPath(specsDir, specDir)) {
+      throw new Error(`Invalid spec directory path detected (potential path traversal): ${specDir}`);
+    }
+
     mkdirSync(specDir, { recursive: true });
 
     // Create initial files

@@ -33,7 +33,7 @@ def ensure_real_ui_modules():
     try:
         pass
     except ImportError:
-        pass
+        pass  # no-op  # no-op
 
     yield
 
@@ -70,7 +70,7 @@ def ensure_real_ui_modules_per_test(request):
         import ui.menu
         real_modules['ui.menu'] = ui.menu
     except ImportError:
-        pass
+        pass  # no-op
 
     # Update the test module's namespace to point to the real modules
     if request.module is not None and real_modules:

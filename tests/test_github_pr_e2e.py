@@ -439,14 +439,7 @@ class TestReviewLifecycleE2E:
         assert loaded.has_posted_findings is True
 
         # Step 3: Contributor fixes the issue, new commit
-        _followup_context = FollowupReviewContext(
-            pr_number=42,
-            previous_review=loaded,
-            previous_commit_sha="commit_1",
-            current_commit_sha="commit_2",
-            files_changed_since_review=["src/auth.py"],
-            diff_since_review="- vulnerable_code()\n+ secure_code()",
-        )
+        # (FollowupContext would be created here for a real follow-up review)
 
         # Step 4: Follow-up review finds issue resolved
         followup_result = PRReviewResult(

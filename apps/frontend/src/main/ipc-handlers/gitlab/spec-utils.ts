@@ -190,6 +190,24 @@ function sanitizeIssueForSpec(issue: IssueLike, instanceUrl: string): SanitizedG
 }
 
 /**
+ * Validate that a generated spec directory name is safe for filesystem operations.
+ * Prevents path traversal attacks by ensuring the name:
+ * - Does not contain path separators (/, \)
+ * - Does not contain parent directory references (..)
+ * - Contains only safe characters (alphanumeric, dash, underscore, dot)
+ */
+function isValidSpecDirName(specDirName: string): boolean {
+  if (!specDirName || specDirName.length === 0) return false;
+  // Reject path traversal patterns
+  if (specDirName.includes('..') || specDirName.includes('/') || specDirName.includes('\\')) {
+    return false;
+  }
+  // Allow only alphanumeric, dash, underscore, and dot
+  const validPattern = /^[a-zA-Z0-9._-]+$/;
+  return validPattern.test(specDirName);
+}
+
+/**
  * Generate a spec directory name from issue title
  */
 function generateSpecDirName(issueIid: number, title: string): string {
@@ -202,7 +220,15 @@ function generateSpecDirName(issueIid: number, title: string): string {
 
   // Format: 001-issue-title (padded issue IID)
   const paddedIid = String(issueIid).padStart(3, '0');
-  return `${paddedIid}-${cleanTitle}`;
+  const specDirName = `${paddedIid}-${cleanTitle}`;
+
+  // Validate the generated spec directory name for filesystem safety
+  if (!isValidSpecDirName(specDirName)) {
+    // Fallback to just the number if title sanitization failed
+    return `${paddedIid}-issue`;
+  }
+
+  return specDirName;
 }
 
 /**
@@ -254,6 +280,23 @@ async function pathExists(filePath: string): Promise<boolean> {
 }
 
 /**
+ * Validate that a spec directory path is safe and doesn't escape the specs directory.
+ * This prevents path traversal attacks by ensuring the resolved path is within the base specs directory.
+ */
+function validateSpecPath(baseDir: string, targetPath: string): boolean {
+  try {
+    // Resolve both paths to absolute paths to detect traversal
+    const resolvedBase = path.resolve(baseDir);
+    const resolvedTarget = path.resolve(targetPath);
+
+    // Ensure target path is within base directory
+    return resolvedTarget.startsWith(resolvedBase + path.sep) || resolvedTarget === resolvedBase;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Create a task spec from a GitLab issue
  */
 export async function createSpecForIssue(
@@ -280,6 +323,13 @@ export async function createSpecForIssue(
     // Generate spec directory name
     const specDirName = generateSpecDirName(safeIssue.iid, safeIssue.title);
     const specDir = path.join(specsDir, specDirName);
+
+    // Validate that specDir is within specsDir (prevents path traversal)
+    if (!validateSpecPath(specsDir, specDir)) {
+      debugLog('Invalid spec directory path detected (potential path traversal)', { specDir });
+      return null;
+    }
+
     const metadataPath = path.join(specDir, 'metadata.json');
 
     // Check if spec already exists

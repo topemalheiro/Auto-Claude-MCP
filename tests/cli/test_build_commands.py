@@ -387,7 +387,7 @@ class TestHandleBuildCommand:
                     base_branch=None,
                 )
             except Exception:
-                pass  # Some imports may fail
+                pass  # Some imports may fail (no-op)
 
     def test_keyboard_interrupt(self, temp_project_dir, temp_spec_dir):
         """Test handle_build_command handles KeyboardInterrupt."""

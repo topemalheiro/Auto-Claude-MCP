@@ -110,14 +110,68 @@ async function githubGraphQL<T>(
   query: string,
   variables: Record<string, unknown> = {}
 ): Promise<T> {
+  // Validate token format to prevent injection
+  // GitHub tokens should be alphanumeric with specific prefixes
+  const safeToken = token.trim();
+  if (!/^[a-zA-Z0-9_\-\.]+$/.test(safeToken)) {
+    throw new Error("Invalid GitHub token format");
+  }
+
+  // Validate query is a string (GraphQL queries should be pre-defined constant strings)
+  if (typeof query !== 'string' || query.length === 0 || query.length > 100000) {
+    throw new Error("Invalid GraphQL query");
+  }
+
+  // Sanitize variables to prevent injection
+  const sanitizedVariables: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(variables)) {
+    // Only allow alphanumeric keys
+    if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(key)) {
+      throw new Error(`Invalid GraphQL variable key: ${key}`);
+    }
+    // String values: sanitize and limit length
+    if (typeof value === 'string') {
+      if (value.length > 10000) {
+        throw new Error(`GraphQL variable value too long: ${key}`);
+      }
+      sanitizedVariables[key] = value;
+    }
+    // Number values: validate finite
+    else if (typeof value === 'number') {
+      if (!Number.isFinite(value)) {
+        throw new Error(`Invalid GraphQL variable number: ${key}`);
+      }
+      sanitizedVariables[key] = value;
+    }
+    // Boolean values: pass through
+    else if (typeof value === 'boolean') {
+      sanitizedVariables[key] = value;
+    }
+    // Arrays: recursively validate (limit to 100 items)
+    else if (Array.isArray(value)) {
+      if (value.length > 100) {
+        throw new Error(`GraphQL variable array too large: ${key}`);
+      }
+      sanitizedVariables[key] = value;
+    }
+    // Null/undefined: pass through
+    else if (value === null || value === undefined) {
+      sanitizedVariables[key] = value;
+    }
+    // Reject other types (objects, functions, etc.)
+    else {
+      throw new Error(`Unsupported GraphQL variable type: ${key}`);
+    }
+  }
+
   const response = await fetch("https://api.github.com/graphql", {
     method: "POST",
     headers: {
-      "Authorization": `Bearer ${token}`,
+      "Authorization": `Bearer ${safeToken}`,
       "Content-Type": "application/json",
       "User-Agent": "Auto-Claude-UI",
     },
-    body: JSON.stringify({ query, variables }),
+    body: JSON.stringify({ query, variables: sanitizedVariables }),
   });
 
   if (!response.ok) {
@@ -1866,6 +1920,17 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
   // Run AI review
   ipcMain.on(IPC_CHANNELS.GITHUB_PR_REVIEW, async (_, projectId: string, prNumber: number) => {
     debugLog("runPRReview handler called", { projectId, prNumber });
+
+    // Validate prNumber is a positive integer (defense against invalid input)
+    if (!Number.isInteger(prNumber) || prNumber <= 0 || prNumber > 100000000) {
+      debugLog("Invalid PR number", { prNumber });
+      const mainWindow = getMainWindow();
+      if (mainWindow) {
+        mainWindow.webContents.send(IPC_CHANNELS.GITHUB_PR_REVIEW_ERROR, projectId, "Invalid PR number");
+      }
+      return;
+    }
+
     const mainWindow = getMainWindow();
     if (!mainWindow) {
       debugLog("No main window available");

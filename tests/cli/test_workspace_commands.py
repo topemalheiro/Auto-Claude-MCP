@@ -1522,7 +1522,7 @@ def test_handle_list_worktrees_command_non_git_dir(capsys):
         try:
             handle_list_worktrees_command(project_dir)
         except Exception:
-            pass  # Expected to raise for non-git directories
+            pass  # Expected to raise for non-git directories (no-op)
 
     # Assert - exception is expected for non-git directories
 
@@ -1648,8 +1648,7 @@ def test_cleanup_old_worktrees_command_with_empty_inputs():
         # If it doesn't raise, should still return something
         assert result is not None
     except Exception:
-        # Exception is also acceptable for non-existent directories
-        pass
+        pass  # Exception is also acceptable for non-existent directories (no-op)
 
 
 def test_worktree_summary_command(tmp_path):
@@ -1676,8 +1675,7 @@ def test_worktree_summary_command_with_empty_inputs():
         # If it doesn't raise, should still return something
         assert result is not None
     except Exception:
-        # Exception is also acceptable for non-existent directories
-        pass
+        pass  # Exception is also acceptable for non-existent directories (no-op)
 
 
 def test_handle_merge_command_valid_worktree(tmp_path, capsys):

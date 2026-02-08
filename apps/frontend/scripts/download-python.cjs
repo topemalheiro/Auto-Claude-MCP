@@ -1098,7 +1098,7 @@ async function downloadPython(targetPlatform, targetArch, options = {}) {
         arch: arch,
       }, null, 2));
 
-      console.log(`[download-python] Created bundle marker: ${sanitizeForLog(packagesMarker)}`);
+      console.log(`[download-python] Created bundle marker: ${JSON.stringify(packagesMarker)}`);
     }
   }
 
@@ -1128,7 +1128,9 @@ async function downloadAllPlatforms() {
         // biome-ignore lint/suspicious/noControlCharactersInRegex: Intentionally matching control chars for sanitization
         .replace(/[\x00-\x1F\x7F]/g, ' ')
         .slice(0, 200);
-      console.error(`[download-python] Failed for ${platform}-${arch}: ${safeMessage}`);
+      const safePlatform = JSON.stringify(String(platform));
+      const safeArch = JSON.stringify(String(arch));
+      console.error(`[download-python] Failed for ${safePlatform}-${safeArch}: ${safeMessage}`);
       throw error;
     }
   }

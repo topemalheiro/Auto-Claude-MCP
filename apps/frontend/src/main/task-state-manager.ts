@@ -378,10 +378,11 @@ export class TaskStateManager {
     const status = task.status;
     const reviewReason = task.reviewReason;
     const executionPhase = task.executionProgress?.phase;
-    // CodeQL note: stateValue is assigned in all switch branches (cases + default)
-    let stateValue!: string;
     let contextReviewReason: ReviewReason | undefined;
 
+    // Determine state value based on task status and execution phase
+    // Default to 'backlog', will be overridden in switch cases
+    let stateValue = 'backlog';
     switch (status) {
       case 'in_progress':
         // Use executionProgress.phase to determine if we're in planning or coding

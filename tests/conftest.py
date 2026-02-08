@@ -137,7 +137,7 @@ def pytest_collection_modifyitems(session, config, items):
             try:
                 importlib.import_module(module_name)
             except ImportError:
-                pass
+                pass  # no-op
 
     # Also fix ui submodules
     ui_modules = ['ui', 'ui.icons', 'ui.progress', 'ui.capabilities', 'ui.menu']
@@ -147,7 +147,7 @@ def pytest_collection_modifyitems(session, config, items):
             try:
                 importlib.import_module(module_name)
             except ImportError:
-                pass
+                pass  # no-op
 
     # Now, selectively reload ONLY test_init_root because it's the only test
     # module that imports from 'init' at module level and gets polluted by the mock
@@ -160,7 +160,7 @@ def pytest_collection_modifyitems(session, config, items):
                 try:
                     importlib.reload(sys.modules[test_module_name])
                 except Exception:
-                    pass  # Reload might fail if module has issues
+                    pass  # Reload might fail if module has issues (no-op)
             break  # Only need to reload once
 
     importlib.invalidate_caches()
@@ -926,7 +926,7 @@ def ensure_modules_not_mocked(request):
         try:
             importlib.import_module(module_name)
         except ImportError:
-            pass  # Module may not exist on all platforms
+            pass  # Module may not exist on all platforms (no-op)
 
     # Special handling for 'init' module
     # test_init_root.py imports functions from init at module level, so we need
@@ -950,7 +950,7 @@ def ensure_modules_not_mocked(request):
             test_init_root_module.get_auto_claude_dir = init_module.get_auto_claude_dir
             test_init_root_module.repair_gitignore = init_module.repair_gitignore
     except ImportError:
-        pass  # init module may not exist
+        pass  # init module may not exist (no-op)
 
     yield
 

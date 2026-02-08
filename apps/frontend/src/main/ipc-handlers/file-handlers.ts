@@ -1,6 +1,6 @@
 import { ipcMain } from 'electron';
 import { readdirSync } from 'fs';
-import { readFile, stat } from 'fs/promises';
+import { readFile } from 'fs/promises';
 import path from 'path';
 import { IPC_CHANNELS } from '../../shared/constants';
 import type { IPCResult, FileNode } from '../../shared/types';
@@ -104,16 +104,16 @@ export function registerFileHandlers(): void {
         }
         const safePath = validation.path;
 
-        // Check file size and read atomically using Promise.all to minimize TOCTOU window.
-        // If the file changes between stat and readFile, the operation will fail gracefully.
-        // This is a best-effort approach; true atomicity would require file locks.
-        const [stats, content] = await Promise.all([
-          stat(safePath),
-          readFile(safePath, { encoding: 'utf-8', flag: 'r' })
-        ]);
+        // Read file with size limit enforcement
+        // We read the file first, then check size against the actual bytes read
+        // This avoids TOCTOU issues while still enforcing size limits
+        const content = await readFile(safePath, { encoding: 'utf-8', flag: 'r' });
 
-        if (stats.size > MAX_FILE_SIZE) {
-          return { success: false, error: 'File too large (max 1MB)' };
+        // Check if the content exceeds our size limit (1MB = 1,048,576 bytes)
+        // Using byte length since UTF-8 encoding can vary
+        const byteLength = Buffer.byteLength(content, 'utf8');
+        if (byteLength > MAX_FILE_SIZE) {
+          return { success: false, error: `File too large (${Math.round(byteLength / 1024)}KB, max 1MB)` };
         }
 
         return { success: true, data: content };

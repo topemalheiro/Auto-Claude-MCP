@@ -18,12 +18,12 @@ from __future__ import annotations
 from typing import Any
 
 # Module-level placeholders for CodeQL static analysis.
-_AutoFixProcessor: Any | None = None
-_BatchProcessor: Any | None = None
-_PRReviewEngine: Any | None = None
-_PromptManager: Any | None = None
-_ResponseParser: Any | None = None
-_TriageEngine: Any | None = None
+_AutoFixProcessor = None  # type: Any
+_BatchProcessor = None  # type: Any
+_PRReviewEngine = None  # type: Any
+_PromptManager = None  # type: Any
+_ResponseParser = None  # type: Any
+_TriageEngine = None  # type: Any
 
 # Public names that reference the placeholders above
 AutoFixProcessor = _AutoFixProcessor

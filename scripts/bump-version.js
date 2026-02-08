@@ -149,6 +149,7 @@ function updatePackageJson(newVersion) {
       ? `package.json not found at ${frontendPath}`
       : `Failed to read ${frontendPath}: ${err.message}`;
     error(message);
+    throw new Error(message); // Exit early - cannot proceed without frontendJson
   }
 
   const oldVersion = frontendJson.version;
