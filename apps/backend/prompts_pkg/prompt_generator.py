@@ -126,7 +126,8 @@ def get_relative_spec_path(spec_dir: Path, project_dir: Path) -> str:
     try:
         # Try to make path relative to project_dir
         relative = spec_dir.relative_to(project_dir)
-        return f"./{relative}"
+        # Use forward slashes for cross-platform consistency
+        return f"./{relative.as_posix()}"
     except ValueError:
         # If spec_dir is not under project_dir, return the name only
         # This shouldn't happen if workspace.py correctly copies spec files
