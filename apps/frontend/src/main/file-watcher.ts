@@ -260,9 +260,9 @@ export class FileWatcher extends EventEmitter {
               return;
             }
 
-            // NEW: Move task back to correct board based on progress BEFORE auto-starting
+            // Recovery: Move task to correct board based on progress BEFORE auto-starting
             const task = taskForArchiveCheck;
-            if (task && task.status === 'human_review') {
+            if (task && task.status !== 'done' && task.status !== 'pr_created') {
               // Prefer worktree plan for accurate progress (main plan may be stale)
               const worktreePlanPath = path.join(
                 projectPath, '.auto-claude', 'worktrees', 'tasks', specId,
@@ -282,20 +282,20 @@ export class FileWatcher extends EventEmitter {
               // Determine where to send task based on subtask progress
               const targetStatus = determineResumeStatus(task, planForRouting);
 
-              console.log(`[FileWatcher] Moving task ${specId} from human_review → ${targetStatus}`);
-
-              // Update task status in project store
-              const success = projectStore.updateTaskStatus(projectId, task.id, targetStatus);
-
-              if (success) {
-                // Emit event for UI refresh
-                this.emit('task-status-changed', {
-                  projectId,
-                  taskId: task.id,
-                  specId,
-                  oldStatus: 'human_review',
-                  newStatus: targetStatus
-                });
+              if (targetStatus !== task.status) {
+                console.log(`[FileWatcher] Moving task ${specId} from ${task.status} → ${targetStatus}`);
+                const success = projectStore.updateTaskStatus(projectId, task.id, targetStatus);
+                if (success) {
+                  this.emit('task-status-changed', {
+                    projectId,
+                    taskId: task.id,
+                    specId,
+                    oldStatus: task.status,
+                    newStatus: targetStatus
+                  });
+                }
+              } else {
+                console.log(`[FileWatcher] Task ${specId} already on correct board (${targetStatus})`);
               }
             }
 
@@ -332,9 +332,9 @@ export class FileWatcher extends EventEmitter {
               return;
             }
 
-            // NEW: Move task back to correct board based on progress BEFORE auto-starting
+            // Recovery: Move task to correct board based on progress BEFORE auto-starting
             const task = taskForArchiveCheck;
-            if (task && task.status === 'human_review') {
+            if (task && task.status !== 'done' && task.status !== 'pr_created') {
               // Prefer worktree plan for accurate progress (main plan may be stale)
               const worktreePlanPath = path.join(
                 projectPath, '.auto-claude', 'worktrees', 'tasks', specId,
@@ -354,20 +354,20 @@ export class FileWatcher extends EventEmitter {
               // Determine where to send task based on subtask progress
               const targetStatus = determineResumeStatus(task, planForRouting);
 
-              console.log(`[FileWatcher] Moving task ${specId} from human_review → ${targetStatus}`);
-
-              // Update task status in project store
-              const success = projectStore.updateTaskStatus(projectId, task.id, targetStatus);
-
-              if (success) {
-                // Emit event for UI refresh
-                this.emit('task-status-changed', {
-                  projectId,
-                  taskId: task.id,
-                  specId,
-                  oldStatus: 'human_review',
-                  newStatus: targetStatus
-                });
+              if (targetStatus !== task.status) {
+                console.log(`[FileWatcher] Moving task ${specId} from ${task.status} → ${targetStatus}`);
+                const success = projectStore.updateTaskStatus(projectId, task.id, targetStatus);
+                if (success) {
+                  this.emit('task-status-changed', {
+                    projectId,
+                    taskId: task.id,
+                    specId,
+                    oldStatus: task.status,
+                    newStatus: targetStatus
+                  });
+                }
+              } else {
+                console.log(`[FileWatcher] Task ${specId} already on correct board (${targetStatus})`);
               }
             }
 
