@@ -358,13 +358,12 @@ class TestGetchWindows:
 # ============================================================================
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="Class contains Unix-specific tests using termios/tty mocking")
 class TestGetchUnix:
     """Tests for _getch() on Unix (termios/tty)"""
 
     # These tests mock termios/tty to work on all platforms
 
-    @pytest.mark.skipif(sys.platform == "win32", reason="Unix-specific test using termios")
-    @pytest.mark.skipif(sys.platform == "win32", reason="Test uses Unix-specific termios/tty mocking")
     @patch("ui.menu._HAS_MSVCRT", False)
     @patch("ui.menu._HAS_TERMIOS", True)
     def test_getch_unix_regular_character(self):
@@ -400,6 +399,7 @@ class TestGetchUnix:
         assert result == "a"
 
     @patch("ui.menu._HAS_MSVCRT", False)
+    @pytest.mark.skipif(sys.platform == "win32", reason="Unix-specific test using termios")
     @patch("ui.menu._HAS_TERMIOS", True)
     def test_getch_unix_escape_sequence_up_arrow(self):
         """Test _getch handles UP arrow key on Unix"""
@@ -434,6 +434,7 @@ class TestGetchUnix:
         assert result == "UP"
 
     @patch("ui.menu._HAS_MSVCRT", False)
+    @pytest.mark.skipif(sys.platform == "win32", reason="Unix-specific test using termios")
     @patch("ui.menu._HAS_TERMIOS", True)
     def test_getch_unix_escape_sequence_down_arrow(self):
         """Test _getch handles DOWN arrow key on Unix"""
@@ -468,6 +469,7 @@ class TestGetchUnix:
         assert result == "DOWN"
 
     @patch("ui.menu._HAS_MSVCRT", False)
+    @pytest.mark.skipif(sys.platform == "win32", reason="Unix-specific test using termios")
     @patch("ui.menu._HAS_TERMIOS", True)
     def test_getch_unix_escape_sequence_right_arrow(self):
         """Test _getch handles RIGHT arrow key on Unix"""
@@ -502,6 +504,7 @@ class TestGetchUnix:
         assert result == "RIGHT"
 
     @patch("ui.menu._HAS_MSVCRT", False)
+    @pytest.mark.skipif(sys.platform == "win32", reason="Unix-specific test using termios")
     @patch("ui.menu._HAS_TERMIOS", True)
     def test_getch_unix_escape_sequence_left_arrow(self):
         """Test _getch handles LEFT arrow key on Unix"""
@@ -536,6 +539,7 @@ class TestGetchUnix:
         assert result == "LEFT"
 
     @patch("ui.menu._HAS_MSVCRT", False)
+    @pytest.mark.skipif(sys.platform == "win32", reason="Unix-specific test using termios")
     @patch("ui.menu._HAS_TERMIOS", True)
     def test_getch_unix_partial_escape_sequence(self):
         """Test _getch handles partial escape sequence on Unix"""
@@ -570,6 +574,7 @@ class TestGetchUnix:
         assert result == "\x1b"
 
     @patch("ui.menu._HAS_MSVCRT", False)
+    @pytest.mark.skipif(sys.platform == "win32", reason="Unix-specific test using termios")
     @patch("ui.menu._HAS_TERMIOS", True)
     def test_getch_unix_unknown_escape_command(self):
         """Test _getch handles unknown escape command on Unix"""
@@ -604,6 +609,7 @@ class TestGetchUnix:
         assert result == "\x1b"
 
     @patch("ui.menu._HAS_MSVCRT", False)
+    @pytest.mark.skipif(sys.platform == "win32", reason="Unix-specific test using termios")
     @patch("ui.menu._HAS_TERMIOS", True)
     def test_getch_unix_newline(self):
         """Test _getch handles newline on Unix"""
@@ -638,6 +644,7 @@ class TestGetchUnix:
         assert result == "\n"
 
     @patch("ui.menu._HAS_MSVCRT", False)
+    @pytest.mark.skipif(sys.platform == "win32", reason="Unix-specific test using termios")
     @patch("ui.menu._HAS_TERMIOS", True)
     def test_getch_unix_carriage_return(self):
         """Test _getch handles carriage return on Unix"""
@@ -672,6 +679,7 @@ class TestGetchUnix:
         assert result == "\r"
 
     @patch("ui.menu._HAS_MSVCRT", False)
+    @pytest.mark.skipif(sys.platform == "win32", reason="Unix-specific test using termios")
     @patch("ui.menu._HAS_TERMIOS", True)
     def test_getch_unix_j_key(self):
         """Test _getch handles 'j' key on Unix"""
@@ -706,6 +714,7 @@ class TestGetchUnix:
         assert result == "j"
 
     @patch("ui.menu._HAS_MSVCRT", False)
+    @pytest.mark.skipif(sys.platform == "win32", reason="Unix-specific test using termios")
     @patch("ui.menu._HAS_TERMIOS", True)
     def test_getch_unix_k_key(self):
         """Test _getch handles 'k' key on Unix"""
@@ -1517,6 +1526,7 @@ class TestGetchActualExecution:
         assert mock_msvcrt.getch.called
 
     @patch("ui.menu._HAS_MSVCRT", False)
+    @pytest.mark.skipif(sys.platform == "win32", reason="Unix-specific test using termios")
     @patch("ui.menu._HAS_TERMIOS", True)
     def test_getch_unix_path_executed(self, monkeypatch):
         """Test that Unix _getch path is actually executed"""
