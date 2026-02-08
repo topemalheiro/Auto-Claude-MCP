@@ -76,9 +76,6 @@ async def run_qa_validation_loop(
     Returns:
         True if QA approved, False otherwise
     """
-    # Local import for functions that aren't needed at module level
-    from .reviewer import run_qa_agent_session
-
     # Set environment variable for security hooks to find the correct project directory
     # This is needed because os.getcwd() may return the wrong directory in worktree mode
     os.environ[PROJECT_DIR_ENV_VAR] = str(project_dir.resolve())
@@ -617,3 +614,4 @@ from .report import (
     is_no_test_project,
     record_iteration,
 )
+from .reviewer import run_qa_agent_session
