@@ -319,6 +319,7 @@ class TestMainCli:
         assert result.returncode == 1
         assert "invalid JSON" in result.stdout
 
+    @pytest.mark.skipif(sys.platform == "win32", reason="Windows console cannot encode certain Unicode characters (charmap codec limitation)")
     def test_main_json_output_with_unicode(self, tmp_path):
         """Test main() --json with unicode content"""
         spec_dir = tmp_path / "spec"
