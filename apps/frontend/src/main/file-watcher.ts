@@ -260,27 +260,25 @@ export class FileWatcher extends EventEmitter {
               return;
             }
 
-            // Recovery: Move task to correct board based on progress BEFORE auto-starting
+            // Read worktree plan (preferred) for accurate progress data
+            const worktreePlanPath = path.join(
+              projectPath, '.auto-claude', 'worktrees', 'tasks', specId,
+              '.auto-claude', 'specs', specId, 'implementation_plan.json'
+            );
+            let bestPlan = plan;
+            if (existsSync(worktreePlanPath)) {
+              try {
+                bestPlan = JSON.parse(readFileSync(worktreePlanPath, 'utf-8'));
+                console.log(`[FileWatcher] Using worktree plan for ${specId} (has real progress)`);
+              } catch {
+                console.warn(`[FileWatcher] Failed to read worktree plan for ${specId}, using main`);
+              }
+            }
+
+            // Recovery: Move task to correct board based on subtask progress
             const task = taskForArchiveCheck;
             if (task && task.status !== 'done' && task.status !== 'pr_created') {
-              // Prefer worktree plan for accurate progress (main plan may be stale)
-              const worktreePlanPath = path.join(
-                projectPath, '.auto-claude', 'worktrees', 'tasks', specId,
-                '.auto-claude', 'specs', specId, 'implementation_plan.json'
-              );
-              let planForRouting = plan;
-              if (existsSync(worktreePlanPath)) {
-                try {
-                  const worktreePlan = JSON.parse(readFileSync(worktreePlanPath, 'utf-8'));
-                  planForRouting = worktreePlan;
-                  console.log(`[FileWatcher] Using worktree plan for ${specId} routing (has real progress)`);
-                } catch {
-                  console.warn(`[FileWatcher] Failed to read worktree plan for ${specId}, using main`);
-                }
-              }
-
-              // Determine where to send task based on subtask progress
-              const targetStatus = determineResumeStatus(task, planForRouting);
+              const targetStatus = determineResumeStatus(task, bestPlan);
 
               if (targetStatus !== task.status) {
                 console.log(`[FileWatcher] Moving task ${specId} from ${task.status} → ${targetStatus}`);
@@ -299,13 +297,21 @@ export class FileWatcher extends EventEmitter {
               }
             }
 
-            console.log(`[FileWatcher] start_requested status detected in NEW file for ${specId} - emitting task-start-requested`);
-            this.emit('task-start-requested', {
-              projectId,
-              projectPath,
-              specDir,
-              specId
-            });
+            // Only emit task-start-requested for tasks with NO subtasks (genuine first start).
+            // Tasks WITH subtasks are RECOVERY — board routing only, no agent restart.
+            // Agent start always writes 'in_progress' which overwrites the routing.
+            const allSubtasks = (bestPlan.phases || []).flatMap((p: any) => p.subtasks || []);
+            if (allSubtasks.length === 0) {
+              console.log(`[FileWatcher] start_requested for ${specId} (no subtasks) - emitting task-start-requested`);
+              this.emit('task-start-requested', {
+                projectId,
+                projectPath,
+                specDir,
+                specId
+              });
+            } else {
+              console.log(`[FileWatcher] start_requested for ${specId} (${allSubtasks.length} subtasks) - RECOVERY ONLY, skipping agent start`);
+            }
           }
         } catch (err) {
           // Ignore parse errors - file might not be fully written yet
@@ -332,27 +338,25 @@ export class FileWatcher extends EventEmitter {
               return;
             }
 
-            // Recovery: Move task to correct board based on progress BEFORE auto-starting
+            // Read worktree plan (preferred) for accurate progress data
+            const worktreePlanPath = path.join(
+              projectPath, '.auto-claude', 'worktrees', 'tasks', specId,
+              '.auto-claude', 'specs', specId, 'implementation_plan.json'
+            );
+            let bestPlan = plan;
+            if (existsSync(worktreePlanPath)) {
+              try {
+                bestPlan = JSON.parse(readFileSync(worktreePlanPath, 'utf-8'));
+                console.log(`[FileWatcher] Using worktree plan for ${specId} (has real progress)`);
+              } catch {
+                console.warn(`[FileWatcher] Failed to read worktree plan for ${specId}, using main`);
+              }
+            }
+
+            // Recovery: Move task to correct board based on subtask progress
             const task = taskForArchiveCheck;
             if (task && task.status !== 'done' && task.status !== 'pr_created') {
-              // Prefer worktree plan for accurate progress (main plan may be stale)
-              const worktreePlanPath = path.join(
-                projectPath, '.auto-claude', 'worktrees', 'tasks', specId,
-                '.auto-claude', 'specs', specId, 'implementation_plan.json'
-              );
-              let planForRouting = plan;
-              if (existsSync(worktreePlanPath)) {
-                try {
-                  const worktreePlan = JSON.parse(readFileSync(worktreePlanPath, 'utf-8'));
-                  planForRouting = worktreePlan;
-                  console.log(`[FileWatcher] Using worktree plan for ${specId} routing (has real progress)`);
-                } catch {
-                  console.warn(`[FileWatcher] Failed to read worktree plan for ${specId}, using main`);
-                }
-              }
-
-              // Determine where to send task based on subtask progress
-              const targetStatus = determineResumeStatus(task, planForRouting);
+              const targetStatus = determineResumeStatus(task, bestPlan);
 
               if (targetStatus !== task.status) {
                 console.log(`[FileWatcher] Moving task ${specId} from ${task.status} → ${targetStatus}`);
@@ -371,14 +375,21 @@ export class FileWatcher extends EventEmitter {
               }
             }
 
-            // THEN emit task-start-requested (existing code)
-            console.log(`[FileWatcher] start_requested status detected for ${specId} - emitting task-start-requested`);
-            this.emit('task-start-requested', {
-              projectId,
-              projectPath,
-              specDir,
-              specId
-            });
+            // Only emit task-start-requested for tasks with NO subtasks (genuine first start).
+            // Tasks WITH subtasks are RECOVERY — board routing only, no agent restart.
+            // Agent start always writes 'in_progress' which overwrites the routing.
+            const allSubtasks = (bestPlan.phases || []).flatMap((p: any) => p.subtasks || []);
+            if (allSubtasks.length === 0) {
+              console.log(`[FileWatcher] start_requested for ${specId} (no subtasks) - emitting task-start-requested`);
+              this.emit('task-start-requested', {
+                projectId,
+                projectPath,
+                specDir,
+                specId
+              });
+            } else {
+              console.log(`[FileWatcher] start_requested for ${specId} (${allSubtasks.length} subtasks) - RECOVERY ONLY, skipping agent start`);
+            }
           }
         } catch (err) {
           // Ignore parse errors - file might be mid-write
