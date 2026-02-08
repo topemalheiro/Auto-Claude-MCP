@@ -254,7 +254,13 @@ function isLegitimateHumanReview(task: TaskInfo): boolean {
     return false;  // Flag for intervention - needs to transition to coding
   }
 
-  // Match auto-shutdown logic: ANY human_review at 100% = legitimate
+  // Tasks at 100% with NO reviewReason are NOT legitimate (QA validation crashed or still running)
+  // A legitimate human_review task should have a reviewReason set
+  if (progress === 100 && !task.reviewReason) {
+    return false;  // Flag for intervention - validation didn't complete properly
+  }
+
+  // Match auto-shutdown logic: ANY human_review at 100% with valid reviewReason = legitimate
   // Auto-shutdown skips ALL human_review tasks at 100%, not just reviewReason='completed'.
   // This prevents false positives like 085-templating-backend being flagged.
   if (progress === 100) {
@@ -331,6 +337,7 @@ function determineInterventionType(task: TaskInfo, lastActivityMs?: number, hasW
 
   // RESUME: Rate limited or paused mid-task (any status, any progress)
   if (task.exitReason === 'rate_limit_crash' ||
+      task.exitReason === 'prompt_loop' ||
       task.reviewReason === 'incomplete_work') {
     return 'resume';
   }
