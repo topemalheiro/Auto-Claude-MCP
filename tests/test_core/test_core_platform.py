@@ -316,6 +316,7 @@ class TestToolDetection:
         result = find_executable("git")
         assert result == "C:\\Program Files\\Git\\bin\\git.exe"
 
+    @pytest.mark.skipif(sys.platform == "win32", reason="Test uses Linux-specific paths and expects is_windows=False")
     @patch("core.platform.is_windows", return_value=False)
     @patch("core.platform.is_macos", return_value=False)
     @patch("pathlib.Path.home", return_value=Path("/home/user"))
