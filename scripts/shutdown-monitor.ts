@@ -127,9 +127,16 @@ function getTaskStatuses(projectPaths: string[]): TaskStatus[] {
           const content = worktreeContent || mainContent;
           const source: 'worktree' | 'main' = worktreeContent ? 'worktree' : 'main';
 
+          // Normalize: start_requested with completed planStatus = task lifecycle done
+          let effectiveStatus = content.status || 'unknown';
+          if (effectiveStatus === 'start_requested' &&
+              (content.planStatus === 'completed' || content.planStatus === 'approved')) {
+            effectiveStatus = 'human_review'; // Treat as complete for shutdown purposes
+          }
+
           statuses.push({
             taskId: dir,
-            status: content.status || 'unknown',
+            status: effectiveStatus,
             feature: content.feature || dir,
             projectPath,
             source,

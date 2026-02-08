@@ -35,6 +35,21 @@ function getRawPlanStatus(projectPath: string, specId: string): string | undefin
   }
 }
 
+interface WorktreeInfo {
+  status?: string;
+  planStatus?: string;
+}
+
+function getWorktreeInfo(projectPath: string, specId: string): WorktreeInfo {
+  const worktreePlanPath = path.join(projectPath, '.auto-claude', 'worktrees', 'tasks', specId, '.auto-claude', 'specs', specId, 'implementation_plan.json');
+  try {
+    const plan = JSON.parse(readFileSync(worktreePlanPath, 'utf-8'));
+    return { status: plan.status, planStatus: plan.planStatus };
+  } catch {
+    return {};
+  }
+}
+
 // Conditionally import Electron-specific modules
 let ipcMain: any = null;
 let BrowserWindow: any = null;
@@ -240,29 +255,32 @@ function getTaskLastActivityTimestamp(task: TaskInfo, projectPath: string): numb
 
 /**
  * Check if task is legitimate human review (shouldn't be flagged by RDR)
- * Tasks at 100% completion + completed reviewReason = waiting for merge approval
  *
- * NOTE: plan_review tasks are NOT excluded - they need to be flagged!
- * plan_review means planning is done and coding needs to start.
+ * Logic:
+ * - Tasks at 100% WITH reviewReason = legitimate (QA complete, waiting for merge)
+ * - Tasks at 100% WITHOUT reviewReason = NOT legitimate (validation stuck/crashed)
+ * - Tasks at <100% = NOT legitimate (incomplete work)
  */
 function isLegitimateHumanReview(task: TaskInfo): boolean {
   const progress = calculateTaskProgress(task);
 
-  // plan_review tasks are NEVER legitimate - they're stuck and need to resume coding
-  // Even at 100%, plan_review means planning finished but coding never started
-  if (task.reviewReason === 'plan_review') {
-    return false;  // Flag for intervention - needs to transition to coding
-  }
-
   // Tasks at 100% with NO reviewReason are NOT legitimate (QA validation crashed or still running)
-  // A legitimate human_review task should have a reviewReason set
+  // This catches tasks like 071-marko where validation is stuck/running but hasn't finished
   if (progress === 100 && !task.reviewReason) {
     return false;  // Flag for intervention - validation didn't complete properly
   }
 
-  // Match auto-shutdown logic: ANY human_review at 100% with valid reviewReason = legitimate
-  // Auto-shutdown skips ALL human_review tasks at 100%, not just reviewReason='completed'.
-  // This prevents false positives like 085-templating-backend being flagged.
+  // Tasks with crash/error exitReason are NOT legitimate (even at 100%)
+  // This catches tasks that completed subtasks but then crashed during validation/QA
+  if (task.exitReason === 'error' ||
+      task.exitReason === 'auth_failure' ||
+      task.exitReason === 'prompt_loop' ||
+      task.exitReason === 'rate_limit_crash') {
+    return false;  // Flag for intervention - crashed/errored
+  }
+
+  // Tasks at 100% with reviewReason and no exitReason = legitimate
+  // These are QA-approved tasks waiting for user merge (even with stale planStatus='review')
   if (progress === 100) {
     return true;  // Don't flag - task completed all subtasks, waiting for user action
   }
@@ -280,7 +298,7 @@ function isLegitimateHumanReview(task: TaskInfo): boolean {
  * - 'stuck': Task bounced to human_review with incomplete subtasks (no clear exit reason)
  * - 'incomplete': Task has pending subtasks in active boards (in_progress, ai_review)
  */
-function determineInterventionType(task: TaskInfo, lastActivityMs?: number, hasWorktree?: boolean, rawPlanStatus?: string): InterventionType | null {
+function determineInterventionType(task: TaskInfo, lastActivityMs?: number, hasWorktree?: boolean, rawPlanStatus?: string, worktreeInfo?: WorktreeInfo): InterventionType | null {
   // Skip completed/archived tasks - these never need intervention
   if (task.status === 'done' || task.status === 'pr_created') {
     return null;
@@ -324,7 +342,39 @@ function determineInterventionType(task: TaskInfo, lastActivityMs?: number, hasW
 
   // Check if this is legitimate human review (any human_review at 100% = waiting for user)
   if (task.status === 'human_review' && isLegitimateHumanReview(task)) {
+    // Additional check: if worktree status is start_requested, task may be stuck/recovered
+    if (worktreeInfo?.status === 'start_requested') {
+      // If worktree planStatus shows lifecycle completed, task is done - don't flag
+      if (worktreeInfo.planStatus === 'completed' || worktreeInfo.planStatus === 'approved') {
+        console.log(`[RDR] Task ${task.specId} worktree start_requested but planStatus=${worktreeInfo.planStatus} - skipping`);
+        return null;
+      }
+      console.log(`[RDR] Task ${task.specId} at 100% but worktree start_requested + planStatus=${worktreeInfo.planStatus} - stuck`);
+      return 'incomplete';
+    }
     return null;
+  }
+
+  // If we got here with human_review status, it's NOT legitimate - flag it
+  // This catches plan_review tasks and any other invalid human_review states
+  if (task.status === 'human_review') {
+    // task has human_review status but isLegitimateHumanReview returned false
+    // This means it's a plan_review task (needs to start coding) or
+    // a task at <100% (QA crashed/incomplete)
+    if (task.reviewReason === 'plan_review') {
+      // FILTER: Only flag plan_review if there's evidence of actual problems
+      // Tasks at 100% with no exit reason are likely false positives
+      // (planStatus: 'review' is stale from spec creation and never gets cleared)
+      if (progress === 100 && !task.exitReason) {
+        console.log(`[RDR] ⏭️  Skipping ${task.specId} - plan_review but 100% complete with no errors (likely false positive)`);
+        return null;
+      }
+      console.log(`[RDR] Task ${task.specId} in plan_review - needs to start coding`);
+      return 'incomplete';
+    }
+    // Other invalid human_review cases (QA crashed, incomplete work)
+    console.log(`[RDR] Task ${task.specId} in human_review but not legitimate (progress=${progress}%)`);
+    return 'stuck';
   }
 
   // RECOVERY: Crashed with error or QA rejected (any status, any progress)
@@ -537,7 +587,8 @@ function gatherRichTaskInfo(task: TaskInfo, projectPath: string): RichTaskInfo {
   const worktreeDir = path.join(projectPath, '.auto-claude', 'worktrees', 'tasks', task.specId);
   const hasWorktree = existsSync(worktreeDir);
   const rawPlanStatus = getRawPlanStatus(projectPath, task.specId);
-  const interventionType = determineInterventionType(task, lastActivityMs, hasWorktree, rawPlanStatus);
+  const worktreeInfo = getWorktreeInfo(projectPath, task.specId);
+  const interventionType = determineInterventionType(task, lastActivityMs, hasWorktree, rawPlanStatus, worktreeInfo);
 
   // Get last logs
   const lastLogs = getLastLogEntries(projectPath, task.specId, 3);
@@ -1831,7 +1882,8 @@ export function registerRdrHandlers(): void {
           const wtDir = projectPath ? path.join(projectPath, '.auto-claude', 'worktrees', 'tasks', task.specId) : null;
           const hasWt = wtDir ? existsSync(wtDir) : undefined;
           const rawStatus = projectPath ? getRawPlanStatus(projectPath, task.specId) : undefined;
-          const interventionType = determineInterventionType(task, lastActivityMs, hasWt, rawStatus);
+          const wtInfo = projectPath ? getWorktreeInfo(projectPath, task.specId) : undefined;
+          const interventionType = determineInterventionType(task, lastActivityMs, hasWt, rawStatus, wtInfo);
 
           if (interventionType) {
             console.log(`[RDR] ✅ Task ${task.specId} needs intervention: type=${interventionType}`);
@@ -1927,7 +1979,8 @@ export function registerRdrHandlers(): void {
           const taskWtDir = projectPath ? path.join(projectPath, '.auto-claude', 'worktrees', 'tasks', task.specId) : null;
           const taskHasWt = taskWtDir ? existsSync(taskWtDir) : undefined;
           const taskRawStatus = projectPath ? getRawPlanStatus(projectPath, task.specId) : undefined;
-          const interventionType = determineInterventionType(taskInfo, taskActivityMs, taskHasWt, taskRawStatus);
+          const taskWtInfo = projectPath ? getWorktreeInfo(projectPath, task.specId) : undefined;
+          const interventionType = determineInterventionType(taskInfo, taskActivityMs, taskHasWt, taskRawStatus, taskWtInfo);
 
           // Determine board and phase for display grouping
           const currentPhase = projectPath ? getCurrentPhase(projectPath, task.specId) : undefined;
@@ -2091,7 +2144,8 @@ export function registerRdrHandlers(): void {
             const recoverWtDir = path.join(project.path, '.auto-claude', 'worktrees', 'tasks', task.specId);
             const recoverHasWt = existsSync(recoverWtDir);
             const recoverRawStatus = getRawPlanStatus(project.path, task.specId);
-            const interventionType = determineInterventionType(taskInfoForCheck, recoverActivityMs, recoverHasWt, recoverRawStatus);
+            const recoverWtInfo = getWorktreeInfo(project.path, task.specId);
+            const interventionType = determineInterventionType(taskInfoForCheck, recoverActivityMs, recoverHasWt, recoverRawStatus, recoverWtInfo);
 
             if (!interventionType) {
               console.log(`[RDR] ⏭️  Skipping ${task.specId} - no intervention needed (status=${task.status})`);

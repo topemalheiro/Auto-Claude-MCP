@@ -114,6 +114,12 @@ function getActiveTaskIds(projectPath: string): string[] {
           continue;
         }
 
+        // start_requested + completed planStatus = task lifecycle done (RDR re-triggered after QA approval)
+        if (content.status === 'start_requested' &&
+            (content.planStatus === 'completed' || content.planStatus === 'approved')) {
+          continue;
+        }
+
         taskIds.push(dir);
       } catch (e) {
         console.error(`[AutoShutdown] Failed to read ${planPath}:`, e);
@@ -160,6 +166,12 @@ function countTasksByStatus(projectPath: string): { total: number; humanReview: 
 
         // Complete = done, pr_created, or human_review (QA passed, ready for human)
         if (content.status === 'done' || content.status === 'pr_created' || content.status === 'human_review') {
+          continue;
+        }
+
+        // start_requested + completed planStatus = task lifecycle done (RDR re-triggered after QA approval)
+        if (content.status === 'start_requested' &&
+            (content.planStatus === 'completed' || content.planStatus === 'approved')) {
           continue;
         }
 
