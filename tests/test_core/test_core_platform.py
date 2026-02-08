@@ -343,6 +343,7 @@ class TestToolDetection:
         result = get_claude_detection_paths()
         assert any("homebrew" in p for p in result)
 
+    @pytest.mark.skipif(sys.platform == "win32", reason="Test uses Linux-specific paths")
     @patch("core.platform.is_windows", return_value=False)
     @patch("core.platform.is_macos", return_value=False)
     @patch("pathlib.Path.home", return_value=Path("/home/user"))
