@@ -148,11 +148,11 @@ function getActiveTaskIds(projectPath: string): string[] {
           continue;
         }
 
-        // Skip legitimately completed tasks awaiting user merge/approval
-        // These have human_review status with ALL subtasks completed (100%)
-        // They're done with active work - just waiting for the user
+        // Skip completed tasks: ANY non-initial status at 100% subtask completion
+        // Agents may finish all subtasks but not transition status (crash, exit, etc.)
+        // So we treat any 100% task as "complete" unless it's still in backlog/pending
         const progress = calculateTaskProgress(content);
-        if (content.status === 'human_review' && progress === 100) {
+        if (progress === 100 && content.status !== 'backlog' && content.status !== 'pending') {
           continue;
         }
 
@@ -207,9 +207,11 @@ function countTasksByStatus(projectPath: string): { total: number; humanReview: 
           continue;
         }
 
-        // Skip completed tasks (human_review or ai_review at 100%)
+        // Skip completed tasks: ANY non-initial status at 100% subtask completion
+        // Agents may finish all subtasks but not transition status (crash, exit, etc.)
+        // So we treat any 100% task as "complete" unless it's still in backlog/pending
         const progress = calculateTaskProgress(content);
-        if ((content.status === 'human_review' || content.status === 'ai_review') && progress === 100) {
+        if (progress === 100 && content.status !== 'backlog' && content.status !== 'pending') {
           console.log(`[AutoShutdown] Task ${dir}: 100% complete, status=${content.status} (NOT counted - complete) [${source}]`);
           continue;
         }
@@ -242,6 +244,21 @@ ipcMain.handle(
 
       // If monitoring is active, recalculate task count live from ALL projects
       if (cached?.monitoring) {
+        // Verify monitor process is still running
+        const monitorProcess = monitorProcesses.get('global');
+        if (!monitorProcess || monitorProcess.killed || monitorProcess.exitCode !== null) {
+          console.log(`[AutoShutdown] Monitor process died - resetting status (exitCode=${monitorProcess?.exitCode}, killed=${monitorProcess?.killed})`);
+          monitorProcesses.delete('global');
+          const resetStatus: AutoShutdownStatus = {
+            enabled: false,
+            monitoring: false,
+            tasksRemaining: 0,
+            shutdownPending: false
+          };
+          monitorStatuses.set('global', resetStatus);
+          return { success: true, data: resetStatus };
+        }
+
         const projects = projectStore.getProjects();
         let totalTasks = 0;
 

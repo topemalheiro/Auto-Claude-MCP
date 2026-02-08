@@ -7,7 +7,7 @@
  *
  * A task is "complete" when:
  * - status is 'done' or 'pr_created' (terminal)
- * - status is 'human_review' with 100% subtask completion
+ * - ANY non-initial status at 100% subtask completion (agents may finish but not transition)
  * - task is archived (has archivedAt in task_metadata.json)
  *
  * Usage:
@@ -162,15 +162,19 @@ function areAllTasksComplete(statuses: TaskStatus[], hasSeenActiveTasks: boolean
     s.status === 'done' || s.status === 'pr_created'
   );
 
-  // Complete tasks - at human_review or ai_review with all subtasks done
+  // Complete tasks - any non-terminal, non-initial status at 100% subtask completion
+  // Agents may finish all subtasks but not transition status (crash, exit, etc.)
+  // So we treat any 100% task as "complete" unless it's still in backlog/pending
   const completeTasks = statuses.filter(s =>
-    (s.status === 'human_review' || s.status === 'ai_review') && s.progress === 100
+    s.progress === 100 &&
+    s.status !== 'done' && s.status !== 'pr_created' &&  // already in terminalTasks
+    s.status !== 'backlog' && s.status !== 'pending'
   );
 
-  // Active tasks - everything else (still needs work)
+  // Active tasks - everything NOT terminal and NOT complete
   const activeTasks = statuses.filter(s =>
     s.status !== 'done' && s.status !== 'pr_created' &&
-    !((s.status === 'human_review' || s.status === 'ai_review') && s.progress === 100)
+    !(s.progress === 100 && s.status !== 'backlog' && s.status !== 'pending')
   );
 
   const hasActive = activeTasks.length > 0;

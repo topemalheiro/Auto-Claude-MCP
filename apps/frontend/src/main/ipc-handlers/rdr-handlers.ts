@@ -183,6 +183,8 @@ function enrichTaskWithWorktreeData(task: TaskInfo, projectPath: string): TaskIn
         phases: worktreePlan.phases || task.phases,
         planStatus: worktreePlan.status,
         updated_at: worktreePlan.updated_at || worktreePlan.last_updated || task.updated_at,
+        exitReason: worktreePlan.exitReason !== undefined ? worktreePlan.exitReason : task.exitReason,
+        reviewReason: worktreePlan.reviewReason !== undefined ? worktreePlan.reviewReason : task.reviewReason,
       };
     }
   } catch (e) {
@@ -274,7 +276,19 @@ function determineInterventionType(task: TaskInfo, lastActivityMs?: number, hasW
   // This means the agent crashed or was interrupted and the task regressed
   // STUCK START: Task has start_requested in raw plan but ProjectStore mapped it to backlog
   // This means the file watcher never picked it up and the agent never started
-  if (task.status === 'backlog' || task.status === 'pending') {
+  if (task.status === 'backlog' || task.status === 'pending' || task.status === 'plan_review') {
+    if (task.status === 'plan_review') {
+      // Check recency - agent may have just set plan_review and is about to transition
+      if (lastActivityMs !== undefined && lastActivityMs > 0) {
+        const timeSinceLastActivity = Date.now() - lastActivityMs;
+        if (timeSinceLastActivity < ACTIVE_TASK_RECENCY_THRESHOLD_MS) {
+          console.log(`[RDR] Task ${task.specId} in plan_review - recently active (${Math.round(timeSinceLastActivity / 1000)}s ago) - SKIPPING`);
+          return null;
+        }
+      }
+      console.log(`[RDR] Task ${task.specId} in plan_review - needs to start coding`);
+      return 'incomplete';
+    }
     if (hasWorktree) {
       console.log(`[RDR] Task ${task.specId} regressed to ${task.status} but has worktree - needs restart`);
       return 'incomplete';
@@ -338,6 +352,7 @@ function determineInterventionType(task: TaskInfo, lastActivityMs?: number, hasW
     return 'recovery';
   }
 
+  console.log(`[RDR] Task ${task.specId}: no intervention needed (status=${task.status})`);
   return null;
 }
 
@@ -827,8 +842,10 @@ async function processIncompleteBatch(
   const results: RdrProcessResult[] = [];
 
   for (const task of batch.tasks) {
-    const completedCount = task.subtasks?.filter(s => s.status === 'completed').length || 0;
-    const totalCount = task.subtasks?.length || 0;
+    // Use phases-based calculation (same as auto-shutdown) instead of flat subtasks
+    const allSubtasks = task.phases?.flatMap(p => p.subtasks || (p as any).chunks || []) || task.subtasks || [];
+    const completedCount = allSubtasks.filter((s: any) => s.status === 'completed').length;
+    const totalCount = allSubtasks.length;
     const percentage = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
     const feedback = `## Resume Task (RDR Auto-Recovery)
