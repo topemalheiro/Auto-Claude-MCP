@@ -22,10 +22,31 @@ import type { RawIdea } from './types';
 import { withSpecNumberLock } from '../../utils/spec-number-lock';
 
 /**
+ * Sanitize text from user input to prevent control character injection.
+ * Keeps tabs, newlines, and carriage returns but strips other control characters.
+ */
+function sanitizeText(value: string, maxLength = 5000, allowNewlines = true): string {
+  if (typeof value !== 'string') return '';
+  let sanitized = value;
+  if (allowNewlines) {
+    // Keep tabs, newlines, and carriage returns
+    sanitized = sanitized.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+  } else {
+    // Remove all control characters
+    sanitized = sanitized.replace(/[\x00-\x1F\x7F]/g, '');
+  }
+  if (sanitized.length > maxLength) {
+    sanitized = sanitized.substring(0, maxLength);
+  }
+  return sanitized;
+}
+
+/**
  * Create a slugified version of a title for use in directory names
  */
 function slugifyTitle(title: string): string {
-  return title
+  const sanitized = sanitizeText(title, 200, false);
+  return sanitized
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '')
@@ -36,33 +57,35 @@ function slugifyTitle(title: string): string {
  * Build task description from idea data
  */
 function buildTaskDescription(idea: RawIdea): string {
-  let description = `# ${idea.title}\n\n`;
-  description += `${idea.description}\n\n`;
-  description += `## Rationale\n${idea.rationale}\n\n`;
+  let description = `# ${sanitizeText(idea.title, 200)}\n\n`;
+  description += `${sanitizeText(idea.description, 10000, true)}\n\n`;
+  description += `## Rationale\n${sanitizeText(idea.rationale, 5000, true)}\n\n`;
 
   if (idea.type === 'code_improvements') {
-    const buildsUpon = idea.builds_upon || [];
+    const buildsUpon = idea.builds_upon || idea.buildsUpon || [];
     if (Array.isArray(buildsUpon) && buildsUpon.length > 0) {
-      description += `## Builds Upon\n${buildsUpon.map((b: string) => `- ${b}`).join('\n')}\n\n`;
+      description += `## Builds Upon\n${buildsUpon.map((b) => `- ${sanitizeText(String(b), 200)}`).join('\n')}\n\n`;
     }
-    if (idea.implementation_approach) {
-      description += `## Implementation Approach\n${idea.implementation_approach}\n\n`;
+    const implApproach = idea.implementation_approach || idea.implementationApproach;
+    if (typeof implApproach === 'string') {
+      description += `## Implementation Approach\n${sanitizeText(implApproach, 5000, true)}\n\n`;
     }
-    const affectedFiles = idea.affected_files || [];
+    const affectedFiles = idea.affected_files || idea.affectedFiles || [];
     if (Array.isArray(affectedFiles) && affectedFiles.length > 0) {
-      description += `## Affected Files\n${affectedFiles.map((f: string) => `- ${f}`).join('\n')}\n\n`;
+      description += `## Affected Files\n${affectedFiles.map((f) => `- ${sanitizeText(String(f), 500)}`).join('\n')}\n\n`;
     }
     const existingPatterns = idea.existing_patterns || [];
     if (Array.isArray(existingPatterns) && existingPatterns.length > 0) {
-      description += `## Patterns to Follow\n${existingPatterns.map((p: string) => `- ${p}`).join('\n')}\n\n`;
+      description += `## Patterns to Follow\n${existingPatterns.map((p) => `- ${sanitizeText(String(p), 500)}`).join('\n')}\n\n`;
     }
   } else if (idea.type === 'ui_ux_improvements') {
-    description += `## Category\n${idea.category}\n\n`;
-    description += `## Current State\n${idea.current_state}\n\n`;
-    description += `## Proposed Change\n${idea.proposed_change}\n\n`;
-    description += `## User Benefit\n${idea.user_benefit}\n\n`;
-    if (idea.affected_components?.length) {
-      description += `## Affected Components\n${idea.affected_components.map((c: string) => `- ${c}`).join('\n')}\n\n`;
+    description += `## Category\n${sanitizeText(String(idea.category || ''), 100)}\n\n`;
+    description += `## Current State\n${sanitizeText(String(idea.current_state || idea.currentState || ''), 5000, true)}\n\n`;
+    description += `## Proposed Change\n${sanitizeText(String(idea.proposed_change || idea.proposedChange || ''), 5000, true)}\n\n`;
+    description += `## User Benefit\n${sanitizeText(String(idea.user_benefit || idea.userBenefit || ''), 2000, true)}\n\n`;
+    const affectedComponents = idea.affected_components || idea.affectedComponents || [];
+    if (Array.isArray(affectedComponents) && affectedComponents.length > 0) {
+      description += `## Affected Components\n${affectedComponents.map((c) => `- ${sanitizeText(String(c), 200)}`).join('\n')}\n\n`;
     }
   }
 
@@ -77,7 +100,7 @@ function buildTaskMetadata(idea: RawIdea): TaskMetadata {
     sourceType: 'ideation',
     ideationType: idea.type,
     ideaId: idea.id,
-    rationale: idea.rationale
+    rationale: sanitizeText(idea.rationale || '', 5000)
   };
 
   // Map idea type to task category
@@ -93,35 +116,38 @@ function buildTaskMetadata(idea: RawIdea): TaskMetadata {
 
   // Extract type-specific metadata with proper type casting
   if (idea.type === 'code_improvements') {
-    const effort = idea.estimated_effort as TaskComplexity | undefined;
-    metadata.estimatedEffort = effort;
-    metadata.complexity = effort;
-    metadata.affectedFiles = idea.affected_files;
+    const effort = idea.estimated_effort || idea.estimatedEffort;
+    metadata.estimatedEffort = effort as TaskComplexity | undefined;
+    metadata.complexity = effort as TaskComplexity | undefined;
+    metadata.affectedFiles = idea.affected_files || idea.affectedFiles;
   } else if (idea.type === 'ui_ux_improvements') {
-    metadata.uiuxCategory = idea.category;
-    metadata.affectedFiles = idea.affected_components;
-    metadata.problemSolved = idea.current_state;
+    metadata.uiuxCategory = sanitizeText(String(idea.category || ''), 100);
+    metadata.affectedFiles = idea.affected_components || idea.affectedComponents;
+    metadata.problemSolved = sanitizeText(String(idea.current_state || idea.currentState || ''), 5000);
   } else if (idea.type === 'documentation_gaps') {
-    metadata.estimatedEffort = idea.estimated_effort as TaskComplexity | undefined;
+    const effort = idea.estimated_effort || idea.estimatedEffort;
+    metadata.estimatedEffort = effort as TaskComplexity | undefined;
     metadata.priority = idea.priority as TaskPriority | undefined;
-    metadata.targetAudience = idea.target_audience;
-    metadata.affectedFiles = idea.affected_areas;
+    metadata.targetAudience = sanitizeText(String(idea.target_audience || idea.targetAudience || ''), 500);
+    metadata.affectedFiles = idea.affected_areas || idea.affectedAreas;
   } else if (idea.type === 'security_hardening') {
     const severity = idea.severity as 'low' | 'medium' | 'high' | 'critical' | undefined;
     metadata.securitySeverity = severity;
     metadata.impact = severity as TaskImpact | undefined;
     metadata.priority = severity === 'critical' ? 'urgent' : severity === 'high' ? 'high' : 'medium';
-    metadata.affectedFiles = idea.affected_files;
+    metadata.affectedFiles = idea.affected_files || idea.affectedFiles;
   } else if (idea.type === 'performance_optimizations') {
-    metadata.performanceCategory = idea.category;
+    metadata.performanceCategory = sanitizeText(String(idea.category || ''), 100);
     metadata.impact = idea.impact as TaskImpact | undefined;
-    metadata.estimatedEffort = idea.estimated_effort as TaskComplexity | undefined;
-    metadata.affectedFiles = idea.affected_areas;
+    const effort = idea.estimated_effort || idea.estimatedEffort;
+    metadata.estimatedEffort = effort as TaskComplexity | undefined;
+    metadata.affectedFiles = idea.affected_areas || idea.affectedAreas;
   } else if (idea.type === 'code_quality') {
     const severity = idea.severity as 'suggestion' | 'minor' | 'major' | 'critical' | undefined;
     metadata.codeQualitySeverity = severity;
-    metadata.estimatedEffort = idea.estimated_effort as TaskComplexity | undefined;
-    metadata.affectedFiles = idea.affected_files;
+    const effort = idea.estimated_effort || idea.estimatedEffort;
+    metadata.estimatedEffort = effort as TaskComplexity | undefined;
+    metadata.affectedFiles = idea.affected_files || idea.affectedFiles;
     metadata.priority = severity === 'critical' ? 'urgent' : severity === 'major' ? 'high' : 'medium';
   }
 
@@ -141,8 +167,8 @@ function createSpecFiles(
 
   // Create initial implementation_plan.json
   const initialPlan: ImplementationPlan = {
-    feature: idea.title,
-    description: idea.description,
+    feature: sanitizeText(idea.title, 200),
+    description: sanitizeText(idea.description, 50000),
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
     status: 'backlog',
@@ -160,15 +186,15 @@ function createSpecFiles(
   );
 
   // Create initial spec.md
-  const specContent = `# ${idea.title}
+  const specContent = `# ${sanitizeText(idea.title, 200)}
 
 ## Overview
 
-${idea.description}
+${sanitizeText(idea.description, 50000, true)}
 
 ## Rationale
 
-${idea.rationale}
+${sanitizeText(idea.rationale, 5000, true)}
 
 ---
 *This spec was created from ideation and is pending detailed specification.*
@@ -214,7 +240,8 @@ export async function convertIdeaToTask(
     // CRITICAL: All state checks must happen INSIDE the lock to prevent TOCTOU race conditions
     return await withSpecNumberLock(project.path, async (lock) => {
       // Re-read ideation file INSIDE the lock to get fresh state
-      const ideation = readIdeationFile(ideationPath);
+      // Pass basePath for path traversal validation
+      const ideation = readIdeationFile(ideationPath, project.path);
       if (!ideation) {
         return { success: false, error: 'Ideation not found' };
       }
@@ -256,14 +283,15 @@ export async function convertIdeaToTask(
       idea.status = 'archived';
       idea.linked_task_id = specId;
       updateIdeationTimestamp(ideation);
-      writeIdeationFile(ideationPath, ideation);
+      // Pass basePath for path traversal validation
+      writeIdeationFile(ideationPath, ideation, project.path);
 
       // Create task object to return
       const task: Task = {
         id: specId,
         specId: specId,
         projectId,
-        title: idea.title,
+        title: sanitizeText(idea.title, 200),
         description: taskDescription,
         status: 'backlog',
         subtasks: [],

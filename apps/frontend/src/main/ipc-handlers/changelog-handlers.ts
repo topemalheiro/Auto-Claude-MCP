@@ -21,79 +21,43 @@ import type {
 import { projectStore } from '../project-store';
 import { changelogService } from '../changelog-service';
 
-// Store cleanup function to remove listeners on subsequent calls
-let cleanupListeners: (() => void) | null = null;
-
 /**
  * Register all changelog-related IPC handlers
  */
 export function registerChangelogHandlers(
   getMainWindow: () => BrowserWindow | null
 ): void {
-  // Remove previous listeners if they exist
-  if (cleanupListeners) {
-    cleanupListeners();
-  }
-
   // ============================================
   // Changelog Event Handlers
   // ============================================
 
-  const progressHandler = (projectId: string, progress: import('../../shared/types').ChangelogGenerationProgress) => {
+  changelogService.on('generation-progress', (projectId: string, progress: import('../../shared/types').ChangelogGenerationProgress) => {
     const mainWindow = getMainWindow();
     if (mainWindow) {
       mainWindow.webContents.send(IPC_CHANNELS.CHANGELOG_GENERATION_PROGRESS, projectId, progress);
     }
-  };
+  });
 
-  const completeHandler = (projectId: string, result: import('../../shared/types').ChangelogGenerationResult) => {
+  changelogService.on('generation-complete', (projectId: string, result: import('../../shared/types').ChangelogGenerationResult) => {
     const mainWindow = getMainWindow();
     if (mainWindow) {
       mainWindow.webContents.send(IPC_CHANNELS.CHANGELOG_GENERATION_COMPLETE, projectId, result);
     }
-  };
+  });
 
-  const errorHandler = (projectId: string, error: string) => {
+  changelogService.on('generation-error', (projectId: string, error: string) => {
     const mainWindow = getMainWindow();
     if (mainWindow) {
       mainWindow.webContents.send(IPC_CHANNELS.CHANGELOG_GENERATION_ERROR, projectId, error);
     }
-  };
+  });
 
-  const rateLimitHandler = (_projectId: string, rateLimitInfo: import('../../shared/types').SDKRateLimitInfo) => {
+  changelogService.on('rate-limit', (_projectId: string, rateLimitInfo: import('../../shared/types').SDKRateLimitInfo) => {
     const mainWindow = getMainWindow();
     if (mainWindow) {
       mainWindow.webContents.send(IPC_CHANNELS.CLAUDE_SDK_RATE_LIMIT, rateLimitInfo);
     }
-  };
-
-  // Register event listeners
-  changelogService.on('generation-progress', progressHandler);
-  changelogService.on('generation-complete', completeHandler);
-  changelogService.on('generation-error', errorHandler);
-  changelogService.on('rate-limit', rateLimitHandler);
-
-  // Store cleanup function to remove all listeners
-  cleanupListeners = () => {
-    changelogService.off('generation-progress', progressHandler);
-    changelogService.off('generation-complete', completeHandler);
-    changelogService.off('generation-error', errorHandler);
-    changelogService.off('rate-limit', rateLimitHandler);
-
-    // Also remove IPC handlers
-    ipcMain.removeHandler(IPC_CHANNELS.CHANGELOG_GET_DONE_TASKS);
-    ipcMain.removeHandler(IPC_CHANNELS.CHANGELOG_LOAD_TASK_SPECS);
-    ipcMain.removeHandler(IPC_CHANNELS.CHANGELOG_GENERATE);
-    ipcMain.removeHandler(IPC_CHANNELS.CHANGELOG_SAVE);
-    ipcMain.removeHandler(IPC_CHANNELS.CHANGELOG_READ_EXISTING);
-    ipcMain.removeHandler(IPC_CHANNELS.CHANGELOG_SUGGEST_VERSION);
-    ipcMain.removeHandler(IPC_CHANNELS.CHANGELOG_SUGGEST_VERSION_FROM_COMMITS);
-    ipcMain.removeHandler(IPC_CHANNELS.CHANGELOG_GET_BRANCHES);
-    ipcMain.removeHandler(IPC_CHANNELS.CHANGELOG_GET_TAGS);
-    ipcMain.removeHandler(IPC_CHANNELS.CHANGELOG_GET_COMMITS_PREVIEW);
-    ipcMain.removeHandler(IPC_CHANNELS.CHANGELOG_SAVE_IMAGE);
-    ipcMain.removeHandler(IPC_CHANNELS.CHANGELOG_READ_LOCAL_IMAGE);
-  };
+  });
 
   // ============================================
   // Changelog Operations
@@ -137,39 +101,32 @@ export function registerChangelogHandlers(
     }
   );
 
-  ipcMain.handle(
+  ipcMain.on(
     IPC_CHANNELS.CHANGELOG_GENERATE,
-    async (_, request: ChangelogGenerationRequest): Promise<IPCResult<void>> => {
+    async (_, request: ChangelogGenerationRequest) => {
+      const mainWindow = getMainWindow();
+      if (!mainWindow) return;
+
       const project = projectStore.getProject(request.projectId);
       if (!project) {
-        return { success: false, error: 'Project not found' };
+        mainWindow.webContents.send(
+          IPC_CHANNELS.CHANGELOG_GENERATION_ERROR,
+          request.projectId,
+          'Project not found'
+        );
+        return;
       }
 
-      // Return immediately to allow renderer to register event listeners
-      // Start the actual generation asynchronously
-      setImmediate(async () => {
-        try {
-          // Load specs for selected tasks (only in tasks mode)
-          let specs: TaskSpecContent[] = [];
-          if (request.sourceMode === 'tasks' && request.taskIds && request.taskIds.length > 0) {
-            const tasks = projectStore.getTasks(request.projectId);
-            const specsBaseDir = getSpecsDir(project.autoBuildPath);
-            specs = await changelogService.loadTaskSpecs(project.path, request.taskIds, tasks, specsBaseDir);
-          }
+      // Load specs for selected tasks (only in tasks mode)
+      let specs: TaskSpecContent[] = [];
+      if (request.sourceMode === 'tasks' && request.taskIds && request.taskIds.length > 0) {
+        const tasks = projectStore.getTasks(request.projectId);
+        const specsBaseDir = getSpecsDir(project.autoBuildPath);
+        specs = await changelogService.loadTaskSpecs(project.path, request.taskIds, tasks, specsBaseDir);
+      }
 
-          // Start generation (progress/completion/errors will be sent via event handlers)
-          changelogService.generateChangelog(request.projectId, project.path, request, specs);
-        } catch (error) {
-          // Send error via event instead of return value since we already returned
-          const mainWindow = getMainWindow();
-          if (mainWindow) {
-            const errorMessage = error instanceof Error ? error.message : 'Failed to start changelog generation';
-            mainWindow.webContents.send(IPC_CHANNELS.CHANGELOG_GENERATION_ERROR, request.projectId, errorMessage);
-          }
-        }
-      });
-
-      return { success: true };
+      // Start generation
+      changelogService.generateChangelog(request.projectId, project.path, request, specs);
     }
   );
 
@@ -389,23 +346,43 @@ export function registerChangelogHandlers(
       }
 
       try {
+        // Sanitize filename to prevent path traversal attacks
+        // Only allow alphanumeric, hyphens, underscores, and dots
+        const sanitizedFilename = filename.replace(/[^a-zA-Z0-9._-]/g, '_');
+        if (!sanitizedFilename || sanitizedFilename === '.' || sanitizedFilename === '..') {
+          return { success: false, error: 'Invalid filename' };
+        }
+
+        // Validate file extension is an image type
+        const allowedExtensions = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg'];
+        const ext = path.extname(sanitizedFilename).toLowerCase();
+        if (!allowedExtensions.includes(ext)) {
+          return { success: false, error: 'Invalid file type. Only images are allowed.' };
+        }
+
         // Create .github/assets directory if it doesn't exist
         const assetsDir = path.join(project.path, '.github', 'assets');
+        const resolvedAssetsDir = path.resolve(assetsDir);
         if (!existsSync(assetsDir)) {
           mkdirSync(assetsDir, { recursive: true });
+        }
+
+        // Validate that the resolved path stays within assets directory
+        const imagePath = path.join(assetsDir, sanitizedFilename);
+        const resolvedPath = path.resolve(imagePath);
+        if (!resolvedPath.startsWith(resolvedAssetsDir + path.sep)) {
+          return { success: false, error: 'Invalid file path' };
         }
 
         // Decode base64 image data
         const base64Data = imageData.includes(',') ? imageData.split(',')[1] : imageData;
         const buffer = Buffer.from(base64Data, 'base64');
 
-        // Sanitize filename to prevent path traversal
-        const safeFilename = path.basename(filename);
-        const imagePath = path.join(assetsDir, safeFilename);
+        // Save image file
         writeFileSync(imagePath, buffer);
 
         // Return relative path for use in markdown
-        const relativePath = `.github/assets/${safeFilename}`;
+        const relativePath = `.github/assets/${sanitizedFilename}`;
         // For GitHub releases, we'll use the relative path which will work when the release is created
         const url = relativePath;
 
@@ -423,23 +400,35 @@ export function registerChangelogHandlers(
     IPC_CHANNELS.CHANGELOG_READ_LOCAL_IMAGE,
     async (_, projectPath: string, relativePath: string): Promise<IPCResult<string>> => {
       try {
-        // Construct full path and validate it stays within project directory
-        const fullPath = path.resolve(projectPath, relativePath);
-        if (!fullPath.startsWith(path.resolve(projectPath) + path.sep) && fullPath !== path.resolve(projectPath)) {
-          return { success: false, error: 'Invalid path' };
+        // Sanitize relative path to prevent path traversal
+        // Only allow alphanumeric, hyphens, underscores, slashes, and dots
+        const sanitizedPath = relativePath.replace(/[^\w/.-]/g, '_');
+        if (!sanitizedPath || sanitizedPath.includes('..')) {
+          return { success: false, error: 'Invalid file path' };
+        }
+
+        // Construct full path from project path and relative path
+        const fullPath = path.join(projectPath, sanitizedPath);
+        const resolvedFullPath = path.resolve(fullPath);
+        const resolvedProjectPath = path.resolve(projectPath);
+
+        // Validate that the resolved path stays within project directory
+        if (!resolvedFullPath.startsWith(resolvedProjectPath + path.sep) && resolvedFullPath !== resolvedProjectPath) {
+          return { success: false, error: 'Invalid file path' };
         }
 
         // Verify the file exists
-        if (!existsSync(fullPath)) {
-          return { success: false, error: `Image not found: ${relativePath}` };
+        if (!existsSync(resolvedFullPath)) {
+          return { success: false, error: `Image not found: ${sanitizedPath}` };
         }
 
-        // Read the file and convert to base64
-        const buffer = readFileSync(fullPath);
-        const base64 = buffer.toString('base64');
-
         // Determine MIME type from extension
-        const ext = path.extname(relativePath).toLowerCase();
+        const ext = path.extname(sanitizedPath).toLowerCase();
+        const allowedExtensions = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg'];
+        if (!allowedExtensions.includes(ext)) {
+          return { success: false, error: 'Invalid file type' };
+        }
+
         const mimeTypes: Record<string, string> = {
           '.png': 'image/png',
           '.jpg': 'image/jpeg',
@@ -449,6 +438,10 @@ export function registerChangelogHandlers(
           '.svg': 'image/svg+xml'
         };
         const mimeType = mimeTypes[ext] || 'image/png';
+
+        // Read the file and convert to base64
+        const buffer = readFileSync(resolvedFullPath);
+        const base64 = buffer.toString('base64');
 
         // Return as data URL
         const dataUrl = `data:${mimeType};base64,${base64}`;

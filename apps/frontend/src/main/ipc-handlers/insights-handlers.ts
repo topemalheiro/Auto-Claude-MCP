@@ -160,6 +160,17 @@ export function registerInsightsHandlers(getMainWindow: () => BrowserWindow | nu
         return { success: false, error: "Auto Claude not initialized for this project" };
       }
 
+      // Sanitize user input to prevent control character injection
+      const sanitizeText = (value: string, maxLength = 5000): string => {
+        if (typeof value !== 'string') return '';
+        // Remove control characters except newlines and tabs
+        let sanitized = value.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+        if (sanitized.length > maxLength) {
+          sanitized = sanitized.substring(0, maxLength);
+        }
+        return sanitized;
+      };
+
       try {
         // Generate a unique spec ID based on existing specs
         // Get specs directory path
@@ -186,7 +197,8 @@ export function registerInsightsHandlers(getMainWindow: () => BrowserWindow | nu
         }
 
         // Create spec ID with zero-padded number and slugified title
-        const slugifiedTitle = title
+        const sanitizedTitle = sanitizeText(title, 200);
+        const slugifiedTitle = sanitizedTitle
           .toLowerCase()
           .replace(/[^a-z0-9]+/g, "-")
           .replace(/^-|-$/g, "")
@@ -206,8 +218,8 @@ export function registerInsightsHandlers(getMainWindow: () => BrowserWindow | nu
         // Create initial implementation_plan.json
         const now = new Date().toISOString();
         const implementationPlan = {
-          feature: title,
-          description: description,
+          feature: sanitizedTitle,
+          description: sanitizeText(description, 50000),
           created_at: now,
           updated_at: now,
           status: "pending",
@@ -226,8 +238,8 @@ export function registerInsightsHandlers(getMainWindow: () => BrowserWindow | nu
           id: specId,
           specId: specId,
           projectId,
-          title,
-          description,
+          title: sanitizedTitle,
+          description: sanitizeText(description, 50000),
           status: "backlog",
           subtasks: [],
           logs: [],
