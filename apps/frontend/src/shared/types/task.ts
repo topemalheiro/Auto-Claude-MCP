@@ -243,6 +243,9 @@ export interface TaskMetadata {
   rdrAttempts?: number;  // How many times RDR has attempted recovery
   rdrLastAttempt?: string;  // ISO timestamp of last RDR recovery attempt
 
+  // Testing: Force recovery mode (yellow stuck outline) for testing RDR detection
+  forceRecovery?: boolean;
+
   // Archive status
   archivedAt?: string;  // ISO date when task was archived
   archivedInVersion?: string;  // Version in which task was archived (from changelog)

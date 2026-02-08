@@ -108,6 +108,7 @@ function taskCardPropsAreEqual(prevProps: TaskCardProps, nextProps: TaskCardProp
     prevTask.metadata?.complexity === nextTask.metadata?.complexity &&
     prevTask.metadata?.archivedAt === nextTask.metadata?.archivedAt &&
     prevTask.metadata?.prUrl === nextTask.metadata?.prUrl &&
+    prevTask.metadata?.forceRecovery === nextTask.metadata?.forceRecovery &&
     // Check if any subtask statuses changed (compare all subtasks)
     prevTask.subtasks.every((s, i) => s.status === nextTask.subtasks[i]?.status)
   );
@@ -259,6 +260,12 @@ export const TaskCard = memo(function TaskCard({
 
   // Memoized stuck check function to avoid recreating on every render
   const performStuckCheck = useCallback(() => {
+    // Testing: forceRecovery metadata flag bypasses all checks and forces stuck state
+    if (task.metadata?.forceRecovery) {
+      setIsStuck(true);
+      return;
+    }
+
     const currentPhase = task.executionProgress?.phase;
     if (shouldSkipStuckCheck(currentPhase)) {
       if (window.DEBUG) {
@@ -286,7 +293,7 @@ export const TaskCard = memo(function TaskCard({
     } else {
       doCheck();
     }
-  }, [task.id, task.executionProgress?.phase]);
+  }, [task.id, task.executionProgress?.phase, task.metadata?.forceRecovery]);
 
   // Check if task is stuck (status says in_progress but no actual process)
   // Add a longer grace period to avoid false positives during process spawn

@@ -1004,6 +1004,22 @@ export function registerTaskExecutionHandlers(
           projectStore.invalidateTasksCache(project.id);
         }
 
+        // Clear forceRecovery from task_metadata.json (testing flag)
+        for (const dir of [specDir, mainSpecDir, worktreeSpecDir].filter(Boolean) as string[]) {
+          const metaPath = path.join(dir, 'task_metadata.json');
+          if (existsSync(metaPath)) {
+            try {
+              const meta = JSON.parse(readFileSync(metaPath, 'utf-8'));
+              if (meta.forceRecovery) {
+                delete meta.forceRecovery;
+                writeFileSync(metaPath, JSON.stringify(meta, null, 2));
+              }
+            } catch {
+              // Best-effort cleanup
+            }
+          }
+        }
+
         // Stop file watcher if it was watching this task
         fileWatcher.unwatch(taskId);
 

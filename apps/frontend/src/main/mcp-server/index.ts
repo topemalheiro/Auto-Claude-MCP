@@ -1501,6 +1501,163 @@ server.tool(
 );
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Tool: test_force_recovery
+// ─────────────────────────────────────────────────────────────────────────────
+
+server.tool(
+  'test_force_recovery',
+  'Force tasks into recovery mode (yellow stuck outline) for testing RDR detection. Sets forceRecovery flag in task_metadata.json and optionally sets task status to in_progress or ai_review.',
+  {
+    projectId: z.string().describe('The project ID (UUID)'),
+    projectPath: z.string().optional().describe('Fallback filesystem path if projectId UUID not found'),
+    taskIds: z.array(z.string()).describe('Array of task/spec IDs to force into recovery'),
+    targetBoard: z.enum(['in_progress', 'ai_review']).default('in_progress').describe('Which board the tasks should appear on (in_progress or ai_review)'),
+    enable: z.boolean().optional().default(true).describe('Set to false to remove forceRecovery flag (exit recovery mode)')
+  },
+  withMonitoring('test_force_recovery', async ({ projectId, projectPath, taskIds, targetBoard, enable }) => {
+    const { existsSync, writeFileSync, readFileSync, mkdirSync } = await import('fs');
+    const path = await import('path');
+
+    const resolved = resolveProjectPath(projectId, projectPath);
+    if ('error' in resolved) {
+      return {
+        content: [{
+          type: 'text' as const,
+          text: JSON.stringify({ success: false, error: resolved.error })
+        }]
+      };
+    }
+
+    const resolvedProjectPath = resolved.projectPath;
+    const results: Array<{ taskId: string; success: boolean; action: string; error?: string }> = [];
+
+    for (const taskId of taskIds) {
+      try {
+        const specDir = path.join(resolvedProjectPath, '.auto-claude', 'specs', taskId);
+
+        if (!existsSync(specDir)) {
+          results.push({ taskId, success: false, action: 'skip', error: 'Spec directory not found' });
+          continue;
+        }
+
+        // 1. Update task_metadata.json with forceRecovery flag
+        const metadataPath = path.join(specDir, 'task_metadata.json');
+        let metadata: Record<string, unknown> = {};
+        if (existsSync(metadataPath)) {
+          try {
+            metadata = JSON.parse(readFileSync(metadataPath, 'utf-8'));
+          } catch {
+            // Start fresh if parse fails
+          }
+        }
+
+        if (enable) {
+          metadata = { ...metadata, forceRecovery: true };
+        } else {
+          const { forceRecovery: _, ...rest } = metadata as Record<string, unknown> & { forceRecovery?: boolean };
+          metadata = rest;
+        }
+        writeFileSync(metadataPath, JSON.stringify(metadata, null, 2));
+
+        // 2. Update implementation_plan.json status + metadata.forceRecovery (RDR reads this)
+        const planPath = path.join(specDir, 'implementation_plan.json');
+        if (existsSync(planPath)) {
+          try {
+            const plan = JSON.parse(readFileSync(planPath, 'utf-8'));
+            if (enable) {
+              plan.status = targetBoard;
+              // Set old timestamp so RDR recency check doesn't skip (>10 min ago)
+              plan.updated_at = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+              // Write forceRecovery into plan metadata (RDR reads metadata from plan JSON)
+              if (!plan.metadata) plan.metadata = {};
+              plan.metadata.forceRecovery = true;
+            } else {
+              if (plan.metadata) delete plan.metadata.forceRecovery;
+            }
+            writeFileSync(planPath, JSON.stringify(plan, null, 2));
+          } catch {
+            // Plan update is best-effort
+          }
+        }
+
+        // 3. Also update worktree plan if it exists
+        const worktreePlanPath = path.join(
+          resolvedProjectPath, '.auto-claude', 'worktrees', 'tasks', taskId,
+          '.auto-claude', 'specs', taskId, 'implementation_plan.json'
+        );
+        if (existsSync(worktreePlanPath)) {
+          try {
+            const worktreePlan = JSON.parse(readFileSync(worktreePlanPath, 'utf-8'));
+            if (enable) {
+              worktreePlan.status = targetBoard;
+              worktreePlan.updated_at = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+              if (!worktreePlan.metadata) worktreePlan.metadata = {};
+              worktreePlan.metadata.forceRecovery = true;
+            } else {
+              if (worktreePlan.metadata) delete worktreePlan.metadata.forceRecovery;
+            }
+            writeFileSync(worktreePlanPath, JSON.stringify(worktreePlan, null, 2));
+          } catch {
+            // Worktree update is best-effort
+          }
+        }
+
+        // 4. Also update worktree task_metadata.json if it exists
+        const worktreeMetadataPath = path.join(
+          resolvedProjectPath, '.auto-claude', 'worktrees', 'tasks', taskId,
+          '.auto-claude', 'specs', taskId, 'task_metadata.json'
+        );
+        if (existsSync(worktreeMetadataPath)) {
+          try {
+            let worktreeMeta: Record<string, unknown> = {};
+            worktreeMeta = JSON.parse(readFileSync(worktreeMetadataPath, 'utf-8'));
+            if (enable) {
+              worktreeMeta = { ...worktreeMeta, forceRecovery: true };
+            } else {
+              const { forceRecovery: _, ...rest } = worktreeMeta as Record<string, unknown> & { forceRecovery?: boolean };
+              worktreeMeta = rest;
+            }
+            writeFileSync(worktreeMetadataPath, JSON.stringify(worktreeMeta, null, 2));
+          } catch {
+            // Worktree metadata update is best-effort
+          }
+        }
+
+        results.push({
+          taskId,
+          success: true,
+          action: enable
+            ? `forceRecovery=true, status=${targetBoard}`
+            : 'forceRecovery removed'
+        });
+      } catch (error) {
+        results.push({
+          taskId,
+          success: false,
+          action: 'error',
+          error: error instanceof Error ? error.message : String(error)
+        });
+      }
+    }
+
+    const successCount = results.filter(r => r.success).length;
+
+    return {
+      content: [{
+        type: 'text' as const,
+        text: JSON.stringify({
+          success: successCount > 0,
+          message: enable
+            ? `Forced ${successCount}/${taskIds.length} tasks into recovery mode on ${targetBoard} board. File watcher will pick up changes within 2-3s.`
+            : `Removed forceRecovery from ${successCount}/${taskIds.length} tasks.`,
+          results
+        }, null, 2)
+      }]
+    };
+  })
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Crash Notification Polling
 // ─────────────────────────────────────────────────────────────────────────────
 

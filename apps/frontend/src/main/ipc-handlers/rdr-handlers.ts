@@ -104,7 +104,7 @@ interface TaskInfo {
   created_at?: string;
   updated_at?: string;
   rdrDisabled?: boolean;  // If true, RDR will skip this task
-  metadata?: { stuckSince?: string };  // Stuck timestamp from task recovery
+  metadata?: { stuckSince?: string; forceRecovery?: boolean };  // Stuck timestamp + test recovery flag
 }
 
 interface RdrBatch {
@@ -302,6 +302,12 @@ function determineInterventionType(task: TaskInfo, lastActivityMs?: number, hasW
   // Skip completed/archived tasks - these never need intervention
   if (task.status === 'done' || task.status === 'pr_created') {
     return null;
+  }
+
+  // TESTING: forceRecovery flag bypasses all recency and progress checks
+  if (task.metadata?.forceRecovery) {
+    console.log(`[RDR] Task ${task.specId} has forceRecovery flag - forcing intervention (status=${task.status})`);
+    return 'stuck';
   }
 
   // REGRESSED: Task went back to backlog/pending but has a worktree (agent previously started work)
