@@ -41,7 +41,7 @@ def _save_exit_reason(spec_dir: Path, exit_reason: str) -> None:
 
     Args:
         spec_dir: Spec directory containing implementation_plan.json
-        exit_reason: The reason for exit ("error", "prompt_loop", etc.)
+        exit_reason: The reason for exit ("error", "stuckRetry_loop", etc.)
     """
     try:
         plan = load_implementation_plan(spec_dir)

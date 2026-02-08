@@ -43,7 +43,6 @@ function isTaskArchived(projectPath: string, taskId: string): boolean {
     if (!fs.existsSync(metadataPath)) return false;
     const metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf-8'));
     if (metadata.archivedAt) {
-      console.log(`[Monitor] Task ${taskId}: ARCHIVED at ${metadata.archivedAt} (skipped)`);
       return true;
     }
     return false;
@@ -146,6 +145,10 @@ function getTaskStatuses(projectPaths: string[]): TaskStatus[] {
   return statuses;
 }
 
+// Track previous state for state-change-only logging
+let previousTaskCount = 0;
+let previousCompleteCount = 0;
+
 /**
  * Check if all tasks are complete.
  *
@@ -170,22 +173,28 @@ function areAllTasksComplete(statuses: TaskStatus[], hasSeenActiveTasks: boolean
 
   const hasActive = activeTasks.length > 0;
 
-  // Log status grouped by project
-  const byProject = new Map<string, TaskStatus[]>();
-  for (const task of statuses) {
-    const name = path.basename(task.projectPath);
-    if (!byProject.has(name)) byProject.set(name, []);
-    byProject.get(name)!.push(task);
-  }
+  // Only log if count changed (reduce polling spam from every 5s to state changes only)
+  if (statuses.length !== previousTaskCount || completeTasks.length !== previousCompleteCount) {
+    // Log status grouped by project
+    const byProject = new Map<string, TaskStatus[]>();
+    for (const task of statuses) {
+      const name = path.basename(task.projectPath);
+      if (!byProject.has(name)) byProject.set(name, []);
+      byProject.get(name)!.push(task);
+    }
 
-  console.log(`[Monitor] ${statuses.length} tasks: ${completeTasks.length} complete, ${activeTasks.length} active`);
-  Array.from(byProject.entries()).forEach(([projectName, tasks]) => {
-    console.log(`  Project: ${projectName}`);
-    tasks.forEach(task => {
-      const isComplete = task.status === 'done' || task.status === 'pr_created' || task.status === 'human_review';
-      console.log(`    - ${task.taskId}: ${task.status} [${task.source}] ${isComplete ? 'DONE' : '...'}`);
+    console.log(`[Monitor] ${statuses.length} tasks: ${completeTasks.length} complete, ${activeTasks.length} active`);
+    Array.from(byProject.entries()).forEach(([projectName, tasks]) => {
+      console.log(`  Project: ${projectName}`);
+      tasks.forEach(task => {
+        const isComplete = task.status === 'done' || task.status === 'pr_created' || task.status === 'human_review';
+        console.log(`    - ${task.taskId}: ${task.status} [${task.source}] ${isComplete ? 'DONE' : '...'}`);
+      });
     });
-  });
+
+    previousTaskCount = statuses.length;
+    previousCompleteCount = completeTasks.length;
+  }
 
   // All active tasks gone AND we've seen tasks before → all work complete
   if (activeTasks.length === 0 && (hasSeenActiveTasks || statuses.length > 0)) {
@@ -196,26 +205,22 @@ function areAllTasksComplete(statuses: TaskStatus[], hasSeenActiveTasks: boolean
   return { complete: false, hasActive };
 }
 
-function triggerShutdown(delaySeconds: number): void {
+function triggerShutdown(command: string): void {
   console.log(`\n[Monitor] ALL TASKS COMPLETE!`);
-  console.log(`[Monitor] Triggering shutdown in ${delaySeconds} seconds...`);
-  console.log(`[Monitor] Run "shutdown /a" to abort!\n`);
+  console.log(`[Monitor] Executing shutdown command: ${command}`);
+  console.log(`[Monitor] Run "shutdown /a" (Windows) or "sudo shutdown -c" (Unix) to abort!\n`);
 
-  const isWindows = process.platform === 'win32';
+  // Parse command string into command + args
+  // Example: "shutdown /s /t 120" -> ["shutdown", "/s", "/t", "120"]
+  const parts = command.split(' ').filter(Boolean);
+  const cmd = parts[0];
+  const cmdArgs = parts.slice(1);
 
-  if (isWindows) {
-    spawn('shutdown', ['/s', '/t', String(delaySeconds)], {
-      shell: true,
-      detached: true,
-      stdio: 'ignore'
-    }).unref();
-  } else {
-    spawn('shutdown', ['-h', `+${Math.ceil(delaySeconds / 60)}`], {
-      shell: true,
-      detached: true,
-      stdio: 'ignore'
-    }).unref();
-  }
+  spawn(cmd, cmdArgs, {
+    shell: true,
+    detached: true,
+    stdio: 'ignore'
+  }).unref();
 }
 
 async function main() {
@@ -224,6 +229,7 @@ async function main() {
   // Parse arguments - support MULTIPLE --project-path arguments
   const projectPaths: string[] = [];
   let delaySeconds = 120;
+  let shutdownCommand: string | undefined;
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--delay-seconds' && args[i + 1]) {
@@ -232,6 +238,9 @@ async function main() {
     } else if (args[i] === '--project-path' && args[i + 1]) {
       projectPaths.push(args[i + 1]);
       i++; // Skip the next arg (the path value)
+    } else if (args[i] === '--shutdown-command' && args[i + 1]) {
+      shutdownCommand = args[i + 1];
+      i++; // Skip the next arg (the command value)
     }
   }
 
@@ -240,12 +249,26 @@ async function main() {
     process.exit(1);
   }
 
+  // Use custom shutdown command or platform default
+  if (!shutdownCommand) {
+    switch (process.platform) {
+      case 'win32':
+        shutdownCommand = `shutdown /s /t ${delaySeconds}`;
+        break;
+      case 'darwin':
+        shutdownCommand = `sudo shutdown -h +${Math.ceil(delaySeconds / 60)}`;
+        break;
+      default:
+        shutdownCommand = `shutdown -h +${Math.ceil(delaySeconds / 60)}`;
+    }
+  }
+
   console.log('[Monitor] Starting GLOBAL shutdown monitor...');
   console.log('[Monitor] Monitoring projects:');
   for (const projectPath of projectPaths) {
     console.log(`  - ${projectPath}`);
   }
-  console.log('[Monitor] Shutdown delay:', delaySeconds, 'seconds');
+  console.log('[Monitor] Shutdown command:', shutdownCommand);
   console.log('[Monitor] Poll interval:', POLL_INTERVAL_MS / 1000, 'seconds');
   console.log('');
 
@@ -266,7 +289,7 @@ async function main() {
     }
 
     if (result.complete) {
-      triggerShutdown(delaySeconds);
+      triggerShutdown(shutdownCommand);
       process.exit(0);
     } else {
       setTimeout(poll, POLL_INTERVAL_MS);

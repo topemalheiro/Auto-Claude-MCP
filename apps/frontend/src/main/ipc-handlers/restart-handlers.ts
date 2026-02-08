@@ -23,7 +23,7 @@ const HISTORY_FILE = path.join(app.getPath('userData'), '.restart-history.json')
 
 interface RestartState {
   restartedAt: string;
-  reason: 'prompt_loop' | 'crash' | 'manual';
+  reason: 'stuckRetry_loop' | 'crash' | 'manual';
   tasks: Array<{
     taskId: string;
     projectId: string;
@@ -316,7 +316,7 @@ export function registerRestartHandlers(agentManager: AgentManager) {
 
   // Graceful restart (from MCP or user request)
   ipcMain.handle(IPC_CHANNELS.RESTART_GRACEFUL, async (_, options: {
-    reason: 'prompt_loop' | 'memory_leak' | 'manual' | 'settings_change' | 'recovery';
+    reason: 'stuckRetry_loop' | 'memory_leak' | 'manual' | 'settings_change' | 'recovery';
     saveState?: boolean;
     delay?: number;
   }) => {
@@ -350,7 +350,7 @@ export function checkAndHandleRestart(settings: any, agentManager: AgentManager)
 
   console.log('[RESTART] Restart requested by hook, triggering build...');
 
-  saveRestartState('prompt_loop', agentManager);
+  saveRestartState('stuckRetry_loop', agentManager);
 
   const buildCommand = settings.autoRestartOnFailure.buildCommand || 'npm run build';
 

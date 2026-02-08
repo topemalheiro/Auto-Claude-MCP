@@ -322,7 +322,7 @@ function determineInterventionType(task: TaskInfo, lastActivityMs?: number, hasW
   }
 
   // ACTIVE TASKS: These statuses mean the agent should be running but isn't.
-  // If the agent isn't running in these statuses, it stopped (prompt_loop, cost_limit,
+  // If the agent isn't running in these statuses, it stopped (stuckRetry_loop, cost_limit,
   // or just exited). Flag regardless of progress — even 100% means it didn't transition.
   // qa_approved = passed QA but didn't transition to done
   // completed = finished subtasks but didn't transition

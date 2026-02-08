@@ -66,7 +66,6 @@ function isTaskArchived(specsDir: string, taskDir: string): boolean {
     const metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf-8'));
     // Task is archived if archivedAt field exists and is truthy
     if (metadata.archivedAt) {
-      console.log(`[AutoShutdown] Task ${taskDir}: ARCHIVED at ${metadata.archivedAt} (skipped)`);
       return true;
     }
     return false;
@@ -115,7 +114,6 @@ function getActiveTaskIds(projectPath: string): string[] {
           continue;
         }
 
-        console.log(`[AutoShutdown] Active task ${dir}: status=${content.status} (from ${source})`);
         taskIds.push(dir);
       } catch (e) {
         console.error(`[AutoShutdown] Failed to read ${planPath}:`, e);
@@ -166,7 +164,6 @@ function countTasksByStatus(projectPath: string): { total: number; humanReview: 
         }
 
         total++;
-        console.log(`[AutoShutdown] Task ${dir}: status=${content.status} (counted) [${source}]`);
       } catch (e) {
         console.error(`[AutoShutdown] Failed to read ${planPath}:`, e);
       }
@@ -321,9 +318,9 @@ ipcMain.handle(
           }
         );
 
-        // Log output
-        monitorProcess.stdout?.on('data', (data) => {
-          console.log(`[AutoShutdown:global]`, data.toString().trim());
+        // Suppress normal polling output (only log errors via stderr)
+        monitorProcess.stdout?.on('data', () => {
+          // Suppress to reduce noise
         });
 
         monitorProcess.stderr?.on('data', (data) => {

@@ -433,6 +433,28 @@ export function DevToolsSettings({ settings, onSettingsChange }: DevToolsSetting
             </p>
           </div>
 
+          {/* Shutdown Command */}
+          <div className="space-y-2 ml-4">
+            <Label htmlFor="shutdown-command" className="text-sm font-medium text-foreground">
+              {t('devtools.shutdownCommand.label', 'Shutdown Command')}
+            </Label>
+            <Input
+              id="shutdown-command"
+              value={settings.shutdownCommand || ''}
+              onChange={(e) =>
+                onSettingsChange({
+                  ...settings,
+                  shutdownCommand: e.target.value
+                })
+              }
+              placeholder="shutdown /s /t 120 (Windows) | sudo shutdown -h +2 (macOS/Linux)"
+              className="max-w-md font-mono text-xs"
+            />
+            <p className="text-xs text-muted-foreground">
+              {t('devtools.shutdownCommand.description', 'Command to shut down your system when all tasks complete (OS-specific). Leave empty for platform default.')}
+            </p>
+          </div>
+
           {/* Auto-Restart on Crash or If Required */}
           <div className="space-y-3 ml-4">
             <div className="flex items-center justify-between max-w-md">

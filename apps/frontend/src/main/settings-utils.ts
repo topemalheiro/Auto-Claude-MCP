@@ -21,6 +21,23 @@ export function getSettingsPath(): string {
 }
 
 /**
+ * Get the default shutdown command for the current platform
+ * Returns the OS-specific command to shutdown in 2 minutes
+ */
+export function getDefaultShutdownCommand(): string {
+  switch (process.platform) {
+    case 'win32':
+      return 'shutdown /s /t 120';
+    case 'darwin':
+      return 'sudo shutdown -h +2';
+    case 'linux':
+      return 'shutdown -h +2';
+    default:
+      return 'shutdown -h +2';
+  }
+}
+
+/**
  * Read and parse settings from disk.
  * Returns the raw parsed settings object, or undefined if the file doesn't exist or fails to parse.
  *

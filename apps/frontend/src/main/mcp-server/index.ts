@@ -1427,7 +1427,7 @@ server.tool(
   'trigger_auto_restart',
   'Trigger automatic restart with build when prompt loop, crash, or error detected. Only works if auto-restart feature is enabled in settings.',
   {
-    reason: z.enum(['prompt_loop', 'crash', 'manual', 'error']).describe('Reason for restart'),
+    reason: z.enum(['stuckRetry_loop', 'crash', 'manual', 'error']).describe('Reason for restart'),
     buildCommand: z.string().optional().describe('Custom build command (default: from settings or "npm run build")')
   },
   withMonitoring('trigger_auto_restart', async ({ reason, buildCommand }) => {

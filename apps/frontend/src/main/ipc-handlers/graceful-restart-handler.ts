@@ -17,7 +17,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 interface RestartOptions {
-  reason: 'prompt_loop' | 'memory_leak' | 'manual' | 'settings_change' | 'recovery';
+  reason: 'stuckRetry_loop' | 'memory_leak' | 'manual' | 'settings_change' | 'recovery';
   saveState?: boolean;
   delay?: number; // Delay in milliseconds before restarting
 }

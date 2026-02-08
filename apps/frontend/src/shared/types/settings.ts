@@ -297,6 +297,9 @@ export interface AppSettings {
   // Auto-shutdown when all tasks across ALL projects reach Human Review
   // Global setting that monitors task progress across all projects simultaneously
   autoShutdownEnabled?: boolean;
+  // Custom shutdown command (OS-specific, e.g., "shutdown /s /t 120" on Windows)
+  // If not set, uses platform default
+  shutdownCommand?: string;
   // LLM Manager Auto-Restart Control
   // Allows Claude Code (via MCP) to trigger Auto-Claude restarts when intervention is needed
   // Also handles Claude process crashes (not app-level crashes - see crashRecovery)

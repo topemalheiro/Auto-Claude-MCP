@@ -81,7 +81,7 @@ def _save_exit_reason(spec_dir: Path, exit_reason: str) -> None:
 
     Args:
         spec_dir: Spec directory containing implementation_plan.json
-        exit_reason: The reason for exit ("error", "prompt_loop", etc.)
+        exit_reason: The reason for exit ("error", "stuckRetry_loop", etc.)
     """
     try:
         plan = load_implementation_plan(spec_dir)
@@ -510,9 +510,9 @@ async def run_autonomous_agent(
             # Check for stuck subtasks
             attempt_count = recovery_manager.get_attempt_count(subtask_id)
             if not success and attempt_count >= 3:
-                # Write exitReason="prompt_loop" for RDR detection
+                # Write exitReason="stuckRetry_loop" for RDR detection
                 # (3+ failed attempts indicates agent is stuck in a loop)
-                _save_exit_reason(spec_dir, "prompt_loop")
+                _save_exit_reason(spec_dir, "stuckRetry_loop")
 
                 recovery_manager.mark_subtask_stuck(
                     subtask_id, f"Failed after {attempt_count} attempts"
