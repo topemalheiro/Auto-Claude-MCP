@@ -201,7 +201,7 @@ class ServiceOrchestrator:
                     )
                 )
         except Exception:  # Non-critical error; continue
-            pass
+            pass  # no-op: docker is optional
 
     def _discover_monorepo_services(self) -> None:
         """Discover services in a monorepo structure."""
@@ -379,7 +379,7 @@ class ServiceOrchestrator:
                     timeout=60,
                 )
         except Exception:  # Non-critical error; continue
-            pass
+            pass  # no-op: docker is optional
 
     def _stop_local_services(self) -> None:
         """Stop local services."""
@@ -406,7 +406,7 @@ class ServiceOrchestrator:
             if proc.returncode == 0:
                 return ["docker", "compose", "-f", str(self._compose_file)]
         except Exception:  # Non-critical error; continue
-            pass
+            pass  # no-op: docker is optional
 
         # Try docker-compose v1
         try:
@@ -418,7 +418,7 @@ class ServiceOrchestrator:
             if proc.returncode == 0:
                 return ["docker-compose", "-f", str(self._compose_file)]
         except Exception:  # Non-critical error; continue
-            pass
+            pass  # no-op: docker is optional
 
         return None
 

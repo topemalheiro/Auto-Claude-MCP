@@ -110,7 +110,7 @@ def create_spec_dir(specs_dir: Path, lock: SpecNumberLock | None = None) -> Path
                     num = int(folder.name[:3])
                     numbers.append(num)
                 except ValueError:  # Invalid value; skip
-                    pass
+                    pass  # no-op: skip non-numeric folder names
             next_num = max(numbers) + 1 if numbers else 1
         else:
             next_num = 1

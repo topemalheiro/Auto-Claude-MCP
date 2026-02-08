@@ -46,7 +46,7 @@ class IdeationFormatter:
                         f"Preserving {len(existing_ideas)} existing ideas", "info"
                     )
             except json.JSONDecodeError:  # Invalid JSON; skip
-                pass
+                pass  # no-op: treat as empty file
 
         # Collect new ideas from the enabled types
         new_ideas = []
@@ -62,7 +62,7 @@ class IdeationFormatter:
                         new_ideas.extend(ideas)
                         output_files.append(str(type_file))
                 except (json.JSONDecodeError, KeyError):  # Invalid JSON; skip
-                    pass
+                    pass  # no-op: skip invalid files
 
         # In append mode, filter out ideas from types we're regenerating
         # (to avoid duplicates) and keep ideas from other types
@@ -142,5 +142,5 @@ class IdeationFormatter:
                 with open(context_file, encoding="utf-8") as f:
                     context_data = json.load(f)
             except json.JSONDecodeError:  # Invalid JSON; skip
-                pass
+                pass  # no-op: treat as empty file
         return context_data

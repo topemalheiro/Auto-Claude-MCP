@@ -456,7 +456,7 @@ def test_json_parsing_robustness():
             if json_match:
                 return json.loads(json_match.group(1))
         except (json.JSONDecodeError, ValueError):  # Invalid JSON; skip
-            pass
+            pass  # no-op: return empty list on parse error
         return []
 
     # Test valid JSON

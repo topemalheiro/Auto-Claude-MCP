@@ -224,5 +224,5 @@ def print_conflict_info(result: dict) -> None:
 
 
 # Export private names for backward compatibility
-_print_merge_success = print_merge_success
-_print_conflict_info = print_conflict_info
+_print_merge_success = print_merge_success  # noqa: F811 (intentional re-export)
+_print_conflict_info = print_conflict_info  # noqa: F811 (intentional re-export)

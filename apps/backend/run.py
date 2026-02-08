@@ -56,7 +56,7 @@ if sys.platform == "win32":
                 io.UnsupportedOperation,
                 OSError,
             ):  # Event loop not available; use sync fallback
-                pass
+                pass  # no-op: fall through to next method
         # Method 2: Wrap with TextIOWrapper for piped output
         try:
             if hasattr(_stream, "buffer"):
@@ -72,7 +72,7 @@ if sys.platform == "win32":
             io.UnsupportedOperation,
             OSError,
         ):  # Stream doesn't support reconfigure or buffer
-            pass
+            pass  # no-op: skip stream reconfiguration
     # Clean up temporary variables
     del _stream_name, _stream
     if "_new_stream" in dir():

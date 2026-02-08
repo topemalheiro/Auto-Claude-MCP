@@ -105,7 +105,7 @@ class ContextLoader:
                 if declared_type in _WORKFLOW_TYPE_MAPPING:
                     return _WORKFLOW_TYPE_MAPPING[declared_type]
             except (json.JSONDecodeError, KeyError):  # Invalid JSON; skip
-                pass
+                pass  # no-op: skip invalid files
 
         # 2. Check complexity_assessment.json (AI's assessment)
         assessment_file = self.spec_dir / "complexity_assessment.json"
@@ -119,7 +119,7 @@ class ContextLoader:
                 if declared_type in _WORKFLOW_TYPE_MAPPING:
                     return _WORKFLOW_TYPE_MAPPING[declared_type]
             except (json.JSONDecodeError, KeyError):  # Invalid JSON; skip
-                pass
+                pass  # no-op: skip invalid files
 
         # 3. & 4. Fall back to spec content detection
         return self._detect_workflow_type_from_spec(spec_content)

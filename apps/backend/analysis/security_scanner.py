@@ -31,12 +31,11 @@ from typing import Any
 
 # Import the existing secrets scanner
 try:
-    from security.scan_secrets import SecretMatch, get_all_tracked_files, scan_files
+    from security.scan_secrets import get_all_tracked_files, scan_files
 
     HAS_SECRETS_SCANNER = True
 except ImportError:
     HAS_SECRETS_SCANNER = False
-    SecretMatch = None
 
 
 # =============================================================================
@@ -403,14 +402,14 @@ class SecurityScanner:
                             )
                         )
                 except json.JSONDecodeError:  # Invalid JSON; skip
-                    pass
+                    pass  # no-op: skip invalid JSON
 
         except FileNotFoundError:
             pass  # pip-audit not available
         except subprocess.TimeoutExpired:  # Non-critical error; continue
-            pass
+            pass  # no-op: timeout is non-critical
         except Exception:  # Non-critical error; continue
-            pass
+            pass  # no-op: pip-audit is optional
 
     def _is_python_project(self, project_dir: Path) -> bool:
         """Check if this is a Python project."""

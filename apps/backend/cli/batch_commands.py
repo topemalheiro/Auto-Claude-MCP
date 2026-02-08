@@ -150,7 +150,7 @@ def handle_batch_status_command(project_dir: str) -> bool:
             except (
                 json.JSONDecodeError
             ):  # Invalid JSON; use default title from directory name
-                pass  # Keep default title
+                pass  # no-op: keep default title
 
         # Determine status
         if (spec_dir / "spec.md").exists():

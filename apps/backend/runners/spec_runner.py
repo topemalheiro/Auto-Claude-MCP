@@ -66,7 +66,7 @@ if sys.platform == "win32":
                 io.UnsupportedOperation,
                 OSError,
             ):  # File or directory not accessible; skip
-                pass
+                pass  # no-op: fall through to next method
         # Method 2: Wrap with TextIOWrapper for piped output
         try:
             if hasattr(_stream, "buffer"):

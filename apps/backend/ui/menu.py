@@ -247,6 +247,6 @@ def _fallback_menu(
             if 0 <= idx < len(options) and not options[idx].disabled:
                 return options[idx].key
         except ValueError:  # Non-critical error; continue
-            pass
+            pass  # no-op: invalid input, try again
 
         print("Invalid choice, please try again.")

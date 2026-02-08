@@ -108,7 +108,7 @@ def load_project_context(project_dir: str) -> str:
                 f"## Project Structure\n```json\n{json.dumps(summary, indent=2)}\n```"
             )
         except Exception:  # Non-critical error; continue
-            pass
+            pass  # no-op: project context is optional
 
     # Load roadmap if available
     roadmap_path = Path(project_dir) / ".auto-claude" / "roadmap" / "roadmap.json"
@@ -126,7 +126,7 @@ def load_project_context(project_dir: str) -> str:
                 f"## Roadmap Features\n```json\n{json.dumps(feature_summary, indent=2)}\n```"
             )
         except Exception:  # Non-critical error; continue
-            pass
+            pass  # no-op: project context is optional
 
     # Load existing tasks
     tasks_path = Path(project_dir) / ".auto-claude" / "specs"
@@ -139,7 +139,7 @@ def load_project_context(project_dir: str) -> str:
                     "## Existing Tasks/Specs\n- " + "\n- ".join(task_names)
                 )
         except Exception:  # Non-critical error; continue
-            pass
+            pass  # no-op: project context is optional
 
     return (
         "\n\n".join(context_parts)

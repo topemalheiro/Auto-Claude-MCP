@@ -51,7 +51,6 @@ try:
         GraphitiMemory,
         GroupIdMode,
         get_graphiti_memory,
-        is_graphiti_enabled,
     )
     from memory.graphiti_helpers import is_graphiti_memory_enabled
 
@@ -59,12 +58,13 @@ try:
 except (ImportError, ValueError, SystemError):
     GRAPHITI_AVAILABLE = False
 
-    def is_graphiti_enabled() -> bool:
-        return False
+    def get_graphiti_memory(*args, **kwargs):
+        return None
 
     def is_graphiti_memory_enabled() -> bool:
         return False
 
+    GraphitiMemory = None  # type: ignore[assignment]
     GroupIdMode = None
 
 
@@ -465,7 +465,7 @@ class GitHubMemoryIntegration:
                     },
                 )
             except Exception:  # Non-critical error; continue
-                pass
+                pass  # no-op: memory is optional, skip errors
 
     async def get_codebase_patterns(
         self,
@@ -507,7 +507,7 @@ class GitHubMemoryIntegration:
                             )
                         )
             except Exception:  # Non-critical error; continue
-                pass
+                pass  # no-op: memory is optional, skip errors
 
         # Add local patterns
         for insight in self._local_insights:
@@ -575,7 +575,7 @@ class GitHubMemoryIntegration:
             try:
                 await self._graphiti.close()
             except Exception:  # Non-critical error; continue
-                pass
+                pass  # no-op: memory is optional, skip errors
             self._graphiti = None
 
     def get_summary(self) -> dict[str, Any]:

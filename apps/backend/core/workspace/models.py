@@ -270,6 +270,6 @@ class SpecNumberLock:
                 num = int(folder.name[:3])
                 max_num = max(max_num, num)
             except ValueError:  # Folder name doesn't start with a number; skip it
-                pass
+                pass  # no-op: skip invalid folder names
 
         return max_num

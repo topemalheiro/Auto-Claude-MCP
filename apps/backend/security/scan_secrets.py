@@ -271,7 +271,7 @@ def load_secretsignore(project_dir: Path) -> list[str]:
             if line and not line.startswith("#"):
                 patterns.append(line)
     except OSError:  # Non-critical error; continue
-        pass
+        pass  # no-op: skip missing file
 
     return patterns
 

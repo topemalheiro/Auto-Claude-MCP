@@ -575,5 +575,5 @@ def initialize_timeline_tracking(
 
 
 # Export private functions for backward compatibility
-_ensure_timeline_hook_installed = ensure_timeline_hook_installed
-_initialize_timeline_tracking = initialize_timeline_tracking
+_ensure_timeline_hook_installed = ensure_timeline_hook_installed  # noqa: F811 (intentional re-export)
+_initialize_timeline_tracking = initialize_timeline_tracking  # noqa: F811 (intentional re-export)

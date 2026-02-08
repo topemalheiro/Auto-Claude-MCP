@@ -68,7 +68,7 @@ class ProjectAnalyzer:
                 KeyError,
                 AttributeError,
             ):  # Invalid JSON; skip
-                pass
+                pass  # no-op: skip invalid files
 
         # Get roadmap context if enabled
         if self.include_roadmap:
@@ -86,7 +86,7 @@ class ProjectAnalyzer:
                         audience = roadmap.get("target_audience", {})
                         context["target_audience"] = audience.get("primary")
                 except (json.JSONDecodeError, KeyError):  # Invalid JSON; skip
-                    pass
+                    pass  # no-op: skip invalid files
 
             # Also check discovery for audience
             discovery_path = (
@@ -105,7 +105,7 @@ class ProjectAnalyzer:
                             "existing_features", []
                         )
                 except (json.JSONDecodeError, KeyError):  # Invalid JSON; skip
-                    pass
+                    pass  # no-op: skip invalid files
 
         # Get kanban context if enabled
         if self.include_kanban:
