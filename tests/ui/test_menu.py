@@ -363,6 +363,8 @@ class TestGetchUnix:
 
     # These tests mock termios/tty to work on all platforms
 
+    @pytest.mark.skipif(sys.platform == "win32", reason="Unix-specific test using termios")
+    @pytest.mark.skipif(sys.platform == "win32", reason="Test uses Unix-specific termios/tty mocking")
     @patch("ui.menu._HAS_MSVCRT", False)
     @patch("ui.menu._HAS_TERMIOS", True)
     def test_getch_unix_regular_character(self):
