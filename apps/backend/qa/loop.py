@@ -30,22 +30,12 @@ from task_logger import (
     get_task_logger,
 )
 
-from .criteria import (
-    get_qa_iteration_count,
-    get_qa_signoff_status,
-    is_qa_approved,
-)
-from .fixer import run_qa_fixer_session
-from .report import (
-    create_manual_test_plan,
-    escalate_to_human,
-    get_iteration_history,
-    get_recurring_issue_summary,
-    has_recurring_issues,
-    is_no_test_project,
-    record_iteration,
-)
-from .reviewer import run_qa_agent_session
+# Imports moved to function level to avoid circular import:
+# from .criteria import get_qa_iteration_count, get_qa_signoff_status, is_qa_approved
+# from .fixer import run_qa_fixer_session
+# from .report import (create_manual_test_plan, escalate_to_human, get_iteration_history,
+#                      get_recurring_issue_summary, has_recurring_issues, is_no_test_project, record_iteration)
+# from .reviewer import run_qa_agent_session
 
 # Configuration
 MAX_QA_ITERATIONS = 50
@@ -86,6 +76,24 @@ async def run_qa_validation_loop(
     Returns:
         True if QA approved, False otherwise
     """
+    # Local imports to avoid circular imports
+    from .criteria import (
+        get_qa_iteration_count,
+        get_qa_signoff_status,
+        is_qa_approved,
+    )
+    from .fixer import run_qa_fixer_session
+    from .report import (
+        create_manual_test_plan,
+        escalate_to_human,
+        get_iteration_history,
+        get_recurring_issue_summary,
+        has_recurring_issues,
+        is_no_test_project,
+        record_iteration,
+    )
+    from .reviewer import run_qa_agent_session
+
     # Set environment variable for security hooks to find the correct project directory
     # This is needed because os.getcwd() may return the wrong directory in worktree mode
     os.environ[PROJECT_DIR_ENV_VAR] = str(project_dir.resolve())

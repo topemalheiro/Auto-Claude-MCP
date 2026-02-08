@@ -22,14 +22,12 @@ logger = logging.getLogger(__name__)
 
 # Check for Claude SDK availability
 try:
-    from claude_agent_sdk import ClaudeSDKClient  # noqa: F401
+    from claude_agent_sdk import ClaudeSDKClient
 
     SDK_AVAILABLE = True
 except ImportError:
     SDK_AVAILABLE = False
-
-# Re-export for convenience
-__all__ = ["ClaudeSDKClient", "SDK_AVAILABLE"]
+    ClaudeSDKClient = None
 
 from core.auth import ensure_claude_code_oauth_token, get_auth_token
 

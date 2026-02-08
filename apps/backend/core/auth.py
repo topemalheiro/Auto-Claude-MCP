@@ -466,7 +466,6 @@ def _get_token_from_macos_keychain(config_dir: str | None = None) -> str | None:
         if not (token.startswith("sk-ant-oat01-") or token.startswith("enc:")):
             return None
 
-        logger.debug(f"Found token in keychain service '{service_name}'")
         return token
 
     except (subprocess.TimeoutExpired, json.JSONDecodeError, KeyError, Exception):
@@ -501,7 +500,6 @@ def _get_token_from_windows_credential_files(
                             token.startswith("sk-ant-oat01-")
                             or token.startswith("enc:")
                         ):
-                            logger.debug(f"Found token in {cred_path}")
                             return token
             # If config_dir provided but no token found, don't fall back to default
             return None
@@ -597,9 +595,6 @@ def _get_token_from_linux_secret_service(config_dir: str | None = None) -> str |
                     if token and (
                         token.startswith("sk-ant-oat01-") or token.startswith("enc:")
                     ):
-                        logger.debug(
-                            f"Found token in secret service with label '{target_label}'"
-                        )
                         return token
                 except json.JSONDecodeError:
                     continue

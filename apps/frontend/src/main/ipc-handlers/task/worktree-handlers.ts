@@ -26,6 +26,13 @@ import { killProcessGracefully } from '../../platform';
 import { stripAnsiCodes } from '../../../shared/utils/ansi-sanitizer';
 import { taskStateManager } from '../../task-state-manager';
 
+// Initialize electron-log (safe for re-import scenarios)
+try {
+  log.initialize();
+} catch {
+  // Already initialized, ignore
+}
+
 // Regex pattern for validating git branch names
 export const GIT_BRANCH_REGEX = /^[a-zA-Z0-9][a-zA-Z0-9._/-]*[a-zA-Z0-9]$|^[a-zA-Z0-9]$/;
 
@@ -1357,7 +1364,7 @@ async function openInTerminal(dirPath: string, terminal: SupportedTerminal, cust
 function getTaskBaseBranch(specDir: string): string | undefined {
   // Defensive check for undefined input
   if (!specDir || typeof specDir !== 'string') {
-    console.error('[getTaskBaseBranch] specDir is undefined or not a string');
+    log.error('[getTaskBaseBranch] specDir is undefined or not a string');
     return undefined;
   }
 
@@ -1393,11 +1400,11 @@ function getTaskBaseBranch(specDir: string): string | undefined {
 function getEffectiveBaseBranch(projectPath: string, specId: string, projectMainBranch?: string): string {
   // Defensive check for undefined inputs
   if (!projectPath || typeof projectPath !== 'string') {
-    console.error('[getEffectiveBaseBranch] projectPath is undefined or not a string');
+    log.error('[getEffectiveBaseBranch] projectPath is undefined or not a string');
     return 'main';
   }
   if (!specId || typeof specId !== 'string') {
-    console.error('[getEffectiveBaseBranch] specId is undefined or not a string');
+    log.error('[getEffectiveBaseBranch] specId is undefined or not a string');
     return 'main';
   }
 
@@ -2495,7 +2502,7 @@ export function registerWorktreeHandlers(
             if (resolved) return;
             resolved = true;
             if (timeoutId) clearTimeout(timeoutId);
-            console.error('[MERGE] Process spawn error:', err);
+            log.error('[MERGE] Process spawn error:', err);
 
             // Send error progress event to the renderer
             const mainWindow = getMainWindow();
@@ -2760,7 +2767,7 @@ export function registerWorktreeHandlers(
         });
 
         if (!cleanupResult.success) {
-          console.error('[TASK_WORKTREE_DISCARD] Cleanup failed:', cleanupResult.warnings);
+          log.error('[TASK_WORKTREE_DISCARD] Cleanup failed:', cleanupResult.warnings);
           return {
             success: false,
             error: `Failed to discard worktree: ${cleanupResult.warnings.join('; ')}`
@@ -2769,10 +2776,10 @@ export function registerWorktreeHandlers(
 
         // Log any non-fatal warnings
         if (cleanupResult.warnings.length > 0) {
-          console.warn('[TASK_WORKTREE_DISCARD] Cleanup warnings:', cleanupResult.warnings);
+          log.warn('[TASK_WORKTREE_DISCARD] Cleanup warnings:', cleanupResult.warnings);
         }
         if (cleanupResult.autoCommitted) {
-          console.warn('[TASK_WORKTREE_DISCARD] Auto-committed uncommitted work before discard');
+          log.warn('[TASK_WORKTREE_DISCARD] Auto-committed uncommitted work before discard');
         }
 
 
@@ -2791,7 +2798,7 @@ export function registerWorktreeHandlers(
           }
         };
       } catch (error) {
-        log.error('Failed to discard orphaned worktree:', error);
+        log.error('Failed to discard worktree:', error);
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Failed to discard orphaned worktree'
@@ -2813,11 +2820,11 @@ export function registerWorktreeHandlers(
       try {
         // Validate inputs
         if (!projectId || typeof projectId !== 'string') {
-          console.error('discardOrphanedWorktree: Invalid projectId:', projectId);
+          log.error('discardOrphanedWorktree: Invalid projectId:', projectId);
           return { success: false, error: 'Invalid projectId' };
         }
         if (!specName || typeof specName !== 'string') {
-          console.error('discardOrphanedWorktree: Invalid specName:', specName);
+          log.error('discardOrphanedWorktree: Invalid specName:', specName);
           return { success: false, error: 'Invalid specName' };
         }
 
@@ -2828,7 +2835,7 @@ export function registerWorktreeHandlers(
 
         // Validate project.path
         if (!project.path || typeof project.path !== 'string') {
-          console.error('discardOrphanedWorktree: Project path is invalid:', project.path);
+          log.error('discardOrphanedWorktree: Project path is invalid:', project.path);
           return { success: false, error: 'Project path is invalid' };
         }
 
@@ -2873,7 +2880,7 @@ export function registerWorktreeHandlers(
           }
         };
       } catch (error) {
-        console.error('Failed to discard orphaned worktree:', error);
+        log.error('Failed to discard orphaned worktree:', error);
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Failed to discard orphaned worktree'
@@ -2892,7 +2899,7 @@ export function registerWorktreeHandlers(
       try {
         // Validate projectId
         if (!projectId || typeof projectId !== 'string') {
-          console.error('listWorktrees: Invalid projectId:', projectId);
+          log.error('listWorktrees: Invalid projectId:', projectId);
           return { success: false, error: 'Invalid projectId' };
         }
 
@@ -2903,7 +2910,7 @@ export function registerWorktreeHandlers(
 
 // Validate project.path
         if (!project.path || typeof project.path !== 'string') {
-          console.error('listWorktrees: Project path is invalid:', project.path);
+          log.error('listWorktrees: Project path is invalid:', project.path);
           return { success: false, error: 'Project path is invalid' };
         }
 
@@ -2986,7 +2993,7 @@ export function registerWorktreeHandlers(
             // FIX: Don't skip worktree if git fails - it may be orphaned/corrupted
             // Include it so it can be managed (deleted if orphaned)
             const hasTask = tasks.some(t => t.specId === entry);
-            console.warn(`[Worktree] Git commands failed for ${entry}, hasTask=${hasTask}:`, gitError);
+            log.warn(`[Worktree] Git commands failed for ${entry}, hasTask=${hasTask}:`, gitError);
             // Note: branch is empty - renderer should handle based on isOrphaned flag
             return {
               specName: entry,

@@ -50,10 +50,10 @@ export function extractChangelog(output: string): string {
   // This handles cases where AI includes preamble like "I'll analyze..." or "Here's the changelog:"
   const changelogStartPatterns = [
     /^(##\s*\[[\d.]+\])/m,           // Keep-a-changelog: ## [1.0.0]
-    /^(##\s+What's\s+New)/im,        // GitHub release: ## What's New
+    /^(##\s*What's\s+New)/im,        // GitHub release: ## What's New
     /^(#\s*Release\s+v?[\d.]+)/im,   // Simple: # Release v1.0.0
     /^(#\s*Changelog)/im,            // # Changelog
-    /^(##\s*v?\d+\.\d+\.\d+)/m      // ## v1.0.0 or ## 1.0.0
+    /^(##\s*v?[\d.]+)/m              // ## v1.0.0 or ## 1.0.0
   ];
 
   for (const pattern of changelogStartPatterns) {
@@ -69,11 +69,11 @@ export function extractChangelog(output: string): string {
   const prefixes = [
     /^I'll\s+analyze[^#]*(?=#)/is,
     /^I'll\s+generate[^#]*(?=#)/is,
-    /^Here['']s\s+the\s+changelog[\s:]*/i,
-    /^The\s+changelog[\s:]*/i,
-    /^Changelog[\s:]*/i,
-    /^Based\s+on[^#]*(?=#)/is,
-    /^Let\s+me[^#]*(?=#)/is
+    /^Here's the changelog[:\s]*/i,
+    /^The changelog[:\s]*/i,
+    /^Changelog[:\s]*/i,
+    /^Based on[^#]*(?=#)/is,
+    /^Let me[^#]*(?=#)/is
   ];
 
   for (const prefix of prefixes) {

@@ -140,8 +140,9 @@ Output your findings to competitor_analysis.json.
                     "competitor_analysis", True, [str(self.analysis_file)], [], 0
                 )
 
-        except json.JSONDecodeError:  # Invalid JSON; skip
-            pass  # no-op: skip invalid JSON
+        except json.JSONDecodeError:
+            # Invalid JSON; skip
+            pass
 
         return None
 

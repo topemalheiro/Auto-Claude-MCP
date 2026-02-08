@@ -7,7 +7,7 @@ from pathlib import Path
 # Ensure local apps/backend is in path
 sys.path.insert(0, str(Path(__file__).parents[1] / "apps" / "backend"))
 
-from security.profile import reset_profile_cache
+from security.profile import get_security_profile, reset_profile_cache
 from project.analyzer import ProjectAnalyzer
 
 @pytest.fixture

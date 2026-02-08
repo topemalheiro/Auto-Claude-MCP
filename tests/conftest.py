@@ -16,8 +16,6 @@ from merge import (
     SemanticAnalyzer,
     ConflictDetector,
     AutoMerger,
-    FileEvolutionTracker,
-    AIResolver,
 )
 
 # Add project root to Python path for "apps.backend.*" style imports

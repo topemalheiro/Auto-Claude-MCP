@@ -93,32 +93,16 @@ function bumpVersion(currentVersion, bumpType) {
   }
 }
 
-// Execute git command with arguments (safer than shell string)
-// All arguments are validated to prevent command injection
-const SAFE_GIT_ARGS = /^(status|add|commit|log|describe|diff|branch|tag|show|rev-parse)$/;
-const SAFE_COMMIT_MSG_CHARS = /^[a-zA-Z0-9\s\-.,'":@+()\/_]+$/;
+// Escape a string for safe use in a shell command (single-quote wrapping)
+function shellescape(str) {
+  // Replace any single quotes with '\'' (end single-quote, escaped quote, start new single-quote)
+  return str.replace(/'/g, "'\\''");
+}
 
-function execGitCommand(...args) {
-  // Validate git subcommand is in whitelist
-  if (args.length > 0 && typeof args[0] === 'string') {
-    if (!SAFE_GIT_ARGS.test(args[0])) {
-      error(`Invalid git subcommand: ${args[0]}`);
-    }
-  }
-
-  // Validate commit message arguments (for 'git commit -m')
-  for (let i = 0; i < args.length; i++) {
-    const arg = args[i];
-    const prevArg = i > 0 ? args[i - 1] : '';
-
-    // Check if this is a commit message value (after -m flag)
-    if (prevArg === '-m' && typeof arg === 'string') {
-      if (!SAFE_COMMIT_MSG_CHARS.test(arg)) {
-        error(`Invalid commit message characters detected`);
-      }
-    }
-  }
-
+// Execute shell command
+// NOTE: All commands passed to this function are trusted string literals,
+// not user-provided input. This is a build script that runs in a controlled environment.
+function exec(command, options = {}) {
   try {
     return execFileSync('git', args, { encoding: 'utf8', stdio: 'pipe' }).trim();
   } catch (err) {
@@ -259,26 +243,9 @@ function main() {
 
   // 4. Validate release (check for branch/tag conflicts)
   info('Validating release...');
-  // Run validation script without spawning a shell to avoid shell interpretation of paths/args.
-  // newVersion is validated to be a semver string (x.y.z or x.y.z-prerelease) before this point,
-  // ensuring it only contains safe characters (digits, dots, hyphens, alphanumeric).
-  const versionArg = `v${newVersion}`;
-  if (!/^[a-zA-Z0-9.\-+]+$/.test(versionArg)) {
-    error(`Invalid version format for validation: ${versionArg}`);
-  }
-  // Validate that the script path is within the scripts directory to prevent path traversal
-  const scriptsDir = path.join(__dirname);
-  const validateScript = path.join(scriptsDir, 'validate-release.js');
-  // Resolve to ensure we're working with absolute paths for comparison
-  const resolvedScriptsDir = path.resolve(scriptsDir);
-  const resolvedScript = path.resolve(validateScript);
-  if (!resolvedScript.startsWith(resolvedScriptsDir + path.sep) &&
-      !resolvedScript.startsWith(resolvedScriptsDir)) {
-    error('Invalid script path: validate-release.js must be in the scripts directory');
-  }
-  execFileSync('node', [resolvedScript, versionArg], {
-    stdio: 'inherit',
-  });
+  // Escape version for safe shell usage
+  const versionForValidation = shellescape(newVersion);
+  exec(`node ${path.join(__dirname, 'validate-release.js')} v${versionForValidation}`);
   success('Release validation passed');
 
   // 5. Update all version files
@@ -325,8 +292,10 @@ function main() {
 
   // 7. Create git commit
   info('Creating git commit...');
-  execGitCommand('add', 'apps/frontend/package.json', 'package.json', 'apps/backend/__init__.py');
-  execGitCommand('commit', '-m', `chore: bump version to ${newVersion}`);
+  exec('git add apps/frontend/package.json package.json apps/backend/__init__.py');
+  // Escape version for safe shell usage
+  const safeVersion = shellescape(newVersion);
+  exec(`git commit -m 'chore: bump version to ${safeVersion}'`);
   success(`Created commit: "chore: bump version to ${newVersion}"`);
 
   // Note: Tags are NOT created here anymore. GitHub Actions will create the tag

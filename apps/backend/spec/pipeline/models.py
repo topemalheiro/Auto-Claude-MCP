@@ -79,7 +79,8 @@ def cleanup_orphaned_pending_folders(specs_dir: Path) -> None:
     for folder in orphaned:
         try:
             shutil.rmtree(folder)
-        except OSError:  # File or directory not accessible; skip
+        except OSError:
+            # File or directory not accessible; skip
             pass
 
 
@@ -109,8 +110,9 @@ def create_spec_dir(specs_dir: Path, lock: SpecNumberLock | None = None) -> Path
                 try:
                     num = int(folder.name[:3])
                     numbers.append(num)
-                except ValueError:  # Invalid value; skip
-                    pass  # no-op: skip non-numeric folder names
+                except ValueError:
+                    # Invalid value; skip
+                    pass
             next_num = max(numbers) + 1 if numbers else 1
         else:
             next_num = 1

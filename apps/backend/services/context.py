@@ -140,8 +140,9 @@ class ServiceContextGenerator:
                         pkg = line.split("==")[0].split(">=")[0].split("[")[0].strip()
                         if pkg and pkg not in context.dependencies:
                             context.dependencies.append(pkg)
-            except OSError:  # File or directory not accessible; skip
-                pass  # no-op: skip inaccessible files
+            except OSError:
+                # File or directory not accessible; skip
+                pass
 
         # Node.js
         package_json = service_path / "package.json"
@@ -153,12 +154,9 @@ class ServiceContextGenerator:
                     context.dependencies.extend(
                         [d for d in deps if d not in context.dependencies]
                     )
-            except (
-                OSError,
-                json.JSONDecodeError,
-                UnicodeDecodeError,
-            ):  # File or directory not accessible; skip
-                pass  # no-op: skip inaccessible files
+            except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+                # File or directory not accessible; skip
+                pass
 
     def _discover_api_patterns(self, service_path: Path, context: ServiceContext):
         """Discover API patterns (routes, endpoints)."""
@@ -182,11 +180,9 @@ class ServiceContextGenerator:
                     )
                 elif "express.Router" in content or "app.get" in content:
                     context.api_patterns.append(f"Express routes in {route_file.name}")
-            except (
-                OSError,
-                UnicodeDecodeError,
-            ):  # File or directory not accessible; skip
-                pass  # no-op: skip inaccessible files
+            except (OSError, UnicodeDecodeError):
+                # File or directory not accessible; skip
+                pass
 
     def _discover_common_commands(self, service_path: Path, context: ServiceContext):
         """Discover common commands from package files and Makefiles."""
@@ -200,12 +196,9 @@ class ServiceContextGenerator:
                     for name in ["dev", "start", "build", "test", "lint"]:
                         if name in scripts:
                             context.common_commands[name] = f"npm run {name}"
-            except (
-                OSError,
-                json.JSONDecodeError,
-                UnicodeDecodeError,
-            ):  # File or directory not accessible; skip
-                pass  # no-op: skip inaccessible files
+            except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+                # File or directory not accessible; skip
+                pass
 
         # From Makefile
         makefile = service_path / "Makefile"
@@ -224,7 +217,8 @@ class ServiceContextGenerator:
                             "install",
                         ]:
                             context.common_commands[target] = f"make {target}"
-            except OSError:  # File or directory not accessible; skip
+            except OSError:
+                # File or directory not accessible; skip
                 pass
 
         # Infer from framework
@@ -254,8 +248,9 @@ class ServiceContextGenerator:
                             var_name = line.split("=")[0].strip()
                             if var_name and var_name not in context.environment_vars:
                                 context.environment_vars.append(var_name)
-                except OSError:  # File or directory not accessible; skip
-                    pass  # no-op: skip inaccessible files
+                except OSError:
+                    # File or directory not accessible; skip
+                    pass
                 break  # Only use first found
 
     def generate_markdown(self, context: ServiceContext) -> str:

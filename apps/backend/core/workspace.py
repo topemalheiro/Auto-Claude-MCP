@@ -978,6 +978,9 @@ def _check_git_conflicts(project_dir: Path, spec_name: str) -> dict:
             debug_warning(MODULE, "Could not find merge base")
             return result
 
+        # _merge_base reserved for future conflict detection
+        # _merge_base = merge_base_result.stdout.strip()
+
         # Get commit hashes
         main_commit_result = run_git(
             ["rev-parse", result["base_branch"]],

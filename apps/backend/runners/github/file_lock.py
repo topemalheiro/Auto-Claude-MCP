@@ -249,8 +249,9 @@ def atomic_write(filepath: str | Path, mode: str = "w", encoding: str = "utf-8")
         # Clean up temp file on error
         try:
             os.unlink(tmp_path)
-        except Exception:  # Non-critical error; continue
-            pass  # no-op: cleanup is best-effort
+        except Exception:
+            # Non-critical error; continue
+            pass
         raise
 
 
@@ -315,8 +316,9 @@ async def locked_write(
                 await asyncio.get_running_loop().run_in_executor(
                     None, os.unlink, tmp_path
                 )
-            except Exception:  # Non-critical error; continue
-                pass  # no-op: cleanup is best-effort
+            except Exception:
+                # Non-critical error; continue
+                pass
             raise
 
     finally:
@@ -478,8 +480,9 @@ async def locked_json_update(
                 await asyncio.get_running_loop().run_in_executor(
                     None, os.unlink, tmp_path
                 )
-            except Exception:  # Non-critical error; continue
-                pass  # no-op: cleanup is best-effort
+            except Exception:
+                # Non-critical error; continue
+                pass
             raise
 
         return updated_data

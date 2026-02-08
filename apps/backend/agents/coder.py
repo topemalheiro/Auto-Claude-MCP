@@ -651,9 +651,8 @@ async def run_autonomous_agent(
                         await asyncio.sleep(delay)
                         next_subtask = get_next_subtask(spec_dir)
                         if next_subtask:
-                            # Update subtask_id and phase_name after successful retry
+                            # Update subtask_id after successful retry (phase_name will be set in next iteration)
                             subtask_id = next_subtask.get("id")
-                            phase_name = next_subtask.get("phase_name")
                             print_status(
                                 f"Found subtask {subtask_id} after {delay}s delay",
                                 "success",

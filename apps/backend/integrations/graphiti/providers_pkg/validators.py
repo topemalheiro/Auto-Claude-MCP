@@ -77,10 +77,9 @@ async def test_llm_connection(config: "GraphitiConfig") -> tuple[bool, str]:
     Returns:
         Tuple of (success, message)
     """
-    from .factory import create_llm_client
 
     try:
-        _llm_client = create_llm_client(config)
+        # llm_client = ...  # TODO: unused variable
         # Most clients don't have a ping method, so just verify creation succeeded
         return (
             True,
@@ -104,7 +103,6 @@ async def test_embedder_connection(config: "GraphitiConfig") -> tuple[bool, str]
     Returns:
         Tuple of (success, message)
     """
-    from .factory import create_embedder
 
     # First validate config
     valid, msg = validate_embedding_config(config)
@@ -112,7 +110,7 @@ async def test_embedder_connection(config: "GraphitiConfig") -> tuple[bool, str]
         return False, msg
 
     try:
-        _embedder = create_embedder(config)
+        # embedder = ...  # TODO: unused variable
         return (
             True,
             f"Embedder created successfully for provider: {config.embedder_provider}",

@@ -1809,12 +1809,6 @@ For EACH finding above:
             # Fail-safe: return original findings
             return findings
 
-        if not structured_output:
-            logger.warning(
-                "[PRReview] No structured validation output, keeping original findings"
-            )
-            return findings
-
         # Parse validation results
         try:
             response = FindingValidationResponse.model_validate(structured_output)

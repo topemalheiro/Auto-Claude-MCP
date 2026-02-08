@@ -51,12 +51,9 @@ if sys.platform == "win32":
             try:
                 _stream.reconfigure(encoding="utf-8", errors="replace")
                 continue
-            except (
-                AttributeError,
-                io.UnsupportedOperation,
-                OSError,
-            ):  # Event loop not available; use sync fallback
-                pass  # no-op: fall through to next method
+            except (AttributeError, io.UnsupportedOperation, OSError):
+                # Event loop not available; use sync fallback
+                pass
         # Method 2: Wrap with TextIOWrapper for piped output
         try:
             if hasattr(_stream, "buffer"):

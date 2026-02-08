@@ -16,7 +16,9 @@ import json
 from pathlib import Path
 
 from project_analyzer import (
+    BASE_COMMANDS,
     ProjectAnalyzer,
+    SecurityProfile,
     get_or_create_profile,
     is_command_allowed,
     needs_validation,

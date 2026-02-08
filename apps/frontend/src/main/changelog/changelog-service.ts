@@ -516,13 +516,9 @@ export class ChangelogService extends EventEmitter {
       };
     } catch (error) {
       this.debug('Error in AI version suggestion, falling back to patch bump', error);
-      // Fallback to patch bump if AI fails.
-      // currentVersion is guaranteed to be valid here because:
-      // 1. Lines 497-499 return early if currentVersion is falsy
-      // 2. Lines 501-504 return early if currentVersion has invalid format
-      // 3. The catch block can only be reached from line 508 (suggestVersionBump) onwards
-      const parts = currentVersion!.split('.').map(Number);
-      const [major, minor, patch] = parts;
+      // Fallback to patch bump if AI fails
+      const version = currentVersion || '1.0.0';
+      const [major, minor, patch] = version.split('.').map(Number);
       return {
         version: `${major}.${minor}.${patch + 1}`,
         reason: 'Patch version bump (AI analysis failed)'

@@ -276,13 +276,8 @@ export function ScreenshotCapture({ open, onOpenChange, onCapture }: ScreenshotC
                 size="sm"
                 onClick={fetchSources}
                 className="mt-4"
-                disabled={isLoading}
               >
-                {isLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                ) : (
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                )}
+                <RefreshCw className="h-4 w-4 mr-2" />
                 {t('common:buttons.retry')}
               </Button>
             </div>

@@ -454,8 +454,9 @@ def test_json_parsing_robustness():
             json_match = re.search(r"```json\s*(\[.*?\])\s*```", text, re.DOTALL)
             if json_match:
                 return json.loads(json_match.group(1))
-        except (json.JSONDecodeError, ValueError):  # Invalid JSON; skip
-            pass  # no-op: return empty list on parse error
+        except (json.JSONDecodeError, ValueError):
+            # Invalid JSON; skip
+            pass
         return []
 
     # Test valid JSON

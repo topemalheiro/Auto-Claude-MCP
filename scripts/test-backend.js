@@ -42,31 +42,33 @@ if (!fs.existsSync(pytestPath)) {
 
 // Get any additional args passed to the script (validated to only contain safe characters)
 const args = process.argv.slice(2);
+
+// Escape each argument for safe shell usage
+function escapeShellArg(arg) {
+  // On Windows, escape double quotes and wrap in double quotes
+  if (isWindows) {
+    return `"${arg.replace(/"/g, '\\"')}"`;
+  }
+  // On Unix, use single quotes and escape any single quotes in the argument
+  return `'${arg.replace(/'/g, "'\\''")}'`;
+}
+
+// Build command with properly escaped arguments
 const defaultArgs = ['-v'];
 const argsToUse = args.length > 0 ? args : defaultArgs;
+const escapedArgs = argsToUse.map(escapeShellArg).join(' ');
 
-// Validate arguments to only contain safe characters (alphanumeric, dash, underscore, dot, slash, equals)
-// Reject: shell metacharacters, path traversal sequences, and command separators
-// This whitelist prevents command injection through malicious arguments
-const unsafePatterns = [
-  /[;&|`$()]/,  // Shell metacharacters
-  /\.\./,       // Path traversal
-  /\x00/,       // Null bytes
-];
-for (const arg of argsToUse) {
-  // Check for unsafe patterns first
-  for (const pattern of unsafePatterns) {
-    if (pattern.test(arg)) {
-      console.error(`Error: Invalid argument '${arg}'. Argument contains unsafe characters.`);
-      process.exit(1);
-    }
-  }
-  // Then whitelist safe characters (alphanumeric, dash, underscore, dot, slash, colon, equals, at sign)
-  // Note: backslash is intentionally excluded for Windows safety
-  if (!/^[a-zA-Z0-9._/=:@+-]+$/.test(arg)) {
-    console.error(`Error: Invalid argument '${arg}'. Only alphanumeric, dash, underscore, dot, slash, equals, colon, and at sign are allowed.`);
-    process.exit(1);
-  }
+// Run pytest with properly escaped paths and arguments
+const cmd = isWindows
+  ? `"${pytestPath}" "${testsDir}" ${escapedArgs}`
+  : `'${pytestPath}' '${testsDir}' ${escapedArgs}`;
+
+console.log(`> ${cmd}\n`);
+
+try {
+  execSync(cmd, { stdio: 'inherit', cwd: rootDir });
+} catch (error) {
+  process.exit(error.status || 1);
 }
 
 console.log(`> ${pytestPath} ${testsDir} ${argsToUse.join(' ')}\n`);
