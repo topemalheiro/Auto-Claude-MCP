@@ -15,6 +15,7 @@ import pytest
 from merge import (
     ConflictDetector,
     AutoMerger,
+    SemanticAnalyzer,
 )
 from merge.ai_resolver.resolver import AIResolver
 from merge.file_evolution.tracker import FileEvolutionTracker

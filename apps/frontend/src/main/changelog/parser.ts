@@ -69,9 +69,9 @@ export function extractChangelog(output: string): string {
   const prefixes = [
     /^I'll\s+analyze[^#]*(?=#)/is,
     /^I'll\s+generate[^#]*(?=#)/is,
-    /^Here's\s+the\s+changelog[:\s]*/i,
-    /^The\s+changelog[:\s]*/i,
-    /^Changelog[:\s]*/i,
+    /^Here's\s+the\s+changelog[\s:]*/i,
+    /^The\s+changelog[\s:]*/i,
+    /^Changelog[\s:]*/i,
     /^Based\s+on[^#]*(?=#)/is,
     /^Let\s+me[^#]*(?=#)/is
   ];

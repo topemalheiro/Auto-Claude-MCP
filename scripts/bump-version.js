@@ -29,7 +29,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { execSync, execFileSync } = require('child_process');
+const { execFileSync } = require('child_process');
 
 // Colors for terminal output
 const colors = {
@@ -93,16 +93,8 @@ function bumpVersion(currentVersion, bumpType) {
   }
 }
 
-// Escape a string for safe use in a shell command (single-quote wrapping)
-function shellescape(str) {
-  // Replace any single quotes with '\'' (end single-quote, escaped quote, start new single-quote)
-  return str.replace(/'/g, "'\\''");
-}
-
-// Execute shell command
-// NOTE: All commands passed to this function are trusted string literals,
-// not user-provided input. This is a build script that runs in a controlled environment.
-function exec(command, options = {}) {
+// Execute git command with arguments (safer than shell string)
+function execGitCommand(...args) {
   try {
     return execFileSync('git', args, { encoding: 'utf8', stdio: 'pipe' }).trim();
   } catch (err) {
@@ -298,10 +290,8 @@ function main() {
 
   // 7. Create git commit
   info('Creating git commit...');
-  exec('git add apps/frontend/package.json package.json apps/backend/__init__.py');
-  // Escape version for safe shell usage
-  const safeVersion = shellescape(newVersion);
-  exec(`git commit -m 'chore: bump version to ${safeVersion}'`);
+  execGitCommand('add', 'apps/frontend/package.json', 'package.json', 'apps/backend/__init__.py');
+  execGitCommand('commit', '-m', `chore: bump version to ${newVersion}`);
   success(`Created commit: "chore: bump version to ${newVersion}"`);
 
   // Note: Tags are NOT created here anymore. GitHub Actions will create the tag

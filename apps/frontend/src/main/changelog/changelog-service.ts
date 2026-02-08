@@ -522,13 +522,9 @@ export class ChangelogService extends EventEmitter {
       // 2. Line 503-506: Returns early if currentVersion is invalid format
       // 3. Therefore, if we reach line 510 (where AI is called), currentVersion is valid
       // 4. The catch block can only be reached from line 510 onward
-      if (!currentVersion) {
-        return { version: '1.0.0', reason: 'No current version available' };
-      }
-      const versionStr = currentVersion;
+      const versionStr = currentVersion!; // Non-null assertion: control flow guarantees validity
       const parts = versionStr.split('.').map(Number);
-      const [major, minor, patch] =
-        parts.length === 3 && !parts.some(Number.isNaN) ? parts : [1, 0, 0];
+      const [major, minor, patch] = parts;
       return {
         version: `${major}.${minor}.${patch + 1}`,
         reason: 'Patch version bump (AI analysis failed)'

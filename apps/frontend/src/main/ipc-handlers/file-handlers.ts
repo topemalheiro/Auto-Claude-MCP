@@ -104,16 +104,14 @@ export function registerFileHandlers(): void {
         }
         const safePath = validation.path;
 
-        // Check file size and read file atomically (stat + read in same try block)
-        // If file is deleted between stat and read, the operation will fail gracefully
-        const [stats, content] = await Promise.all([
-          stat(safePath),
-          readFile(safePath, 'utf-8')
-        ]);
-
+        // Check file size first before reading to avoid reading large files
+        const stats = await stat(safePath);
         if (stats.size > MAX_FILE_SIZE) {
           return { success: false, error: 'File too large (max 1MB)' };
         }
+
+        // Read file content - if file changed/deleted after stat, this will fail gracefully
+        const content = await readFile(safePath, 'utf-8');
 
         return { success: true, data: content };
       } catch (error) {

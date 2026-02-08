@@ -4,7 +4,7 @@
  * Runs pytest using the correct virtual environment path for Windows/Mac/Linux
  */
 
-const { execFileSync, spawn } = require('child_process');
+const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -47,7 +47,7 @@ const argsToUse = args.length > 0 ? args : defaultArgs;
 
 // Validate arguments to only contain safe characters (alphanumeric, dash, underscore, dot, slash)
 for (const arg of argsToUse) {
-  if (!/^[a-zA-Z0-9_\-./=]+$/.test(arg)) {
+  if (!/^[a-zA-Z0-9._/=\\-]+$/.test(arg)) {
     console.error(`Error: Invalid argument '${arg}'. Only alphanumeric, dash, underscore, dot, slash, and equals are allowed.`);
     process.exit(1);
   }
