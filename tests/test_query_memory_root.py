@@ -12,10 +12,6 @@ from pathlib import Path
 from unittest.mock import MagicMock, Mock, patch
 
 
-# Import the module to test
-SCRIPT_PATH = Path(__file__).parent.parent / "apps" / "backend" / "query_memory.py"
-
-
 class TestApplyMonkeypatch:
     """Tests for apply_monkeypatch function."""
 

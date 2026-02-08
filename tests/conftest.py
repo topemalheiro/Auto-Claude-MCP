@@ -11,17 +11,9 @@ from unittest.mock import MagicMock
 
 import pytest
 
-# Import merge fixtures for availability across all tests
-from merge import (
-    ConflictDetector,
-    AutoMerger,
-    SemanticAnalyzer,
-)
-from merge.ai_resolver.resolver import AIResolver
-from merge.file_evolution.tracker import FileEvolutionTracker
-
 # Add project root to Python path for "apps.backend.*" style imports
 # The structure is: repo_root/tests/conftest.py, repo_root/apps/backend/
+# IMPORTANT: This must be done BEFORE importing any modules from the codebase
 project_root = Path(__file__).parent.parent
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
@@ -30,6 +22,16 @@ if str(project_root) not in sys.path:
 backend_path = project_root / "apps" / "backend"
 if str(backend_path) not in sys.path:
     sys.path.insert(0, str(backend_path))
+
+# Import merge fixtures for availability across all tests
+# These imports MUST come after sys.path is set up
+from merge import (
+    ConflictDetector,
+    AutoMerger,
+    SemanticAnalyzer,
+)
+from merge.ai_resolver.resolver import AIResolver
+from merge.file_evolution.tracker import FileEvolutionTracker
 
 # Set environment variable to prevent io_utils from closing stdout during tests
 # This must be set BEFORE importing any modules that use safe_print

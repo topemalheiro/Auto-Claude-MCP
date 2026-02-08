@@ -8,6 +8,14 @@ These are separated from conftest.py to allow direct imports.
 """
 
 # Sample React component code
+__all__ = [
+    "SAMPLE_REACT_COMPONENT",
+    "SAMPLE_REACT_WITH_HOOK",
+    "SAMPLE_PYTHON_MODULE",
+    "SAMPLE_PYTHON_WITH_NEW_IMPORT",
+    "SAMPLE_PYTHON_WITH_NEW_FUNCTION",
+]
+
 SAMPLE_REACT_COMPONENT = '''import React from 'react';
 import { useState } from 'react';
 
