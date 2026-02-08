@@ -89,6 +89,7 @@ interface TaskInfo {
   created_at?: string;
   updated_at?: string;
   rdrDisabled?: boolean;  // If true, RDR will skip this task
+  metadata?: { stuckSince?: string };  // Stuck timestamp from task recovery
 }
 
 interface RdrBatch {
@@ -185,6 +186,7 @@ function enrichTaskWithWorktreeData(task: TaskInfo, projectPath: string): TaskIn
         updated_at: worktreePlan.updated_at || worktreePlan.last_updated || task.updated_at,
         exitReason: worktreePlan.exitReason !== undefined ? worktreePlan.exitReason : task.exitReason,
         reviewReason: worktreePlan.reviewReason !== undefined ? worktreePlan.reviewReason : task.reviewReason,
+        metadata: worktreePlan.metadata || task.metadata,
       };
     }
   } catch (e) {
@@ -246,6 +248,12 @@ function getTaskLastActivityTimestamp(task: TaskInfo, projectPath: string): numb
 function isLegitimateHumanReview(task: TaskInfo): boolean {
   const progress = calculateTaskProgress(task);
 
+  // plan_review tasks are NEVER legitimate - they're stuck and need to resume coding
+  // Even at 100%, plan_review means planning finished but coding never started
+  if (task.reviewReason === 'plan_review') {
+    return false;  // Flag for intervention - needs to transition to coding
+  }
+
   // Match auto-shutdown logic: ANY human_review at 100% = legitimate
   // Auto-shutdown skips ALL human_review tasks at 100%, not just reviewReason='completed'.
   // This prevents false positives like 085-templating-backend being flagged.
@@ -272,12 +280,26 @@ function determineInterventionType(task: TaskInfo, lastActivityMs?: number, hasW
     return null;
   }
 
+  // PLAN_REVIEW: Tasks where planning finished but coding never started
+  // Catches tasks with reviewReason=plan_review in ANY status (human_review, plan_review, etc.)
+  // These tasks need to transition to coding phase, regardless of progress or exitReason
+  if (task.reviewReason === 'plan_review') {
+    console.log(`[RDR] Task ${task.specId} has reviewReason=plan_review (status=${task.status}) - needs to transition to coding`);
+    return 'incomplete';
+  }
+
   // REGRESSED: Task went back to backlog/pending but has a worktree (agent previously started work)
   // This means the agent crashed or was interrupted and the task regressed
   // STUCK START: Task has start_requested in raw plan but ProjectStore mapped it to backlog
   // This means the file watcher never picked it up and the agent never started
   if (task.status === 'backlog' || task.status === 'pending' || task.status === 'plan_review') {
     if (task.status === 'plan_review') {
+      // STUCK TASK: If task has metadata.stuckSince, it's in recovery mode - ALWAYS flag it
+      if (task.metadata?.stuckSince) {
+        console.log(`[RDR] Task ${task.specId} is STUCK (recovery mode since ${task.metadata.stuckSince}) - flagging for intervention`);
+        return 'stuck';
+      }
+
       // Check recency - agent may have just set plan_review and is about to transition
       if (lastActivityMs !== undefined && lastActivityMs > 0) {
         const timeSinceLastActivity = Date.now() - lastActivityMs;
@@ -328,6 +350,13 @@ function determineInterventionType(task: TaskInfo, lastActivityMs?: number, hasW
   // completed = finished subtasks but didn't transition
   if (task.status === 'in_progress' || task.status === 'ai_review' ||
       task.status === 'qa_approved' || task.status === 'completed') {
+    // STUCK TASK: If task has metadata.stuckSince, it's in recovery mode - ALWAYS flag it
+    // regardless of recency (user clicked Recover button or task crashed)
+    if (task.metadata?.stuckSince) {
+      console.log(`[RDR] Task ${task.specId} is STUCK (recovery mode since ${task.metadata.stuckSince}) - flagging for intervention`);
+      return 'stuck';
+    }
+
     // Check if the agent recently updated the plan file - if so, it's still actively working
     if (lastActivityMs !== undefined && lastActivityMs > 0) {
       const timeSinceLastActivity = Date.now() - lastActivityMs;
