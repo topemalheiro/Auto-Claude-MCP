@@ -20,7 +20,6 @@ import sys
 # Configure safe encoding on Windows to handle Unicode characters in output
 # This is needed because this script prints checkmark symbols (✓, ✗)
 if sys.platform == "win32":
-    _new_stream = None  # Initialize to avoid CodeQL uninitialized variable warning
     for _stream_name in ("stdout", "stderr"):
         _stream = getattr(sys, _stream_name)
         # Method 1: Try reconfigure (works for TTY)
@@ -28,11 +27,7 @@ if sys.platform == "win32":
             try:
                 _stream.reconfigure(encoding="utf-8", errors="replace")
                 continue
-            except (
-                AttributeError,
-                io.UnsupportedOperation,
-                OSError,
-            ):  # Stream doesn't support reconfigure
+            except (AttributeError, io.UnsupportedOperation, OSError):
                 pass
         # Method 2: Wrap with TextIOWrapper for piped output
         try:
@@ -44,15 +39,11 @@ if sys.platform == "win32":
                     line_buffering=True,
                 )
                 setattr(sys, _stream_name, _new_stream)
-        except (
-            AttributeError,
-            io.UnsupportedOperation,
-            OSError,
-        ):  # Stream doesn't support wrapper
+        except (AttributeError, io.UnsupportedOperation, OSError):
             pass
     # Clean up temporary variables
     del _stream_name, _stream
-    if _new_stream is not None:
+    if "_new_stream" in dir():
         del _new_stream
 
 import argparse
