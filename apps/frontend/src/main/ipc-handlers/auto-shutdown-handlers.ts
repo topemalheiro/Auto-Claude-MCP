@@ -346,7 +346,7 @@ ipcMain.handle(
             enabled: false,
             monitoring: false,
             tasksRemaining: 0,
-            shutdownPending: code === 0
+            shutdownPending: false
           };
           monitorStatuses.set('global', status);
         });
