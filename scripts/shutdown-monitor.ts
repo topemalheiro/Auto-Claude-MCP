@@ -162,15 +162,15 @@ function areAllTasksComplete(statuses: TaskStatus[], hasSeenActiveTasks: boolean
     s.status === 'done' || s.status === 'pr_created'
   );
 
-  // Complete tasks - at human_review with all subtasks done
+  // Complete tasks - at human_review or ai_review with all subtasks done
   const completeTasks = statuses.filter(s =>
-    s.status === 'human_review' && s.progress === 100
+    (s.status === 'human_review' || s.status === 'ai_review') && s.progress === 100
   );
 
   // Active tasks - everything else (still needs work)
   const activeTasks = statuses.filter(s =>
     s.status !== 'done' && s.status !== 'pr_created' &&
-    !(s.status === 'human_review' && s.progress === 100)
+    !((s.status === 'human_review' || s.status === 'ai_review') && s.progress === 100)
   );
 
   const hasActive = activeTasks.length > 0;
@@ -183,19 +183,19 @@ function areAllTasksComplete(statuses: TaskStatus[], hasSeenActiveTasks: boolean
     byProject.get(name)!.push(task);
   }
 
-  console.log(`[Monitor] ${statuses.length} tasks: ${terminalTasks.length} done, ${completeTasks.length} complete (human_review 100%), ${activeTasks.length} active`);
+  console.log(`[Monitor] ${statuses.length} tasks: ${terminalTasks.length} done, ${completeTasks.length} complete (review 100%), ${activeTasks.length} active`);
   Array.from(byProject.entries()).forEach(([projectName, tasks]) => {
     console.log(`  Project: ${projectName}`);
     tasks.forEach(task => {
       const isComplete = task.status === 'done' || task.status === 'pr_created' ||
-        (task.status === 'human_review' && task.progress === 100);
+        ((task.status === 'human_review' || task.status === 'ai_review') && task.progress === 100);
       console.log(`    - ${task.taskId}: ${task.status} ${task.progress}% [${task.source}] ${isComplete ? 'DONE' : '...'}`);
     });
   });
 
   // All active tasks gone AND we've seen tasks before → all work complete
   if (activeTasks.length === 0 && (hasSeenActiveTasks || statuses.length > 0)) {
-    console.log(`[Monitor] ALL tasks complete! (${terminalTasks.length} done + ${completeTasks.length} at human_review 100%)`);
+    console.log(`[Monitor] ALL tasks complete! (${terminalTasks.length} done + ${completeTasks.length} at review 100%)`);
     return { complete: true, hasActive };
   }
 

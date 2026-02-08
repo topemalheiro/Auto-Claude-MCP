@@ -207,10 +207,10 @@ function countTasksByStatus(projectPath: string): { total: number; humanReview: 
           continue;
         }
 
-        // Skip legitimately completed tasks awaiting user merge/approval
+        // Skip completed tasks (human_review or ai_review at 100%)
         const progress = calculateTaskProgress(content);
-        if (content.status === 'human_review' && progress === 100) {
-          console.log(`[AutoShutdown] Task ${dir}: 100% complete, status=human_review (NOT counted - awaiting merge) [${source}]`);
+        if ((content.status === 'human_review' || content.status === 'ai_review') && progress === 100) {
+          console.log(`[AutoShutdown] Task ${dir}: 100% complete, status=${content.status} (NOT counted - complete) [${source}]`);
           continue;
         }
 
