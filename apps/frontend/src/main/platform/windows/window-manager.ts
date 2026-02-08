@@ -338,7 +338,27 @@ export async function isClaudeCodeBusy(identifier: number | string): Promise<boo
       return true;
     }
 
-    // SECONDARY: Check output monitor state (catches plan mode, active sessions)
+    // SECONDARY: Check MCP connection (definitive for user's Claude Code session)
+    // MCP Monitor only tracks user's Claude Code -> Auto-Claude MCP server
+    // Task agents do NOT connect to this MCP server
+    let mcpAvailable = false;
+    try {
+      const { mcpMonitor } = await import('../../mcp-server');
+      if (mcpMonitor) {
+        mcpAvailable = true;
+        if (mcpMonitor.isBusy()) {
+          console.log('[WindowManager] BUSY: MCP connection active (user Claude Code is calling tools)');
+          return true;
+        }
+        console.log('[WindowManager] MCP Monitor: No active connections');
+      }
+    } catch {
+      // MCP monitor not available - continue with OutputMonitor
+    }
+
+    // TERTIARY: Check output monitor state (catches plan mode, active sessions)
+    // CAUTION: OutputMonitor scans ALL ~/.claude/projects/ JSONL files
+    // It cannot distinguish user sessions from task agent sessions
     try {
       const { outputMonitor } = await import('../../claude-code/output-monitor');
 
@@ -349,12 +369,19 @@ export async function isClaudeCodeBusy(identifier: number | string): Promise<boo
         // Only block when actively processing (thinking/using tools)
         // AT_PROMPT is OK - RDR notification is just another user input
         if (state === 'PROCESSING') {
-          console.log(`[WindowManager] ⏸️  BUSY: Output monitor state is PROCESSING (active work)`);
-          return true;
+          if (mcpAvailable) {
+            // MCP says idle but OutputMonitor says busy - likely task agent activity
+            console.log('[WindowManager] OutputMonitor says PROCESSING but MCP is idle - likely task agent');
+            // Fall through - don't block
+          } else {
+            // No MCP monitor - OutputMonitor is our only source, trust it
+            console.log('[WindowManager] BUSY: Output monitor PROCESSING (no MCP to verify)');
+            return true;
+          }
         }
 
         if (state === 'AT_PROMPT') {
-          console.log(`[WindowManager] ✅ Output monitor: AT_PROMPT (waiting for input - OK for RDR)`);
+          console.log('[WindowManager] Output monitor: AT_PROMPT (waiting for input - OK for RDR)');
           // Don't return true - AT_PROMPT is fine for RDR messages
         }
 
@@ -366,11 +393,11 @@ export async function isClaudeCodeBusy(identifier: number | string): Promise<boo
         const MINIMUM_IDLE_TIME_MS = 5000; // 5 seconds
 
         if (state !== 'IDLE' && timeSinceStateChange < MINIMUM_IDLE_TIME_MS) {
-          console.log(`[WindowManager] ⏸️  BUSY: Recently active (${timeSinceStateChange}ms ago, state=${state}) - waiting for ${MINIMUM_IDLE_TIME_MS}ms idle time`);
+          console.log(`[WindowManager] BUSY: Recently active (${timeSinceStateChange}ms ago, state=${state}) - waiting for ${MINIMUM_IDLE_TIME_MS}ms idle time`);
           return true;
         }
 
-        console.log(`[WindowManager] ✅ Output monitor: IDLE (state: ${state}, idle for ${timeSinceStateChange}ms)`);
+        console.log(`[WindowManager] Output monitor: IDLE (state: ${state}, idle for ${timeSinceStateChange}ms)`);
       }
     } catch (error) {
       console.warn('[WindowManager] Output monitor not available, using title-based detection only:', error);

@@ -1207,73 +1207,77 @@ export function queueTaskForRdr(projectId: string, task: TaskInfo): void {
 /**
  * Check if Claude Code is currently busy
  * Returns true if Claude is at prompt, processing, or session is active
+ *
+ * IMPORTANT: MCP Monitor is checked FIRST because it definitively tracks the
+ * user's Claude Code session. OutputMonitor scans ALL ~/.claude/projects/ JSONL
+ * files and cannot distinguish user sessions from task agent sessions. When MCP
+ * says idle but OutputMonitor says PROCESSING, the PROCESSING is likely from a
+ * task agent running in a worktree - not the user's session.
  */
 async function checkClaudeCodeBusy(): Promise<boolean> {
   try {
-    console.log('[RDR] 🔍 Checking if Claude Code is busy...');
+    console.log('[RDR] Checking if Claude Code is busy...');
 
-    // PRIMARY: Check if Claude is at prompt OR processing (NOT idle)
-    if (outputMonitor) {
-      // Update state by reading latest JSONL transcript
-      await outputMonitor.isAtPrompt(); // This updates internal state
-      const state = outputMonitor.getCurrentState();
-
-      // Block RDR ONLY if Claude is actively processing (thinking/using tools)
-      // AT_PROMPT (waiting for input) is fine - RDR notification is just another input
-      if (state === 'PROCESSING') {
-        console.log('[RDR] ⏸️  BUSY: Claude Code is processing (thinking/using tools)');
-
-        const diagnostics = await outputMonitor.getDiagnostics();
-        console.log('[RDR]    📊 Diagnostics:', {
-          state: diagnostics.state,
-          timeSinceStateChange: `${diagnostics.timeSinceStateChange}ms`,
-          recentOutputFiles: diagnostics.recentOutputFiles,
-          timestamp: new Date().toISOString()
-        });
-        return true; // BUSY - reschedule!
-      }
-
-      // AT_PROMPT or IDLE is fine for RDR notifications
-      if (state === 'AT_PROMPT') {
-        console.log('[RDR] ✅ Output Monitor: Claude is AT_PROMPT (waiting for input - OK for RDR)');
-      }
-
-      // OutputMonitor determines IDLE state - trust it immediately
-      // No additional wait time needed - OutputMonitor already checks for genuine idle state
-      console.log('[RDR] ✅ Output Monitor: Claude is IDLE - proceeding with RDR');
-    } else {
-      console.warn('[RDR] ⚠️  Output Monitor not available');
-    }
-
-    // SECONDARY: Check MCP connection activity (dynamically load if on Windows)
+    // 1. PRIMARY: Check MCP connection (definitive for user's Claude Code)
+    // MCP Monitor only tracks user's Claude Code -> Auto-Claude MCP server connection
+    // Task agents do NOT connect to this MCP server
+    let mcpAvailable = false;
     if (process.platform === 'win32') {
       try {
         const { mcpMonitor } = await import('../mcp-server');
-        if (mcpMonitor && mcpMonitor.isBusy()) {
-          console.log('[RDR] ⏸️  BUSY: MCP connection active');
-          const status = mcpMonitor.getStatus();
-          console.log('[RDR]    📊 MCP Status:', {
-            activeToolName: status.activeToolName,
-            timeSinceLastRequest: `${status.timeSinceLastRequest}ms`,
-            timestamp: new Date().toISOString()
-          });
-          return true;
-        } else {
-          console.log('[RDR] ✅ MCP Monitor: No active connections');
+        if (mcpMonitor) {
+          mcpAvailable = true;
+          if (mcpMonitor.isBusy()) {
+            console.log('[RDR] BUSY: User Claude Code is actively calling MCP tools');
+            const status = mcpMonitor.getStatus();
+            console.log('[RDR]   MCP Status:', {
+              activeToolName: status.activeToolName,
+              timeSinceLastRequest: `${status.timeSinceLastRequest}ms`
+            });
+            return true;
+          }
+          console.log('[RDR] MCP Monitor: No active connections');
         }
       } catch (error) {
-        console.warn('[RDR] ⚠️  MCP monitor check skipped:', error);
-        // Continue - don't fail the whole check
+        console.warn('[RDR] MCP monitor check skipped:', error);
       }
     }
 
+    // 2. SECONDARY: Check OutputMonitor
+    // CAUTION: OutputMonitor scans ALL ~/.claude/projects/ JSONL files
+    // It cannot distinguish user sessions from task agent sessions
+    if (outputMonitor) {
+      await outputMonitor.isAtPrompt();
+      const state = outputMonitor.getCurrentState();
+
+      if (state === 'PROCESSING') {
+        if (mcpAvailable) {
+          // MCP says idle but OutputMonitor says busy
+          // This likely means a task agent is running, not the user's session
+          console.log('[RDR] OutputMonitor says PROCESSING but MCP is idle');
+          console.log('[RDR] Likely task agent activity (not user session) - proceeding with RDR');
+          // Fall through - don't block
+        } else {
+          // No MCP monitor available - OutputMonitor is our only source
+          // Trust it to avoid interrupting the user
+          console.log('[RDR] BUSY: OutputMonitor says PROCESSING (no MCP to verify)');
+          return true;
+        }
+      } else if (state === 'AT_PROMPT') {
+        console.log('[RDR] OutputMonitor: AT_PROMPT (waiting for input - OK for RDR)');
+      } else {
+        console.log('[RDR] OutputMonitor: IDLE - proceeding with RDR');
+      }
+    } else {
+      console.warn('[RDR] Output Monitor not available');
+    }
+
     // All checks passed - Claude is truly idle
-    console.log('[RDR] ✅ ALL CHECKS PASSED: Claude Code is IDLE (safe to send)');
+    console.log('[RDR] ALL CHECKS PASSED: Claude Code is IDLE (safe to send)');
     return false;
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error('[RDR] ❌ ERROR: Failed to check busy state:', errorMessage);
-    console.error('[RDR]        Failing safe - assuming BUSY to prevent interrupting active session');
+    console.error('[RDR] ERROR: Failed to check busy state:', errorMessage);
     // FAIL SAFE: Assume busy on error to prevent interrupting ongoing work
     return true;
   }

@@ -668,9 +668,9 @@
     "tasksRemaining": "{{count}} tâches restantes",
     "tasksRemaining_one": "{{count}} tâche restante",
     "tasksRemaining_other": "{{count}} tâches restantes",
-    "tasksRemainingGlobal": "{{count}} tâches restantes dans {{projects}} projets",
-    "tasksRemainingGlobal_one": "{{count}} tâche restante dans {{projects}} projets",
-    "tasksRemainingGlobal_other": "{{count}} tâches restantes dans {{projects}} projets",
+    "tasksRemainingGlobal": "{{count}} tâches restantes",
+    "tasksRemainingGlobal_one": "{{count}} tâche restante",
+    "tasksRemainingGlobal_other": "{{count}} tâches restantes",
     "waitingForCompletion": "En attente des tâches...",
     "shutdownIn": "Arrêt dans {{seconds}}s"
   }

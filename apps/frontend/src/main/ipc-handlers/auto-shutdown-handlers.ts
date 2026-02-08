@@ -76,40 +76,6 @@ function isTaskArchived(specsDir: string, taskDir: string): boolean {
   }
 }
 
-/**
- * Calculate task completion percentage from phases/subtasks
- * Returns 100 if all subtasks are completed, 0 if no subtasks
- * Matches the green dot indicators in the UI
- */
-function calculateTaskProgress(plan: {
-  phases?: Array<{
-    status?: string;
-    subtasks?: Array<{ status: string }>;
-    chunks?: Array<{ status: string }>;  // Legacy field name
-  }>;
-}): number {
-  if (!plan.phases || plan.phases.length === 0) {
-    return 0;
-  }
-
-  // Flatten all subtasks from all phases
-  // Note: Only 'completed' status counts toward 100%. Tasks with 'failed' subtasks
-  // will never reach 100% and will continue to be monitored, which is correct
-  // behavior since they require intervention.
-  const allSubtasks = plan.phases.flatMap(phase =>
-    phase.subtasks || phase.chunks || []
-  ).filter(Boolean);
-
-  // If no subtasks exist, check if all phases are completed
-  // This handles the edge case where tasks complete all phases but have no subtasks
-  if (allSubtasks.length === 0) {
-    const allPhasesComplete = plan.phases.every(p => p.status === 'completed');
-    return allPhasesComplete ? 100 : 0;
-  }
-
-  const completed = allSubtasks.filter(s => s.status === 'completed').length;
-  return Math.round((completed / allSubtasks.length) * 100);
-}
 
 /**
  * Get all active task IDs for a project
@@ -143,21 +109,13 @@ function getActiveTaskIds(projectPath: string): string[] {
         const content = worktreeContent || mainContent;
         const source = worktreeContent ? 'worktree' : 'main';
 
-        // Skip terminal statuses - these tasks are truly finished
-        if (content.status === 'done' || content.status === 'pr_created') {
+        // Complete = done, pr_created, or human_review (QA passed, ready for human)
+        // ai_review is NOT complete - QA validation is still running
+        if (content.status === 'done' || content.status === 'pr_created' || content.status === 'human_review') {
           continue;
         }
 
-        // Skip completed tasks: ANY non-initial status at 100% subtask completion
-        // Agents may finish all subtasks but not transition status (crash, exit, etc.)
-        // So we treat any 100% task as "complete" unless it's still in backlog/pending
-        const progress = calculateTaskProgress(content);
-        if (progress === 100 && content.status !== 'backlog' && content.status !== 'pending') {
-          continue;
-        }
-
-        // Count as active: tasks with incomplete work or non-terminal status
-        console.log(`[AutoShutdown] Active task ${dir}: status=${content.status}, progress=${progress}% (from ${source})`);
+        console.log(`[AutoShutdown] Active task ${dir}: status=${content.status} (from ${source})`);
         taskIds.push(dir);
       } catch (e) {
         console.error(`[AutoShutdown] Failed to read ${planPath}:`, e);
@@ -202,26 +160,13 @@ function countTasksByStatus(projectPath: string): { total: number; humanReview: 
         const content = worktreeContent || mainContent;
         const source = worktreeContent ? 'worktree' : 'main';
 
-        // Skip terminal statuses - these tasks are truly finished
-        if (content.status === 'done' || content.status === 'pr_created') {
+        // Complete = done, pr_created, or human_review (QA passed, ready for human)
+        if (content.status === 'done' || content.status === 'pr_created' || content.status === 'human_review') {
           continue;
         }
 
-        // Skip completed tasks: ANY non-initial status at 100% subtask completion
-        // Agents may finish all subtasks but not transition status (crash, exit, etc.)
-        // So we treat any 100% task as "complete" unless it's still in backlog/pending
-        const progress = calculateTaskProgress(content);
-        if (progress === 100 && content.status !== 'backlog' && content.status !== 'pending') {
-          console.log(`[AutoShutdown] Task ${dir}: 100% complete, status=${content.status} (NOT counted - complete) [${source}]`);
-          continue;
-        }
-
-        // Count as active: tasks with incomplete work
         total++;
-        if (content.status === 'human_review') {
-          humanReview++;
-        }
-        console.log(`[AutoShutdown] Task ${dir}: ${progress}% complete, status=${content.status} (counted) [${source}]`);
+        console.log(`[AutoShutdown] Task ${dir}: status=${content.status} (counted) [${source}]`);
       } catch (e) {
         console.error(`[AutoShutdown] Failed to read ${planPath}:`, e);
       }
@@ -353,23 +298,26 @@ ipcMain.handle(
         }
 
         // Build args for monitor script with ALL project paths
+        // Use Node's built-in TypeScript support (--experimental-strip-types)
+        // No tsx dependency needed, no shell = no terminal popup on Windows
         const args = [
-          '--import', 'tsx',
+          '--experimental-strip-types',
+          '--no-warnings',
           scriptPath,
           '--delay-seconds', '120',
           ...projectPaths.flatMap(p => ['--project-path', p])
         ];
 
-        // Spawn monitoring process
+        // Spawn via Electron as Node (ELECTRON_RUN_AS_NODE=1)
         const monitorProcess = spawn(
           process.execPath,
           args,
           {
-            cwd: projectPaths[0], // Use first project as working directory
+            cwd: projectPaths[0],
             detached: true,
             stdio: ['ignore', 'pipe', 'pipe'],
             windowsHide: true,
-            env: { ...process.env }
+            env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' }
           }
         );
 

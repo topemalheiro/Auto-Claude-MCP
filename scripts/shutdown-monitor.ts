@@ -157,24 +157,15 @@ function getTaskStatuses(projectPaths: string[]): TaskStatus[] {
  * This prevents triggering on an empty project with no tasks.
  */
 function areAllTasksComplete(statuses: TaskStatus[], hasSeenActiveTasks: boolean): { complete: boolean; hasActive: boolean } {
-  // Terminal statuses - task is completely done
-  const terminalTasks = statuses.filter(s =>
-    s.status === 'done' || s.status === 'pr_created'
-  );
-
-  // Complete tasks - any non-terminal, non-initial status at 100% subtask completion
-  // Agents may finish all subtasks but not transition status (crash, exit, etc.)
-  // So we treat any 100% task as "complete" unless it's still in backlog/pending
+  // Complete = done, pr_created, or human_review (QA passed, ready for human)
+  // ai_review is NOT complete - QA validation is still running
   const completeTasks = statuses.filter(s =>
-    s.progress === 100 &&
-    s.status !== 'done' && s.status !== 'pr_created' &&  // already in terminalTasks
-    s.status !== 'backlog' && s.status !== 'pending'
+    s.status === 'done' || s.status === 'pr_created' || s.status === 'human_review'
   );
 
-  // Active tasks - everything NOT terminal and NOT complete
+  // Active = everything else
   const activeTasks = statuses.filter(s =>
-    s.status !== 'done' && s.status !== 'pr_created' &&
-    !(s.progress === 100 && s.status !== 'backlog' && s.status !== 'pending')
+    s.status !== 'done' && s.status !== 'pr_created' && s.status !== 'human_review'
   );
 
   const hasActive = activeTasks.length > 0;
@@ -187,19 +178,18 @@ function areAllTasksComplete(statuses: TaskStatus[], hasSeenActiveTasks: boolean
     byProject.get(name)!.push(task);
   }
 
-  console.log(`[Monitor] ${statuses.length} tasks: ${terminalTasks.length} done, ${completeTasks.length} complete (review 100%), ${activeTasks.length} active`);
+  console.log(`[Monitor] ${statuses.length} tasks: ${completeTasks.length} complete, ${activeTasks.length} active`);
   Array.from(byProject.entries()).forEach(([projectName, tasks]) => {
     console.log(`  Project: ${projectName}`);
     tasks.forEach(task => {
-      const isComplete = task.status === 'done' || task.status === 'pr_created' ||
-        ((task.status === 'human_review' || task.status === 'ai_review') && task.progress === 100);
-      console.log(`    - ${task.taskId}: ${task.status} ${task.progress}% [${task.source}] ${isComplete ? 'DONE' : '...'}`);
+      const isComplete = task.status === 'done' || task.status === 'pr_created' || task.status === 'human_review';
+      console.log(`    - ${task.taskId}: ${task.status} [${task.source}] ${isComplete ? 'DONE' : '...'}`);
     });
   });
 
   // All active tasks gone AND we've seen tasks before → all work complete
   if (activeTasks.length === 0 && (hasSeenActiveTasks || statuses.length > 0)) {
-    console.log(`[Monitor] ALL tasks complete! (${terminalTasks.length} done + ${completeTasks.length} at review 100%)`);
+    console.log(`[Monitor] ALL tasks complete! (${completeTasks.length} done/human_review)`);
     return { complete: true, hasActive };
   }
 

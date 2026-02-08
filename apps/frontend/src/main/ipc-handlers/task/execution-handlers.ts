@@ -931,39 +931,10 @@ export function registerTaskExecutionHandlers(
           }
         }
 
-        // Determine the target status intelligently based on subtask progress
-        // If targetStatus is explicitly provided, use it; otherwise calculate from subtasks
-        let newStatus: TaskStatus = targetStatus || 'backlog';
-
-        if (!targetStatus && plan?.phases && Array.isArray(plan.phases)) {
-          // Analyze subtask statuses to determine appropriate recovery status
-          const { completedCount, totalCount, allCompleted } = checkSubtasksCompletion(plan);
-
-          if (totalCount > 0) {
-            if (allCompleted) {
-              // All subtasks completed - should go to review (ai_review or human_review based on source)
-              // For recovery, human_review is safer as it requires manual verification
-              newStatus = 'human_review';
-            } else if (completedCount > 0) {
-              // Check if Implementation phase is fully complete (only Validation remains)
-              const phases = plan.phases as Array<{ name: string; subtasks?: Array<{ status: string }> }>;
-              const implPhase = phases.find(p => p.name === 'Implementation');
-              const validationPhase = phases.find(p => p.name === 'Validation');
-              const implSubtasks = implPhase?.subtasks || [];
-              const implComplete = implSubtasks.length > 0 && implSubtasks.every(s => s.status === 'completed');
-              const hasIncompleteValidation = (validationPhase?.subtasks || []).some(s => s.status !== 'completed');
-
-              if (implComplete && hasIncompleteValidation) {
-                // Implementation done, only validation incomplete → ai_review (resume QA)
-                newStatus = 'ai_review';
-              } else {
-                // Coding still incomplete → in_progress
-                newStatus = 'in_progress';
-              }
-            }
-            // else: no subtasks completed, stay with 'backlog'
-          }
-        }
+        // Recovery should NOT change the task's board position
+        // Use explicitly provided targetStatus, or keep the current plan status
+        // The "smart" status determination was causing tasks to jump forward/backward unexpectedly
+        let newStatus: TaskStatus = targetStatus || (plan?.status as TaskStatus) || 'backlog';
 
         if (plan) {
           // Update status
@@ -978,54 +949,7 @@ export function registerTaskExecutionHandlers(
           // Add recovery note
           plan.recoveryNote = `Task recovered from stuck state at ${new Date().toISOString()}`;
 
-          // Check if task is actually stuck or just completed and waiting for merge
-          const { allCompleted } = checkSubtasksCompletion(plan);
-
-          if (allCompleted) {
-            console.log('[Recovery] Task is fully complete (all subtasks done), setting to human_review without restart');
-            // Don't reset any subtasks - task is done!
-            // Just update status in plan file (project store reads from file, no separate update needed)
-            plan.status = 'human_review';
-            plan.planStatus = 'review';
-
-            // Write to ALL plan file locations to ensure consistency
-            const planContent = JSON.stringify(plan, null, 2);
-            let writeSucceededForComplete = false;
-            for (const pathToUpdate of planPathsToUpdate) {
-              try {
-                atomicWriteFileSync(pathToUpdate, planContent);
-                console.log(`[Recovery] Successfully wrote to: ${pathToUpdate}`);
-                writeSucceededForComplete = true;
-              } catch (writeError) {
-                console.error(`[Recovery] Failed to write plan file at ${pathToUpdate}:`, writeError);
-                // Continue trying other paths
-              }
-            }
-
-            if (!writeSucceededForComplete) {
-              return {
-                success: false,
-                error: 'Failed to write plan file during recovery (all locations failed)'
-              };
-            }
-
-            // CRITICAL: Invalidate cache AFTER file writes complete
-            // This ensures getTasks() returns fresh data reflecting the recovery
-            projectStore.invalidateTasksCache(project.id);
-
-            return {
-              success: true,
-              data: {
-                taskId,
-                recovered: true,
-                newStatus: 'human_review',
-                message: 'Task is complete and ready for review',
-                autoRestarted: false
-              }
-            };
-          }
-
-          // Task is not complete - reset only stuck subtasks for retry
+          // Reset only stuck subtasks for retry
           // Keep completed subtasks as-is so run.py can resume from where it left off
           if (plan.phases && Array.isArray(plan.phases)) {
             for (const phase of plan.phases as Array<{ subtasks?: Array<{ status: string; actual_output?: string; started_at?: string; completed_at?: string }> }>) {
