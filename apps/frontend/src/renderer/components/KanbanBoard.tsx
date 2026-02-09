@@ -997,7 +997,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     const priorityLabels: Record<number, string> = {
       1: 'Auto-CONTINUE',
       2: 'Auto-RECOVER',
-      3: 'Request Changes',
+      3: 'Request Changes (Escalation P3-6)',
       4: 'Auto-fix JSON'
     };
 
@@ -1008,8 +1008,9 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     const sortedPriorities = [...tasksByPriority.keys()].sort((a, b) => a - b);
     for (const priority of sortedPriorities) {
       const tasks = tasksByPriority.get(priority) || [];
-      const attemptNote = priority === 3 ? ' (3+ attempts, recurring issues)' : '';
-      lines.push(`### Priority ${priority}: ${priorityLabels[priority]} — ${tasks.length} task${tasks.length !== 1 ? 's' : ''}${attemptNote}`);
+      const attemptNote = priority === 3 ? ' (3+ attempts — investigate before restarting)' : '';
+      const priorityNum = priority === 3 ? '3-6' : String(priority);
+      lines.push(`### Priority ${priorityNum}: ${priorityLabels[priority]} — ${tasks.length} task${tasks.length !== 1 ? 's' : ''}${attemptNote}`);
       lines.push('');
       for (const task of tasks) {
         const completed = task.subtasks?.filter(s => s.status === 'completed').length || 0;
@@ -1035,7 +1036,8 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       const boardMismatch = current !== expected;
       const priority = computeTaskPriority(task);
 
-      lines.push(`## ${task.specId}: ${task.title} [P${priority}]`);
+      const pTag = priority === 3 ? 'P3-6' : `P${priority}`;
+      lines.push(`## ${task.specId}: ${task.title} [${pTag}]`);
 
       if (task.board) {
         const phaseLabel = task.currentPhase ? ` (${task.currentPhase})` : '';
@@ -1120,7 +1122,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     }
 
     if (p3Tasks.length > 0) {
-      lines.push(`**Priority 3: Request Changes** (${p3Tasks.length} task${p3Tasks.length !== 1 ? 's' : ''}, 3+ attempts — investigate before restarting):`);
+      lines.push(`**Priority 3-6: Request Changes** (${p3Tasks.length} task${p3Tasks.length !== 1 ? 's' : ''}, 3+ attempts — investigate before restarting):`);
       lines.push('');
       for (const task of p3Tasks) {
         lines.push(`  // First investigate: mcp__auto-claude-manager__get_task_error_details({ projectId: "${data.projectId}"${pathParam}, taskId: "${task.specId}" })`);

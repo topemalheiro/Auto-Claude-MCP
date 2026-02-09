@@ -21,6 +21,40 @@ import { isElectron } from '../electron-compat';
 import { outputMonitor } from '../claude-code/output-monitor';
 
 /**
+ * Reset rdrAttempts for all tasks across all projects.
+ * Called on app startup (unless it's a P6B programmatic restart).
+ * This ensures priorities start fresh each session — P1 by default.
+ */
+export function resetAllRdrAttempts(): void {
+  const projects = projectStore.getProjects();
+  for (const project of projects) {
+    if (!project.path) continue;
+    const specsDir = path.join(project.path, '.auto-claude', 'specs');
+    if (!existsSync(specsDir)) continue;
+
+    try {
+      const dirs = readdirSync(specsDir, { withFileTypes: true })
+        .filter(d => d.isDirectory())
+        .map(d => d.name);
+
+      for (const dir of dirs) {
+        const metadataPath = path.join(specsDir, dir, 'task_metadata.json');
+        if (!existsSync(metadataPath)) continue;
+        try {
+          const raw = readFileSync(metadataPath, 'utf-8');
+          const metadata = JSON.parse(raw);
+          if (metadata.rdrAttempts && metadata.rdrAttempts > 0) {
+            const updated = { ...metadata, rdrAttempts: 0, rdrLastAttempt: null };
+            writeFileSync(metadataPath, JSON.stringify(updated, null, 2));
+          }
+        } catch { /* skip unreadable files */ }
+      }
+    } catch { /* skip unreadable dirs */ }
+  }
+  console.log('[RDR] Reset rdrAttempts for all tasks (normal startup)');
+}
+
+/**
  * Read the raw plan status directly from implementation_plan.json on disk.
  * ProjectStore maps start_requested → backlog, losing the original status.
  * This lets RDR detect tasks that were supposed to start but never did.
@@ -201,7 +235,7 @@ function enrichTaskWithWorktreeData(task: TaskInfo, projectPath: string): TaskIn
     // If worktree has an "active" status that differs from main, use worktree data
     // This catches cases where main shows human_review 100% but agent is still working
     // 'completed' included: agent finished subtasks but task hasn't transitioned to done
-    const activeStatuses = ['in_progress', 'ai_review', 'qa_approved', 'completed', 'planning', 'coding'];
+    const activeStatuses = ['in_progress', 'ai_review', 'qa_approved', 'completed', 'planning', 'coding', 'start_requested'];
     if (activeStatuses.includes(worktreeStatus) && worktreeStatus !== task.status) {
       console.log(`[RDR] Enriching task ${task.specId}: main=${task.status} → worktree=${worktreeStatus}`);
       return {
@@ -478,6 +512,12 @@ function determineInterventionType(task: TaskInfo, lastActivityMs?: number, hasW
   if (task.status === 'human_review' && progress < 100) {
     console.log(`[RDR] Task ${task.specId} in human_review at ${progress}% - stuck with incomplete work`);
     return 'stuck';
+  }
+
+  // start_requested = a previous RDR recovery set this status but agent didn't restart
+  if (task.status === 'start_requested') {
+    console.log(`[RDR] Task ${task.specId} stuck at start_requested — needs restart`);
+    return 'incomplete';
   }
 
   // Empty plan - needs intervention

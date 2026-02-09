@@ -84,6 +84,7 @@ import { readSettingsFile } from './settings-utils';
 import { setupErrorLogging } from './app-logger';
 import { initSentryMain } from './sentry';
 import { checkAndHandleRestart, resumeTasksAfterRestart } from './ipc-handlers/restart-handlers';
+import { resetAllRdrAttempts } from './ipc-handlers/rdr-handlers';
 import { preWarmToolCache } from './cli-tool-manager';
 import { initializeClaudeProfileManager } from './claude-profile-manager';
 import { checkAndNotifyCrash } from './crash-recovery-handler';
@@ -432,6 +433,13 @@ app.whenReady().then(() => {
 
   // Resume tasks that were running before restart
   resumeTasksAfterRestart();
+
+  // Reset RDR attempts on normal startup (not P6B programmatic restart)
+  // P6B restarts leave a .restart-requested marker — preserve attempt history for those
+  const restartMarkerPath = join(app.getPath('userData'), '.restart-requested');
+  if (!existsSync(restartMarkerPath)) {
+    resetAllRdrAttempts();
+  }
 
   // Create window
   createWindow();
