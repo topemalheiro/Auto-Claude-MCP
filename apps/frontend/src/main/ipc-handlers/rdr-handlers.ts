@@ -270,6 +270,12 @@ function isLegitimateHumanReview(task: TaskInfo): boolean {
     return false;  // Flag for intervention - validation didn't complete properly
   }
 
+  // Tasks with reviewReason='completed' at 100% are definitively done
+  // exitReason may be stale (e.g., OAuth expired AFTER QA already approved)
+  if (progress === 100 && task.reviewReason === 'completed') {
+    return true;
+  }
+
   // Tasks with crash/error exitReason are NOT legitimate (even at 100%)
   // This catches tasks that completed subtasks but then crashed during validation/QA
   if (task.exitReason === 'error' ||
@@ -348,14 +354,10 @@ function determineInterventionType(task: TaskInfo, lastActivityMs?: number, hasW
 
   // Check if this is legitimate human review (any human_review at 100% = waiting for user)
   if (task.status === 'human_review' && isLegitimateHumanReview(task)) {
-    // Additional check: if worktree status is start_requested, task may be stuck/recovered
+    // If worktree has start_requested, a previous RDR recovery attempt failed to restart the agent
+    // Always flag regardless of planStatus (planStatus may be stale 'completed'/'approved')
     if (worktreeInfo?.status === 'start_requested') {
-      // If worktree planStatus shows lifecycle completed, task is done - don't flag
-      if (worktreeInfo.planStatus === 'completed' || worktreeInfo.planStatus === 'approved') {
-        console.log(`[RDR] Task ${task.specId} worktree start_requested but planStatus=${worktreeInfo.planStatus} - skipping`);
-        return null;
-      }
-      console.log(`[RDR] Task ${task.specId} at 100% but worktree start_requested + planStatus=${worktreeInfo.planStatus} - stuck`);
+      console.log(`[RDR] Task ${task.specId} at 100% but worktree start_requested (planStatus=${worktreeInfo.planStatus}) - previous recovery failed, flagging`);
       return 'incomplete';
     }
     return null;
@@ -415,7 +417,7 @@ function determineInterventionType(task: TaskInfo, lastActivityMs?: number, hasW
     // Check if the agent recently updated the plan file - if so, it's still actively working
     if (lastActivityMs !== undefined && lastActivityMs > 0) {
       const timeSinceLastActivity = Date.now() - lastActivityMs;
-      if (timeSinceLastActivity < ACTIVE_TASK_RECENCY_THRESHOLD_MS) {
+      if (timeSinceLastActivity >= 0 && timeSinceLastActivity < ACTIVE_TASK_RECENCY_THRESHOLD_MS) {
         console.log(`[RDR] Task ${task.specId} in ${task.status} - recently active (${Math.round(timeSinceLastActivity / 1000)}s ago) - SKIPPING`);
         return null;
       }
