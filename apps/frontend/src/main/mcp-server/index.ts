@@ -1315,7 +1315,9 @@ server.tool(
 
         if (qaGuard.qaApproved) {
           const hasHardError = qaGuard.exitReason === 'error' || qaGuard.exitReason === 'auth_failure';
-          const terminalStatuses = ['human_review', 'done', 'pr_created', 'approved'];
+          // Note: 'approved' is a non-standard worktree status — NOT terminal here.
+          // Task needs recovery to move to proper human_review board.
+          const terminalStatuses = ['human_review', 'done', 'pr_created'];
           const onCorrectBoard = terminalStatuses.includes(qaGuard.status || '');
 
           if (!hasHardError && onCorrectBoard) {
