@@ -957,12 +957,16 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       }
     }
 
-    // Calculate expected board from subtask progress (mirrors determineResumeStatus)
+    // Calculate expected board from subtask progress + QA signoff status
     const getExpectedBoard = (task: typeof data.taskDetails[0]): string => {
       const subtasks = task.subtasks || [];
       if (subtasks.length === 0) return 'Planning';
       const completed = subtasks.filter(s => s.status === 'completed').length;
-      if (completed === subtasks.length) return 'AI Review';
+      if (completed === subtasks.length) {
+        // QA approved → expected on Human Review (QA already validated)
+        if ((task as any).qaSignoff === 'approved') return 'Human Review';
+        return 'AI Review';
+      }
       return 'In Progress';
     };
 

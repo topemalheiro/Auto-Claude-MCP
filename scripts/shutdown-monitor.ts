@@ -149,10 +149,18 @@ function getTaskStatuses(projectPaths: string[]): TaskStatus[] {
           // Normalize non-standard statuses to terminal for shutdown purposes
           let effectiveStatus = content.status || 'unknown';
 
-          // QA-approved at 100% is the authoritative completion signal
-          // Even with error exitReason, qa_signoff approved + all subtasks done = DONE
+          // QA-approved at 100% — only terminal if on correct board AND no error exit
+          // ALL worktree tasks have qa_signoff approved at 100%, so blanket filtering
+          // would hide tasks stuck on wrong board (e.g. ai_review) or with error exits
           if (isQaApprovedComplete(content)) {
-            effectiveStatus = 'human_review'; // Treat as terminal
+            const isOnCorrectBoard = effectiveStatus === 'human_review' || effectiveStatus === 'done' || effectiveStatus === 'pr_created';
+            const isCompletedLifecycle =
+              (effectiveStatus === 'start_requested' || effectiveStatus === 'complete' || effectiveStatus === 'completed') &&
+              (content.planStatus === 'completed' || content.planStatus === 'approved');
+
+            if (!hasErrorExit && (isOnCorrectBoard || isCompletedLifecycle)) {
+              effectiveStatus = 'human_review'; // Treat as terminal
+            }
           }
 
           if (!hasErrorExit) {

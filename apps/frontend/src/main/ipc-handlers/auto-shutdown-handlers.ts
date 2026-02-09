@@ -131,11 +131,20 @@ function getActiveTaskIds(projectPath: string): string[] {
         const hasErrorExit = content.exitReason === 'error' || content.exitReason === 'auth_failure' ||
             content.exitReason === 'prompt_loop' || content.exitReason === 'rate_limit_crash';
 
-        // QA-approved at 100% is the authoritative completion signal
-        // Even if status is start_requested or exitReason is error,
-        // qa_signoff.status='approved' with all subtasks done = DONE
+        // QA-approved at 100% — only terminal if on correct board AND no error exit
+        // ALL worktree tasks have qa_signoff approved at 100%, so blanket filtering
+        // would hide tasks stuck on wrong board (e.g. ai_review) or with error exits
         if (isQaApprovedComplete(content)) {
-          continue;
+          const effectiveStatus = String(content.status || '');
+          const isOnCorrectBoard = effectiveStatus === 'human_review' || effectiveStatus === 'done' || effectiveStatus === 'pr_created';
+          const isCompletedLifecycle =
+            (effectiveStatus === 'start_requested' || effectiveStatus === 'complete' || effectiveStatus === 'completed') &&
+            (content.planStatus === 'completed' || content.planStatus === 'approved');
+
+          if (!hasErrorExit && (isOnCorrectBoard || isCompletedLifecycle)) {
+            continue;
+          }
+          // QA approved but wrong board or has error → NOT terminal, fall through
         }
 
         if (!hasErrorExit) {
@@ -205,9 +214,17 @@ function countTasksByStatus(projectPath: string): { total: number; humanReview: 
         const hasErrorExit = content.exitReason === 'error' || content.exitReason === 'auth_failure' ||
             content.exitReason === 'prompt_loop' || content.exitReason === 'rate_limit_crash';
 
-        // QA-approved at 100% is the authoritative completion signal
+        // QA-approved at 100% — only terminal if on correct board AND no error exit
         if (isQaApprovedComplete(content)) {
-          continue;
+          const effectiveStatus = String(content.status || '');
+          const isOnCorrectBoard = effectiveStatus === 'human_review' || effectiveStatus === 'done' || effectiveStatus === 'pr_created';
+          const isCompletedLifecycle =
+            (effectiveStatus === 'start_requested' || effectiveStatus === 'complete' || effectiveStatus === 'completed') &&
+            (content.planStatus === 'completed' || content.planStatus === 'approved');
+
+          if (!hasErrorExit && (isOnCorrectBoard || isCompletedLifecycle)) {
+            continue;
+          }
         }
 
         if (!hasErrorExit) {

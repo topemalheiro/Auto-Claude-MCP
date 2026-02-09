@@ -284,11 +284,15 @@ function getTaskLastActivityTimestamp(task: TaskInfo, projectPath: string): numb
 function isLegitimateHumanReview(task: TaskInfo): boolean {
   const progress = calculateTaskProgress(task);
 
-  // QA-approved tasks at 100% are DEFINITIVELY done
-  // qa_signoff.status='approved' is the authoritative completion signal
-  // exitReason may be stale (e.g., OAuth expired AFTER QA already approved)
+  // QA-approved tasks at 100% are done — BUT error exit overrides QA approval
+  // A task that crashed after QA approval still needs recovery
   if (progress === 100 && (task.qaSignoff === 'approved' || task.reviewReason === 'completed')) {
-    return true;
+    const hasErrorExit = task.exitReason === 'error' || task.exitReason === 'auth_failure' ||
+        task.exitReason === 'prompt_loop' || task.exitReason === 'rate_limit_crash';
+    if (!hasErrorExit) {
+      return true;
+    }
+    // Error exit — fall through to error check below which returns false
   }
 
   // Tasks at 100% with NO qaSignoff and NO reviewReason are NOT legitimate
@@ -1884,6 +1888,7 @@ export function registerRdrHandlers(): void {
         lastLogs?: Array<{ timestamp: string; phase: string; content: string }>;
         board?: string;           // Kanban board: "In Progress", "AI Review", etc.
         currentPhase?: string;    // Agent phase: "coding", "validation", etc.
+        qaSignoff?: string;       // qa_signoff.status from worktree/main plan
       }>;
     }>> => {
       console.log(`[RDR] Getting batch details for project ${projectId}`);
@@ -1975,7 +1980,8 @@ export function registerRdrHandlers(): void {
           subtasks: t.subtasks,
           phases: t.phases,  // Required for calculateTaskProgress()
           exitReason: t.exitReason,
-          planStatus: t.planStatus
+          planStatus: t.planStatus,
+          qaSignoff: t.qaSignoff
         }));
 
         // Categorize into batches
@@ -2003,7 +2009,8 @@ export function registerRdrHandlers(): void {
             subtasks: task.subtasks,
             phases: task.phases,
             exitReason: task.exitReason,
-            planStatus: task.planStatus
+            planStatus: task.planStatus,
+            qaSignoff: task.qaSignoff
           };
 
           // Calculate progress from subtasks (handle both 'subtasks' and 'chunks' naming)
@@ -2057,7 +2064,8 @@ export function registerRdrHandlers(): void {
             // Get last 3 log entries for context (prefers worktree logs)
             lastLogs: projectPath ? getLastLogEntries(projectPath, task.specId, 3) : undefined,
             board,
-            currentPhase
+            currentPhase,
+            qaSignoff: task.qaSignoff
           };
         });
 
