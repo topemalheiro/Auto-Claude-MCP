@@ -212,6 +212,10 @@ export class FileWatcher extends EventEmitter {
       watcher
     });
 
+    // Track last-known plan status per spec to only emit refresh on actual status changes
+    // (not on every subtask progress update — those don't change status)
+    const statusCache = new Map<string, string>();
+
     // Log when watcher is ready
     watcher.on('ready', () => {
       console.log(`[FileWatcher] Specs watcher READY for project ${projectId} at ${specsPath}`);
@@ -322,17 +326,37 @@ export class FileWatcher extends EventEmitter {
       }
     });
 
-    // Handle file changes (for start_requested status from MCP)
+    // Handle file changes (status changes from MCP tools, agent progress, etc.)
     watcher.on('change', (filePath: string) => {
       if (path.basename(filePath) === 'implementation_plan.json') {
         try {
           const content = readFileSync(filePath, 'utf-8');
           const plan = JSON.parse(content);
 
-          // Check if status is 'start_requested' (set by MCP start_task)
+          const specDir = path.dirname(filePath);
+          const specId = path.basename(specDir);
+
+          // Detect status changes and notify renderer for non-start_requested statuses
+          // This ensures MCP tools (test_force_recovery, etc.) trigger UI refresh
+          // start_requested has its own comprehensive handling below — skip to avoid double-emit
+          const prevStatus = statusCache.get(specId);
+          const currentStatus = plan.status as string | undefined;
+          if (currentStatus) {
+            statusCache.set(specId, currentStatus);
+          }
+
+          if (currentStatus && currentStatus !== prevStatus && currentStatus !== 'start_requested') {
+            console.log(`[FileWatcher] Plan status change detected for ${specId}: ${prevStatus || 'unknown'} → ${currentStatus}`);
+            this.emit('specs-changed', {
+              projectId,
+              projectPath,
+              specDir,
+              specId
+            });
+          }
+
+          // Handle start_requested (board routing + task start)
           if (plan.status === 'start_requested') {
-            const specDir = path.dirname(filePath);
-            const specId = path.basename(specDir);
 
             // SAFETY: Skip archived tasks - they should not be auto-started
             const taskForArchiveCheck = projectStore.getTaskBySpecId(projectId, specId);
