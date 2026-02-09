@@ -331,19 +331,19 @@ function determineInterventionType(task: TaskInfo, lastActivityMs?: number, hasW
     return null;
   }
 
-  // QA-approved tasks at 100% are COMPLETE — never flag them
-  // This prevents the infinite loop of restarting completed tasks
-  // qa_signoff.status='approved' is the authoritative completion signal from the QA agent
+  // QA-approved tasks at 100% on CORRECT FINAL BOARD — skip them
+  // Only skip if task is on human_review (the correct final board after QA approval)
+  // Tasks stuck at ai_review/in_progress with QA approved still need RECOVERY to move to human_review
   const qaApprovedProgress = calculateTaskProgress(task);
-  if (qaApprovedProgress === 100 && (task.qaSignoff === 'approved' || task.reviewReason === 'completed')) {
-    // Also check worktree qaSignoff for tasks not enriched (e.g. start_requested status)
-    console.log(`[RDR] Task ${task.specId} QA-approved at 100% — skipping (qaSignoff=${task.qaSignoff}, worktreeQa=${worktreeInfo?.qaSignoff})`);
-    return null;
-  }
-  // Also check worktree qaSignoff directly (enrichment may have skipped non-active statuses)
-  if (qaApprovedProgress === 100 && worktreeInfo?.qaSignoff === 'approved') {
-    console.log(`[RDR] Task ${task.specId} worktree QA-approved at 100% — skipping`);
-    return null;
+  const isQaApproved = task.qaSignoff === 'approved' || task.reviewReason === 'completed' || worktreeInfo?.qaSignoff === 'approved';
+  if (qaApprovedProgress === 100 && isQaApproved) {
+    if (task.status === 'human_review') {
+      console.log(`[RDR] Task ${task.specId} QA-approved at 100% on human_review — skipping`);
+      return null;
+    }
+    // Task is QA-approved but stuck on wrong board (e.g. ai_review, start_requested)
+    // Don't return null — let it fall through to normal detection which will flag for recovery
+    console.log(`[RDR] Task ${task.specId} QA-approved at 100% but stuck at ${task.status} — needs recovery to human_review`);
   }
 
   // TESTING: forceRecovery flag bypasses all recency and progress checks
