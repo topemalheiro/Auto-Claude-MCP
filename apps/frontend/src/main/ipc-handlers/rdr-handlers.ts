@@ -376,11 +376,19 @@ function determineInterventionType(task: TaskInfo, lastActivityMs?: number, hasW
   const isQaApproved = task.qaSignoff === 'approved' || task.reviewReason === 'completed' || worktreeInfo?.qaSignoff === 'approved';
   if (qaApprovedProgress === 100 && isQaApproved) {
     if (task.status === 'human_review') {
-      // QA approved + human_review + 100% = work IS done
-      // exitReason is a session-level artifact (e.g. crash after QA wrote approval), not a work-quality signal
-      // If QA found real issues, it would write qa_rejected, not qa_signoff: approved
-      console.log(`[RDR] Task ${task.specId} QA-approved at 100% on human_review — skipping (exit=${task.exitReason || 'none'})`);
-      return null;
+      // Check worktree — if stuck at non-standard status (e.g. 'approved'), task needs board movement
+      const worktreeTerminal = !worktreeInfo?.status ||
+        worktreeInfo.status === 'human_review' || worktreeInfo.status === 'done' || worktreeInfo.status === 'pr_created';
+      if (worktreeTerminal) {
+        // QA approved + human_review + 100% = work IS done
+        // exitReason is a session-level artifact (e.g. crash after QA wrote approval), not a work-quality signal
+        // If QA found real issues, it would write qa_rejected, not qa_signoff: approved
+        console.log(`[RDR] Task ${task.specId} QA-approved at 100% on human_review — skipping (exit=${task.exitReason || 'none'})`);
+        return null;
+      }
+      // Worktree stuck at non-standard status — needs recovery to proper terminal board
+      console.log(`[RDR] Task ${task.specId} QA-approved but worktree stuck at '${worktreeInfo?.status}' — needs recovery`);
+      return 'incomplete';
     }
     // Task is QA-approved but stuck on wrong board (e.g. ai_review, start_requested)
     // Don't return null — let it fall through to normal detection which will flag for recovery

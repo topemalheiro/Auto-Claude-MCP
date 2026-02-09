@@ -147,10 +147,9 @@ function getActiveTaskIds(projectPath: string): string[] {
           }
         }
 
-        // 'approved' status = QA approved the task (non-standard but valid terminal)
-        if (content.status === 'approved') {
-          continue;
-        }
+        // Note: 'approved' is a non-standard worktree status — NOT treated as terminal here.
+        // The isQaApprovedComplete() check above handles QA-approved tasks properly
+        // (requires correct board position or completed lifecycle).
 
         if (!hasErrorExit) {
           // Complete = done, pr_created, or human_review (QA passed, ready for human)
@@ -234,10 +233,9 @@ function countTasksByStatus(projectPath: string): { total: number; humanReview: 
           }
         }
 
-        // 'approved' status = QA approved the task (non-standard but valid terminal)
-        if (content.status === 'approved') {
-          continue;
-        }
+        // Note: 'approved' is a non-standard worktree status — NOT treated as terminal here.
+        // The isQaApprovedComplete() check above handles QA-approved tasks properly
+        // (requires correct board position or completed lifecycle).
 
         if (!hasErrorExit) {
           // Complete = done, pr_created, or human_review (QA passed, ready for human)

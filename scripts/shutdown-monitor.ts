@@ -164,10 +164,9 @@ function getTaskStatuses(projectPaths: string[]): TaskStatus[] {
             }
           }
 
-          // 'approved' status = QA approved the task (non-standard but valid terminal)
-          if (effectiveStatus === 'approved') {
-            effectiveStatus = 'human_review'; // Treat as terminal
-          }
+          // Note: 'approved' is a non-standard worktree status — NOT treated as terminal here.
+          // The isQaApprovedComplete() check above handles QA-approved tasks properly
+          // (requires correct board position or completed lifecycle).
 
           if (!hasErrorExit) {
             if (effectiveStatus === 'start_requested' &&
