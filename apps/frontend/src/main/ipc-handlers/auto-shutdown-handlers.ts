@@ -220,8 +220,7 @@ function countTasksByStatus(projectPath: string): { total: number; humanReview: 
             content.exitReason === 'prompt_loop' || content.exitReason === 'rate_limit_crash';
 
         // QA-approved at 100% — terminal if on correct board or completed lifecycle
-        // Hard errors (error, auth_failure) override QA on correct board — task genuinely failed
-        // Transient errors (prompt_loop, rate_limit_crash) are process issues — work IS fine
+        // exitReason is session-level, not work-quality — if QA approved, work IS done
         if (isQaApprovedComplete(content)) {
           const effectiveStatus = String(content.status || '');
           const isOnCorrectBoard = effectiveStatus === 'human_review' || effectiveStatus === 'done' || effectiveStatus === 'pr_created';
@@ -230,8 +229,7 @@ function countTasksByStatus(projectPath: string): { total: number; humanReview: 
             (content.planStatus === 'completed' || content.planStatus === 'approved');
           const isSuccessfulExit = effectiveStatus === 'start_requested' && content.exitReason === 'success';
 
-          const hasHardError = content.exitReason === 'error' || content.exitReason === 'auth_failure';
-          if (!hasHardError && (isOnCorrectBoard || isCompletedLifecycle || isSuccessfulExit)) {
+          if (isOnCorrectBoard || isCompletedLifecycle || isSuccessfulExit) {
             continue;
           }
         }
