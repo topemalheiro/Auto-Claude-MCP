@@ -179,10 +179,10 @@ def handle_build_command(
             continue_existing = check_existing_build(project_dir, spec_dir.name)
             if continue_existing:
                 # Continue with existing worktree
-                pass
+                pass  # no-op
             else:
                 # User chose to start fresh or merged existing
-                pass
+                pass  # no-op
 
     # Choose workspace (skip for parallel mode - it always uses worktrees)
     working_dir = project_dir
@@ -469,7 +469,7 @@ def _handle_build_interrupt(
         status_manager.set_inactive()
         sys.exit(0)
     except EOFError:  # stdin closed
-        pass
+        pass  # no-op
 
     # Resume instructions (shown when user provided instructions or chose file/type/paste)
     print()

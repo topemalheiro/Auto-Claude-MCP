@@ -27,13 +27,13 @@ try:
 except ImportError:
     # Fallback if debug module not available
     def debug(*args, **kwargs):
-        pass
+        pass  # no-op
 
     def debug_verbose(*args, **kwargs):
-        pass
+        pass  # no-op
 
     def debug_error(*args, **kwargs):
-        pass
+        pass  # no-op
 
 
 MODULE = "merge.semantic_analyzer"

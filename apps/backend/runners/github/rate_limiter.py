@@ -56,13 +56,13 @@ F = TypeVar("F", bound=Callable[..., Any])
 class RateLimitExceeded(Exception):
     """Raised when rate limit is exceeded and cannot proceed."""
 
-    pass
+    pass  # no-op
 
 
 class CostLimitExceeded(Exception):
     """Raised when AI cost budget is exceeded."""
 
-    pass
+    pass  # no-op
 
 
 @dataclass

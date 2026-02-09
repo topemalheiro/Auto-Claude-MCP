@@ -1098,7 +1098,7 @@ class PRContextGatherer:
             try:
                 return json.loads(content)
             except json.JSONDecodeError:  # Invalid JSON; skip
-                pass
+                pass  # no-op
 
             # Fall back to comment stripping (outside strings only)
             # First, remove block comments /* ... */

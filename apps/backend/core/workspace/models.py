@@ -53,7 +53,7 @@ class ParallelMergeResult:
 class MergeLockError(Exception):
     """Raised when a merge lock cannot be acquired."""
 
-    pass
+    pass  # no-op
 
 
 class MergeLock:
@@ -142,7 +142,7 @@ class MergeLock:
 class SpecNumberLockError(Exception):
     """Raised when a spec number lock cannot be acquired."""
 
-    pass
+    pass  # no-op
 
 
 class SpecNumberLock:

@@ -50,10 +50,10 @@ try:
 except ImportError:
 
     def debug(*args, **kwargs):
-        pass
+        pass  # no-op
 
     def debug_success(*args, **kwargs):
-        pass
+        pass  # no-op
 
 
 logger = logging.getLogger(__name__)

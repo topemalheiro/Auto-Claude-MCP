@@ -169,7 +169,7 @@ Provide a verdict (PASS or FAIL), reason, and score.
                     print(f"     verdict: {validated.verdict}")
                     print(f"     reason: {validated.reason}")
                     print(f"     score: {validated.score}")
-                except Exception as e:
+                except (json.JSONDecodeError, ValueError, TypeError) as e:
                     print(f"\n  ❌ Failed to validate result: {e}")
 
     print(f"\n=== Total messages: {message_count} ===")

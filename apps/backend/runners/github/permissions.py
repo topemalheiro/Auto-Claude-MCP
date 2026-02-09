@@ -38,7 +38,7 @@ class PermissionCheckResult:
 class PermissionError(Exception):
     """Raised when permission checks fail."""
 
-    pass
+    pass  # no-op
 
 
 class GitHubPermissionChecker:

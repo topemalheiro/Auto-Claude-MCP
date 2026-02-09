@@ -34,19 +34,19 @@ logger = logging.getLogger(__name__)
 class GHTimeoutError(Exception):
     """Raised when gh CLI command times out after all retry attempts."""
 
-    pass
+    pass  # no-op
 
 
 class GHCommandError(Exception):
     """Raised when gh CLI command fails with non-zero exit code."""
 
-    pass
+    pass  # no-op
 
 
 class PRTooLargeError(Exception):
     """Raised when PR diff exceeds GitHub's 20,000 line limit."""
 
-    pass
+    pass  # no-op
 
 
 @dataclass

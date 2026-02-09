@@ -647,11 +647,11 @@ async def run_autonomous_agent(
                         "Waiting for implementation plan to be ready...", "progress"
                     )
                     for retry_attempt in range(3):
-                        delay = (retry_attempt + 1) * 2  # 2s, 4s, 6s
-                        await asyncio.sleep(delay)
+                        await asyncio.sleep((retry_attempt + 1) * 2)  # 2s, 4s, 6s
                         next_subtask = get_next_subtask(spec_dir)
                         if next_subtask:
                             # Successfully found subtask after retry
+                            delay = (retry_attempt + 1) * 2
                             print_status(
                                 f"Found subtask {next_subtask.get('id')} after {delay}s delay",
                                 "success",

@@ -25,10 +25,10 @@ try:
 except ImportError:
 
     def debug(*args, **kwargs):
-        pass
+        pass  # no-op
 
     def debug_warning(*args, **kwargs):
-        pass
+        pass  # no-op
 
 
 logger = logging.getLogger(__name__)

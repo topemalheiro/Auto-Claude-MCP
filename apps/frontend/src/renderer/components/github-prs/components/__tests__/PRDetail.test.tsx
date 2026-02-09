@@ -12,7 +12,7 @@
  */
 import { describe, it, expect } from 'vitest';
 // @ts-expect-error - vitest resolves this correctly
-import type { PRReviewResult, PRReviewProgress } from '../../../hooks/useGitHubPRs';
+import type { PRReviewResult, PRReviewProgress, PRData } from '../../../hooks/useGitHubPRs';
 import type { NewCommitsCheck } from '@preload/api/modules/github-api';
 
 /**

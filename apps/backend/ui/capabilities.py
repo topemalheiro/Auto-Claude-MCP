@@ -62,7 +62,7 @@ def enable_windows_ansi_support() -> bool:
             colorama.init()
             return True
         except ImportError:  # Module not available; skip
-            pass
+            pass  # no-op
 
         return False
 

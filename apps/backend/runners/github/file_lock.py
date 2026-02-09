@@ -10,7 +10,7 @@ Example Usage:
     # Simple file locking
     async with FileLock("path/to/file.json", timeout=5.0):
         # Do work with locked file
-        pass
+        pass  # no-op
 
     # Atomic write with locking
     async with locked_write("path/to/file.json", timeout=5.0) as f:
@@ -92,13 +92,13 @@ def _unlock(fd: int) -> None:
 class FileLockError(Exception):
     """Raised when file locking operations fail."""
 
-    pass
+    pass  # no-op
 
 
 class FileLockTimeout(FileLockError):
     """Raised when lock acquisition times out."""
 
-    pass
+    pass  # no-op
 
 
 class FileLock:
@@ -117,12 +117,12 @@ class FileLock:
         # Synchronous usage
         with FileLock("/path/to/file.json"):
             # File is locked
-            pass
+            pass  # no-op
 
         # Asynchronous usage
         async with FileLock("/path/to/file.json"):
             # File is locked
-            pass
+            pass  # no-op
     """
 
     def __init__(

@@ -249,7 +249,7 @@ def init_sentry(
             if 0 <= parsed <= 1:
                 traces_sample_rate = parsed
     except Exception:  # Sentry not configured or unavailable
-        pass
+        pass  # no-op
 
     # Configure logging integration to capture errors and warnings
     logging_integration = LoggingIntegration(

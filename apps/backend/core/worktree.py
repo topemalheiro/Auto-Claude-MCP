@@ -153,7 +153,7 @@ class PushAndCreatePRResult(TypedDict, total=False):
 class WorktreeError(Exception):
     """Error during worktree operations."""
 
-    pass
+    pass  # no-op
 
 
 @dataclass
@@ -587,7 +587,7 @@ class WorktreeManager:
                 ValueError,
                 TypeError,
             ):  # If parsing fails, silently continue without date info
-                pass
+                pass  # no-op
 
         # Diff stats
         result = self._run_git(
@@ -1797,7 +1797,7 @@ class WorktreeManager:
                     data = json.loads(result.stdout)
                     return data.get("web_url")
                 except json.JSONDecodeError:  # If JSON parsing fails, return None
-                    pass
+                    pass  # no-op
         except (
             subprocess.TimeoutExpired,
             FileNotFoundError,

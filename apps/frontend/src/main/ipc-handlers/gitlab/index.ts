@@ -31,7 +31,7 @@ function debugLog(message: string): void {
  * Register all GitLab IPC handlers
  */
 export function registerGitlabHandlers(
-  agentManager: AgentManager,
+  _agentManager: AgentManager,
   getMainWindow: () => BrowserWindow | null
 ): void {
   debugLog('Registering all GitLab handlers');
@@ -46,7 +46,7 @@ export function registerGitlabHandlers(
   registerIssueHandlers();
 
   // Investigation handlers (AI-powered)
-  registerInvestigationHandlers(agentManager, getMainWindow);
+  registerInvestigationHandlers(getMainWindow);
 
   // Import handlers
   registerImportHandlers();

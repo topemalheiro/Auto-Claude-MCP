@@ -77,7 +77,7 @@ class OrderByTimeStrategy(MergeStrategyHandler):
                     )
                 elif change.content_after and not change.content_before:
                     # Addition - handled by other strategies
-                    pass
+                    pass  # no-op
 
         return MergeResult(
             decision=MergeDecision.AUTO_MERGED,

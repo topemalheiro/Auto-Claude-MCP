@@ -53,7 +53,7 @@ def open_editor_for_input(field_name: str) -> str:
         try:
             os.unlink(temp_path)
         except Exception:  # no-op
-            pass
+            pass  # no-op
 
 
 def gather_requirements_interactively(ui_module) -> dict:

@@ -32,13 +32,13 @@ try:
 except ImportError:
 
     def debug(*args, **kwargs):
-        pass
+        pass  # no-op
 
     def debug_detailed(*args, **kwargs):
-        pass
+        pass  # no-op
 
     def debug_verbose(*args, **kwargs):
-        pass
+        pass  # no-op
 
 
 logger = logging.getLogger(__name__)

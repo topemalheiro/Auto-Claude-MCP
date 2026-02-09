@@ -334,23 +334,23 @@ except ImportError:
 
     def debug(*args, **kwargs):
         """Fallback debug function when debug module is not available."""
-        pass
+        pass  # no-op
 
     def debug_error(*args, **kwargs):
         """Fallback debug_error function when debug module is not available."""
-        pass
+        pass  # no-op
 
     def debug_section(*args, **kwargs):
         """Fallback debug_section function when debug module is not available."""
-        pass
+        pass  # no-op
 
     def debug_success(*args, **kwargs):
         """Fallback debug_success function when debug module is not available."""
-        pass
+        pass  # no-op
 
     def debug_verbose(*args, **kwargs):
         """Fallback debug_verbose function when debug module is not available."""
-        pass
+        pass  # no-op
 
 
 MODULE = "cli.workspace_commands"

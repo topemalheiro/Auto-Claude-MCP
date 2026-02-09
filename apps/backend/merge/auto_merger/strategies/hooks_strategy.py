@@ -44,7 +44,7 @@ class HooksStrategy(MergeStrategyHandler):
         for change in other_changes:
             if change.content_after:
                 # This is a simplification - in production we'd need smarter merging
-                pass
+                pass  # no-op
 
         return MergeResult(
             decision=MergeDecision.AUTO_MERGED,

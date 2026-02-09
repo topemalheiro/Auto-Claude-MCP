@@ -27,4 +27,4 @@ class MergeStrategyHandler(ABC):
         Returns:
             MergeResult with merged content or error
         """
-        pass
+        pass  # no-op

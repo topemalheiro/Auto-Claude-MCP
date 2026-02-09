@@ -45,7 +45,7 @@ Usage Examples:
     from memory import is_graphiti_memory_enabled
     if is_graphiti_memory_enabled():
         # Graphiti will automatically store data alongside file-based memory
-        pass
+        pass  # no-op
 """
 
 import io
@@ -65,7 +65,7 @@ if sys.platform == "win32":
                 io.UnsupportedOperation,
                 OSError,
             ):  # Stream doesn't support reconfigure
-                pass
+                pass  # no-op
         # Method 2: Wrap with TextIOWrapper for piped output
         try:
             if hasattr(_stream, "buffer"):
@@ -81,7 +81,7 @@ if sys.platform == "win32":
             io.UnsupportedOperation,
             OSError,
         ):  # Stream doesn't support wrapper
-            pass
+            pass  # no-op
     # Clean up temporary variables
     del _stream_name, _stream
     if "_new_stream" in dir():

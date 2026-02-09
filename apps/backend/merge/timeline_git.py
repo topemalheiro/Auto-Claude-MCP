@@ -27,7 +27,7 @@ try:
 except ImportError:
 
     def debug_warning(*args, **kwargs):
-        pass
+        pass  # no-op
 
 
 MODULE = "merge.timeline_git"

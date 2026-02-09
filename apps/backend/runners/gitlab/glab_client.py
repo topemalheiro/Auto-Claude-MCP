@@ -159,7 +159,7 @@ class GitLabClient:
                                 ValueError,
                                 TypeError,
                             ):  # Parsing failed, keep exponential backoff default
-                                pass
+                                pass  # no-op
 
                     if attempt < max_retries - 1:
                         print(

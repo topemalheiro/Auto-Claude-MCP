@@ -48,7 +48,7 @@ from typing import Any
 try:
     from .learning import LearningPattern, LearningTracker  # noqa: F401 (re-export)
 except (ImportError, ValueError, SystemError):
-    pass
+    pass  # no-op
 
 
 class FalsePositiveRisk(str, Enum):

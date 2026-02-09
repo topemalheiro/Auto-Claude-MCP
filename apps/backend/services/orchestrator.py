@@ -391,7 +391,7 @@ class ServiceOrchestrator:
                 try:
                     proc.kill()
                 except Exception:  # Non-critical error; continue
-                    pass
+                    pass  # no-op
         self._processes.clear()
 
     def _get_docker_compose_cmd(self) -> list[str] | None:

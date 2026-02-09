@@ -19,7 +19,7 @@ import { execFileSync } from 'child_process';
 import { createHash, randomBytes } from 'crypto';
 import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'fs';
 import { homedir, userInfo } from 'os';
-import { dirname, join } from 'path';
+import { dirname, isAbsolute, join } from 'path';
 import { isMacOS, isWindows, isLinux } from '../platform';
 
 /**
@@ -144,6 +144,35 @@ function isValidCredentialsPath(credentialsPath: string): boolean {
     !credentialsPath.includes('..') &&
     credentialsPath.endsWith('.credentials.json')
   );
+}
+
+/**
+ * Validate that a config directory path is safe for use.
+ * Prevents path traversal and ensures the path is within expected boundaries.
+ *
+ * @param configDir - The config directory path to validate
+ * @returns true if valid, false otherwise
+ */
+function isValidConfigDir(configDir: string | undefined): boolean {
+  if (!configDir) return true; // undefined is OK - will use default
+
+  // Reject path traversal attempts
+  if (configDir.includes('..')) return false;
+
+  // Reject absolute paths that don't start with expected locations
+  // Allow: homedir-based paths, /tmp, /var/tmp for testing
+  // Reject: system directories, other user directories
+  if (isAbsolute(configDir)) {
+    const allowedPrefixes = [
+      process.env.HOME || homedir(),
+      '/tmp',
+      '/var/tmp',
+    ];
+    const isAllowed = allowedPrefixes.some(prefix => configDir.startsWith(prefix));
+    if (!isAllowed) return false;
+  }
+
+  return true;
 }
 
 /**
@@ -1786,6 +1815,11 @@ function updateLinuxFileCredentials(
     scopes?: string[];
   }
 ): UpdateCredentialsResult {
+  // Validate config directory before using it
+  if (!isValidConfigDir(configDir)) {
+    return { success: false, error: 'Invalid config directory' };
+  }
+
   const credentialsPath = getLinuxCredentialsPath(configDir);
   const isDebug = process.env.DEBUG === 'true';
 
@@ -2043,6 +2077,11 @@ function updateWindowsFileCredentials(
     scopes?: string[];
   }
 ): UpdateCredentialsResult {
+  // Validate config directory before using it
+  if (!isValidConfigDir(configDir)) {
+    return { success: false, error: 'Invalid config directory' };
+  }
+
   const credentialsPath = getWindowsCredentialsPath(configDir);
   const isDebug = process.env.DEBUG === 'true';
 

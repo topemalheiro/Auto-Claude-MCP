@@ -72,7 +72,7 @@ def _run_where_command() -> str | None:
         subprocess.TimeoutExpired,
         OSError,
     ):  # 'where' command failed or timed out - fall through to return None
-        pass
+        pass  # no-op
     return None
 
 

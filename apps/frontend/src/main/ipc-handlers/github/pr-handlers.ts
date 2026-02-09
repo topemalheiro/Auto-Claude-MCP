@@ -18,6 +18,26 @@ import {
   DEFAULT_FEATURE_MODELS,
   DEFAULT_FEATURE_THINKING,
 } from "../../../shared/constants";
+
+/**
+ * Sanitize token value to prevent control character injection.
+ * Removes ASCII control characters (0x00-0x1F, 0x7F) while preserving
+ * valid token characters (alphanumeric, punctuation).
+ */
+function sanitizeToken(value: string | undefined): string | null {
+  if (!value) return null;
+  let sanitized = '';
+  for (let i = 0; i < value.length; i += 1) {
+    const code = value.charCodeAt(i);
+    if (code <= 0x1F || code === 0x7F) {
+      continue;
+    }
+    sanitized += value[i];
+  }
+  const trimmed = sanitized.trim();
+  if (!trimmed) return null;
+  return trimmed.length > 512 ? trimmed.substring(0, 512) : trimmed;
+}
 import type { AuthFailureInfo } from "../../../shared/types/terminal";
 import { getGitHubConfig, githubFetch, normalizeRepoReference } from "./utils";
 import { readSettingsFile } from "../../settings-utils";
@@ -289,10 +309,16 @@ async function githubGraphQL<T>(
   query: string,
   variables: Record<string, unknown> = {}
 ): Promise<T> {
+  // Sanitize token to prevent control character injection
+  const safeToken = sanitizeToken(token);
+  if (!safeToken) {
+    throw new Error('Invalid GitHub token');
+  }
+
   const response = await fetch("https://api.github.com/graphql", {
     method: "POST",
     headers: {
-      "Authorization": `Bearer ${token}`,
+      "Authorization": `Bearer ${safeToken}`,
       "Content-Type": "application/json",
       "User-Agent": "Auto-Claude-UI",
     },

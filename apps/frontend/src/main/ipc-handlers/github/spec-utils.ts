@@ -52,6 +52,23 @@ function slugifyTitle(title: string): string {
 }
 
 /**
+ * Validate that a spec directory path is safe and doesn't escape the specs directory.
+ * This prevents path traversal attacks by ensuring the resolved path is within the base specs directory.
+ */
+function validateSpecPath(baseDir: string, targetPath: string): boolean {
+  try {
+    // Resolve both paths to absolute paths to detect traversal
+    const resolvedBase = path.resolve(baseDir);
+    const resolvedTarget = path.resolve(targetPath);
+
+    // Ensure target path is within base directory
+    return resolvedTarget.startsWith(resolvedBase + path.sep) || resolvedTarget === resolvedBase;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Determine task category based on GitHub issue labels
  * Maps to TaskCategory type from shared/types/task.ts
  */

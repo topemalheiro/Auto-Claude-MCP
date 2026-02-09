@@ -362,7 +362,7 @@ class GraphitiMemory:
 
             if result and self.state:
                 # Episode count updated in queries module
-                pass
+                pass  # no-op
 
             return result
         except Exception as e:

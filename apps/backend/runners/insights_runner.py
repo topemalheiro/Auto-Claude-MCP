@@ -27,7 +27,7 @@ if sys.platform == "win32":
                 io.UnsupportedOperation,
                 OSError,
             ):  # File or directory not accessible; skip
-                pass
+                pass  # no-op
         # Method 2: Wrap with TextIOWrapper for piped output
         try:
             if hasattr(_stream, "buffer"):
@@ -43,7 +43,7 @@ if sys.platform == "win32":
             io.UnsupportedOperation,
             OSError,
         ):  # File or directory not accessible; skip
-            pass
+            pass  # no-op
     # Clean up temporary variables
     del _stream_name, _stream
     if "_new_stream" in dir():

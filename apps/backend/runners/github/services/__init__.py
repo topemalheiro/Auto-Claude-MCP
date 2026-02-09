@@ -18,13 +18,14 @@ from __future__ import annotations
 from typing import Any
 
 # Module-level placeholders for CodeQL static analysis.
-# Use list placeholder to satisfy CodeQL's "defined but not set to None" check.
-AutoFixProcessor: Any = []
-BatchProcessor: Any = []
-PRReviewEngine: Any = []
-PromptManager: Any = []
-ResponseParser: Any = []
-TriageEngine: Any = []
+# These define the symbols as existing at module level (satisfying CodeQL),
+# but __getattr__ is called to provide the actual values.
+AutoFixProcessor: Any = None
+BatchProcessor: Any = None
+PRReviewEngine: Any = None
+PromptManager: Any = None
+ResponseParser: Any = None
+TriageEngine: Any = None
 
 __all__ = [
     "PromptManager",

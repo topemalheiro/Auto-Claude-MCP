@@ -1715,6 +1715,8 @@ For EACH finding above:
         last_error = None
         structured_output = None
         validation_succeeded = False
+        should_return_early = False
+
         for attempt in range(MAX_VALIDATION_RETRIES + 1):
             if attempt > 0:
                 logger.info(
@@ -1740,6 +1742,8 @@ For EACH finding above:
             except Exception as e:
                 logger.error(f"[PRReview] Failed to create validator client: {e}")
                 last_error = e
+                if attempt >= MAX_VALIDATION_RETRIES:
+                    break
                 continue  # Try again
 
             # Run validation
@@ -1774,8 +1778,9 @@ For EACH finding above:
                             continue  # Retry
 
                         logger.error(f"[PRReview] Validation failed: {error}")
-                        # Fail-safe: return original findings
-                        return findings
+                        # Non-retryable error - mark for early return
+                        should_return_early = True
+                        break
 
                     structured_output = stream_result.get("structured_output")
 
@@ -1798,10 +1803,14 @@ For EACH finding above:
                     continue  # Retry
 
                 logger.error(f"[PRReview] Validation stream error: {e}")
-                # Fail-safe: return original findings
-                return findings
+                # Non-retryable exception - mark for early return
+                should_return_early = True
+                break
 
         # Check if validation succeeded after all retries
+        if should_return_early:
+            return findings
+
         if not validation_succeeded:
             # All retries exhausted
             logger.error(

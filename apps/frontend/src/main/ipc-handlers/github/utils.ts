@@ -15,6 +15,26 @@ import { getToolPath } from '../../cli-tool-manager';
 const execFileAsync = promisify(execFile);
 
 /**
+ * Sanitize token value to prevent control character injection.
+ * Removes ASCII control characters (0x00-0x1F, 0x7F) while preserving
+ * valid token characters (alphanumeric, punctuation).
+ */
+function sanitizeToken(value: string | undefined): string | null {
+  if (!value) return null;
+  let sanitized = '';
+  for (let i = 0; i < value.length; i += 1) {
+    const code = value.charCodeAt(i);
+    if (code <= 0x1F || code === 0x7F) {
+      continue;
+    }
+    sanitized += value[i];
+  }
+  const trimmed = sanitized.trim();
+  if (!trimmed) return null;
+  return trimmed.length > 512 ? trimmed.substring(0, 512) : trimmed;
+}
+
+/**
  * Get GitHub token from gh CLI if available (async to avoid blocking main thread)
  * Uses augmented PATH to find gh CLI in common locations (e.g., Homebrew on macOS)
  */
@@ -121,6 +141,12 @@ export async function githubFetch(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<unknown> {
+  // Sanitize token to prevent control character injection
+  const safeToken = sanitizeToken(token);
+  if (!safeToken) {
+    throw new Error('Invalid GitHub token');
+  }
+
   // Validate endpoint: either relative path or trusted GitHub URL
   const url = endpoint.startsWith('http')
     ? endpoint
@@ -148,7 +174,7 @@ export async function githubFetch(
     ...options,
     headers: {
       'Accept': 'application/vnd.github+json',
-      'Authorization': `Bearer ${token}`,
+      'Authorization': `Bearer ${safeToken}`,
       'User-Agent': 'Auto-Claude-UI',
       ...options.headers
     }

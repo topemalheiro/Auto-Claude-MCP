@@ -54,7 +54,7 @@ def safe_print(message: str, flush: bool = True) -> None:
             try:
                 sys.stdout.close()
             except Exception:  # stdout may already be closed
-                pass
+                pass  # no-op
         logger.debug("Output pipe closed by parent process")
     except ValueError as e:
         # Handle writes to closed file (can happen after stdout.close())
@@ -73,7 +73,7 @@ def safe_print(message: str, flush: bool = True) -> None:
                 try:
                     sys.stdout.close()
                 except Exception:  # stdout may already be closed
-                    pass
+                    pass  # no-op
             logger.debug("Output pipe closed (EPIPE)")
         else:
             # Re-raise unexpected OS errors

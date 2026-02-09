@@ -323,7 +323,7 @@ class GitHubMemoryIntegration:
                         )
 
             except Exception:  # Graphiti failed, fall through to local
-                pass
+                pass  # no-op
 
         # Add local insights
         for insight in self._local_insights:
@@ -410,7 +410,7 @@ class GitHubMemoryIntegration:
                         },
                     )
             except Exception:  # Graphiti failed, local storage is backup
-                pass
+                pass  # no-op
 
     async def store_review_outcome(
         self,

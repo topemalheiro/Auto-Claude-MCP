@@ -10,7 +10,6 @@ import { projectStore } from '../../project-store';
 import { getGitLabConfig, gitlabFetch, encodeProjectPath } from './utils';
 import type { GitLabAPIIssue } from './types';
 import { createSpecForIssue } from './spec-utils';
-import type { AgentManager } from '../../agent';
 
 // Debug logging helper
 const DEBUG = process.env.DEBUG === 'true' || process.env.NODE_ENV === 'development';
@@ -71,13 +70,12 @@ function sendError(
  * Register investigation handler
  */
 export function registerInvestigateIssue(
-  _agentManager: AgentManager,
   getMainWindow: () => BrowserWindow | null
 ): void {
   ipcMain.on(
     IPC_CHANNELS.GITLAB_INVESTIGATE_ISSUE,
-    async (_event, projectId: string, issueIid: number, _selectedNoteIds?: number[]) => {
-      debugLog('investigateGitLabIssue handler called', { projectId, issueIid, _selectedNoteIds });
+    async (_event, projectId: string, issueIid: number) => {
+      debugLog('investigateGitLabIssue handler called', { projectId, issueIid });
 
       const project = projectStore.getProject(projectId);
       if (!project) {
@@ -186,10 +184,9 @@ export function registerInvestigateIssue(
  * Register all investigation handlers
  */
 export function registerInvestigationHandlers(
-  agentManager: AgentManager,
   getMainWindow: () => BrowserWindow | null
 ): void {
   debugLog('Registering GitLab investigation handlers');
-  registerInvestigateIssue(agentManager, getMainWindow);
+  registerInvestigateIssue(getMainWindow);
   debugLog('GitLab investigation handlers registered');
 }

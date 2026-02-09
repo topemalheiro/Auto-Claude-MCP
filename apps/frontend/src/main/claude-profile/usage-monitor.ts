@@ -199,6 +199,26 @@ function isHttpError(error: unknown): error is Error & { statusCode?: number } {
   return error instanceof Error && 'statusCode' in error;
 }
 
+/**
+ * Sanitize token value to prevent control character injection.
+ * Removes ASCII control characters (0x00-0x1F, 0x7F) while preserving
+ * valid token characters (alphanumeric, punctuation).
+ */
+function sanitizeToken(value: string | undefined): string | null {
+  if (!value) return null;
+  let sanitized = '';
+  for (let i = 0; i < value.length; i += 1) {
+    const code = value.charCodeAt(i);
+    if (code <= 0x1F || code === 0x7F) {
+      continue;
+    }
+    sanitized += value[i];
+  }
+  const trimmed = sanitized.trim();
+  if (!trimmed) return null;
+  return trimmed.length > 512 ? trimmed.substring(0, 512) : trimmed;
+}
+
 export class UsageMonitor extends EventEmitter {
   private static instance: UsageMonitor;
   private intervalId: NodeJS.Timeout | null = null;
@@ -1411,7 +1431,13 @@ export class UsageMonitor extends EventEmitter {
 
       // Step 5: Fetch usage from provider endpoint
       // All providers use Bearer token authentication (RFC 6750)
-      const authHeader = `Bearer ${credential}`;
+      // Sanitize token to prevent control character injection
+      const safeCredential = sanitizeToken(credential);
+      if (!safeCredential) {
+        console.error('[UsageMonitor] Invalid credential');
+        return null;
+      }
+      const authHeader = `Bearer ${safeCredential}`;
 
       // Build headers based on provider
       // Anthropic OAuth requires the 'anthropic-beta: oauth-2025-04-20' header

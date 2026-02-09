@@ -29,7 +29,7 @@ try:
 except ImportError:
 
     def debug(*args, **kwargs):
-        pass
+        pass  # no-op
 
 
 MODULE = "merge.timeline_persistence"

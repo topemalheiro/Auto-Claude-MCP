@@ -14,9 +14,6 @@ import {
   RoadmapConfig
 } from './types';
 import type { IdeationConfig } from '../../shared/types';
-import { resetStuckSubtasks } from '../ipc-handlers/task/plan-file-utils';
-import { AUTO_BUILD_PATHS, getSpecsDir } from '../../shared/constants';
-import { projectStore } from '../project-store';
 
 /**
  * Main AgentManager - orchestrates agent process lifecycle
@@ -192,20 +189,6 @@ export class AgentManager extends EventEmitter {
     if (!existsSync(specRunnerPath)) {
       this.emit('error', taskId, `Spec runner not found at: ${specRunnerPath}`);
       return;
-    }
-
-    // Reset stuck subtasks if restarting an existing spec creation task
-    if (specDir) {
-      const planPath = path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
-      console.log('[AgentManager] Resetting stuck subtasks before spec creation restart:', planPath);
-      try {
-        const { success, resetCount } = await resetStuckSubtasks(planPath);
-        if (success && resetCount > 0) {
-          console.log(`[AgentManager] Successfully reset ${resetCount} stuck subtask(s) before spec creation`);
-        }
-      } catch (err) {
-        console.warn('[AgentManager] Failed to reset stuck subtasks before spec creation:', err);
-      }
     }
 
     // Get combined environment variables
@@ -542,26 +525,9 @@ export class AgentManager extends EventEmitter {
     console.log('[AgentManager] Killing current process for task:', taskId);
     this.killTask(taskId);
 
-    // Wait for cleanup, then reset stuck subtasks and restart
+    // Wait for cleanup, then restart
     console.log('[AgentManager] Scheduling task restart in 500ms');
     setTimeout(async () => {
-      // Reset stuck subtasks before restart to avoid picking up stale in-progress states
-      if (context.specId || context.specDir) {
-        const planPath = context.specDir
-          ? path.join(context.specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN)
-          : path.join(context.projectPath, AUTO_BUILD_PATHS.SPECS_DIR, context.specId, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
-
-        console.log('[AgentManager] Resetting stuck subtasks before restart:', planPath);
-        try {
-          const { success, resetCount } = await resetStuckSubtasks(planPath);
-          if (success && resetCount > 0) {
-            console.log(`[AgentManager] Successfully reset ${resetCount} stuck subtask(s)`);
-          }
-        } catch (err) {
-          console.warn('[AgentManager] Failed to reset stuck subtasks:', err);
-        }
-      }
-
       console.log('[AgentManager] Restarting task now:', taskId);
       if (context.isSpecCreation) {
         console.log('[AgentManager] Restarting as spec creation');

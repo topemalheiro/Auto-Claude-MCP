@@ -39,7 +39,7 @@ class ResultParser:
             io.UnsupportedOperation,
             OSError,
         ):  # Stream doesn't support reconfigure
-            pass
+            pass  # no-op
 
         # Try extracting from markdown code block
         if "```json" in response:
@@ -53,7 +53,7 @@ class ResultParser:
                     io.UnsupportedOperation,
                     OSError,
                 ):  # Stream doesn't support wrapper
-                    pass
+                    pass  # no-op
 
         # Try finding JSON object
         start_idx = response.find("{")
@@ -62,7 +62,7 @@ class ResultParser:
             try:
                 return json.loads(response[start_idx : end_idx + 1])
             except Exception:  # no-op
-                pass
+                pass  # no-op
 
         # Return default with raw response snippet
         return {**default, "_raw_response": response[:1000]}

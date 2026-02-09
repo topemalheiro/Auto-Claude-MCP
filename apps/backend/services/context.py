@@ -141,7 +141,7 @@ class ServiceContextGenerator:
                         if pkg and pkg not in context.dependencies:
                             context.dependencies.append(pkg)
             except OSError:  # File or directory not accessible; skip
-                pass  # no-op: skip inaccessible files
+                pass  # no-op  # no-op: skip inaccessible files
 
         # Node.js
         package_json = service_path / "package.json"
@@ -225,7 +225,7 @@ class ServiceContextGenerator:
                         ]:
                             context.common_commands[target] = f"make {target}"
             except OSError:  # File or directory not accessible; skip
-                pass
+                pass  # no-op
 
         # Infer from framework
         if context.framework == "flask":

@@ -84,7 +84,7 @@ class StreamingLogCapture:
 
                 if block_type == "TextBlock" and hasattr(block, "text"):
                     # Text is already logged by the agent session
-                    pass
+                    pass  # no-op
                 elif block_type == "ToolUseBlock" and hasattr(block, "name"):
                     tool_input = None
                     if hasattr(block, "input") and block.input:

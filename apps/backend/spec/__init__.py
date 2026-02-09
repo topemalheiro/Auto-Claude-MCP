@@ -45,9 +45,10 @@ from .complexity import (
 from .phases import PhaseExecutor, PhaseResult
 
 # Module-level placeholders for CodeQL static analysis.
-# Use list placeholder to satisfy CodeQL's "defined but not set to None" check.
-SpecOrchestrator: Any = []
-get_specs_dir: Any = []
+# These define the symbols as existing at module level (satisfying CodeQL),
+# but __getattr__ is called to provide the actual values.
+SpecOrchestrator: Any = None
+get_specs_dir: Any = None
 
 __all__ = [
     # Main orchestrator

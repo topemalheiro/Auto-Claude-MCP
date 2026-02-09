@@ -15,7 +15,7 @@ from .. import requirements, validator
 from .models import MAX_RETRIES, PhaseResult
 
 if TYPE_CHECKING:
-    pass
+    pass  # no-op
 
 
 class RequirementsPhaseMixin:

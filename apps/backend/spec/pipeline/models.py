@@ -80,7 +80,7 @@ def cleanup_orphaned_pending_folders(specs_dir: Path) -> None:
         try:
             shutil.rmtree(folder)
         except OSError:  # File or directory not accessible; skip
-            pass
+            pass  # no-op
 
 
 def create_spec_dir(specs_dir: Path, lock: SpecNumberLock | None = None) -> Path:

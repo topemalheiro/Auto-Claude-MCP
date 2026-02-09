@@ -199,13 +199,13 @@ describe('PRDetail Clean Review Functionality', () => {
       const hasPostedFindings = false;
       const cleanReviewPosted = false;
 
-      // When findings are selected, button should not show
-      // Verify selectedCount is non-zero, which will make the full button visibility condition false
-      expect(selectedCount).not.toBe(0);
+      // When findings are selected (selectedCount > 0), the clean review button should not show
+      // The clean review button requires selectedCount === 0
+      expect(selectedCount).toBeGreaterThan(0);
 
-      // Verify full expression evaluates to false
+      // Verify the full button visibility expression evaluates to false
+      // Since selectedCount > 0, the first condition (selectedCount === 0) is false
       const shouldShowButton =
-        selectedCount === 0 && // Intentionally false for this test case
         reviewResult.success &&
         !reviewResult.findings.some(f =>
           f.severity === 'critical' || f.severity === 'high' || f.severity === 'medium'
@@ -214,7 +214,8 @@ describe('PRDetail Clean Review Functionality', () => {
         !cleanReviewPosted &&
         reviewResult.overallStatus !== 'request_changes';
 
-      expect(shouldShowButton).toBe(false);
+      expect(shouldShowButton).toBe(true); // Would show if not for selectedCount
+      expect(selectedCount === 0 && shouldShowButton).toBe(false);
     });
 
     it('should NOT show button when review has MEDIUM severity findings', () => {
@@ -338,24 +339,25 @@ describe('PRDetail Clean Review Functionality', () => {
 
       const selectedCount: number = 1;
 
-      // Post Findings button: selectedCount > 0.
-      // Note: This comparison is always true here since selectedCount = 1.
-      // This is intentional - we're testing the algorithm expression with a known value.
-      const showPostFindings = selectedCount > 0; // Intentionally true for this test case
+      // Post Findings button shows when selectedCount > 0
+      expect(selectedCount).toBeGreaterThan(0);
 
       // Post Clean Review button requires selectedCount === 0, which is false here
-      expect(selectedCount === 0).toBe(false);
+      const showPostFindingsCondition = selectedCount > 0;
+      expect(showPostFindingsCondition).toBe(true);
 
-      // Verify Post Clean Review is not shown due to selected findings
+      const showPostCleanReviewCondition = selectedCount === 0;
+      expect(showPostCleanReviewCondition).toBe(false);
+
+      // Verify full expression for Post Clean Review
       const showPostCleanReview =
-        selectedCount === 0 &&
         reviewResult.success &&
         !reviewResult.findings.some(f =>
           f.severity === 'critical' || f.severity === 'high' || f.severity === 'medium'
         );
 
-      expect(showPostFindings).toBe(true);
-      expect(showPostCleanReview).toBe(false);
+      expect(showPostFindingsCondition).toBe(true);
+      expect(showPostCleanReviewCondition && showPostCleanReview).toBe(false);
     });
 
     it('should show "Post Clean Review" button when no findings are selected and review is clean', () => {
@@ -365,17 +367,18 @@ describe('PRDetail Clean Review Functionality', () => {
 
       const selectedCount = 0;
 
-      const showPostFindings = selectedCount > 0;
+      // Post Findings button requires selectedCount > 0, which is false here
+      expect(selectedCount).toBe(0);
 
+      // Post Clean Review button shows when selectedCount === 0
       const showPostCleanReview =
-        selectedCount === 0 &&
         reviewResult.success &&
         !reviewResult.findings.some(f =>
           f.severity === 'critical' || f.severity === 'high' || f.severity === 'medium'
         );
 
-      expect(showPostFindings).toBe(false);
-      expect(showPostCleanReview).toBe(true);
+      expect(selectedCount > 0).toBe(false);
+      expect(selectedCount === 0 && showPostCleanReview).toBe(true);
     });
 
     it('should show neither button when no findings exist and none selected but review is not clean', () => {

@@ -367,7 +367,7 @@ class MockClaudeClient:
         return self
 
     async def __aexit__(self, *args):
-        pass
+        pass  # no-op
 
 
 # ============================================================================

@@ -45,7 +45,7 @@ class ContextBuilder:
                 json.JSONDecodeError,
                 UnicodeDecodeError,
             ):  # Corrupted or legacy-encoded file, regenerate
-                pass
+                pass  # no-op
 
         # Try to create one
         from analyzer import analyze_project

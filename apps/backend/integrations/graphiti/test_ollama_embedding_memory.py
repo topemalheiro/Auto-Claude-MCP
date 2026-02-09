@@ -109,7 +109,7 @@ def apply_ladybug_monkeypatch():
         sys.modules["kuzu"] = real_ladybug
         return True
     except Exception:  # Test cleanup, ignore errors
-        pass
+        pass  # no-op
 
     # Try native kuzu as fallback
     try:

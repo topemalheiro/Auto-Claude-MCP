@@ -866,7 +866,7 @@ def _find_git_bash_path() -> str | None:
         FileNotFoundError,
         subprocess.SubprocessError,
     ):  # Intentionally suppress errors - best-effort detection with fallback to common paths
-        pass
+        pass  # no-op
 
     # Method 2: Check common installation paths if 'where' didn't work
     if not git_path:

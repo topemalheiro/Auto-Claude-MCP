@@ -207,7 +207,7 @@ class ImplementationPlan:
             # (spec is complete, waiting for user to approve before coding starts)
             if self.status == "human_review" and self.planStatus == "review":
                 # Keep the plan approval status - don't reset to backlog
-                pass
+                pass  # no-op
             else:
                 self.status = "backlog"
                 self.planStatus = "pending"

@@ -48,19 +48,19 @@ try:
 except ImportError:
 
     def debug(*args, **kwargs):
-        pass
+        pass  # no-op
 
     def debug_verbose(*args, **kwargs):
-        pass
+        pass  # no-op
 
     def debug_success(*args, **kwargs):
-        pass
+        pass  # no-op
 
     def debug_error(*args, **kwargs):
-        pass
+        pass  # no-op
 
     def debug_warning(*args, **kwargs):
-        pass
+        pass  # no-op
 
 
 # Import merge system

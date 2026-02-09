@@ -47,10 +47,10 @@ try:
 except ImportError:
 
     def debug(*args, **kwargs):
-        pass
+        pass  # no-op
 
     def debug_warning(*args, **kwargs):
-        pass
+        pass  # no-op
 
 
 # Track if we've already tried to install the git hook this session

@@ -363,7 +363,7 @@ class FrameworkAnalyzer(BaseAnalyzer):
             if dependencies:
                 self.analysis["spm_dependencies"] = dependencies
         except Exception:  # Silently fail if Swift detection has issues
-            pass
+            pass  # no-op
 
     def _detect_spm_dependencies(self) -> list[str]:
         """Detect Swift Package Manager dependencies."""

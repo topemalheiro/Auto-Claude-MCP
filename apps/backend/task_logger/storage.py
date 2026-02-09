@@ -39,7 +39,7 @@ class LogStorage:
                 json.JSONDecodeError,
                 UnicodeDecodeError,
             ):  # File not found or corrupted
-                pass
+                pass  # no-op
 
         return {
             "spec_id": self.spec_dir.name,

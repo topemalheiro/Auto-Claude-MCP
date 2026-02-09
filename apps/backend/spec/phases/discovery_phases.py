@@ -13,7 +13,7 @@ from .. import context, discovery, requirements
 from .models import MAX_RETRIES, PhaseResult
 
 if TYPE_CHECKING:
-    pass
+    pass  # no-op
 
 
 class DiscoveryPhaseMixin:

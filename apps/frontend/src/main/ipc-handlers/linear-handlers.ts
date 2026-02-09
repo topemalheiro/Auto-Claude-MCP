@@ -12,6 +12,28 @@ import { sanitizeText, sanitizeUrl } from './shared/sanitize';
 import { AgentManager } from '../agent';
 
 /**
+ * Validate that a spec ID is safe for file system operations
+ * Prevents path traversal attacks by ensuring the spec ID:
+ * - Does not contain path separators (/, \)
+ * - Does not contain parent directory references (..)
+ * - Contains only alphanumeric characters, dashes, and underscores
+ */
+function isValidSpecId(specId: string): boolean {
+  // Reject empty strings
+  if (!specId || specId.length === 0) return false;
+
+  // Reject path traversal patterns
+  if (specId.includes('..') || specId.includes('/') || specId.includes('\\')) {
+    return false;
+  }
+
+  // Allow only alphanumeric, dash, underscore, and dot (for extension-like patterns)
+  // After slugifyTitle, we expect: "123-safe-title-here"
+  const validPattern = /^[a-zA-Z0-9._-]+$/;
+  return validPattern.test(specId);
+}
+
+/**
  * Register all linear-related IPC handlers
  */
 export function registerLinearHandlers(

@@ -40,7 +40,7 @@ if sys.platform == "win32":
                 io.UnsupportedOperation,
                 OSError,
             ):  # Stream doesn't support reconfigure
-                pass
+                pass  # no-op
         # Method 2: Wrap with TextIOWrapper for piped output
         try:
             if hasattr(_stream, "buffer"):
@@ -56,7 +56,7 @@ if sys.platform == "win32":
             io.UnsupportedOperation,
             OSError,
         ):  # Stream doesn't support wrapper
-            pass
+            pass  # no-op
     # Clean up temporary variables
     del _stream_name, _stream
     if "_new_stream" in dir():
@@ -79,7 +79,7 @@ def apply_monkeypatch():
         json.JSONDecodeError,
         UnicodeDecodeError,
     ):  # Corrupted file, will regenerate
-        pass
+        pass  # no-op
 
     # Try native kuzu as fallback
     try:
@@ -587,7 +587,7 @@ def cmd_add_episode(args):
                 # Re-serialize to ensure consistent formatting
                 content = json.dumps(parsed)
             except json.JSONDecodeError:  # If not valid JSON, use as-is
-                pass
+                pass  # no-op
 
         # Generate unique ID
         episode_uuid = str(uuid_module.uuid4())
@@ -706,7 +706,7 @@ def extract_session_number(name: str) -> int | None:
             json.JSONDecodeError,
             UnicodeDecodeError,
         ):  # Corrupted file, will regenerate
-            pass
+            pass  # no-op
     return None
 
 
