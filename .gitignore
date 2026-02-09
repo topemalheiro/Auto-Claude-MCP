@@ -7,6 +7,15 @@
 Thumbs.db
 ehthumbs.db
 Desktop.ini
+*.lnk
+
+# ===========================
+# Personal launcher scripts
+# ===========================
+*.bat
+*.vbs
+.mcp.json
+CHANGES-RDR-ARCHIVE-FIXES.md
 
 # ===========================
 # Security - Environment & Secrets

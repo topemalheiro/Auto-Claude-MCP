@@ -268,7 +268,7 @@ git log --oneline upstream/develop..HEAD
 
 ## Test Project for RDR Integration
 
-**CV Project Path:** `C:\Users\topem\Desktop\CV Project`
+**CV Project Path:** `C:\Users\USER\Desktop\CV Project`
 
 This project is used for testing the RDR (Recover, Debug, Resend) system with MCP integration. When RDR detects tasks needing intervention in this project, it automatically prompts Claude Code via MCP to fix them.
 
@@ -441,8 +441,8 @@ Use MCP tools: get_task_error_details, submit_task_fix_request, process_rdr_batc
 6. **Confirm recovery** to user
 
 **Project Path Resolution:**
-- CV Project: `C:\Users\topem\Desktop\CV Project`
-- Auto-Claude Mod: `C:\Users\topem\source\repos\Auto-Claude Mod`
+- CV Project: `C:\Users\USER\Desktop\CV Project`
+- Auto-Claude-MCP: `C:\Users\USER\source\repos\Auto-Claude-MCP`
 - Ask user if path is unclear
 
 **MCP Tools Usage:**
