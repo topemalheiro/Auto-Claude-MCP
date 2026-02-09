@@ -1050,25 +1050,54 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     lines.push('---');
     lines.push('**Recovery Instructions:**');
     lines.push('');
-    lines.push('Call `mcp__auto-claude-manager__process_rdr_batch` NOW for EACH batch:');
-    lines.push('');
-    if (data.batches && data.batches.length > 0) {
-      for (const batch of data.batches) {
+
+    const pathParam = data.projectPath ? `, projectPath: "${data.projectPath}"` : '';
+
+    // RECOVER tasks (wrong board) → use recover_stuck_task
+    if (recoverTasks.length > 0) {
+      lines.push('**RECOVER tasks** (wrong board — use `recover_stuck_task`):');
+      lines.push('');
+      for (const task of recoverTasks) {
+        lines.push(`  mcp__auto-claude-manager__recover_stuck_task({`);
+        lines.push(`    projectId: "${data.projectId}",`);
+        if (data.projectPath) {
+          lines.push(`    projectPath: "${data.projectPath}",`);
+        }
+        lines.push(`    taskId: "${task.specId}",`);
+        lines.push(`    autoRestart: true`);
+        lines.push(`  })`);
+        lines.push('');
+      }
+    }
+
+    // CONTINUE tasks (correct board) → use process_rdr_batch grouped by batch type
+    if (continueTasks.length > 0) {
+      lines.push('**CONTINUE tasks** (correct board, needs restart — use `process_rdr_batch`):');
+      lines.push('');
+      // Group continue tasks by their batch type
+      const batchGroups: Record<string, string[]> = {};
+      for (const task of continueTasks) {
+        const bt = taskBatchMap[task.specId] || 'errors';
+        if (!batchGroups[bt]) batchGroups[bt] = [];
+        batchGroups[bt].push(task.specId);
+      }
+      for (const [bt, taskIds] of Object.entries(batchGroups)) {
         lines.push(`  mcp__auto-claude-manager__process_rdr_batch({`);
         lines.push(`    projectId: "${data.projectId}",`);
         if (data.projectPath) {
           lines.push(`    projectPath: "${data.projectPath}",`);
         }
-        lines.push(`    batchType: "${batch.type}",`);
-        lines.push(`    fixes: [${batch.taskIds.map(id => `{ taskId: "${id}" }`).join(', ')}]`);
+        lines.push(`    batchType: "${bt}",`);
+        lines.push(`    fixes: [${taskIds.map(id => `{ taskId: "${id}" }`).join(', ')}]`);
         lines.push(`  })`);
         lines.push('');
       }
     }
-    const pathParam = data.projectPath ? `, projectPath: "${data.projectPath}"` : '';
+
     lines.push('**Available MCP Tools:**');
+    lines.push(`- \`mcp__auto-claude-manager__recover_stuck_task({ projectId: "${data.projectId}"${pathParam}, taskId, autoRestart: true })\` - Recover stuck task (wrong board)`);
+    lines.push(`- \`mcp__auto-claude-manager__process_rdr_batch({ projectId: "${data.projectId}"${pathParam}, batchType, fixes })\` - Auto-continue batch (correct board)`);
     lines.push(`- \`mcp__auto-claude-manager__get_rdr_batches({ projectId: "${data.projectId}"${pathParam} })\` - Get all recovery batches`);
-    lines.push(`- \`mcp__auto-claude-manager__process_rdr_batch({ projectId: "${data.projectId}"${pathParam}, batchType, fixes })\` - Auto-recover batch`);
     lines.push(`- \`mcp__auto-claude-manager__get_task_error_details({ projectId: "${data.projectId}"${pathParam}, taskId })\` - Get detailed error logs`);
     lines.push(`- \`mcp__auto-claude-manager__submit_task_fix_request({ projectId: "${data.projectId}"${pathParam}, taskId, feedback })\` - Manual fix request`);
 

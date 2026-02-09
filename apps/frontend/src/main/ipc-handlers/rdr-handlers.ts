@@ -38,13 +38,20 @@ function getRawPlanStatus(projectPath: string, specId: string): string | undefin
 interface WorktreeInfo {
   status?: string;
   planStatus?: string;
+  qaSignoff?: string;    // qa_signoff.status from worktree plan
+  exitReason?: string;   // exitReason from worktree plan
 }
 
 function getWorktreeInfo(projectPath: string, specId: string): WorktreeInfo {
   const worktreePlanPath = path.join(projectPath, '.auto-claude', 'worktrees', 'tasks', specId, '.auto-claude', 'specs', specId, 'implementation_plan.json');
   try {
     const plan = JSON.parse(readFileSync(worktreePlanPath, 'utf-8'));
-    return { status: plan.status, planStatus: plan.planStatus };
+    return {
+      status: plan.status,
+      planStatus: plan.planStatus,
+      qaSignoff: plan.qa_signoff?.status,
+      exitReason: plan.exitReason,
+    };
   } catch {
     return {};
   }
@@ -103,6 +110,7 @@ interface TaskInfo {
   planStatus?: string;
   created_at?: string;
   updated_at?: string;
+  qaSignoff?: string;     // qa_signoff.status from worktree/main plan
   rdrDisabled?: boolean;  // If true, RDR will skip this task
   metadata?: { stuckSince?: string; forceRecovery?: boolean };  // Stuck timestamp + test recovery flag
 }
@@ -187,6 +195,9 @@ function enrichTaskWithWorktreeData(task: TaskInfo, projectPath: string): TaskIn
       return task;
     }
 
+    // Always read qa_signoff from worktree (authoritative completion signal)
+    const worktreeQaSignoff = worktreePlan.qa_signoff?.status as string | undefined;
+
     // If worktree has an "active" status that differs from main, use worktree data
     // This catches cases where main shows human_review 100% but agent is still working
     // 'completed' included: agent finished subtasks but task hasn't transitioned to done
@@ -201,8 +212,15 @@ function enrichTaskWithWorktreeData(task: TaskInfo, projectPath: string): TaskIn
         updated_at: worktreePlan.updated_at || worktreePlan.last_updated || task.updated_at,
         exitReason: worktreePlan.exitReason !== undefined ? worktreePlan.exitReason : task.exitReason,
         reviewReason: worktreePlan.reviewReason !== undefined ? worktreePlan.reviewReason : task.reviewReason,
+        qaSignoff: worktreeQaSignoff || task.qaSignoff,
         metadata: worktreePlan.metadata || task.metadata,
       };
+    }
+
+    // Even if status doesn't match activeStatuses (e.g. start_requested),
+    // still propagate qa_signoff so completion detection works
+    if (worktreeQaSignoff && !task.qaSignoff) {
+      return { ...task, qaSignoff: worktreeQaSignoff };
     }
   } catch (e) {
     // Silently fall through - use main data
@@ -257,23 +275,26 @@ function getTaskLastActivityTimestamp(task: TaskInfo, projectPath: string): numb
  * Check if task is legitimate human review (shouldn't be flagged by RDR)
  *
  * Logic:
- * - Tasks at 100% WITH reviewReason = legitimate (QA complete, waiting for merge)
- * - Tasks at 100% WITHOUT reviewReason = NOT legitimate (validation stuck/crashed)
+ * - QA-approved tasks at 100% = ALWAYS legitimate (authoritative completion signal)
+ * - Tasks at 100% with reviewReason='completed' = legitimate
+ * - Tasks at 100% with no qaSignoff and no reviewReason = NOT legitimate (stuck)
+ * - Tasks with crash exitReason = NOT legitimate
  * - Tasks at <100% = NOT legitimate (incomplete work)
  */
 function isLegitimateHumanReview(task: TaskInfo): boolean {
   const progress = calculateTaskProgress(task);
 
-  // Tasks at 100% with NO reviewReason are NOT legitimate (QA validation crashed or still running)
-  // This catches tasks like 071-marko where validation is stuck/running but hasn't finished
-  if (progress === 100 && !task.reviewReason) {
-    return false;  // Flag for intervention - validation didn't complete properly
+  // QA-approved tasks at 100% are DEFINITIVELY done
+  // qa_signoff.status='approved' is the authoritative completion signal
+  // exitReason may be stale (e.g., OAuth expired AFTER QA already approved)
+  if (progress === 100 && (task.qaSignoff === 'approved' || task.reviewReason === 'completed')) {
+    return true;
   }
 
-  // Tasks with reviewReason='completed' at 100% are definitively done
-  // exitReason may be stale (e.g., OAuth expired AFTER QA already approved)
-  if (progress === 100 && task.reviewReason === 'completed') {
-    return true;
+  // Tasks at 100% with NO qaSignoff and NO reviewReason are NOT legitimate
+  // (QA validation crashed or still running)
+  if (progress === 100 && !task.reviewReason && !task.qaSignoff) {
+    return false;  // Flag for intervention - validation didn't complete properly
   }
 
   // Tasks with crash/error exitReason are NOT legitimate (even at 100%)
@@ -307,6 +328,21 @@ function isLegitimateHumanReview(task: TaskInfo): boolean {
 function determineInterventionType(task: TaskInfo, lastActivityMs?: number, hasWorktree?: boolean, rawPlanStatus?: string, worktreeInfo?: WorktreeInfo): InterventionType | null {
   // Skip completed/archived tasks - these never need intervention
   if (task.status === 'done' || task.status === 'pr_created') {
+    return null;
+  }
+
+  // QA-approved tasks at 100% are COMPLETE — never flag them
+  // This prevents the infinite loop of restarting completed tasks
+  // qa_signoff.status='approved' is the authoritative completion signal from the QA agent
+  const qaApprovedProgress = calculateTaskProgress(task);
+  if (qaApprovedProgress === 100 && (task.qaSignoff === 'approved' || task.reviewReason === 'completed')) {
+    // Also check worktree qaSignoff for tasks not enriched (e.g. start_requested status)
+    console.log(`[RDR] Task ${task.specId} QA-approved at 100% — skipping (qaSignoff=${task.qaSignoff}, worktreeQa=${worktreeInfo?.qaSignoff})`);
+    return null;
+  }
+  // Also check worktree qaSignoff directly (enrichment may have skipped non-active statuses)
+  if (qaApprovedProgress === 100 && worktreeInfo?.qaSignoff === 'approved') {
+    console.log(`[RDR] Task ${task.specId} worktree QA-approved at 100% — skipping`);
     return null;
   }
 
@@ -355,8 +391,12 @@ function determineInterventionType(task: TaskInfo, lastActivityMs?: number, hasW
   // Check if this is legitimate human review (any human_review at 100% = waiting for user)
   if (task.status === 'human_review' && isLegitimateHumanReview(task)) {
     // If worktree has start_requested, a previous RDR recovery attempt failed to restart the agent
-    // Always flag regardless of planStatus (planStatus may be stale 'completed'/'approved')
+    // But if QA approved in worktree, the task is actually done despite start_requested
     if (worktreeInfo?.status === 'start_requested') {
+      if (worktreeInfo.qaSignoff === 'approved') {
+        console.log(`[RDR] Task ${task.specId} worktree start_requested but QA approved — skipping`);
+        return null;
+      }
       console.log(`[RDR] Task ${task.specId} at 100% but worktree start_requested (planStatus=${worktreeInfo.planStatus}) - previous recovery failed, flagging`);
       return 'incomplete';
     }

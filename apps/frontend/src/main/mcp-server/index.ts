@@ -683,6 +683,53 @@ server.tool(
     try {
       // Read plan
       const plan = JSON.parse(readFileSync(planPath, 'utf-8'));
+
+      // COMPLETION GUARD: Don't restart QA-approved tasks at 100%
+      // Check both main plan and worktree to prevent restart loops
+      const checkQaComplete = (planData: any): boolean => {
+        const allSubtasks = (planData.phases || []).flatMap((p: any) => p.subtasks || []);
+        const total = allSubtasks.length;
+        const completed = allSubtasks.filter((s: any) => s.status === 'completed').length;
+        return planData.qa_signoff?.status === 'approved' && total > 0 && completed === total;
+      };
+
+      if (checkQaComplete(plan)) {
+        return {
+          content: [{
+            type: 'text' as const,
+            text: JSON.stringify({
+              success: false,
+              taskId,
+              error: 'Task is QA-approved at 100% — already complete. Recovery would restart a finished task.',
+              qaSignoff: plan.qa_signoff?.status
+            }, null, 2)
+          }]
+        };
+      }
+      // Also check worktree (has the real data)
+      const worktreePlanPath = path.join(
+        resolvedProjectPath, '.auto-claude', 'worktrees', 'tasks', taskId,
+        '.auto-claude', 'specs', taskId, 'implementation_plan.json'
+      );
+      if (existsSync(worktreePlanPath)) {
+        try {
+          const wt = JSON.parse(readFileSync(worktreePlanPath, 'utf-8'));
+          if (checkQaComplete(wt)) {
+            return {
+              content: [{
+                type: 'text' as const,
+                text: JSON.stringify({
+                  success: false,
+                  taskId,
+                  error: 'Task worktree is QA-approved at 100% — already complete. Recovery would restart a finished task.',
+                  qaSignoff: wt.qa_signoff?.status
+                }, null, 2)
+              }]
+            };
+          }
+        } catch { /* ignore worktree read errors */ }
+      }
+
       let recovered = false;
       let action = '';
 
@@ -716,11 +763,7 @@ server.tool(
       // Write to main plan
       writeFileSync(planPath, JSON.stringify(plan, null, 2));
 
-      // Also update worktree plan (if it exists)
-      const worktreePlanPath = path.join(
-        resolvedProjectPath, '.auto-claude', 'worktrees', 'tasks', taskId,
-        '.auto-claude', 'specs', taskId, 'implementation_plan.json'
-      );
+      // Also update worktree plan (if it exists) - worktreePlanPath declared above in completion guard
       if (existsSync(worktreePlanPath)) {
         try {
           const worktreePlan = JSON.parse(readFileSync(worktreePlanPath, 'utf-8'));
@@ -829,6 +872,38 @@ server.tool(
         }]
       };
     }
+
+    // COMPLETION GUARD: Don't restart QA-approved tasks at 100%
+    const checkQaComplete = (planData: any): boolean => {
+      const allSubtasks = (planData.phases || []).flatMap((p: any) => p.subtasks || []);
+      const total = allSubtasks.length;
+      const completed = allSubtasks.filter((s: any) => s.status === 'completed').length;
+      return planData.qa_signoff?.status === 'approved' && total > 0 && completed === total;
+    };
+    try {
+      let qaComplete = false;
+      if (existsSync(planPath)) {
+        qaComplete = checkQaComplete(JSON.parse(readFileSync(planPath, 'utf-8')));
+      }
+      if (!qaComplete) {
+        const wtPlanPath = path.join(resolvedProjectPath, '.auto-claude', 'worktrees', 'tasks', taskId, '.auto-claude', 'specs', taskId, 'implementation_plan.json');
+        if (existsSync(wtPlanPath)) {
+          qaComplete = checkQaComplete(JSON.parse(readFileSync(wtPlanPath, 'utf-8')));
+        }
+      }
+      if (qaComplete) {
+        return {
+          content: [{
+            type: 'text' as const,
+            text: JSON.stringify({
+              success: false,
+              taskId,
+              error: 'Task is QA-approved at 100% — already complete. Fix request would restart a finished task.'
+            }, null, 2)
+          }]
+        };
+      }
+    } catch { /* proceed if guard check fails */ }
 
     try {
       // Write fix request file (Priority 2: Request Changes)
@@ -1215,6 +1290,34 @@ server.tool(
         results.push({ taskId: fix.taskId, success: false, action: 'error', priority: 0, error: 'Spec directory not found' });
         continue;
       }
+
+      // COMPLETION GUARD: Skip QA-approved tasks at 100% to prevent restart loops
+      try {
+        const checkQaComplete = (planData: any): boolean => {
+          const allSubtasks = (planData.phases || []).flatMap((p: any) => p.subtasks || []);
+          const total = allSubtasks.length;
+          const completed = allSubtasks.filter((s: any) => s.status === 'completed').length;
+          return planData.qa_signoff?.status === 'approved' && total > 0 && completed === total;
+        };
+
+        let qaComplete = false;
+        if (existsSync(planPath)) {
+          const guardPlan = JSON.parse(readFileSync(planPath, 'utf-8'));
+          qaComplete = checkQaComplete(guardPlan);
+        }
+        if (!qaComplete) {
+          const wtPath = path.join(resolvedProjectPath, '.auto-claude', 'worktrees', 'tasks', fix.taskId, '.auto-claude', 'specs', fix.taskId, 'implementation_plan.json');
+          if (existsSync(wtPath)) {
+            const wt = JSON.parse(readFileSync(wtPath, 'utf-8'));
+            qaComplete = checkQaComplete(wt);
+          }
+        }
+        if (qaComplete) {
+          console.log(`[MCP] Skipping ${fix.taskId} - QA-approved at 100%, already complete`);
+          results.push({ taskId: fix.taskId, success: false, action: 'skipped_complete', priority: 0, error: 'Task QA-approved at 100% — skipping to prevent restart loop' });
+          continue;
+        }
+      } catch { /* proceed if guard check fails */ }
 
       try {
         let action = '';
