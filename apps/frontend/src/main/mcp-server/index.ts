@@ -700,6 +700,10 @@ server.tool(
         plan.rdr_batch_type = 'recovery';
         plan.rdr_priority = 1;
         plan.rdr_iteration = (plan.rdr_iteration || 0) + 1;
+        // Reset planStatus so RDR/auto-shutdown don't skip this task as "lifecycle done"
+        if (plan.planStatus === 'completed' || plan.planStatus === 'approved') {
+          plan.planStatus = 'in_progress';
+        }
         action += (action ? ' + ' : '') + 'set_start_requested';
       } else {
         // Update lastActivity to refresh task (without restarting)
@@ -731,6 +735,10 @@ server.tool(
             worktreePlan.rdr_batch_type = 'recovery';
             worktreePlan.rdr_priority = 1;
             worktreePlan.rdr_iteration = (worktreePlan.rdr_iteration || 0) + 1;
+            // Reset planStatus so RDR/auto-shutdown don't skip this task as "lifecycle done"
+            if (worktreePlan.planStatus === 'completed' || worktreePlan.planStatus === 'approved') {
+              worktreePlan.planStatus = 'in_progress';
+            }
           } else {
             worktreePlan.updated_at = new Date().toISOString();
             if (!worktreePlan.metadata) worktreePlan.metadata = {};
@@ -872,6 +880,10 @@ Source: Claude Code MCP Tool (Priority 2: Request Changes)
         plan.rdr_priority = 2; // Priority 2: Request Changes
         plan.mcp_feedback = feedback;
         plan.mcp_iteration = (plan.mcp_iteration || 0) + 1;
+        // Reset planStatus so RDR/auto-shutdown don't skip this task as "lifecycle done"
+        if (plan.planStatus === 'completed' || plan.planStatus === 'approved') {
+          plan.planStatus = 'in_progress';
+        }
         writeFileSync(planPath, JSON.stringify(plan, null, 2));
       }
 
@@ -885,6 +897,10 @@ Source: Claude Code MCP Tool (Priority 2: Request Changes)
           worktreePlan.rdr_priority = 2;
           worktreePlan.mcp_feedback = feedback;
           worktreePlan.mcp_iteration = (worktreePlan.mcp_iteration || 0) + 1;
+          // Reset planStatus so RDR/auto-shutdown don't skip this task as "lifecycle done"
+          if (worktreePlan.planStatus === 'completed' || worktreePlan.planStatus === 'approved') {
+            worktreePlan.planStatus = 'in_progress';
+          }
           writeFileSync(worktreePlanPath, JSON.stringify(worktreePlan, null, 2));
           console.log(`[MCP] Also updated worktree plan for ${taskId}`);
         } catch (err) {
@@ -1358,6 +1374,10 @@ Batch Type: ${batchType}
           plan.rdr_batch_type = batchType;
           plan.rdr_priority = priority;
           plan.rdr_iteration = (plan.rdr_iteration || 0) + 1;
+          // Reset planStatus so RDR/auto-shutdown don't skip this task as "lifecycle done"
+          if (plan.planStatus === 'completed' || plan.planStatus === 'approved') {
+            plan.planStatus = 'in_progress';
+          }
           writeFileSync(planPath, JSON.stringify(plan, null, 2));
         }
 
@@ -1374,6 +1394,10 @@ Batch Type: ${batchType}
             worktreePlan.rdr_batch_type = batchType;
             worktreePlan.rdr_priority = priority;
             worktreePlan.rdr_iteration = (worktreePlan.rdr_iteration || 0) + 1;
+            // Reset planStatus so RDR/auto-shutdown don't skip this task as "lifecycle done"
+            if (worktreePlan.planStatus === 'completed' || worktreePlan.planStatus === 'approved') {
+              worktreePlan.planStatus = 'in_progress';
+            }
             writeFileSync(worktreePlanPath, JSON.stringify(worktreePlan, null, 2));
             console.log(`[MCP] Also updated worktree plan for ${fix.taskId}`);
           } catch (err) {
