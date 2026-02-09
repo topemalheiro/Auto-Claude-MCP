@@ -1291,31 +1291,40 @@ server.tool(
         continue;
       }
 
-      // COMPLETION GUARD: Skip QA-approved tasks at 100% to prevent restart loops
+      // COMPLETION GUARD: Skip QA-approved tasks at 100% ONLY if no hard error AND on correct board
+      // Hard errors (error, auth_failure) override QA approval — task genuinely failed
+      // Wrong-board tasks need recovery to transition to correct status
       try {
-        const checkQaComplete = (planData: any): boolean => {
+        const checkQaGuard = (planData: any): { qaApproved: boolean; exitReason?: string; status?: string } => {
           const allSubtasks = (planData.phases || []).flatMap((p: any) => p.subtasks || []);
           const total = allSubtasks.length;
           const completed = allSubtasks.filter((s: any) => s.status === 'completed').length;
-          return planData.qa_signoff?.status === 'approved' && total > 0 && completed === total;
+          const qaApproved = planData.qa_signoff?.status === 'approved' && total > 0 && completed === total;
+          return { qaApproved, exitReason: planData.exitReason as string | undefined, status: planData.status as string | undefined };
         };
 
-        let qaComplete = false;
-        if (existsSync(planPath)) {
-          const guardPlan = JSON.parse(readFileSync(planPath, 'utf-8'));
-          qaComplete = checkQaComplete(guardPlan);
+        // Check worktree first (source of truth), then main plan
+        let qaGuard: { qaApproved: boolean; exitReason?: string; status?: string } = { qaApproved: false };
+        const wtGuardPath = path.join(resolvedProjectPath, '.auto-claude', 'worktrees', 'tasks', fix.taskId, '.auto-claude', 'specs', fix.taskId, 'implementation_plan.json');
+        if (existsSync(wtGuardPath)) {
+          qaGuard = checkQaGuard(JSON.parse(readFileSync(wtGuardPath, 'utf-8')));
         }
-        if (!qaComplete) {
-          const wtPath = path.join(resolvedProjectPath, '.auto-claude', 'worktrees', 'tasks', fix.taskId, '.auto-claude', 'specs', fix.taskId, 'implementation_plan.json');
-          if (existsSync(wtPath)) {
-            const wt = JSON.parse(readFileSync(wtPath, 'utf-8'));
-            qaComplete = checkQaComplete(wt);
+        if (!qaGuard.qaApproved && existsSync(planPath)) {
+          qaGuard = checkQaGuard(JSON.parse(readFileSync(planPath, 'utf-8')));
+        }
+
+        if (qaGuard.qaApproved) {
+          const hasHardError = qaGuard.exitReason === 'error' || qaGuard.exitReason === 'auth_failure';
+          const terminalStatuses = ['human_review', 'done', 'pr_created', 'approved'];
+          const onCorrectBoard = terminalStatuses.includes(qaGuard.status || '');
+
+          if (!hasHardError && onCorrectBoard) {
+            console.log(`[MCP] Skipping ${fix.taskId} - QA-approved at 100% on ${qaGuard.status}, no hard error`);
+            results.push({ taskId: fix.taskId, success: false, action: 'skipped_complete', priority: 0, error: 'Task QA-approved at 100% — skipping to prevent restart loop' });
+            continue;
           }
-        }
-        if (qaComplete) {
-          console.log(`[MCP] Skipping ${fix.taskId} - QA-approved at 100%, already complete`);
-          results.push({ taskId: fix.taskId, success: false, action: 'skipped_complete', priority: 0, error: 'Task QA-approved at 100% — skipping to prevent restart loop' });
-          continue;
+          // Hard error or wrong board — proceed with recovery
+          console.log(`[MCP] ${fix.taskId} QA-approved but needs recovery (exitReason=${qaGuard.exitReason || 'none'}, status=${qaGuard.status || 'unknown'})`);
         }
       } catch { /* proceed if guard check fails */ }
 
