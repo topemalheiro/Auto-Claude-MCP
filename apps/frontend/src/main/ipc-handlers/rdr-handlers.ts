@@ -240,11 +240,11 @@ function enrichTaskWithWorktreeData(task: TaskInfo, projectPath: string): TaskIn
     // Always read qa_signoff from worktree (authoritative completion signal)
     const worktreeQaSignoff = worktreePlan.qa_signoff?.status as string | undefined;
 
-    // If worktree has an "active" status that differs from main, use worktree data
-    // This catches cases where main shows human_review 100% but agent is still working
-    // 'completed' included: agent finished subtasks but task hasn't transitioned to done
-    const activeStatuses = ['in_progress', 'ai_review', 'qa_approved', 'completed', 'planning', 'coding', 'start_requested'];
-    if (activeStatuses.includes(worktreeStatus) && worktreeStatus !== task.status) {
+    // Enrich for ANY non-terminal worktree status that differs from main
+    // Terminal statuses (done, pr_created) already handled above at line 236
+    // This eliminates the entire class of "missing status" bugs — any new status
+    // the backend introduces (qa_revalidation, review, approved, etc.) is auto-covered
+    if (worktreeStatus !== task.status) {
       console.log(`[RDR] Enriching task ${task.specId}: main=${task.status} → worktree=${worktreeStatus}`);
       return {
         ...task,
@@ -402,14 +402,20 @@ function determineInterventionType(task: TaskInfo, hasWorktree?: boolean, rawPla
 
   // Check if this is legitimate human review (any human_review at 100% = waiting for user)
   if (task.status === 'human_review' && isLegitimateHumanReview(task)) {
-    // If worktree has start_requested, a previous RDR recovery attempt failed to restart the agent
-    // But if QA approved in worktree, the task is actually done despite start_requested
-    if (worktreeInfo?.status === 'start_requested') {
-      if (worktreeInfo.qaSignoff === 'approved') {
+    // Check if worktree has ANY non-terminal status that differs from human_review
+    // This catches qa_revalidation, start_requested, in_progress, approved, etc.
+    const worktreeNonTerminal = worktreeInfo?.status &&
+      worktreeInfo.status !== 'human_review' &&
+      worktreeInfo.status !== 'done' &&
+      worktreeInfo.status !== 'pr_created';
+
+    if (worktreeNonTerminal) {
+      // Exception: start_requested with QA approved = work IS done, just needs board move
+      if (worktreeInfo!.status === 'start_requested' && worktreeInfo!.qaSignoff === 'approved') {
         console.log(`[RDR] Task ${task.specId} worktree start_requested but QA approved — skipping`);
         return null;
       }
-      console.log(`[RDR] Task ${task.specId} at 100% but worktree start_requested (planStatus=${worktreeInfo.planStatus}) - previous recovery failed, flagging`);
+      console.log(`[RDR] Task ${task.specId} at 100% but worktree at '${worktreeInfo!.status}' — needs intervention`);
       return 'incomplete';
     }
     return null;
@@ -493,6 +499,12 @@ function determineInterventionType(task: TaskInfo, hasWorktree?: boolean, rawPla
     return 'recovery';
   }
 
+  // Catch-all: any task reaching here has a non-terminal status we didn't explicitly handle
+  // If agent isn't running and task has work (phases), it needs intervention
+  if (!isTaskAgentRunning(task.specId) && task.phases && task.phases.length > 0) {
+    console.log(`[RDR] Task ${task.specId} in unhandled status '${task.status}' - agent NOT running, flagging as incomplete`);
+    return 'incomplete';
+  }
   console.log(`[RDR] Task ${task.specId}: no intervention needed (status=${task.status})`);
   return null;
 }
@@ -795,7 +807,7 @@ function incrementRdrAttempts(projectPath: string, taskIds: string[]): void {
 /**
  * Categorize tasks into batches by problem type
  */
-function categorizeTasks(tasks: TaskInfo[]): RdrBatch[] {
+function categorizeTasks(tasks: TaskInfo[], projectPath?: string): RdrBatch[] {
   const batches: RdrBatch[] = [];
 
   // Filter out tasks with RDR disabled
@@ -870,8 +882,11 @@ function categorizeTasks(tasks: TaskInfo[]): RdrBatch[] {
   // (e.g., empty plans with 0 phases, tasks in active status with no subtasks)
   const uncategorized = rdrEnabledTasks.filter(t => {
     if (categorized.has(t.specId)) return false;
-    // Only include tasks that determineInterventionType would flag
-    const intervention = determineInterventionType(t);
+    // Pass full worktreeInfo so determineInterventionType can check worktree status
+    const wtInfo = projectPath ? getWorktreeInfo(projectPath, t.specId) : undefined;
+    const hasWt = Boolean(wtInfo?.status);
+    const rawStatus = projectPath ? getRawPlanStatus(projectPath, t.specId) : undefined;
+    const intervention = determineInterventionType(t, hasWt, rawStatus, wtInfo);
     return intervention !== null;
   });
   if (uncategorized.length > 0) {
@@ -1483,7 +1498,7 @@ async function processPendingTasks(skipBusyCheck: boolean = false): Promise<void
     const mainWindow = BrowserWindow.getAllWindows()[0] || null;
 
     // Categorize tasks into batches
-    const batches = categorizeTasks(tasks);
+    const batches = categorizeTasks(tasks, project.path);
     console.log(`[RDR] Categorized ${tasks.length} tasks into ${batches.length} batches for project ${projectId}`);
 
     // Increment RDR attempt counter for all tasks being processed
@@ -1748,7 +1763,7 @@ export function registerRdrHandlers(agentManager?: AgentManager): void {
       }));
 
       // Categorize tasks into batches
-      const batches = categorizeTasks(taskInfos);
+      const batches = categorizeTasks(taskInfos, project.path);
       console.log(`[RDR] Categorized ${tasks.length} tasks into ${batches.length} batches:`);
       for (const batch of batches) {
         console.log(`[RDR]   - ${batch.type}: ${batch.taskIds.length} tasks`);
@@ -1997,7 +2012,7 @@ export function registerRdrHandlers(agentManager?: AgentManager): void {
         }));
 
         // Categorize into batches
-        const batches = categorizeTasks(taskInfos);
+        const batches = categorizeTasks(taskInfos, projectPath);
 
         // Build detailed task info for the message
         const taskDetails = tasksNeedingHelp.map(task => {
