@@ -52,6 +52,25 @@ function getWorktreePlan(projectPath: string, taskDir: string): Record<string, u
 }
 
 /**
+ * Check if a task is QA-approved at 100% completion (all subtasks done).
+ * This is the authoritative completion signal — a task with qa_signoff.status='approved'
+ * and all subtasks completed is definitively DONE regardless of other status fields.
+ */
+function isQaApprovedComplete(content: Record<string, unknown>): boolean {
+  const qaSignoff = content.qa_signoff as { status?: string } | undefined;
+  if (qaSignoff?.status !== 'approved') return false;
+
+  const phases = content.phases as Array<{ subtasks?: Array<{ status?: string }> }> | undefined;
+  if (!phases || phases.length === 0) return false;
+
+  const allSubtasks = phases.flatMap(p => p.subtasks || []);
+  if (allSubtasks.length === 0) return false;
+
+  const completed = allSubtasks.filter(s => s.status === 'completed').length;
+  return completed === allSubtasks.length;
+}
+
+/**
  * Check if a task is archived by reading task_metadata.json
  * Archived tasks have an archivedAt field set to an ISO date string
  */
@@ -111,6 +130,13 @@ function getActiveTaskIds(projectPath: string): string[] {
         // Tasks with error exitReason are NOT complete - need intervention (matches RDR logic)
         const hasErrorExit = content.exitReason === 'error' || content.exitReason === 'auth_failure' ||
             content.exitReason === 'prompt_loop' || content.exitReason === 'rate_limit_crash';
+
+        // QA-approved at 100% is the authoritative completion signal
+        // Even if status is start_requested or exitReason is error,
+        // qa_signoff.status='approved' with all subtasks done = DONE
+        if (isQaApprovedComplete(content)) {
+          continue;
+        }
 
         if (!hasErrorExit) {
           // Complete = done, pr_created, or human_review (QA passed, ready for human)
@@ -178,6 +204,11 @@ function countTasksByStatus(projectPath: string): { total: number; humanReview: 
         // Tasks with error exitReason are NOT complete - need intervention (matches RDR logic)
         const hasErrorExit = content.exitReason === 'error' || content.exitReason === 'auth_failure' ||
             content.exitReason === 'prompt_loop' || content.exitReason === 'rate_limit_crash';
+
+        // QA-approved at 100% is the authoritative completion signal
+        if (isQaApprovedComplete(content)) {
+          continue;
+        }
 
         if (!hasErrorExit) {
           // Complete = done, pr_created, or human_review (QA passed, ready for human)

@@ -72,6 +72,21 @@ function calculateTaskProgress(plan: any): number {
 }
 
 /**
+ * Check if a task is QA-approved at 100% completion.
+ * qa_signoff.status='approved' with all subtasks done = definitively DONE.
+ */
+function isQaApprovedComplete(content: any): boolean {
+  if (content.qa_signoff?.status !== 'approved') return false;
+  if (!content.phases || content.phases.length === 0) return false;
+
+  const allSubtasks = content.phases.flatMap((p: any) => p.subtasks || []);
+  if (allSubtasks.length === 0) return false;
+
+  const completed = allSubtasks.filter((s: any) => s.status === 'completed').length;
+  return completed === allSubtasks.length;
+}
+
+/**
  * Get worktree plan if it exists (agent writes progress to worktree).
  * Worktree path: <project>/.auto-claude/worktrees/tasks/<taskId>/.auto-claude/specs/<taskId>/implementation_plan.json
  */
@@ -131,8 +146,15 @@ function getTaskStatuses(projectPaths: string[]): TaskStatus[] {
           const hasErrorExit = content.exitReason === 'error' || content.exitReason === 'auth_failure' ||
               content.exitReason === 'prompt_loop' || content.exitReason === 'rate_limit_crash';
 
-          // Normalize non-standard statuses to terminal for shutdown purposes (only if no error)
+          // Normalize non-standard statuses to terminal for shutdown purposes
           let effectiveStatus = content.status || 'unknown';
+
+          // QA-approved at 100% is the authoritative completion signal
+          // Even with error exitReason, qa_signoff approved + all subtasks done = DONE
+          if (isQaApprovedComplete(content)) {
+            effectiveStatus = 'human_review'; // Treat as terminal
+          }
+
           if (!hasErrorExit) {
             if (effectiveStatus === 'start_requested' &&
                 (content.planStatus === 'completed' || content.planStatus === 'approved')) {
