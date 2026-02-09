@@ -22,24 +22,14 @@ from __future__ import annotations
 from typing import Any
 
 from .base import AUTO_CONTINUE_DELAY_SECONDS, HUMAN_INTERVENTION_FILE
-from .utils import sync_spec_to_source
-
-# Module-level placeholders for CodeQL static analysis.
-# These define the symbols as existing at module level (satisfying CodeQL),
-# but __getattr__ is called to provide the actual values (Python 3.7+).
-debug_memory_system_status: Any = None
-get_graphiti_context: Any = None
-save_session_memory: Any = None
-save_session_to_graphiti: Any = None
-run_autonomous_agent: Any = None
-run_followup_planner: Any = None
-post_session_processing: Any = None
-run_agent_session: Any = None
-get_latest_commit: Any = None
-get_commit_count: Any = None
-load_implementation_plan: Any = None
-find_subtask_in_plan: Any = None
-find_phase_for_subtask: Any = None
+from .utils import (
+    find_phase_for_subtask,
+    find_subtask_in_plan,
+    get_commit_count,
+    get_latest_commit,
+    load_implementation_plan,
+    sync_spec_to_source,
+)
 
 __all__ = [
     # Main API
@@ -72,76 +62,60 @@ _module_cache = {}
 def __getattr__(name: str) -> Any:
     """Lazy imports to avoid circular dependencies.
 
-    Python 3.7+ calls this for attributes that exist but are set to None
-    when accessed via 'from module import name' syntax.
+    Python 3.7+ calls this for attributes that don't exist at module level.
     """
-    if name in ("AUTO_CONTINUE_DELAY_SECONDS", "HUMAN_INTERVENTION_FILE"):
-        from .base import AUTO_CONTINUE_DELAY_SECONDS, HUMAN_INTERVENTION_FILE
+    if name == "run_autonomous_agent":
+        from . import coder  # Ensure agents.coder is registered in sys.modules
 
-        return (
-            AUTO_CONTINUE_DELAY_SECONDS
-            if name == "AUTO_CONTINUE_DELAY_SECONDS"
-            else HUMAN_INTERVENTION_FILE
-        )
-    elif name == "run_autonomous_agent":
-        from .coder import run_autonomous_agent
-
-        return run_autonomous_agent
+        return coder.run_autonomous_agent
     elif name == "debug_memory_system_status":
-        from .memory_manager import debug_memory_system_status
+        from . import (
+            memory_manager,  # Ensure agents.memory_manager is registered in sys.modules
+        )
 
-        return debug_memory_system_status
+        return memory_manager.debug_memory_system_status
     elif name == "get_graphiti_context":
-        from .memory_manager import get_graphiti_context
+        from . import (
+            memory_manager,  # Ensure agents.memory_manager is registered in sys.modules
+        )
 
-        return get_graphiti_context
+        return memory_manager.get_graphiti_context
     elif name == "save_session_memory":
-        from .memory_manager import save_session_memory
+        from . import (
+            memory_manager,  # Ensure agents.memory_manager is registered in sys.modules
+        )
 
-        return save_session_memory
+        return memory_manager.save_session_memory
     elif name == "save_session_to_graphiti":
-        from .memory_manager import save_session_to_graphiti
+        from . import (
+            memory_manager,  # Ensure agents.memory_manager is registered in sys.modules
+        )
 
-        return save_session_to_graphiti
+        return memory_manager.save_session_to_graphiti
     elif name == "run_followup_planner":
-        from .planner import run_followup_planner
+        from . import planner  # Ensure agents.planner is registered in sys.modules
 
-        return run_followup_planner
+        return planner.run_followup_planner
     elif name == "post_session_processing":
-        from .session import post_session_processing
+        from . import session  # Ensure agents.session is registered in sys.modules
 
-        return post_session_processing
+        return session.post_session_processing
     elif name == "run_agent_session":
-        from .session import run_agent_session
+        from . import session  # Ensure agents.session is registered in sys.modules
 
-        return run_agent_session
-    elif name == "get_latest_commit":
-        from .utils import get_latest_commit
-
-        return get_latest_commit
-    elif name == "get_commit_count":
-        from .utils import get_commit_count
-
-        return get_commit_count
-    elif name == "load_implementation_plan":
-        from .utils import load_implementation_plan
-
-        return load_implementation_plan
-    elif name == "find_subtask_in_plan":
-        from .utils import find_subtask_in_plan
-
-        return find_subtask_in_plan
-    elif name == "find_phase_for_subtask":
-        from .utils import find_phase_for_subtask
-
-        return find_phase_for_subtask
-    elif name == "sync_spec_to_source":
-        from .utils import sync_spec_to_source
-
-        return sync_spec_to_source
+        return session.run_agent_session
     raise AttributeError(f"module 'agents' has no attribute '{name}'")
 
 
 def __dir__():
     """Return list of module attributes for autocomplete and dir()."""
-    return __all__ + ["AUTO_CONTINUE_DELAY_SECONDS", "HUMAN_INTERVENTION_FILE"]
+    return __all__ + [
+        "__all__",
+        "__doc__",
+        "__file__",
+        "__getattr__",
+        "__name__",
+        "__package__",
+        "__loader__",
+        "__spec__",
+    ]

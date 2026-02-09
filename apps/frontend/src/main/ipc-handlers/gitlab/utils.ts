@@ -243,7 +243,7 @@ function validateEndpoint(endpoint: string): void {
 
   // Only allow safe characters in endpoints (alphanumeric, -._~,/?=&%)
   // This prevents injection attacks while still supporting query parameters
-  const safePattern = /^[/a-zA-Z0-9._~,/?=&%-]+$/;
+  const safePattern = /^[/a-zA-Z0-9._~\\,?=&%-]+$/;
   if (!safePattern.test(endpoint)) {
     throw new Error('GitLab endpoint contains invalid characters');
   }
