@@ -217,10 +217,15 @@ function enrichTaskWithWorktreeData(task: TaskInfo, projectPath: string): TaskIn
       };
     }
 
-    // Even if status doesn't match activeStatuses (e.g. start_requested),
-    // still propagate qa_signoff so completion detection works
-    if (worktreeQaSignoff && !task.qaSignoff) {
-      return { ...task, qaSignoff: worktreeQaSignoff };
+    // Even if status doesn't match activeStatuses (e.g. start_requested, human_review),
+    // still propagate qa_signoff and exitReason so completion detection works
+    const worktreeExitReason = worktreePlan.exitReason as string | undefined;
+    if (worktreeQaSignoff || worktreeExitReason !== undefined) {
+      return {
+        ...task,
+        qaSignoff: worktreeQaSignoff || task.qaSignoff,
+        exitReason: worktreeExitReason !== undefined ? worktreeExitReason : task.exitReason,
+      };
     }
   } catch (e) {
     // Silently fall through - use main data
@@ -342,15 +347,15 @@ function determineInterventionType(task: TaskInfo, lastActivityMs?: number, hasW
   const isQaApproved = task.qaSignoff === 'approved' || task.reviewReason === 'completed' || worktreeInfo?.qaSignoff === 'approved';
   if (qaApprovedProgress === 100 && isQaApproved) {
     if (task.status === 'human_review') {
-      // Error exit overrides QA approval — task crashed and needs recovery
-      const hasErrorExit = task.exitReason === 'error' || task.exitReason === 'auth_failure' ||
-          task.exitReason === 'prompt_loop' || task.exitReason === 'rate_limit_crash';
-      if (!hasErrorExit) {
-        console.log(`[RDR] Task ${task.specId} QA-approved at 100% on human_review — skipping`);
+      // Hard errors (error, auth_failure) override QA approval — task genuinely failed
+      // Transient errors (prompt_loop, rate_limit_crash) are process issues — if QA approved, work IS fine
+      const hasHardError = task.exitReason === 'error' || task.exitReason === 'auth_failure';
+      if (!hasHardError) {
+        console.log(`[RDR] Task ${task.specId} QA-approved at 100% on human_review — skipping (exit=${task.exitReason || 'none'})`);
         return null;
       }
-      // Has error exit — fall through to normal detection
-      console.log(`[RDR] Task ${task.specId} QA-approved at 100% on human_review but has error exit ${task.exitReason} — needs recovery`);
+      // Hard error exit — fall through to normal detection
+      console.log(`[RDR] Task ${task.specId} QA-approved at 100% on human_review but has hard error ${task.exitReason} — needs recovery`);
     }
     // Task is QA-approved but stuck on wrong board (e.g. ai_review, start_requested)
     // Don't return null — let it fall through to normal detection which will flag for recovery

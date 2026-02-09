@@ -285,18 +285,18 @@ RDR is Auto-Claude's automatic recovery system that:
 4. **Sends recovery prompts** to Claude Code when needed via MCP
 5. **Invokes Auto-Claude MCP tools** automatically when Claude Code receives RDR notifications
 
-### RDR Recovery Priority System
+### RDR Recovery Priority System (6 Levels)
 
-**Priority 1 (95%): Task Recovery - Auto-Resume**
-- Tasks with incomplete subtasks → Set `status: "start_requested"` to resume
-- File watcher auto-detects changes within 2-3 seconds
-- **No MCP tools needed** - just file writes
+**P1: Auto-CONTINUE (95%)** — Set `start_requested` to restart tasks. They usually self-recover.
+- Use `process_rdr_batch` → file watcher auto-starts within 2-3 seconds
 
-**Priority 2 (4%): Debug & Fix**
-- Tasks with errors → Analyze logs, fix root cause, resume
+**P2: Auto-RECOVER** — P1 failed, task in recovery mode (yellow outline). Click Recover button.
+- Use `recover_stuck_task(taskId, autoRestart: true)`
 
-**Priority 3 (<1%): Auto-fix JSON Errors**
-- Empty/malformed JSON files → Create minimal valid JSON:
+**P3: Request Changes (4%)** — Tasks with persistent errors need troubleshooting context.
+- Use `submit_task_fix_request(taskId, feedback)` with error analysis
+
+**P4: Auto-fix JSON** — Fix corrupted/empty JSON files (can run anytime):
   ```json
   {
     "feature": "Auto-recovery task",
@@ -308,11 +308,9 @@ RDR is Auto-Claude's automatic recovery system that:
   }
   ```
 
-**Priority 4 (RARE): Manual Edits**
-- Only when auto-fix fails
+**P5: Manual Debug (RARE)** — Pattern detection, root cause investigation, manual edits
 
-**Priority 5 (LAST RESORT): Delete & Recreate**
-- Only for corrupted worktrees
+**P6: Delete & Recreate / Build & Restart (LAST RESORT)** — Corrupted worktrees or Auto-Claude bugs
 
 ### How to Recover Tasks
 
@@ -420,14 +418,14 @@ Use MCP tools: get_task_error_details, submit_task_fix_request, process_rdr_batc
 1. **Claude Code receives RDR notification** via MCP message
 2. **Invoke `/auto-claude-mcp` skill** automatically
 3. **Determine project path** from context or ask user
-4. **Apply Priority 1 recovery** (auto-resume incomplete tasks):
+4. **Apply P1: Auto-CONTINUE** (restart incomplete tasks):
    ```bash
    cd "/path/to/project/.auto-claude/specs"
    for task in 071-marko 073-qwik; do
      sed -i 's/"status": "plan_review"/"status": "start_requested"/' "$task/implementation_plan.json"
    done
    ```
-5. **Apply Priority 3 recovery** (fix JSON errors):
+5. **Apply P4: Auto-fix JSON** (fix corrupted JSON errors):
    ```bash
    for task in 082-ats-other 083-rte-major; do
      cat > "$task/implementation_plan.json" << 'EOF'
@@ -450,7 +448,7 @@ Use MCP tools: get_task_error_details, submit_task_fix_request, process_rdr_batc
 **MCP Tools Usage:**
 - Use file-based recovery (sed/cat) for direct task fixing
 - Use MCP tools (`get_rdr_batches`, `submit_task_fix_request`) when project UUID is available
-- Prefer Priority 1 (auto-resume) over Priority 2/3 when possible
+- Prefer P1 (auto-continue) over P2/P3 when possible
 
 ## Dependabot Pull Requests
 

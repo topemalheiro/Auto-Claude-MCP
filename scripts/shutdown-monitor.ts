@@ -150,7 +150,8 @@ function getTaskStatuses(projectPaths: string[]): TaskStatus[] {
           let effectiveStatus = content.status || 'unknown';
 
           // QA-approved at 100% — terminal if on correct board or completed lifecycle
-          // For shutdown, error exit does NOT override QA approval on correct board
+          // Hard errors (error, auth_failure) override QA on correct board — task genuinely failed
+          // Transient errors (prompt_loop, rate_limit_crash) are process issues — work IS fine
           if (isQaApprovedComplete(content)) {
             const isOnCorrectBoard = effectiveStatus === 'human_review' || effectiveStatus === 'done' || effectiveStatus === 'pr_created';
             const isCompletedLifecycle =
@@ -159,7 +160,8 @@ function getTaskStatuses(projectPaths: string[]): TaskStatus[] {
             // QA approved + successful exit = genuinely done regardless of planStatus
             const isSuccessfulExit = effectiveStatus === 'start_requested' && content.exitReason === 'success';
 
-            if (isOnCorrectBoard || isCompletedLifecycle || isSuccessfulExit) {
+            const hasHardError = content.exitReason === 'error' || content.exitReason === 'auth_failure';
+            if (!hasHardError && (isOnCorrectBoard || isCompletedLifecycle || isSuccessfulExit)) {
               effectiveStatus = 'human_review'; // Treat as terminal
             }
           }
