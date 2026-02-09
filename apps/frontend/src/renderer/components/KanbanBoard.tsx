@@ -974,15 +974,17 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     };
 
     // Compute per-task priority:
-    // P1: Default — task needs restart (Auto-CONTINUE)
-    // P2: Recovery mode — task has stuckSince (yellow outline), separate track from attempts
-    // P3: Request Changes — rdrAttempts >= 3 (P1 failed multiple times)
+    // P1: Default — task needs restart (Auto-CONTINUE, incomplete batch)
+    // P2: Recovery — errors, QA rejection, or stuckSince (yellow outline)
+    // P3: Escalation — rdrAttempts >= 3 (P1 failed multiple times)
     // P4: JSON error — corrupted JSON file (independent of attempts)
     const computeTaskPriority = (task: typeof data.taskDetails[0]): number => {
-      if (taskBatchMap[task.specId] === 'json_error') return 4;
-      if (task.stuckSince) return 2;
-      if ((task.rdrAttempts || 0) >= 3) return 3;
-      return 1;
+      const batchType = taskBatchMap[task.specId];
+      if (batchType === 'json_error') return 4;                        // P4: corrupted JSON
+      if ((task.rdrAttempts || 0) >= 3) return 3;                      // P3-6: escalation (takes precedence)
+      if (task.stuckSince) return 2;                                    // P2: recovery mode (yellow outline)
+      if (batchType === 'errors' || batchType === 'qa_rejected') return 2; // P2: needs fix
+      return 1;                                                         // P1: just restart (incomplete)
     };
 
     // Group tasks by priority
@@ -996,7 +998,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     // Priority labels
     const priorityLabels: Record<number, string> = {
       1: 'Auto-CONTINUE',
-      2: 'Auto-RECOVER',
+      2: 'Recovery',
       3: 'Request Changes (Escalation P3-6)',
       4: 'Auto-fix JSON'
     };
@@ -1106,18 +1108,46 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     }
 
     if (p2Tasks.length > 0) {
-      lines.push(`**Priority 2: Auto-RECOVER** (${p2Tasks.length} task${p2Tasks.length !== 1 ? 's' : ''} in recovery mode):`);
+      lines.push(`**Priority 2: Recovery** (${p2Tasks.length} task${p2Tasks.length !== 1 ? 's' : ''}):`);
       lines.push('');
-      for (const task of p2Tasks) {
-        lines.push(`  mcp__auto-claude-manager__recover_stuck_task({`);
-        lines.push(`    projectId: "${data.projectId}",`);
-        if (data.projectPath) {
-          lines.push(`    projectPath: "${data.projectPath}",`);
+
+      // P2a: Tasks in recovery mode (stuckSince/yellow outline) → recover_stuck_task
+      const stuckTasks = p2Tasks.filter(t => t.stuckSince);
+      if (stuckTasks.length > 0) {
+        lines.push('*Recovery mode (yellow outline):*');
+        for (const task of stuckTasks) {
+          lines.push(`  mcp__auto-claude-manager__recover_stuck_task({`);
+          lines.push(`    projectId: "${data.projectId}",`);
+          if (data.projectPath) {
+            lines.push(`    projectPath: "${data.projectPath}",`);
+          }
+          lines.push(`    taskId: "${task.specId}",`);
+          lines.push(`    autoRestart: true`);
+          lines.push(`  })`);
+          lines.push('');
         }
-        lines.push(`    taskId: "${task.specId}",`);
-        lines.push(`    autoRestart: true`);
-        lines.push(`  })`);
-        lines.push('');
+      }
+
+      // P2b: Tasks with errors/qa_rejected → process_rdr_batch by batch type
+      const errorTasks = p2Tasks.filter(t => !t.stuckSince);
+      if (errorTasks.length > 0) {
+        const p2BatchGroups: Record<string, string[]> = {};
+        for (const task of errorTasks) {
+          const bt = taskBatchMap[task.specId] || 'errors';
+          const existing = p2BatchGroups[bt] || [];
+          p2BatchGroups[bt] = [...existing, task.specId];
+        }
+        for (const [bt, taskIds] of Object.entries(p2BatchGroups)) {
+          lines.push(`  mcp__auto-claude-manager__process_rdr_batch({`);
+          lines.push(`    projectId: "${data.projectId}",`);
+          if (data.projectPath) {
+            lines.push(`    projectPath: "${data.projectPath}",`);
+          }
+          lines.push(`    batchType: "${bt}",`);
+          lines.push(`    fixes: [${taskIds.map(id => `{ taskId: "${id}" }`).join(', ')}]`);
+          lines.push(`  })`);
+          lines.push('');
+        }
       }
     }
 
