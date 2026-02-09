@@ -976,11 +976,11 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     // Compute per-task priority (metadata-only, NOT batch-type):
     // P1: Default — ALL tasks needing restart (any batch type)
     // P2: Recovery mode only — stuckSince (yellow outline)
-    // P3-6: Escalation — rdrAttempts >= 3 (P1 failed multiple times)
-    // P4: JSON error — corrupted JSON file
+    // P3: JSON error — corrupted JSON file
+    // P4-6: Escalation — rdrAttempts >= 3 (P1 failed multiple times)
     const computeTaskPriority = (task: typeof data.taskDetails[0]): number => {
-      if (taskBatchMap[task.specId] === 'json_error') return 4;  // P4: corrupted JSON
-      if ((task.rdrAttempts || 0) >= 3) return 3;                // P3-6: escalation
+      if ((task.rdrAttempts || 0) >= 3) return 4;                // P4-6: escalation
+      if (taskBatchMap[task.specId] === 'json_error') return 3;  // P3: corrupted JSON
       if (task.stuckSince) return 2;                              // P2: recovery mode only
       return 1;                                                    // P1: ALL other tasks
     };
@@ -997,8 +997,8 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     const priorityLabels: Record<number, string> = {
       1: 'Auto-CONTINUE',
       2: 'Auto-RECOVER',
-      3: 'Request Changes (Escalation P3-6)',
-      4: 'Auto-fix JSON'
+      3: 'Auto-fix JSON',
+      4: 'Request Changes (Escalation P4-6)'
     };
 
     // Recovery Summary — grouped by priority
@@ -1008,8 +1008,8 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     const sortedPriorities = [...tasksByPriority.keys()].sort((a, b) => a - b);
     for (const priority of sortedPriorities) {
       const tasks = tasksByPriority.get(priority) || [];
-      const attemptNote = priority === 3 ? ' (3+ attempts — investigate before restarting)' : '';
-      const priorityNum = priority === 3 ? '3-6' : String(priority);
+      const attemptNote = priority === 4 ? ' (3+ attempts — investigate before restarting)' : '';
+      const priorityNum = priority === 4 ? '4-6' : String(priority);
       lines.push(`### Priority ${priorityNum}: ${priorityLabels[priority]} — ${tasks.length} task${tasks.length !== 1 ? 's' : ''}${attemptNote}`);
       lines.push('');
       for (const task of tasks) {
@@ -1036,7 +1036,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       const boardMismatch = current !== expected;
       const priority = computeTaskPriority(task);
 
-      const pTag = priority === 3 ? 'P3-6' : `P${priority}`;
+      const pTag = priority === 4 ? 'P4-6' : `P${priority}`;
       lines.push(`## ${task.specId}: ${task.title} [${pTag}]`);
 
       if (task.board) {
@@ -1122,24 +1122,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     }
 
     if (p3Tasks.length > 0) {
-      lines.push(`**Priority 3-6: Request Changes** (${p3Tasks.length} task${p3Tasks.length !== 1 ? 's' : ''}, 3+ attempts — investigate before restarting):`);
-      lines.push('');
-      for (const task of p3Tasks) {
-        lines.push(`  // First investigate: mcp__auto-claude-manager__get_task_error_details({ projectId: "${data.projectId}"${pathParam}, taskId: "${task.specId}" })`);
-        lines.push(`  mcp__auto-claude-manager__submit_task_fix_request({`);
-        lines.push(`    projectId: "${data.projectId}",`);
-        if (data.projectPath) {
-          lines.push(`    projectPath: "${data.projectPath}",`);
-        }
-        lines.push(`    taskId: "${task.specId}",`);
-        lines.push(`    feedback: "RDR P3: ${task.rdrAttempts || 0} recovery attempts failed. Error: ${task.errorSummary || task.exitReason || 'unknown'}. Investigate root cause."`);
-        lines.push(`  })`);
-        lines.push('');
-      }
-    }
-
-    if (p4Tasks.length > 0) {
-      lines.push(`**Priority 4: Auto-fix JSON** (${p4Tasks.length} task${p4Tasks.length !== 1 ? 's' : ''} with corrupted JSON):`);
+      lines.push(`**Priority 3: Auto-fix JSON** (${p3Tasks.length} task${p3Tasks.length !== 1 ? 's' : ''} with corrupted JSON):`);
       lines.push('');
       lines.push(`  mcp__auto-claude-manager__process_rdr_batch({`);
       lines.push(`    projectId: "${data.projectId}",`);
@@ -1147,9 +1130,26 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
         lines.push(`    projectPath: "${data.projectPath}",`);
       }
       lines.push(`    batchType: "json_error",`);
-      lines.push(`    fixes: [${p4Tasks.map(t => `{ taskId: "${t.specId}" }`).join(', ')}]`);
+      lines.push(`    fixes: [${p3Tasks.map(t => `{ taskId: "${t.specId}" }`).join(', ')}]`);
       lines.push(`  })`);
       lines.push('');
+    }
+
+    if (p4Tasks.length > 0) {
+      lines.push(`**Priority 4-6: Request Changes** (${p4Tasks.length} task${p4Tasks.length !== 1 ? 's' : ''}, 3+ attempts — investigate before restarting):`);
+      lines.push('');
+      for (const task of p4Tasks) {
+        lines.push(`  // First investigate: mcp__auto-claude-manager__get_task_error_details({ projectId: "${data.projectId}"${pathParam}, taskId: "${task.specId}" })`);
+        lines.push(`  mcp__auto-claude-manager__submit_task_fix_request({`);
+        lines.push(`    projectId: "${data.projectId}",`);
+        if (data.projectPath) {
+          lines.push(`    projectPath: "${data.projectPath}",`);
+        }
+        lines.push(`    taskId: "${task.specId}",`);
+        lines.push(`    feedback: "RDR P4: ${task.rdrAttempts || 0} recovery attempts failed. Error: ${task.errorSummary || task.exitReason || 'unknown'}. Investigate root cause."`);
+        lines.push(`  })`);
+        lines.push('');
+      }
     }
 
     if (p1Tasks.length > 0 || p2Tasks.length > 0) {

@@ -422,8 +422,8 @@ ipcMain.handle(
           console.error(`[AutoShutdown:global]`, data.toString().trim());
         });
 
-        monitorProcess.on('exit', (code) => {
-          console.log(`[AutoShutdown:global] Monitor exited with code ${code}`);
+        monitorProcess.on('exit', (code, signal) => {
+          console.log(`[AutoShutdown:global] Monitor exited with code ${code}, signal ${signal}`);
           monitorProcesses.delete('global');
 
           if (code === 0) {
