@@ -466,26 +466,11 @@ function determineInterventionType(task: TaskInfo, lastActivityMs?: number, hasW
     return 'stuck';
   }
 
-  // RECOVERY: Crashed with error or QA rejected (any status, any progress)
-  if (task.exitReason === 'error' ||
-      task.exitReason === 'auth_failure' ||
-      task.reviewReason === 'errors' ||
-      task.reviewReason === 'qa_rejected') {
-    return 'recovery';
-  }
-
-  // RESUME: Rate limited or paused mid-task (any status, any progress)
-  if (task.exitReason === 'rate_limit_crash' ||
-      task.exitReason === 'prompt_loop' ||
-      task.reviewReason === 'incomplete_work') {
-    return 'resume';
-  }
-
-  // ACTIVE TASKS: These statuses mean the agent should be running but isn't.
-  // If the agent isn't running in these statuses, it stopped (stuckRetry_loop, cost_limit,
-  // or just exited). Flag regardless of progress — even 100% means it didn't transition.
-  // qa_approved = passed QA but didn't transition to done
-  // completed = finished subtasks but didn't transition
+  // ── ACTIVE TASKS (MUST come before exitReason check) ──
+  // These statuses mean the agent should be running. Check recency FIRST.
+  // exitReason is STALE from previous sessions — a recently restarted task must not be flagged.
+  // If we checked exitReason first, tasks like 079 (in_progress + stale exitReason: error)
+  // would get flagged as 'recovery' even though the agent is actively working.
   if (task.status === 'in_progress' || task.status === 'ai_review' ||
       task.status === 'qa_approved' || task.status === 'completed') {
     // STUCK TASK: If task has metadata.stuckSince, it's in recovery mode - ALWAYS flag it
@@ -499,12 +484,30 @@ function determineInterventionType(task: TaskInfo, lastActivityMs?: number, hasW
     if (lastActivityMs !== undefined && lastActivityMs > 0) {
       const timeSinceLastActivity = Date.now() - lastActivityMs;
       if (timeSinceLastActivity >= 0 && timeSinceLastActivity < ACTIVE_TASK_RECENCY_THRESHOLD_MS) {
-        console.log(`[RDR] Task ${task.specId} in ${task.status} - recently active (${Math.round(timeSinceLastActivity / 1000)}s ago) - SKIPPING`);
+        console.log(`[RDR] Task ${task.specId} in ${task.status} - recently active (${Math.round(timeSinceLastActivity / 1000)}s ago) - SKIPPING (stale exitReason=${task.exitReason || 'none'})`);
         return null;
       }
     }
-    console.log(`[RDR] Task ${task.specId} in active status ${task.status} at ${progress}% - needs continuation`);
+    // NOT recently active — agent died. Flag for continuation.
+    console.log(`[RDR] Task ${task.specId} in active status ${task.status} at ${progress}% - needs continuation (exit=${task.exitReason || 'none'})`);
     return 'incomplete';
+  }
+
+  // ── RECOVERY: Crashed with error or QA rejected (non-active statuses only) ──
+  // Only reached for statuses like human_review, start_requested, etc.
+  // Active statuses (in_progress, ai_review) are already handled above with recency check.
+  if (task.exitReason === 'error' ||
+      task.exitReason === 'auth_failure' ||
+      task.reviewReason === 'errors' ||
+      task.reviewReason === 'qa_rejected') {
+    return 'recovery';
+  }
+
+  // RESUME: Rate limited or paused mid-task (non-active statuses only)
+  if (task.exitReason === 'rate_limit_crash' ||
+      task.exitReason === 'prompt_loop' ||
+      task.reviewReason === 'incomplete_work') {
+    return 'resume';
   }
 
   // STUCK: In human_review with incomplete subtasks (< 100%)

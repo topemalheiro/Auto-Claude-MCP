@@ -299,30 +299,22 @@ export class FileWatcher extends EventEmitter {
               }
             }
 
-            // Emit task-start-requested for:
-            // 1. Tasks with NO subtasks (genuine first start → backlog)
-            // 2. CONTINUE tasks (already on correct board, need agent restart)
-            // Skip for RECOVER tasks (just moved board — agent start writes 'in_progress' which overwrites routing)
+            // Always emit task-start-requested for start_requested status.
+            // Both CONTINUE (same board) and RECOVER (board moved) need agent restart.
+            // The task execution system decides which agent to run (coder vs QA) based on subtask progress.
             const allSubtasks = (bestPlan.phases || []).flatMap((p: any) => p.subtasks || []);
             if (allSubtasks.length === 0) {
               console.log(`[FileWatcher] start_requested for ${specId} (no subtasks) - emitting task-start-requested`);
-              this.emit('task-start-requested', {
-                projectId,
-                projectPath,
-                specDir,
-                specId
-              });
-            } else if (!taskWasMoved) {
-              console.log(`[FileWatcher] CONTINUE: ${specId} on correct board (${allSubtasks.length} subtasks) - emitting task-start-requested`);
-              this.emit('task-start-requested', {
-                projectId,
-                projectPath,
-                specDir,
-                specId
-              });
             } else {
-              console.log(`[FileWatcher] RECOVER: ${specId} board moved (${allSubtasks.length} subtasks) - skipping agent start to preserve routing`);
+              const action = taskWasMoved ? 'RECOVER' : 'CONTINUE';
+              console.log(`[FileWatcher] ${action}: ${specId} (${allSubtasks.length} subtasks) - emitting task-start-requested`);
             }
+            this.emit('task-start-requested', {
+              projectId,
+              projectPath,
+              specDir,
+              specId
+            });
           }
         } catch (err) {
           // Ignore parse errors - file might not be fully written yet
@@ -388,30 +380,22 @@ export class FileWatcher extends EventEmitter {
               }
             }
 
-            // Emit task-start-requested for:
-            // 1. Tasks with NO subtasks (genuine first start → backlog)
-            // 2. CONTINUE tasks (already on correct board, need agent restart)
-            // Skip for RECOVER tasks (just moved board — agent start writes 'in_progress' which overwrites routing)
+            // Always emit task-start-requested for start_requested status.
+            // Both CONTINUE (same board) and RECOVER (board moved) need agent restart.
+            // The task execution system decides which agent to run (coder vs QA) based on subtask progress.
             const allSubtasks = (bestPlan.phases || []).flatMap((p: any) => p.subtasks || []);
             if (allSubtasks.length === 0) {
               console.log(`[FileWatcher] start_requested for ${specId} (no subtasks) - emitting task-start-requested`);
-              this.emit('task-start-requested', {
-                projectId,
-                projectPath,
-                specDir,
-                specId
-              });
-            } else if (!taskWasMoved) {
-              console.log(`[FileWatcher] CONTINUE: ${specId} on correct board (${allSubtasks.length} subtasks) - emitting task-start-requested`);
-              this.emit('task-start-requested', {
-                projectId,
-                projectPath,
-                specDir,
-                specId
-              });
             } else {
-              console.log(`[FileWatcher] RECOVER: ${specId} board moved (${allSubtasks.length} subtasks) - skipping agent start to preserve routing`);
+              const action = taskWasMoved ? 'RECOVER' : 'CONTINUE';
+              console.log(`[FileWatcher] ${action}: ${specId} (${allSubtasks.length} subtasks) - emitting task-start-requested`);
             }
+            this.emit('task-start-requested', {
+              projectId,
+              projectPath,
+              specDir,
+              specId
+            });
           }
         } catch (err) {
           // Ignore parse errors - file might be mid-write

@@ -1479,10 +1479,13 @@ Batch Type: ${batchType}
         // 4. Auto-starts the task
         // ─────────────────────────────────────────────────────────────────
 
+        const nowIso = new Date().toISOString();
+
         if (existsSync(planPath)) {
           const plan = JSON.parse(readFileSync(planPath, 'utf-8'));
           plan.status = 'start_requested';
-          plan.start_requested_at = new Date().toISOString();
+          plan.start_requested_at = nowIso;
+          plan.updated_at = nowIso;  // Fresh timestamp for recency check
           plan.rdr_batch_type = batchType;
           plan.rdr_priority = priority;
           plan.rdr_iteration = (plan.rdr_iteration || 0) + 1;
@@ -1502,10 +1505,13 @@ Batch Type: ${batchType}
           try {
             const worktreePlan = JSON.parse(readFileSync(worktreePlanPath, 'utf-8'));
             worktreePlan.status = 'start_requested';
-            worktreePlan.start_requested_at = new Date().toISOString();
+            worktreePlan.start_requested_at = nowIso;
+            worktreePlan.updated_at = nowIso;  // Fresh timestamp for recency check
             worktreePlan.rdr_batch_type = batchType;
             worktreePlan.rdr_priority = priority;
             worktreePlan.rdr_iteration = (worktreePlan.rdr_iteration || 0) + 1;
+            // Clear stale exitReason from previous session crash — prevents false "recovery" flag
+            delete worktreePlan.exitReason;
             // Reset planStatus so RDR/auto-shutdown don't skip this task as "lifecycle done"
             if (worktreePlan.planStatus === 'completed' || worktreePlan.planStatus === 'approved') {
               worktreePlan.planStatus = 'in_progress';
@@ -1515,6 +1521,23 @@ Batch Type: ${batchType}
           } catch (err) {
             console.warn(`[MCP] Failed to update worktree plan for ${fix.taskId}:`, err);
           }
+        }
+
+        // Increment rdrAttempts in task_metadata.json (tracks recovery attempts for P1→P3 escalation)
+        const metadataPath = path.join(specsDir, fix.taskId, 'task_metadata.json');
+        try {
+          const metadata = existsSync(metadataPath)
+            ? JSON.parse(readFileSync(metadataPath, 'utf-8'))
+            : {};
+          const updatedMetadata = {
+            ...metadata,
+            rdrAttempts: (metadata.rdrAttempts || 0) + 1,
+            rdrLastAttempt: nowIso
+          };
+          writeFileSync(metadataPath, JSON.stringify(updatedMetadata, null, 2));
+          console.log(`[MCP] Incremented rdrAttempts for ${fix.taskId} → ${updatedMetadata.rdrAttempts}`);
+        } catch (err) {
+          console.warn(`[MCP] Failed to increment rdrAttempts for ${fix.taskId}:`, err);
         }
 
         // ─────────────────────────────────────────────────────────────────
