@@ -132,7 +132,7 @@ export function setupIpcHandlers(
   registerRateLimitHandlers(agentManager, getMainWindow);
 
   // RDR (Recover Debug Resend) handlers - auto-recovery for stuck/errored tasks
-  registerRdrHandlers();
+  registerRdrHandlers(agentManager);
 
   // Auto-restart on loop/crash handlers - rebuild and restart on failure
   registerRestartHandlers(agentManager);

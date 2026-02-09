@@ -19,6 +19,7 @@ import { JSON_ERROR_PREFIX } from '../../shared/constants/task';
 import { projectStore } from '../project-store';
 import { isElectron } from '../electron-compat';
 import { outputMonitor } from '../claude-code/output-monitor';
+import type { AgentManager } from '../agent/agent-manager';
 
 /**
  * Reset rdrAttempts for all tasks across all projects.
@@ -122,7 +123,14 @@ interface PendingRdrTask {
 let pendingTasks: PendingRdrTask[] = [];
 let batchTimer: NodeJS.Timeout | null = null;
 const BATCH_COLLECTION_WINDOW_MS = 30000; // 30 seconds
-const ACTIVE_TASK_RECENCY_THRESHOLD_MS = 10 * 60 * 1000; // 10 minutes - skip RDR for recently active tasks
+
+// Agent manager reference — set during registration, used to check if agent IS running
+let agentManagerRef: AgentManager | null = null;
+
+/** Check if an agent process is currently running for this task (real process check, not timestamp guessing) */
+function isTaskAgentRunning(taskId: string): boolean {
+  return agentManagerRef?.isRunning(taskId) ?? false;
+}
 
 // Types for RDR processing
 interface RdrProcessResult {
@@ -269,48 +277,6 @@ function enrichTaskWithWorktreeData(task: TaskInfo, projectPath: string): TaskIn
 }
 
 /**
- * Get the most recent activity timestamp for a task.
- * Checks filesystem mtime of implementation_plan.json (worktree first, then main)
- * and JSON fields updated_at/last_updated from the plan.
- * Returns milliseconds since epoch, or 0 if no activity found.
- */
-function getTaskLastActivityTimestamp(task: TaskInfo, projectPath: string): number {
-  const candidates: number[] = [];
-
-  // Worktree plan mtime (agents write here during active work)
-  const worktreePlanPath = path.join(
-    projectPath, '.auto-claude', 'worktrees', 'tasks', task.specId,
-    '.auto-claude', 'specs', task.specId, 'implementation_plan.json'
-  );
-  try {
-    if (existsSync(worktreePlanPath)) {
-      candidates.push(statSync(worktreePlanPath).mtimeMs);
-      const wp = JSON.parse(readFileSync(worktreePlanPath, 'utf-8'));
-      for (const f of ['updated_at', 'last_updated']) {
-        if (wp[f]) {
-          const ts = new Date(wp[f]).getTime();
-          if (!isNaN(ts)) candidates.push(ts);
-        }
-      }
-    }
-  } catch { /* ignore read errors */ }
-
-  // Main plan mtime (fallback)
-  const mainPlanPath = path.join(projectPath, '.auto-claude', 'specs', task.specId, 'implementation_plan.json');
-  try {
-    if (existsSync(mainPlanPath)) candidates.push(statSync(mainPlanPath).mtimeMs);
-  } catch { /* ignore read errors */ }
-
-  // Task's own updated_at (from enriched TaskInfo)
-  if (task.updated_at) {
-    const ts = new Date(task.updated_at).getTime();
-    if (!isNaN(ts)) candidates.push(ts);
-  }
-
-  return candidates.length > 0 ? Math.max(...candidates) : 0;
-}
-
-/**
  * Check if task is legitimate human review (shouldn't be flagged by RDR)
  *
  * Logic:
@@ -363,7 +329,7 @@ function isLegitimateHumanReview(task: TaskInfo): boolean {
  * - 'stuck': Task bounced to human_review with incomplete subtasks (no clear exit reason)
  * - 'incomplete': Task has pending subtasks in active boards (in_progress, ai_review)
  */
-function determineInterventionType(task: TaskInfo, lastActivityMs?: number, hasWorktree?: boolean, rawPlanStatus?: string, worktreeInfo?: WorktreeInfo): InterventionType | null {
+function determineInterventionType(task: TaskInfo, hasWorktree?: boolean, rawPlanStatus?: string, worktreeInfo?: WorktreeInfo): InterventionType | null {
   // Skip completed/archived tasks - these never need intervention
   if (task.status === 'done' || task.status === 'pr_created') {
     return null;
@@ -413,13 +379,10 @@ function determineInterventionType(task: TaskInfo, lastActivityMs?: number, hasW
         return 'stuck';
       }
 
-      // Check recency - agent may have just set plan_review and is about to transition
-      if (lastActivityMs !== undefined && lastActivityMs > 0) {
-        const timeSinceLastActivity = Date.now() - lastActivityMs;
-        if (timeSinceLastActivity < ACTIVE_TASK_RECENCY_THRESHOLD_MS) {
-          console.log(`[RDR] Task ${task.specId} in plan_review - recently active (${Math.round(timeSinceLastActivity / 1000)}s ago) - SKIPPING`);
-          return null;
-        }
+      // Check if agent is actually running right now (not timestamp guessing)
+      if (isTaskAgentRunning(task.specId)) {
+        console.log(`[RDR] Task ${task.specId} in plan_review - agent IS running - SKIPPING`);
+        return null;
       }
       console.log(`[RDR] Task ${task.specId} in plan_review - needs to start coding`);
       return 'incomplete';
@@ -475,29 +438,23 @@ function determineInterventionType(task: TaskInfo, lastActivityMs?: number, hasW
   }
 
   // ── ACTIVE TASKS (MUST come before exitReason check) ──
-  // These statuses mean the agent should be running. Check recency FIRST.
-  // exitReason is STALE from previous sessions — a recently restarted task must not be flagged.
-  // If we checked exitReason first, tasks like 079 (in_progress + stale exitReason: error)
-  // would get flagged as 'recovery' even though the agent is actively working.
+  // These statuses mean the agent should be running. Check if agent IS running right now.
+  // exitReason is STALE from previous sessions — ignore it if agent is actually alive.
   if (task.status === 'in_progress' || task.status === 'ai_review' ||
       task.status === 'qa_approved' || task.status === 'completed') {
     // STUCK TASK: If task has metadata.stuckSince, it's in recovery mode - ALWAYS flag it
-    // regardless of recency (user clicked Recover button or task crashed)
     if (task.metadata?.stuckSince) {
       console.log(`[RDR] Task ${task.specId} is STUCK (recovery mode since ${task.metadata.stuckSince}) - flagging for intervention`);
       return 'stuck';
     }
 
-    // Check if the agent recently updated the plan file - if so, it's still actively working
-    if (lastActivityMs !== undefined && lastActivityMs > 0) {
-      const timeSinceLastActivity = Date.now() - lastActivityMs;
-      if (timeSinceLastActivity >= 0 && timeSinceLastActivity < ACTIVE_TASK_RECENCY_THRESHOLD_MS) {
-        console.log(`[RDR] Task ${task.specId} in ${task.status} - recently active (${Math.round(timeSinceLastActivity / 1000)}s ago) - SKIPPING (stale exitReason=${task.exitReason || 'none'})`);
-        return null;
-      }
+    // Check if agent process is actually running right now (not timestamp guessing)
+    if (isTaskAgentRunning(task.specId)) {
+      console.log(`[RDR] Task ${task.specId} in ${task.status} - agent IS running - SKIPPING`);
+      return null;
     }
-    // NOT recently active — agent died. Flag for continuation.
-    console.log(`[RDR] Task ${task.specId} in active status ${task.status} at ${progress}% - needs continuation (exit=${task.exitReason || 'none'})`);
+    // Agent NOT running — it died. Flag for continuation.
+    console.log(`[RDR] Task ${task.specId} in active status ${task.status} at ${progress}% - agent NOT running, needs continuation (exit=${task.exitReason || 'none'})`);
     return 'incomplete';
   }
 
@@ -688,13 +645,12 @@ function gatherRichTaskInfo(task: TaskInfo, projectPath: string): RichTaskInfo {
     }
   }
 
-  // Get intervention type (with recency check to skip actively-running tasks)
-  const lastActivityMs = getTaskLastActivityTimestamp(task, projectPath);
+  // Get intervention type (checks if agent IS running, not timestamp guessing)
   const worktreeDir = path.join(projectPath, '.auto-claude', 'worktrees', 'tasks', task.specId);
   const hasWorktree = existsSync(worktreeDir);
   const rawPlanStatus = getRawPlanStatus(projectPath, task.specId);
   const worktreeInfo = getWorktreeInfo(projectPath, task.specId);
-  const interventionType = determineInterventionType(task, lastActivityMs, hasWorktree, rawPlanStatus, worktreeInfo);
+  const interventionType = determineInterventionType(task, hasWorktree, rawPlanStatus, worktreeInfo);
 
   // Get last logs
   const lastLogs = getLastLogEntries(projectPath, task.specId, 3);
@@ -1683,7 +1639,8 @@ let idleEventListener: ((event: any) => void) | null = null;
 /**
  * Register RDR IPC handlers
  */
-export function registerRdrHandlers(): void {
+export function registerRdrHandlers(agentManager?: AgentManager): void {
+  agentManagerRef = agentManager || null;
   if (!isElectron || !ipcMain) {
     console.log('[RDR] Skipping handler registration (not in Electron context)');
     return;
@@ -1987,12 +1944,11 @@ export function registerRdrHandlers(): void {
           ).length || 0;
           console.log(`[RDR] Task ${task.specId}: status=${task.status}, phases=${phaseCount}, subtasks=${subtaskCount}, progress=${progress}%, reviewReason=${task.reviewReason || 'none'}`);
 
-          const lastActivityMs = projectPath ? getTaskLastActivityTimestamp(task, projectPath) : undefined;
           const wtDir = projectPath ? path.join(projectPath, '.auto-claude', 'worktrees', 'tasks', task.specId) : null;
           const hasWt = wtDir ? existsSync(wtDir) : undefined;
           const rawStatus = projectPath ? getRawPlanStatus(projectPath, task.specId) : undefined;
           const wtInfo = projectPath ? getWorktreeInfo(projectPath, task.specId) : undefined;
-          const interventionType = determineInterventionType(task, lastActivityMs, hasWt, rawStatus, wtInfo);
+          const interventionType = determineInterventionType(task, hasWt, rawStatus, wtInfo);
 
           if (interventionType) {
             console.log(`[RDR] ✅ Task ${task.specId} needs intervention: type=${interventionType}`);
@@ -2085,13 +2041,12 @@ export function registerRdrHandlers(): void {
             }
           }
 
-          // Determine intervention type using centralized function (with recency check)
-          const taskActivityMs = projectPath ? getTaskLastActivityTimestamp(taskInfo, projectPath) : undefined;
+          // Determine intervention type (checks if agent IS running, not timestamps)
           const taskWtDir = projectPath ? path.join(projectPath, '.auto-claude', 'worktrees', 'tasks', task.specId) : null;
           const taskHasWt = taskWtDir ? existsSync(taskWtDir) : undefined;
           const taskRawStatus = projectPath ? getRawPlanStatus(projectPath, task.specId) : undefined;
           const taskWtInfo = projectPath ? getWorktreeInfo(projectPath, task.specId) : undefined;
-          const interventionType = determineInterventionType(taskInfo, taskActivityMs, taskHasWt, taskRawStatus, taskWtInfo);
+          const interventionType = determineInterventionType(taskInfo, taskHasWt, taskRawStatus, taskWtInfo);
 
           // Determine board and phase for display grouping
           const currentPhase = projectPath ? getCurrentPhase(projectPath, task.specId) : undefined;
@@ -2254,12 +2209,11 @@ export function registerRdrHandlers(): void {
               exitReason: task.exitReason,
               planStatus: task.planStatus,
             };
-            const recoverActivityMs = getTaskLastActivityTimestamp(taskInfoForCheck, project.path);
             const recoverWtDir = path.join(project.path, '.auto-claude', 'worktrees', 'tasks', task.specId);
             const recoverHasWt = existsSync(recoverWtDir);
             const recoverRawStatus = getRawPlanStatus(project.path, task.specId);
             const recoverWtInfo = getWorktreeInfo(project.path, task.specId);
-            const interventionType = determineInterventionType(taskInfoForCheck, recoverActivityMs, recoverHasWt, recoverRawStatus, recoverWtInfo);
+            const interventionType = determineInterventionType(taskInfoForCheck, recoverHasWt, recoverRawStatus, recoverWtInfo);
 
             if (!interventionType) {
               console.log(`[RDR] ⏭️  Skipping ${task.specId} - no intervention needed (status=${task.status})`);

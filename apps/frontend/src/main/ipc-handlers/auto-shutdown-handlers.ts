@@ -6,7 +6,7 @@
  */
 
 import { ipcMain, app, Notification } from 'electron';
-import { spawn, ChildProcess } from 'child_process';
+import { spawn, execSync, ChildProcess } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs';
 import { IPC_CHANNELS } from '../../shared/constants';
@@ -14,6 +14,24 @@ import type { IPCResult } from '../../shared/types';
 import type { AutoShutdownStatus } from '../../shared/types/task';
 import { projectStore } from '../project-store';
 import { readSettingsFile, writeSettingsFile } from '../settings-utils';
+
+/**
+ * Kill a detached child process and its entire process tree.
+ * On Windows, detached processes survive a simple .kill() — need taskkill /T to kill the tree.
+ */
+function killMonitorProcess(proc: ChildProcess): void {
+  try {
+    if (proc.killed || proc.exitCode !== null) return;
+    if (process.platform === 'win32' && proc.pid) {
+      // /F = force, /T = tree (kill child processes too), /PID = by process ID
+      execSync(`taskkill /F /T /PID ${proc.pid}`, { stdio: 'ignore' });
+    } else {
+      proc.kill('SIGTERM');
+    }
+  } catch {
+    // Process may already be dead — ignore
+  }
+}
 
 // Track running monitor processes per project
 const monitorProcesses = new Map<string, ChildProcess>();
@@ -365,7 +383,7 @@ ipcMain.handle(
         // Kill existing global process if any
         const existingProcess = monitorProcesses.get('global');
         if (existingProcess) {
-          existingProcess.kill();
+          killMonitorProcess(existingProcess);
           monitorProcesses.delete('global');
         }
 
@@ -476,7 +494,7 @@ ipcMain.handle(
         // Stop monitoring
         const process = monitorProcesses.get('global');
         if (process) {
-          process.kill();
+          killMonitorProcess(process);
           monitorProcesses.delete('global');
         }
 
@@ -513,9 +531,9 @@ ipcMain.handle(
   async (_): Promise<IPCResult<void>> => {
     try {
       // Kill global monitor process if running
-      const process = monitorProcesses.get('global');
-      if (process) {
-        process.kill();
+      const monitorProc = monitorProcesses.get('global');
+      if (monitorProc) {
+        killMonitorProcess(monitorProc);
         monitorProcesses.delete('global');
       }
 
@@ -542,10 +560,10 @@ ipcMain.handle(
   }
 );
 
-// Clean up on app quit
+// Clean up on app quit — use killMonitorProcess for Windows detached process tree kill
 app.on('before-quit', () => {
-  for (const process of monitorProcesses.values()) {
-    process.kill();
+  for (const proc of monitorProcesses.values()) {
+    killMonitorProcess(proc);
   }
   monitorProcesses.clear();
 });
