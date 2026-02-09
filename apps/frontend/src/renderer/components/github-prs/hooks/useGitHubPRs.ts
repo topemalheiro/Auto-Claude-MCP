@@ -98,6 +98,8 @@ export function useGitHubPRs(
   const prReviews = usePRReviewStore((state) => state.prReviews);
   const getPRReviewState = usePRReviewStore((state) => state.getPRReviewState);
   const setNewCommitsCheckAction = usePRReviewStore((state) => state.setNewCommitsCheck);
+  const registerRefreshCallback = usePRReviewStore((state) => state.registerRefreshCallback);
+  const unregisterRefreshCallback = usePRReviewStore((state) => state.unregisterRefreshCallback);
 
   // Get review state for the selected PR from the store - optimized with targeted selector
   // Only subscribes to changes for this specific PR, not all PRs
@@ -257,7 +259,7 @@ export function useGitHubPRs(
       checkNewCommitsAbortRef.current.abort();
       checkNewCommitsAbortRef.current = null;
     }
-  }, []);
+  }, [projectId]);
 
   // Cleanup abort controller on unmount to prevent memory leaks
   // and avoid state updates on unmounted components
@@ -268,6 +270,19 @@ export function useGitHubPRs(
       }
     };
   }, []);
+
+  // Register refresh callback to auto-refresh PR list when reviews complete
+  useEffect(() => {
+    if (!projectId) return;
+
+    // Register fetchPRs to be called when any PR review completes
+    registerRefreshCallback(fetchPRs);
+
+    // Unregister on unmount or when dependencies change
+    return () => {
+      unregisterRefreshCallback(fetchPRs);
+    };
+  }, [projectId, fetchPRs, registerRefreshCallback, unregisterRefreshCallback]);
 
   // No need for local IPC listeners - they're handled globally in github-store
 
