@@ -112,7 +112,7 @@ interface TaskInfo {
   updated_at?: string;
   qaSignoff?: string;     // qa_signoff.status from worktree/main plan
   rdrDisabled?: boolean;  // If true, RDR will skip this task
-  metadata?: { stuckSince?: string; forceRecovery?: boolean };  // Stuck timestamp + test recovery flag
+  metadata?: { stuckSince?: string; forceRecovery?: boolean; rdrAttempts?: number; rdrLastAttempt?: string };  // Task recovery metadata
 }
 
 interface RdrBatch {
@@ -289,15 +289,10 @@ function getTaskLastActivityTimestamp(task: TaskInfo, projectPath: string): numb
 function isLegitimateHumanReview(task: TaskInfo): boolean {
   const progress = calculateTaskProgress(task);
 
-  // QA-approved tasks at 100% are done — BUT error exit overrides QA approval
-  // A task that crashed after QA approval still needs recovery
+  // QA-approved tasks at 100% are done — exitReason is a session-level artifact, not work-quality
+  // If QA agent wrote approved, it validated the work. Crashes happen AFTER approval was written.
   if (progress === 100 && (task.qaSignoff === 'approved' || task.reviewReason === 'completed')) {
-    const hasErrorExit = task.exitReason === 'error' || task.exitReason === 'auth_failure' ||
-        task.exitReason === 'prompt_loop' || task.exitReason === 'rate_limit_crash';
-    if (!hasErrorExit) {
-      return true;
-    }
-    // Error exit — fall through to error check below which returns false
+    return true;
   }
 
   // Tasks at 100% with NO qaSignoff and NO reviewReason are NOT legitimate
@@ -347,15 +342,11 @@ function determineInterventionType(task: TaskInfo, lastActivityMs?: number, hasW
   const isQaApproved = task.qaSignoff === 'approved' || task.reviewReason === 'completed' || worktreeInfo?.qaSignoff === 'approved';
   if (qaApprovedProgress === 100 && isQaApproved) {
     if (task.status === 'human_review') {
-      // Hard errors (error, auth_failure) override QA approval — task genuinely failed
-      // Transient errors (prompt_loop, rate_limit_crash) are process issues — if QA approved, work IS fine
-      const hasHardError = task.exitReason === 'error' || task.exitReason === 'auth_failure';
-      if (!hasHardError) {
-        console.log(`[RDR] Task ${task.specId} QA-approved at 100% on human_review — skipping (exit=${task.exitReason || 'none'})`);
-        return null;
-      }
-      // Hard error exit — fall through to normal detection
-      console.log(`[RDR] Task ${task.specId} QA-approved at 100% on human_review but has hard error ${task.exitReason} — needs recovery`);
+      // QA approved + human_review + 100% = work IS done
+      // exitReason is a session-level artifact (e.g. crash after QA wrote approval), not a work-quality signal
+      // If QA found real issues, it would write qa_rejected, not qa_signoff: approved
+      console.log(`[RDR] Task ${task.specId} QA-approved at 100% on human_review — skipping (exit=${task.exitReason || 'none'})`);
+      return null;
     }
     // Task is QA-approved but stuck on wrong board (e.g. ai_review, start_requested)
     // Don't return null — let it fall through to normal detection which will flag for recovery
@@ -1901,6 +1892,8 @@ export function registerRdrHandlers(): void {
         board?: string;           // Kanban board: "In Progress", "AI Review", etc.
         currentPhase?: string;    // Agent phase: "coding", "validation", etc.
         qaSignoff?: string;       // qa_signoff.status from worktree/main plan
+        rdrAttempts?: number;     // Number of RDR recovery attempts from task_metadata.json
+        stuckSince?: string;      // ISO timestamp when task entered recovery mode (yellow outline)
       }>;
     }>> => {
       console.log(`[RDR] Getting batch details for project ${projectId}`);
@@ -2077,7 +2070,9 @@ export function registerRdrHandlers(): void {
             lastLogs: projectPath ? getLastLogEntries(projectPath, task.specId, 3) : undefined,
             board,
             currentPhase,
-            qaSignoff: task.qaSignoff
+            qaSignoff: task.qaSignoff,
+            rdrAttempts: task.metadata?.rdrAttempts || 0,
+            stuckSince: task.metadata?.stuckSince
           };
         });
 
