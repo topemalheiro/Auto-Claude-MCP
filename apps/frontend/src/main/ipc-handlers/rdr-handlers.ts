@@ -342,8 +342,15 @@ function determineInterventionType(task: TaskInfo, lastActivityMs?: number, hasW
   const isQaApproved = task.qaSignoff === 'approved' || task.reviewReason === 'completed' || worktreeInfo?.qaSignoff === 'approved';
   if (qaApprovedProgress === 100 && isQaApproved) {
     if (task.status === 'human_review') {
-      console.log(`[RDR] Task ${task.specId} QA-approved at 100% on human_review — skipping`);
-      return null;
+      // Error exit overrides QA approval — task crashed and needs recovery
+      const hasErrorExit = task.exitReason === 'error' || task.exitReason === 'auth_failure' ||
+          task.exitReason === 'prompt_loop' || task.exitReason === 'rate_limit_crash';
+      if (!hasErrorExit) {
+        console.log(`[RDR] Task ${task.specId} QA-approved at 100% on human_review — skipping`);
+        return null;
+      }
+      // Has error exit — fall through to normal detection
+      console.log(`[RDR] Task ${task.specId} QA-approved at 100% on human_review but has error exit ${task.exitReason} — needs recovery`);
     }
     // Task is QA-approved but stuck on wrong board (e.g. ai_review, start_requested)
     // Don't return null — let it fall through to normal detection which will flag for recovery

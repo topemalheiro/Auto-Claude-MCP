@@ -131,20 +131,26 @@ function getActiveTaskIds(projectPath: string): string[] {
         const hasErrorExit = content.exitReason === 'error' || content.exitReason === 'auth_failure' ||
             content.exitReason === 'prompt_loop' || content.exitReason === 'rate_limit_crash';
 
-        // QA-approved at 100% — only terminal if on correct board AND no error exit
-        // ALL worktree tasks have qa_signoff approved at 100%, so blanket filtering
-        // would hide tasks stuck on wrong board (e.g. ai_review) or with error exits
+        // QA-approved at 100% — terminal if on correct board or completed lifecycle
+        // For shutdown, error exit does NOT override QA approval on correct board
+        // (error exit is a stale artifact; if QA approved on human_review, work IS done)
         if (isQaApprovedComplete(content)) {
           const effectiveStatus = String(content.status || '');
           const isOnCorrectBoard = effectiveStatus === 'human_review' || effectiveStatus === 'done' || effectiveStatus === 'pr_created';
           const isCompletedLifecycle =
             (effectiveStatus === 'start_requested' || effectiveStatus === 'complete' || effectiveStatus === 'completed') &&
             (content.planStatus === 'completed' || content.planStatus === 'approved');
+          // QA approved + successful exit = genuinely done regardless of planStatus
+          const isSuccessfulExit = effectiveStatus === 'start_requested' && content.exitReason === 'success';
 
-          if (!hasErrorExit && (isOnCorrectBoard || isCompletedLifecycle)) {
+          if (isOnCorrectBoard || isCompletedLifecycle || isSuccessfulExit) {
             continue;
           }
-          // QA approved but wrong board or has error → NOT terminal, fall through
+        }
+
+        // 'approved' status = QA approved the task (non-standard but valid terminal)
+        if (content.status === 'approved') {
+          continue;
         }
 
         if (!hasErrorExit) {
@@ -214,17 +220,24 @@ function countTasksByStatus(projectPath: string): { total: number; humanReview: 
         const hasErrorExit = content.exitReason === 'error' || content.exitReason === 'auth_failure' ||
             content.exitReason === 'prompt_loop' || content.exitReason === 'rate_limit_crash';
 
-        // QA-approved at 100% — only terminal if on correct board AND no error exit
+        // QA-approved at 100% — terminal if on correct board or completed lifecycle
+        // For shutdown, error exit does NOT override QA approval on correct board
         if (isQaApprovedComplete(content)) {
           const effectiveStatus = String(content.status || '');
           const isOnCorrectBoard = effectiveStatus === 'human_review' || effectiveStatus === 'done' || effectiveStatus === 'pr_created';
           const isCompletedLifecycle =
             (effectiveStatus === 'start_requested' || effectiveStatus === 'complete' || effectiveStatus === 'completed') &&
             (content.planStatus === 'completed' || content.planStatus === 'approved');
+          const isSuccessfulExit = effectiveStatus === 'start_requested' && content.exitReason === 'success';
 
-          if (!hasErrorExit && (isOnCorrectBoard || isCompletedLifecycle)) {
+          if (isOnCorrectBoard || isCompletedLifecycle || isSuccessfulExit) {
             continue;
           }
+        }
+
+        // 'approved' status = QA approved the task (non-standard but valid terminal)
+        if (content.status === 'approved') {
+          continue;
         }
 
         if (!hasErrorExit) {
