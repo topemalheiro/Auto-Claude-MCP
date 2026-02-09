@@ -10,12 +10,15 @@ Desktop.ini
 *.lnk
 
 # ===========================
-# Personal launcher scripts
+# Personal / accidental files
 # ===========================
 *.bat
 *.vbs
 .mcp.json
 CHANGES-RDR-ARCHIVE-FIXES.md
+npm_install_output.txt
+scripts/image/
+nul;
 
 # ===========================
 # Security - Environment & Secrets
