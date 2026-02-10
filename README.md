@@ -52,7 +52,7 @@ Automatic 6-priority recovery system that detects stuck/failed tasks and sends a
 | P3       | Request Changes   | P1 failed 3+ times       | Writes detailed fix request with error analysis |
 | P4       | Auto-fix JSON     | Corrupted plan files     | Rebuilds valid JSON structure                   |
 | P5       | Manual Debug      | Pattern detection needed | Root cause investigation                        |
-| P6       | Delete & Recreate | Last resort              | Clean rebuild or app restart                    |
+| P6       | Delete & Recreate | Last resort              | Delete the task and recreate or Change AC code and rebuild if the case                    |
 
 Automatic escalation: tasks that enter Recovery become P2, then P3 after 3 attempts on P1 scaling up to P6B. Attempt counters reset on app startup.
 
