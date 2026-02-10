@@ -43,7 +43,7 @@ A full MCP (Model Context Protocol) server that lets Claude Code interact with A
 
 ### RDR System (Recover, Debug, Resend)
 
-Automatic 6-priority recovery system that detects stuck/failed tasks and recovers them without manual intervention:
+Automatic 6-priority recovery system that detects stuck/failed tasks and sends a detailed prompt to the Master LLM through the MCP system so it acts on the tasks:
 
 | Priority | Name              | When                     | Action                                          |
 | -------- | ----------------- | ------------------------ | ----------------------------------------------- |
@@ -54,7 +54,7 @@ Automatic 6-priority recovery system that detects stuck/failed tasks and recover
 | P5       | Manual Debug      | Pattern detection needed | Root cause investigation                        |
 | P6       | Delete & Recreate | Last resort              | Clean rebuild or app restart                    |
 
-Automatic escalation: P1 failures become P2, then P3 after 3 attempts. Attempt counters reset on app startup.
+Automatic escalation: tasks that enter Recovery become P2, then P3 after 3 attempts on P1 scaling up to P6B. Attempt counters reset on app startup.
 
 ### Auto-Shutdown Monitor
 
