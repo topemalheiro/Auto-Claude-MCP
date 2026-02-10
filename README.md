@@ -21,6 +21,8 @@ This is a great tool for building dynamic pipelines and further automating your 
 
 A full MCP (Model Context Protocol) server that lets Claude Code interact with Auto-Claude directly. Create, manage, monitor, and recover tasks programmatically instead of through the UI.
 
+*To get the 'Master LLM' working properly through the MCP, either with RDR or general MCP usage, you'll need to copy the folder inside the skill folder in .claude to your claude skills folder.*
+
 **15 MCP Tools:**
 
 | Tool                               | Purpose                                                        |
