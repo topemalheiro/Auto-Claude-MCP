@@ -92,7 +92,7 @@ External wrapper process that monitors Auto-Claude health, detects crashes, and 
 <details>
 <summary><strong>Quick Setup (Windows)</strong></summary>
 
-1. Copy `Auto-Claude-MCP.example.bat` to `Auto-Claude-MCP.bat`
+1. Rename `Auto-Claude-MCP.example.bat` to `Auto-Claude-MCP.bat`
 2. Edit the path in the `.bat` to point to your install directory:
    ```bat
    set AUTO_CLAUDE_DIR=C:\Users\YourName\path\to\Auto-Claude-MCP
