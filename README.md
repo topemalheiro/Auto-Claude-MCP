@@ -58,7 +58,7 @@ Automatic escalation: tasks that enter Recovery become P2, then P3 after 3 attem
 
 ### Auto-Shutdown Monitor
 
-Monitors all running tasks and automatically shuts down the computer when all tasks reach completion. Start 20 tasks, go to sleep, computer powers off when done.
+Monitors all running tasks and automatically shuts down the computer when all tasks reach completion. Start X number of tasks, go to sleep, computer powers off when done.
 
 - Status-based completion detection (`done` / `pr_created` / `human_review`)
 - Worktree-aware (reads real progress, not stale main copies)
