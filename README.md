@@ -73,7 +73,7 @@ Monitors Claude Code session state via JSONL transcripts. Distinguishes between 
 
 ### Watchdog Process
 
-External watchdog that monitors Auto-Claude health, detects crashes, and auto-restart.
+External wrapper process that monitors Auto-Claude health, detects crashes, and can auto-restart. Launched via the `.bat` launcher on Windows — it spawns Electron as a child process and watches it from outside. The watchdog does not run when launching the app directly (`.exe`, `npm run dev`). On macOS/Linux, an equivalent shell script launcher would be needed.
 
 ### Window Manager (Windows)
 
