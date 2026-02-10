@@ -1526,7 +1526,7 @@ Batch Type: ${batchType}
         }
 
         // Increment rdrAttempts in task_metadata.json (tracks recovery attempts for P1→P3 escalation)
-        const metadataPath = path.join(specsDir, fix.taskId, 'task_metadata.json');
+        const metadataPath = path.join(specDir, 'task_metadata.json');
         try {
           const metadata = existsSync(metadataPath)
             ? JSON.parse(readFileSync(metadataPath, 'utf-8'))
