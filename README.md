@@ -1,4 +1,8 @@
-# Auto Claude
+# Auto Claude MCP development fork
+
+
+
+---
 
 **Autonomous multi-agent coding framework that plans, builds, and validates software for you. Check the original repo:** https://github.com/AndyMik90/Auto-Claude
 
