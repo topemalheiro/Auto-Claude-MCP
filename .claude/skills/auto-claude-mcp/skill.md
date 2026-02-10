@@ -1,0 +1,681 @@
+# Auto-Claude MCP Skill
+
+**🚨 Auto-invoke when:** RDR notification "[Auto-Claude RDR]" or user says "fix/recover/resume tasks"
+
+Use this skill when the user wants to:
+
+- Queue coding tasks for Auto-Claude to implement
+- Run multiple tasks overnight with shutdown-on-complete
+- Create tasks with specific model/thinking configurations
+- Delegate implementation work to autonomous agents
+
+## Agent Profiles
+
+| Profile            | Spec Creation                   | Planning         | Coding           | QA Review        | Best For        |
+| ------------------ | ------------------------------- | ---------------- | ---------------- | ---------------- | --------------- |
+| **auto**     | Opus Ultra Think                | Opus High        | Opus Low         | Opus Low         | Default choice  |
+| **complex**  | Opus Ultra Think                | Opus Ultra Think | Opus Ultra Think | Opus Ultra Think | Deep analysis   |
+| **balanced** | Sonnet Medium                   | Sonnet Medium    | Sonnet Medium    | Sonnet Medium    | Speed/quality   |
+| **quick**    | Haiku Low                       | Haiku Low        | Haiku Low        | Haiku Low        | Fast iterations |
+| **custom**   | User-specified model + Thinking |                  |                  |                  | Custom config   |
+
+## MCP Tools Reference
+
+### create_task - Single Task
+
+```json
+{
+  "projectId": "uuid-from-auto-claude",
+  "description": "Detailed task description...",
+  "title": "Optional - auto-generated if empty",
+  "options": {
+    "model": "opus",
+    "requireReviewBeforeCoding": false,
+    "baseBranch": "MCD",
+    "referencedFiles": ["src/relevant-file.ts"],
+    "category": "feature",
+    "complexity": "medium",
+    "priority": "high"
+  }
+}
+```
+
+### list_tasks - List Project Tasks
+
+```json
+{
+  "projectId": "uuid",
+  "status": "backlog"
+}
+```
+
+Returns: Array of task summaries with taskId, title, description, status, createdAt.
+
+### start_task - Start a Single Task
+
+```json
+{
+  "projectId": "uuid",
+  "taskId": "001-feature-name",
+  "options": {
+    "model": "opus",
+    "baseBranch": "main"
+  }
+}
+```
+
+### get_task_status - Check Task Progress
+
+```json
+{
+  "projectId": "uuid",
+  "taskId": "001-feature-name"
+}
+```
+
+Returns: taskId, title, status, phase, progress, subtaskCount, completedSubtasks, error, reviewReason.
+
+### start_batch - Multiple Tasks
+
+```json
+{
+  "projectId": "uuid",
+  "tasks": [
+    { "description": "First task...", "options": { "priority": "high" } },
+    { "description": "Second task..." },
+    { "description": "Third task...", "options": { "category": "bug_fix" } }
+  ],
+  "options": {
+    "model": "sonnet",
+    "requireReviewBeforeCoding": false
+  },
+  "startImmediately": true
+}
+```
+
+### wait_for_human_review - With Shutdown
+
+```json
+{
+  "projectId": "uuid",
+  "taskIds": ["001-feature", "002-bugfix", "003-refactor"],
+  "onComplete": {
+    "command": "shutdown",
+    "args": ["/s", "/t", "120"],
+    "delaySeconds": 60
+  },
+  "pollIntervalMs": 30000
+}
+```
+
+## RDR (Recover Debug Resend) - Task Recovery System
+
+**CRITICAL: When RDR sends notification → Execute this workflow immediately**
+
+### Instant Response Workflow
+
+```
+1. Get batches: get_rdr_batches(projectId)
+2. Process by type: Use auto-escalation based on mcp_iteration
+3. Report results to user
+```
+
+### Auto-Escalation Priority System (6 Levels)
+
+Track attempts via `mcp_iteration` field in implementation_plan.json.
+
+**P1: Auto-CONTINUE** (Attempt 1-2, 95% of cases)
+
+- **Use**: `process_rdr_batch(type: "incomplete")` or `process_rdr_batch(type: "errors")`
+- **Sets**: `status: "start_requested"` in implementation_plan.json
+- **Result**: File watcher detects change → auto-starts task within 2-3 seconds
+- **When**: First detection, task has incomplete subtasks or errors. Tasks usually self-recover.
+
+**P2: Auto-RECOVER** (when P1 fails)
+
+- **Use**: `recover_stuck_task(taskId, autoRestart: true)`
+- **When**: P1 didn't work, task entered recovery mode (yellow outline, `stuckSince` set)
+- **Result**: Removes stuckSince, sets start_requested, file watcher routes correctly
+- **Equivalent to**: Clicking the "Recover" button in the UI
+
+**P3: Request Changes** (Attempt 3+, 4% of cases)
+
+- **Use**: `submit_task_fix_request(taskId, feedback)`
+- **Writes**: `QA_FIX_REQUEST.md` with debugging context
+- **Analyzes**: Similar errors across multiple tasks
+- **Result**: Task gets specific fix instructions before retry
+- **When**: Same error appears 2+ times, `mcp_iteration` ≥ 3
+
+**P4: Auto-fix JSON** (anytime)
+
+- **Use**: `process_rdr_batch(type: "json_error")`
+- **Fixes**: Corrupted/empty implementation_plan.json files
+- **When**: JSON parse errors detected (independent of iteration count)
+
+**P5: Manual Debug** (RARE, `mcp_iteration` ≥ 4)
+
+- **Pattern detection** across failures
+- **Root cause investigation**
+- **Manual file edits** if needed
+- **When**: Same error appears 3+ times, needs deep analysis
+
+**P6: Delete & Recreate OR Build & Restart** (LAST RESORT, `mcp_iteration` ≥ 5)
+
+- **6A: Delete & Recreate Task** — Task is fundamentally broken. Read original description, delete spec + worktree, create corrected replacement via `create_task`
+- **6B: Build & Restart Auto-Claude** — Issue is in Auto-Claude itself. Fix source code, trigger `trigger_auto_restart`
+- **When**: All priorities 1-5 exhausted
+- See `auto-claude-rdr` skill for full details
+
+### Decision Tree
+
+```
+IF batch type = "json_error"
+  → Priority 4 (auto-fix JSON — can run anytime)
+
+ELSE IF batch type = "incomplete" AND mcp_iteration ≤ 2
+  → Priority 1: Auto-CONTINUE (set start_requested, force retry)
+
+ELSE IF task has metadata.stuckSince (yellow outline in UI)
+  → Priority 2: Auto-RECOVER (recover_stuck_task, remove stuckSince)
+
+ELSE IF (batch type = "qa_rejected" OR "errors") AND mcp_iteration ≥ 3
+  → Priority 3: Request Changes (submit_task_fix_request with context)
+
+ELSE IF mcp_iteration ≥ 4
+  → Priority 5: Manual Debug (read logs, find patterns, fix root cause)
+
+ELSE IF mcp_iteration ≥ 5 AND issue is in Auto-Claude source code
+  → Priority 6: Delete & Recreate / Build & Restart
+
+ELSE
+  → Priority 1: Auto-CONTINUE (default — force retry)
+```
+
+### MCP Tools Quick Reference
+
+**get_rdr_batches(projectId)** → Get all tasks needing intervention, categorized by type
+
+**process_rdr_batch(projectId, batchType, fixes)** → Batch process incomplete/errors/json_error tasks (P1, P4)
+
+**recover_stuck_task(projectId, taskId, autoRestart?)** → Remove stuckSince, restart stuck tasks (P2)
+
+**submit_task_fix_request(projectId, taskId, feedback)** → Write detailed fix request for single task (P3)
+
+**get_task_error_details(projectId, taskId)** → Get error logs, exitReason, subtask status
+
+**get_task_logs(projectId, taskId, phase?, lastN?)** → Get phase logs (planning/coding/validation)
+
+## Custom Phase Configuration
+
+For fine-grained control, specify per-phase models and thinking:
+
+```json
+{
+  "options": {
+    "phaseModels": {
+      "specCreation": "opus",
+      "planning": "opus",
+      "coding": "sonnet",
+      "qaReview": "haiku"
+    },
+    "phaseThinking": {
+      "specCreation": 63999,
+      "planning": 16384,
+      "coding": 4096,
+      "qaReview": 1024
+    }
+  }
+}
+```
+
+### Thinking Token Levels
+
+| Level       | Tokens | Use Case                               |
+| ----------- | ------ | -------------------------------------- |
+| None        | 0      | Fast, no extended thinking             |
+| Low         | 1,024  | Quick edits, simple tasks              |
+| Medium      | 4,096  | Balanced speed/quality                 |
+| High        | 16,384 | Complex reasoning                      |
+| Ultra Think | 63,999 | Maximum depth, architectural decisions |
+
+## Task Status Flow
+
+```
+backlog → in_progress → ai_review → human_review → pr_created → done
+                            ↓
+                         error
+```
+
+- **backlog** - Task created, not started
+- **in_progress** - Agent actively working
+- **ai_review** - QA agent reviewing
+- **human_review** - Ready for human review (code committed to worktree)
+- **pr_created** - PR has been created
+- **done** - Merged and complete
+- **error** - Something went wrong
+
+## Overnight Workflow Example
+
+User: "Queue these tasks and shutdown when all done"
+
+1. **Create batch** with `balanced` profile (cost-efficient for batch)
+2. **Start all tasks** immediately
+3. **Wait for human_review** status on all tasks
+4. **Execute shutdown** command with 2-minute delay
+
+```
+→ start_batch({
+    projectId: "uuid",
+    tasks: [...],
+    options: { model: "sonnet" },
+    startImmediately: true
+  })
+→ wait_for_human_review({
+    projectId: "uuid",
+    taskIds: [...],
+    onComplete: {
+      command: "shutdown",
+      args: ["/s", "/t", "120"],
+      delaySeconds: 60
+    }
+  })
+```
+
+## Important Notes
+
+- **requireReviewBeforeCoding: true** = Task pauses after spec creation for human approval
+- **requireReviewBeforeCoding: false** = Task runs fully autonomous until Human Review
+- Human Review = All code is written, committed to worktree, ready for merge
+- Tasks run in **isolated git worktrees** - safe from main branch
+- User can **merge or discard** each worktree after review
+
+## Reference Files
+
+Include relevant files to give the agent context:
+
+```json
+{
+  "options": {
+    "referencedFiles": [
+      "src/components/Auth.tsx",
+      "src/hooks/useAuth.ts",
+      "src/types/user.ts"
+    ]
+  }
+}
+```
+
+These files are read by the agent during spec creation for better context.
+
+## Categories
+
+| Category           | When to Use            |
+| ------------------ | ---------------------- |
+| `feature`        | New functionality      |
+| `bug_fix`        | Fixing broken behavior |
+| `refactoring`    | Code restructuring     |
+| `documentation`  | Docs and comments      |
+| `security`       | Security improvements  |
+| `performance`    | Speed/efficiency       |
+| `ui_ux`          | UI/UX changes          |
+| `infrastructure` | Build, CI, config      |
+| `testing`        | Test coverage          |
+
+## Complexity Levels
+
+| Level       | Description                    |
+| ----------- | ------------------------------ |
+| `trivial` | One-liner, typo fix            |
+| `small`   | Single file, simple logic      |
+| `medium`  | Multiple files, moderate logic |
+| `large`   | Many files, complex logic      |
+| `complex` | Architectural changes          |
+
+## Priority Levels
+
+| Priority   | When to Use        |
+| ---------- | ------------------ |
+| `low`    | Nice to have       |
+| `medium` | Normal priority    |
+| `high`   | Important, do soon |
+| `urgent` | Critical, do first |
+
+## Task Chaining (Auto-Start on Completion)
+
+Chain tasks so the next one auto-starts when the previous completes:
+
+```json
+{
+  "feature": "Task A",
+  "status": "pending",
+  "chain": {
+    "next_task_id": "002-task-b",
+    "on_completion": "auto_start",
+    "require_approval": false
+  }
+}
+```
+
+**Chain fields:**
+
+- `next_task_id` - The spec ID of the next task to start
+- `on_completion` - Set to `"auto_start"` to trigger automatically
+- `require_approval` - If `true`, waits for human approval before starting next
+
+**Example chain: A → B → C**
+
+```
+065-task-a (chain: 066-task-b) → completes → triggers
+066-task-b (chain: 067-task-c) → completes → triggers
+067-task-c (no chain) → completes → done
+```
+
+## Direct Start Trigger (File-Based)
+
+Trigger a task to start immediately by setting `status: 'start_requested'`:
+
+```bash
+mkdir -p ".auto-claude/specs/065-my-task"
+echo '{}' > ".auto-claude/specs/065-my-task/task_metadata.json"
+cat > ".auto-claude/specs/065-my-task/implementation_plan.json" << 'EOF'
+{
+  "feature": "My Task",
+  "description": "Task description",
+  "status": "start_requested",
+  "start_requested_at": "2026-01-29T05:00:00Z",
+  "phases": [{"name": "Phase 1", "status": "pending"}]
+}
+EOF
+```
+
+The file watcher detects `status: 'start_requested'` and auto-starts the task.
+
+**Use cases:**
+
+- Create and start tasks without MCP tools
+- Sequential task creation (A, B, C all start immediately)
+- Integration with external systems
+
+## Sequential Task Creation
+
+Create multiple tasks that all start immediately:
+
+```bash
+# Task A
+mkdir -p ".auto-claude/specs/065-task-a" && echo '{}' > ".auto-claude/specs/065-task-a/task_metadata.json"
+echo '{"feature":"Task A","status":"start_requested","phases":[]}' > ".auto-claude/specs/065-task-a/implementation_plan.json"
+
+# Task B
+mkdir -p ".auto-claude/specs/066-task-b" && echo '{}' > ".auto-claude/specs/066-task-b/task_metadata.json"
+echo '{"feature":"Task B","status":"start_requested","phases":[]}' > ".auto-claude/specs/066-task-b/implementation_plan.json"
+
+# Task C
+mkdir -p ".auto-claude/specs/067-task-c" && echo '{}' > ".auto-claude/specs/067-task-c/task_metadata.json"
+echo '{"feature":"Task C","status":"start_requested","phases":[]}' > ".auto-claude/specs/067-task-c/implementation_plan.json"
+```
+
+All tasks start immediately as they're created.
+
+## Interaction Patterns
+
+| Style                | Method                                      | When to Use                              |
+| -------------------- | ------------------------------------------- | ---------------------------------------- |
+| **Chaining**   | `chain` field in implementation_plan.json | Dependent tasks (A must finish before B) |
+| **Sequential** | Create with `status: start_requested`     | Independent tasks that start immediately |
+| **Batch**      | MCP `start_batch` tool                    | Quick batch via MCP API                  |
+| **Single**     | MCP `create_task` + `start_task`        | One-off task creation                    |
+
+### Chaining (Dependent Tasks)
+
+Tasks linked via `chain.next_task_id` - next task auto-starts when previous completes.
+Best for: pipelines, dependent workflows, staged rollouts.
+
+### Sequential (Parallel Tasks)
+
+Each task created with `status: start_requested` - all start immediately.
+Best for: independent tasks, batch processing, parallel work.
+
+### Batch (MCP API)
+
+Use `start_batch` MCP tool with `startImmediately: true`.
+Best for: programmatic creation, integration with other tools.
+
+### Single (MCP API)
+
+Use `create_task` then `start_task` MCP tools.
+Best for: one-off tasks, interactive creation.
+
+## LLM Manager Control - Build & Restart
+
+**CRITICAL: Claude Code can trigger builds and restart Auto-Claude via MCP, but ONLY if enabled per-project.**
+
+### Permission System
+
+**Two-Level Control:**
+
+1. **Global Setting** (App Settings → General → Auto-Restart on Loop/Crash)
+   - `autoRestartOnFailure.enabled` - Master toggle for auto-restart feature
+   - Controls whether the feature works at all
+   - Location: App-level settings
+
+2. **Per-Project Setting** (Project Settings → General → LLM Manager Build & Restart)
+   - `llmManagerEnabled` - Enable/disable LLM Manager control for THIS project
+   - Defaults to `true` when Auto-Build is initialized
+   - Location: Project-specific settings
+   - **User can toggle this ON/OFF per project**
+
+**Both must be enabled for Claude Code to trigger builds/restarts.**
+
+### MCP Tool: trigger_auto_restart
+
+```json
+{
+  "reason": "prompt_loop" | "crash" | "manual" | "error",
+  "buildCommand": "npm run build"  // Optional - defaults to project settings
+}
+```
+
+**What it does:**
+- Triggers a build command (e.g., `npm run build`)
+- Restarts Auto-Claude after build completes
+- Used when prompt loops, crashes, or errors are detected
+
+### Simple Command-Based Restart (Preferred Method)
+
+Claude Code can restart Auto-Claude using simple shell commands - no special MCP tool required.
+
+**Step 1: Get User's Configured Commands**
+
+Read the user's settings from `settings.json` in Auto-Claude's user data directory:
+- **Windows:** `%APPDATA%\auto-claude-ui\settings.json`
+- **macOS:** `~/Library/Application Support/auto-claude-ui/settings.json`
+- **Linux:** `~/.config/auto-claude-ui/settings.json`
+
+Look for these fields:
+```json
+{
+  "autoRestartOnFailure": {
+    "reopenCommand": "<user's OS-specific start command>",
+    "buildCommand": "npm run build"
+  }
+}
+```
+
+**Step 2: Execute Restart (Build → Kill → Start)**
+
+**IMPORTANT:** The correct order is Build → Kill → Start (NOT Kill → Build → Start)
+
+**For Build + Restart:**
+```bash
+# 1. BUILD FIRST (while app is still running)
+<buildCommand from settings>  # e.g., npm run build
+
+# 2. THEN kill the process
+taskkill //F //IM "electron.exe"  # Windows
+pkill -f electron                  # Unix
+
+# 3. THEN start using user's Reopen Command
+<reopenCommand from settings>
+```
+
+**For Restart Only (no build):**
+```bash
+# Windows - IMPORTANT: Clear ELECTRON_RUN_AS_NODE env var (VSCode sets it)
+taskkill //F //IM "electron.exe"
+<reopenCommand from settings>  # User's configured command
+
+# macOS/Linux
+pkill -f electron
+<reopenCommand from settings>
+```
+
+**Example Reopen Commands by OS:**
+- **Windows (dev):** `powershell.exe -Command "Remove-Item Env:ELECTRON_RUN_AS_NODE -ErrorAction SilentlyContinue; Start-Process 'C:\path\to\Auto-Claude-Mod.bat'"`
+- **macOS (packaged):** `open -a "Auto-Claude"`
+- **Linux (AppImage):** `/path/to/auto-claude.AppImage`
+
+**Settings Location:** App Settings → Developer Tools → Auto-Claude MCP System
+
+**Why use simple commands over MCP tool?**
+- More direct control
+- Doesn't require MCP connection
+- Works even if Auto-Claude is unresponsive
+- User has full control over the restart command for their OS
+
+**Permission checks:**
+1. Checks `autoRestartOnFailure.enabled` (global) - returns error if disabled
+2. **Should check** `llmManagerEnabled` (per-project) - not yet implemented in backend
+
+**Example usage:**
+```typescript
+// From Claude Code
+await mcp.call_tool('trigger_auto_restart', {
+  reason: 'prompt_loop',
+  buildCommand: 'npm run build'
+});
+```
+
+### When to Use trigger_auto_restart
+
+| Scenario | Use Tool? | Reason |
+|----------|-----------|--------|
+| Prompt loop detected (agent stuck waiting) | ✅ YES | Rebuild and restart to break the loop |
+| Memory leak / high memory usage | ✅ YES | Rebuild and restart to reset memory |
+| Task crashed with build errors | ✅ YES | Rebuild to fix compilation issues |
+| User manually requests restart | ✅ YES | User-initiated maintenance |
+| Normal task completion | ❌ NO | No restart needed |
+
+### Checking if LLM Manager Control is Enabled
+
+**Before calling MCP tools, check project settings:**
+
+```typescript
+// Read project settings.json
+const projectSettings = await readProjectSettings(projectId);
+
+if (!projectSettings.llmManagerEnabled) {
+  return {
+    success: false,
+    error: 'LLM Manager control is disabled for this project. Enable it in Project Settings → General → LLM Manager Build & Restart.'
+  };
+}
+
+// Then check global setting
+const appSettings = await readAppSettings();
+
+if (!appSettings.autoRestartOnFailure?.enabled) {
+  return {
+    success: false,
+    error: 'Auto-restart feature is disabled. Enable it in Settings → General → Auto-Restart on Loop/Crash.'
+  };
+}
+
+// Both enabled - proceed with MCP tool call
+await mcp.call_tool('trigger_auto_restart', { reason: 'prompt_loop' });
+```
+
+### Backend Implementation (Future)
+
+**Files to modify:**
+- `apps/backend/auto_claude_tools.py` - MCP tool handlers
+- `apps/backend/cli/commands.py` - Build/restart command handlers
+
+**Check both settings:**
+```python
+# In MCP tool handler
+project_settings = load_project_settings(project_dir)
+app_settings = load_app_settings()
+
+# Check per-project permission
+if not project_settings.get('llmManagerEnabled', True):
+    return {"error": "LLM Manager control is disabled for this project"}
+
+# Check global permission
+if not app_settings.get('autoRestartOnFailure', {}).get('enabled', False):
+    return {"error": "Auto-restart feature is disabled in app settings"}
+
+# Proceed with build/restart
+```
+
+### User Control
+
+Users can enable/disable LLM Manager control per-project:
+
+**Location:** Project Settings → General → LLM Manager Build & Restart
+
+**UI:**
+```
+┌─────────────────────────────────────────┐
+│ LLM Manager Build & Restart             │
+│ Allow Claude Code to trigger builds...  │
+├─────────────────────────────────────────┤
+│ ✓ Auto-Build Initialized  .auto-claude │
+│ Project is configured for Auto-Build    │
+├─────────────────────────────────────────┤
+│ Enable LLM Manager Control         [ON] │
+│ Allow Claude Code to trigger builds...  │
+└─────────────────────────────────────────┘
+```
+
+**Toggle ON:**  Claude Code can trigger builds/restarts for this project
+**Toggle OFF:** Claude Code cannot control this project (but Auto-Build remains initialized)
+
+### Use Cases for Per-Project Control
+
+| Project | llmManagerEnabled | Reason |
+|---------|-------------------|--------|
+| Production app | `false` | Prevent accidental changes to live code |
+| Experimental features | `true` | Allow Claude Code to iterate quickly |
+| Stable library | `false` | Manual review required for all changes |
+| Personal project | `true` | Trust Claude Code to manage builds |
+
+### Important Notes
+
+- **Default:** LLM Manager control is **enabled by default** when Auto-Build is initialized
+- **Granular:** Each project can have independent settings
+- **Safety:** Users can disable per project without affecting others
+- **Backend:** Backend enforcement not yet implemented (only frontend toggle exists)
+
+### RDR Priority 6 Integration
+
+Priority 6 has two options depending on where the problem is:
+
+**6A. Delete & Recreate Task** (problem is in the TASK):
+1. Read original task description from `spec.md` or `implementation_plan.json`
+2. Delete broken spec directory + worktree
+3. Create corrected replacement via `create_task` MCP tool
+4. Start the new task
+
+**6B. Build & Restart Auto-Claude** (problem is in AUTO-CLAUDE):
+1. Claude Code diagnoses bug in Auto-Claude source code
+2. Makes changes to Auto-Claude's source files
+3. Calls `trigger_auto_restart` with `reason: "manual"` and optional `buildCommand`
+4. Auto-Claude builds and restarts, tasks resume
+
+**When:** `mcp_iteration` ≥ 5, all priorities 1-5 exhausted. See `auto-claude-rdr` skill for full details.
+
+**Key Points:**
+- This is for fixing **Auto-Claude's source code**, not user projects
+- Requires both global and per-project permissions enabled
+- Only use when the issue is in Auto-Claude itself (not task-level issues)
+- See auto-claude-rdr skill for full RDR priority system documentation
