@@ -1,4 +1,5 @@
 # Auto Claude MCP development fork
+
 [![License](https://img.shields.io/badge/license-AGPL--3.0-green?style=flat-square)](./agpl-3.0.txt)
 [![Discord](https://img.shields.io/badge/Discord-Join%20Community-5865F2?style=flat-square&logo=discord&logoColor=white)](https://discord.gg/KCXaPBr4Dj)
 [![YouTube](https://img.shields.io/badge/YouTube-Subscribe-FF0000?style=flat-square&logo=youtube&logoColor=white)](https://www.youtube.com/@AndreMikalsen)
@@ -12,8 +13,7 @@ You can automatically orchestrate and/or troubleshoot your tasks done by LLMs wi
 You can make the master LLM create batches of auto-started tasks with prompt inputs, as well as further develop the MCP to improve its maneuverability.
 This is a great tool for building dynamic pipelines and further automating your agentic workflows.
 
-
-> **Note:** The MCP server and all task management tools are standard MCP protocol and work with any MCP client. The RDR message **delivery pipeline** (how recovery prompts physically reach the LLM) currently targets: **Windows** (PowerShell + Win32 API for clipboard paste + keyboard simulation), **VS Code** (process-level window detection, not extension-specific), and **Claude Code** (JSONL transcript reading for busy-state). The delivery is blind "focus window, paste, enter" — it works when the target chat input is focused but is not tied to any extension API. Each layer can be swapped independently. Contributions for macOS/Linux, other VS Code forks (Cursor, etc.), or other LLM CLIs are welcome.
+> **Note:** The MCP server and all task management tools are standard MCP protocol and work with any MCP client. The RDR message **delivery pipeline** (how recovery prompts physically reach the LLM) currently targets: **Windows** (PowerShell + Win32 API for clipboard paste + keyboard simulation), **VS Code** (process-level window detection, not extension-specific), and **Claude Code** (JSONL transcript reading for busy-state). The delivery is blind "focus window, paste, enter" — it works when the target chat input is focused but is not tied to any extension API. Each layer can be swapped independently. Contributions for macOS/Linux, other VS Code forks (Cursor, etc.), or other LLM CLIs are welcome. See also [Watchdog Process](#watchdog-process) for OS-specific launcher requirements.
 
 ## What This Fork Adds
 
