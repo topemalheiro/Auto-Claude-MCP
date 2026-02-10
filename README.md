@@ -84,7 +84,38 @@ Monitors Claude Code session state via JSONL transcripts. Distinguishes between 
 
 ### Watchdog Process
 
-External wrapper process that monitors Auto-Claude health, detects crashes, and can auto-restart. Launched via the `.bat` launcher on Windows — it spawns Electron as a child process and watches it from outside. The watchdog does not run when launching the app directly (`.exe`, `npm run dev`). On macOS/Linux, an equivalent shell script launcher would be needed.
+External wrapper process that monitors Auto-Claude health, detects crashes, and can auto-restart. It spawns Electron as a child process and watches it from outside. The watchdog does **not** run when launching the app directly (`.exe`, `npm run dev`).
+
+<details>
+<summary><strong>Quick Setup (Windows)</strong></summary>
+
+1. Copy `Auto-Claude-MCP.example.bat` to `Auto-Claude-MCP.bat`
+2. Edit the path in the `.bat` to point to your install directory:
+   ```bat
+   set AUTO_CLAUDE_DIR=C:\Users\YourName\path\to\Auto-Claude-MCP
+   ```
+3. Double-click the `.bat` to launch with watchdog
+4. **Optional — pin to taskbar:** Create a shortcut with target:
+   ```
+   cmd.exe /c "C:\Users\YourName\path\to\Auto-Claude-MCP\Auto-Claude-MCP.bat"
+   ```
+   Then right-click the shortcut → Pin to taskbar. You can set the icon to `apps\frontend\resources\icon.ico` from the repo.
+
+</details>
+
+<details>
+<summary><strong>Quick Setup (macOS/Linux)</strong></summary>
+
+Create a shell script equivalent (e.g. `auto-claude-mcp.sh`):
+```bash
+#!/bin/bash
+cd "$(dirname "$0")/apps/frontend"
+echo "Starting Auto-Claude with crash recovery watchdog..."
+npx tsx src/main/watchdog/launcher.ts ../../node_modules/.bin/electron out/main/index.js
+```
+Make it executable: `chmod +x auto-claude-mcp.sh`
+
+</details>
 
 ### Window Manager (Windows)
 

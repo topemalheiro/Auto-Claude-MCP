@@ -13,6 +13,7 @@ Desktop.ini
 # Personal / accidental files
 # ===========================
 *.bat
+!Auto-Claude-MCP.example.bat
 *.vbs
 .mcp.json
 CHANGES-RDR-ARCHIVE-FIXES.md
