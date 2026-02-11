@@ -13,7 +13,8 @@ Fork of [Auto-Claude](https://github.com/AndyMik90/Auto-Claude) with a custom MC
 You can automatically orchestrate and/or troubleshoot your tasks done by LLMs with a master LLM chat through the MCP, sort of like a manager chat. It can work 24/7, with Auto Resume on session limit reset, and has an Auto Shutdown feature to shut down your computer when all tasks are done.
 
 You can make the master LLM create batches of auto-started tasks with prompt inputs, as well as further develop the MCP to improve its maneuverability.
-This is a great tool for building dynamic pipelines and further automating your agentic workflows.
+
+**This is a great tool for building dynamic pipelines and further automating your agentic workflows.**
 
 > **Note:** The MCP server and all task management tools are standard MCP protocol and work with any MCP client. The RDR message **delivery pipeline** (how recovery prompts physically reach the the master LLM that enacts on the MCP) currently targets: **Windows** (PowerShell + Win32 API for clipboard paste + keyboard simulation), **VS Code** (process-level window detection, not extension-specific), and **Claude Code** (JSONL transcript reading for busy-state). The delivery is blind "focus window, paste, enter" — it works when the target chat input is focused but is not tied to any extension API. Each layer can be swapped independently. Contributions for macOS/Linux, other VS Code forks (Cursor, etc.), or other LLM CLIs are welcome. See also [Watchdog Process](#watchdog-process) for OS-specific launcher requirements.
 
