@@ -372,18 +372,21 @@ function determineInterventionType(task: TaskInfo, hasWorktree?: boolean, rawPla
   // STUCK START: Task has start_requested in raw plan but ProjectStore mapped it to backlog
   // This means the file watcher never picked it up and the agent never started
   if (task.status === 'backlog' || task.status === 'pending' || task.status === 'plan_review') {
-    if (task.status === 'plan_review') {
-      // STUCK TASK: If task has metadata.stuckSince, it's in recovery mode - ALWAYS flag it
-      if (task.metadata?.stuckSince) {
-        console.log(`[RDR] Task ${task.specId} is STUCK (recovery mode since ${task.metadata.stuckSince}) - flagging for intervention`);
-        return 'stuck';
-      }
+    // STUCK TASK: If task has metadata.stuckSince, it's in recovery mode - ALWAYS flag it
+    // (applies to all three statuses, not just plan_review)
+    if (task.metadata?.stuckSince) {
+      console.log(`[RDR] Task ${task.specId} is STUCK (recovery mode since ${task.metadata.stuckSince}) - flagging for intervention`);
+      return 'stuck';
+    }
 
-      // Check if agent is actually running right now (not timestamp guessing)
-      if (isTaskAgentRunning(task.specId)) {
-        console.log(`[RDR] Task ${task.specId} in plan_review - agent IS running - SKIPPING`);
-        return null;
-      }
+    // Check if agent is actually running right now (not timestamp guessing)
+    // Prevents false positives for tasks actively running their planning phase
+    if (isTaskAgentRunning(task.specId)) {
+      console.log(`[RDR] Task ${task.specId} in ${task.status} - agent IS running - SKIPPING`);
+      return null;
+    }
+
+    if (task.status === 'plan_review') {
       console.log(`[RDR] Task ${task.specId} in plan_review - needs to start coding`);
       return 'incomplete';
     }
