@@ -7,7 +7,7 @@
 
 ## **To get the 'Master LLM' working properly through the MCP, either with RDR or general MCP usage, you'll need to copy the folders inside the skills folder in .claude to your personal \.claude\skills folder.**
 
-Fork of [Auto-Claude](https://github.com/AndyMik90/Auto-Claude) with a custom MCP system, automatic recovery, and infrastructure for autonomous overnight batch runs. **22,000+ lines** across 114 files.
+Fork of [Auto-Claude](https://github.com/AndyMik90/Auto-Claude) with a custom MCP system, automatic recovery, and infrastructure for autonomous overnight batch runs. I added **22,000+ lines** across 114 files on top of main.
 
 **Brief Summary:**
 You can automatically orchestrate and/or troubleshoot your tasks done by LLMs with a master LLM chat through the MCP, sort of like a manager chat. It can work 24/7, with Auto Resume on session limit reset, and has an Auto Shutdown feature to shut down your computer when all tasks are done.
