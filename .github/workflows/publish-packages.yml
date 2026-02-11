@@ -1,0 +1,165 @@
+# Publish OSS Packages to npm
+#
+# Builds and publishes @auto-claude/types and @auto-claude/ui to npm
+# when a version tag is pushed. Includes a dry-run job on PRs to catch
+# issues before release.
+
+name: Publish Packages
+
+on:
+  push:
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'libs/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/publish-packages.yml'
+
+concurrency:
+  group: publish-packages-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # --------------------------------------------------------------------------
+  # Validate - Typecheck and test before publishing
+  # --------------------------------------------------------------------------
+  validate:
+    name: Validate packages
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node-frontend
+        with:
+          ignore-scripts: 'true'
+
+      - name: Typecheck @auto-claude/types
+        run: npx tsc --project libs/types/tsconfig.json --noEmit
+
+      - name: Typecheck @auto-claude/ui
+        run: npx tsc --project libs/ui/tsconfig.json --noEmit
+
+      - name: Build @auto-claude/types
+        run: npx tsc --project libs/types/tsconfig.build.json
+
+      - name: Build @auto-claude/ui
+        run: npx tsc --project libs/ui/tsconfig.build.json
+
+      - name: Typecheck frontend
+        working-directory: apps/frontend
+        run: npm run typecheck
+
+      - name: Run frontend tests
+        working-directory: apps/frontend
+        run: npm run test
+
+  # --------------------------------------------------------------------------
+  # Dry Run - Verify publish would succeed (PRs only)
+  # --------------------------------------------------------------------------
+  dry-run:
+    name: Publish dry run
+    runs-on: ubuntu-latest
+    needs: validate
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node-frontend
+        with:
+          ignore-scripts: 'true'
+
+      - name: Build @auto-claude/types
+        run: npx tsc --project libs/types/tsconfig.build.json
+
+      - name: Build @auto-claude/ui
+        run: npx tsc --project libs/ui/tsconfig.build.json
+
+      - name: Dry run publish @auto-claude/types
+        run: npm publish --workspace libs/types --dry-run
+
+      - name: Dry run publish @auto-claude/ui
+        run: npm publish --workspace libs/ui --dry-run
+
+  # --------------------------------------------------------------------------
+  # Publish - Push packages to npm (tagged releases only)
+  # --------------------------------------------------------------------------
+  publish:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+    needs: validate
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node-frontend
+        with:
+          ignore-scripts: 'true'
+
+      - name: Configure npm authentication
+        run: echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Validate tag matches package versions
+        run: |
+          TAG_VERSION="${GITHUB_REF#refs/tags/v}"
+          TYPES_VERSION=$(node -p "require('./libs/types/package.json').version")
+          UI_VERSION=$(node -p "require('./libs/ui/package.json').version")
+          echo "Tag version: ${TAG_VERSION}"
+          echo "types version: ${TYPES_VERSION}"
+          echo "ui version: ${UI_VERSION}"
+          if [ "$TAG_VERSION" != "$TYPES_VERSION" ]; then
+            echo "::error::Tag v${TAG_VERSION} does not match @auto-claude/types version ${TYPES_VERSION}"
+            exit 1
+          fi
+          if [ "$TAG_VERSION" != "$UI_VERSION" ]; then
+            echo "::error::Tag v${TAG_VERSION} does not match @auto-claude/ui version ${UI_VERSION}"
+            exit 1
+          fi
+
+      - name: Build @auto-claude/types
+        run: npx tsc --project libs/types/tsconfig.build.json
+
+      - name: Build @auto-claude/ui
+        run: npx tsc --project libs/ui/tsconfig.build.json
+
+      - name: Publish @auto-claude/types
+        run: |
+          PACKAGE_VERSION=$(node -p "require('./libs/types/package.json').version")
+          HTTP_CODE=$(npm view "@auto-claude/types@${PACKAGE_VERSION}" version --json 2>&1) && RC=$? || RC=$?
+          if [ $RC -eq 0 ] && echo "$HTTP_CODE" | grep -q "$PACKAGE_VERSION"; then
+            echo "::notice::@auto-claude/types@${PACKAGE_VERSION} already published, skipping"
+          elif echo "$HTTP_CODE" | grep -qi "E404\|not found\|is not in this registry"; then
+            npm publish --workspace libs/types --access public --provenance
+          else
+            echo "::warning::Unexpected error checking @auto-claude/types@${PACKAGE_VERSION}: ${HTTP_CODE}"
+            npm publish --workspace libs/types --access public --provenance
+          fi
+
+      - name: Publish @auto-claude/ui
+        run: |
+          PACKAGE_VERSION=$(node -p "require('./libs/ui/package.json').version")
+          HTTP_CODE=$(npm view "@auto-claude/ui@${PACKAGE_VERSION}" version --json 2>&1) && RC=$? || RC=$?
+          if [ $RC -eq 0 ] && echo "$HTTP_CODE" | grep -q "$PACKAGE_VERSION"; then
+            echo "::notice::@auto-claude/ui@${PACKAGE_VERSION} already published, skipping"
+          elif echo "$HTTP_CODE" | grep -qi "E404\|not found\|is not in this registry"; then
+            npm publish --workspace libs/ui --access public --provenance
+          else
+            echo "::warning::Unexpected error checking @auto-claude/ui@${PACKAGE_VERSION}: ${HTTP_CODE}"
+            npm publish --workspace libs/ui --access public --provenance
+          fi
