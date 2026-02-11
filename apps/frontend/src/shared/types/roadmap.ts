@@ -122,6 +122,7 @@ export interface RoadmapFeature {
   acceptanceCriteria: string[];
   userStories: string[];
   linkedSpecId?: string;
+  taskOutcome?: 'completed' | 'deleted' | 'archived';
   competitorInsightIds?: string[];
   // External integration fields
   source?: FeatureSource;

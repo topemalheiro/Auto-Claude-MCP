@@ -212,6 +212,18 @@ export function useIpcListeners(): void {
         // Filter by project to prevent multi-project interference
         if (!isTaskForCurrentProject(projectId)) return;
         queueUpdate(taskId, { status, reviewReason });
+
+        // Sync roadmap feature when task completes
+        if (status === 'done' || status === 'pr_created') {
+          const roadmapState = useRoadmapStore.getState();
+          roadmapState.markFeatureDoneBySpecId(taskId);
+          // Persist to disk
+          const rm = roadmapState.roadmap;
+          const currentProjectId = useProjectStore.getState().activeProjectId || useProjectStore.getState().selectedProjectId;
+          if (rm && currentProjectId) {
+            window.electronAPI.saveRoadmap(currentProjectId, rm);
+          }
+        }
       }
     );
 

@@ -11,6 +11,7 @@ import {
   ExternalLink,
   TrendingUp,
   Trash2,
+  Archive,
 } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
@@ -214,7 +215,17 @@ export function FeatureDetailPanel({
       </ScrollArea>
 
       {/* Actions */}
-      {feature.linkedSpecId ? (
+      {feature.taskOutcome ? (
+        <div className="shrink-0 p-4 border-t border-border">
+          <div className="flex items-center justify-center gap-2 text-success py-2">
+            {feature.taskOutcome === 'archived' ? (
+              <><Archive className="h-4 w-4" /><span>{t('roadmap.taskArchived')}</span></>
+            ) : (
+              <><CheckCircle2 className="h-4 w-4" /><span>{feature.taskOutcome === 'deleted' ? t('roadmap.taskDeleted') : t('roadmap.taskCompleted')}</span></>
+            )}
+          </div>
+        </div>
+      ) : feature.linkedSpecId ? (
         <div className="shrink-0 p-4 border-t border-border">
           <Button className="w-full" onClick={() => onGoToTask(feature.linkedSpecId!)}>
             <ExternalLink className="h-4 w-4 mr-2" />

@@ -104,7 +104,9 @@ export function PhaseCard({
                   <TrendingUp className="h-3 w-3 text-primary flex-shrink-0" />
                 )}
               </div>
-              {feature.status === 'done' ? (
+              {feature.taskOutcome ? (
+                <CheckCircle2 className="h-4 w-4 text-success flex-shrink-0" />
+              ) : feature.status === 'done' ? (
                 <CheckCircle2 className="h-4 w-4 text-success flex-shrink-0" />
               ) : feature.linkedSpecId ? (
                 <Button

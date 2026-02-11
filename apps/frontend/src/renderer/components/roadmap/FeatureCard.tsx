@@ -1,4 +1,5 @@
-import { ExternalLink, Play, TrendingUp } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { CheckCircle2, ExternalLink, Play, TrendingUp, Archive } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
@@ -18,6 +19,7 @@ export function FeatureCard({
   onGoToTask,
   hasCompetitorInsight = false,
 }: FeatureCardProps) {
+  const { t } = useTranslation('common');
   return (
     <Card className="p-4 hover:bg-muted/50 cursor-pointer transition-colors" onClick={onClick}>
       <div className="flex items-start justify-between">
@@ -53,7 +55,15 @@ export function FeatureCard({
           <h3 className="font-medium">{feature.title}</h3>
           <p className="text-sm text-muted-foreground line-clamp-2">{feature.description}</p>
         </div>
-        {feature.linkedSpecId ? (
+        {feature.taskOutcome ? (
+          <Badge variant="outline" className="text-xs text-success border-success/50">
+            {feature.taskOutcome === 'archived' ? (
+              <><Archive className="h-3 w-3 mr-1" />{t('roadmap.taskArchived')}</>
+            ) : (
+              <><CheckCircle2 className="h-3 w-3 mr-1" />{feature.taskOutcome === 'deleted' ? t('roadmap.taskDeleted') : t('roadmap.taskCompleted')}</>
+            )}
+          </Badge>
+        ) : feature.linkedSpecId ? (
           <Button
             variant="outline"
             size="sm"

@@ -809,10 +809,51 @@ export class ProjectStore {
       }
     }
 
+    // Update linked roadmap features for archived tasks
+    this.updateRoadmapForArchivedTasks(project, taskIds);
+
     // Invalidate cache since task metadata changed
     this.invalidateTasksCache(projectId);
 
     return !hasErrors;
+  }
+
+  /**
+   * Update roadmap features linked to archived tasks
+   */
+  private updateRoadmapForArchivedTasks(project: Project, taskIds: string[]): void {
+    const roadmapDir = project.autoBuildPath
+      ? path.join(project.autoBuildPath, 'roadmap')
+      : path.join(project.path, AUTO_BUILD_PATHS.ROADMAP_DIR);
+    const roadmapFile = path.join(roadmapDir, AUTO_BUILD_PATHS.ROADMAP_FILE);
+    if (!existsSync(roadmapFile)) return;
+
+    try {
+      const content = readFileSync(roadmapFile, 'utf-8');
+      const roadmap = JSON.parse(content);
+      if (!roadmap.features || !Array.isArray(roadmap.features)) return;
+
+      const taskIdSet = new Set(taskIds);
+      let changed = false;
+
+      for (const feature of roadmap.features) {
+        const linkedId = feature.linked_spec_id || feature.linkedSpecId;
+        if (linkedId && taskIdSet.has(linkedId) && feature.status !== 'done') {
+          feature.status = 'done';
+          feature.task_outcome = 'archived';
+          changed = true;
+        }
+      }
+
+      if (changed) {
+        roadmap.metadata = roadmap.metadata || {};
+        roadmap.metadata.updated_at = new Date().toISOString();
+        writeFileAtomicSync(roadmapFile, JSON.stringify(roadmap, null, 2));
+        console.log(`[ProjectStore] Updated roadmap features for ${taskIds.length} archived task(s)`);
+      }
+    } catch (err) {
+      console.warn('[ProjectStore] Failed to update roadmap for archived tasks:', err);
+    }
   }
 
   /**
