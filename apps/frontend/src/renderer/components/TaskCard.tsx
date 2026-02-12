@@ -49,6 +49,13 @@ const CategoryIcon: Record<TaskCategory, typeof Zap> = {
   testing: FileCode
 };
 
+// Phases where stuck detection should be skipped (terminal states + initial planning)
+const STUCK_CHECK_SKIP_PHASES = ['complete', 'failed', 'planning'] as const;
+
+function shouldSkipStuckCheck(phase: string | undefined): boolean {
+  return STUCK_CHECK_SKIP_PHASES.includes(phase as typeof STUCK_CHECK_SKIP_PHASES[number]);
+}
+
 // Catastrophic stuck detection interval (ms).
 // XState handles all normal process-exit transitions via PROCESS_EXITED events.
 // This is a last-resort safety net: if XState somehow fails to transition the task

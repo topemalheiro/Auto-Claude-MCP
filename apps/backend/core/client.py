@@ -836,6 +836,39 @@ def create_client(
         print("   - CLAUDE.md: disabled by project settings")
     print()
 
+    # Windows: Avoid WinError 206 (command line too long).
+    # Windows CreateProcessW has a 32,767 character limit for the entire command line.
+    # Large system prompts (e.g. with CLAUDE.md) and inline MCP config can exceed this.
+    # Fix: write oversized system prompt to a file, pass a short reference instead.
+    # Also write MCP config to a file so --mcp-config uses a file path, not inline JSON.
+    _WIN_CMD_SAFE_LIMIT = 28000  # Leave headroom below 32,767
+
+    if is_windows() and len(base_prompt) > _WIN_CMD_SAFE_LIMIT:
+        prompt_cache_file = spec_dir / "system_prompt_cache.md"
+        prompt_cache_file.write_text(base_prompt, encoding="utf-8")
+        logger.info(
+            f"[WinCmdLen] System prompt too long ({len(base_prompt)} chars), "
+            f"wrote to {prompt_cache_file}"
+        )
+        print(
+            f"   - System prompt: externalized to file ({len(base_prompt)} chars > {_WIN_CMD_SAFE_LIMIT} limit)"
+        )
+        base_prompt = (
+            f"CRITICAL: Your complete system instructions are in this file:\n"
+            f"  {prompt_cache_file.resolve()}\n\n"
+            f"You MUST read this file with the Read tool IMMEDIATELY before doing anything else.\n"
+            f"Your working directory is: {project_dir.resolve()}\n"
+            f"Follow ALL instructions in that file. Do not skip this step."
+        )
+
+    if is_windows() and mcp_servers and isinstance(mcp_servers, dict):
+        mcp_config_file = spec_dir / "mcp_config_cache.json"
+        with open(mcp_config_file, "w", encoding="utf-8") as f:
+            json.dump({"mcpServers": mcp_servers}, f)
+        logger.info(f"[WinCmdLen] MCP config written to {mcp_config_file}")
+        # Pass as string (file path) instead of dict (inline JSON) to SDK
+        mcp_servers = str(mcp_config_file.resolve())
+
     # Build options dict, conditionally including output_format
     options_kwargs: dict[str, Any] = {
         "model": model,
