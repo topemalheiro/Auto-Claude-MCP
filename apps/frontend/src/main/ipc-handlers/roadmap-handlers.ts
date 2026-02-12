@@ -470,6 +470,10 @@ export function registerRoadmapHandlers(
           }
 
           feature.status = status;
+          if (status !== 'done') {
+            delete feature.task_outcome;
+            delete feature.previous_status;
+          }
           roadmap.metadata = roadmap.metadata || {};
           roadmap.metadata.updated_at = new Date().toISOString();
 
