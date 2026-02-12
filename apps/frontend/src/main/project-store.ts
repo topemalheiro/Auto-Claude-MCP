@@ -823,10 +823,7 @@ export class ProjectStore {
    * Update roadmap features linked to archived tasks
    */
   private updateRoadmapForArchivedTasks(project: Project, taskIds: string[]): void {
-    const roadmapDir = project.autoBuildPath
-      ? path.join(project.autoBuildPath, 'roadmap')
-      : path.join(project.path, AUTO_BUILD_PATHS.ROADMAP_DIR);
-    const roadmapFile = path.join(roadmapDir, AUTO_BUILD_PATHS.ROADMAP_FILE);
+    const roadmapFile = path.join(project.path, AUTO_BUILD_PATHS.ROADMAP_DIR, AUTO_BUILD_PATHS.ROADMAP_FILE);
     updateRoadmapFeatureOutcome(roadmapFile, taskIds, 'archived', '[ProjectStore]').catch((err) => {
       console.warn('[ProjectStore] Failed to update roadmap for archived tasks:', err);
     });

@@ -4,7 +4,6 @@ import type { IPCResult, Task, TaskMetadata } from '../../../shared/types';
 import path from 'path';
 import { execFileSync } from 'child_process';
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, Dirent } from 'fs';
-import { writeFileAtomicSync } from '../../utils/atomic-file';
 import { updateRoadmapFeatureOutcome } from '../../utils/roadmap-utils';
 import { projectStore } from '../../project-store';
 import { titleGenerator } from '../../title-generator';
@@ -112,13 +111,9 @@ function truncateToTitle(description: string): string {
 async function updateLinkedRoadmapFeature(
   projectPath: string,
   specId: string,
-  taskOutcome: 'completed' | 'deleted' | 'archived',
-  autoBuildPath?: string
+  taskOutcome: 'completed' | 'deleted' | 'archived'
 ): Promise<void> {
-  const roadmapDir = autoBuildPath
-    ? path.join(autoBuildPath, 'roadmap')
-    : path.join(projectPath, AUTO_BUILD_PATHS.ROADMAP_DIR);
-  const roadmapFile = path.join(roadmapDir, AUTO_BUILD_PATHS.ROADMAP_FILE);
+  const roadmapFile = path.join(projectPath, AUTO_BUILD_PATHS.ROADMAP_DIR, AUTO_BUILD_PATHS.ROADMAP_FILE);
   await updateRoadmapFeatureOutcome(roadmapFile, [specId], taskOutcome, '[TASK_CRUD]');
 }
 
@@ -425,7 +420,7 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
 
       // Update any linked roadmap feature
       try {
-        await updateLinkedRoadmapFeature(project.path, task.specId, 'deleted', project.autoBuildPath);
+        await updateLinkedRoadmapFeature(project.path, task.specId, 'deleted');
       } catch (err) {
         console.warn('[TASK_DELETE] Failed to update linked roadmap feature:', err);
       }

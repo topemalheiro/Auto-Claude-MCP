@@ -7,31 +7,7 @@
 
 import { existsSync } from 'fs';
 import { readFileWithRetry, writeFileWithRetry } from './atomic-file';
-
-/**
- * Simple in-process file lock to serialize read-modify-write operations.
- * Prevents concurrent IPC calls from causing lost updates on the same file.
- */
-const fileLocks = new Map<string, Promise<void>>();
-
-async function withFileLock<T>(filepath: string, fn: () => Promise<T>): Promise<T> {
-  while (fileLocks.has(filepath)) {
-    await fileLocks.get(filepath);
-  }
-
-  let resolve: (() => void) | undefined;
-  const lockPromise = new Promise<void>((r) => {
-    resolve = r;
-  });
-  fileLocks.set(filepath, lockPromise);
-
-  try {
-    return await fn();
-  } finally {
-    fileLocks.delete(filepath);
-    resolve?.();
-  }
-}
+import { withFileLock } from './file-lock';
 
 /**
  * Update roadmap features on disk when linked tasks change state.
@@ -65,7 +41,7 @@ export async function updateRoadmapFeatureOutcome(
       let changed = false;
       for (const feature of roadmap.features) {
         const linkedId = feature.linked_spec_id || feature.linkedSpecId;
-        if (linkedId && specIdSet.has(linkedId) && feature.status !== 'done') {
+        if (linkedId && specIdSet.has(linkedId) && (feature.status !== 'done' || feature.task_outcome !== taskOutcome)) {
           feature.status = 'done';
           feature.task_outcome = taskOutcome;
           changed = true;
