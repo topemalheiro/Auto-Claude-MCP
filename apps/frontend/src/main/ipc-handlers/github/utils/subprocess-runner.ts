@@ -11,6 +11,7 @@ import { promisify } from 'util';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
+import { app as electronApp } from 'electron';
 
 // ESM-compatible __dirname
 const __filename = fileURLToPath(import.meta.url);
@@ -504,13 +505,8 @@ export function getRunnerPath(backendPath: string): string {
  * 3. Current working directory
  */
 export function getBackendPath(project: Project): string | null {
-  // Import app module for production path detection
-  let app: any;
-  try {
-    app = require('electron').app;
-  } catch {
-    // Electron not available in tests
-  }
+  // Use static ESM import of electron app (externalized by electron-vite)
+  const app = electronApp;
 
   // Check if this is a development repo (has apps/backend structure)
   const appsBackendPath = path.join(project.path, 'apps', 'backend');

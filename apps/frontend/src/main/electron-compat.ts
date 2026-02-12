@@ -5,6 +5,10 @@
  * (e.g., MCP server running as standalone Node.js process)
  */
 
+import { homedir } from 'os';
+import path from 'path';
+import { readFileSync } from 'fs';
+
 // Check if we're running in Electron context
 // Use process.type which is only set in Electron (undefined in Node.js)
 const isElectronContext = typeof process !== 'undefined' &&
@@ -16,8 +20,9 @@ let electronApp: any = null;
 // Only try to load electron if we're actually in Electron context
 if (isElectronContext) {
   try {
-    const electron = require('electron');
-    electronApp = electron.app;
+    // Dynamic import to avoid bundler issues when not in Electron
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    electronApp = (await import('electron')).app;
   } catch (error) {
     console.warn('[ElectronCompat] Failed to load electron module:', error);
     electronApp = null;
@@ -31,27 +36,26 @@ const fallbackApp = {
     // CRITICAL: userData must match Electron's actual path so MCP server
     // and Electron app share the same project store (same UUIDs).
     // Electron uses: {APPDATA|~/Library/Application Support|~/.config}/auto-claude-ui
-    const homedir = require('os').homedir();
-    const pathModule = require('path');
+    const home = homedir();
     switch (name) {
       case 'userData':
         if (process.platform === 'win32') {
-          return pathModule.join(process.env.APPDATA || pathModule.join(homedir, 'AppData', 'Roaming'), 'auto-claude-ui');
+          return path.join(process.env.APPDATA || path.join(home, 'AppData', 'Roaming'), 'auto-claude-ui');
         } else if (process.platform === 'darwin') {
-          return pathModule.join(homedir, 'Library', 'Application Support', 'auto-claude-ui');
+          return path.join(home, 'Library', 'Application Support', 'auto-claude-ui');
         } else {
-          return pathModule.join(homedir, '.config', 'auto-claude-ui');
+          return path.join(home, '.config', 'auto-claude-ui');
         }
       case 'home':
-        return homedir;
+        return home;
       default:
-        return homedir;
+        return home;
     }
   },
   isPackaged: false,
   getVersion(): string {
     try {
-      const packageJson = require('../../package.json');
+      const packageJson = JSON.parse(readFileSync(path.join(__dirname, '../../package.json'), 'utf-8'));
       return packageJson.version;
     } catch {
       return '0.0.0';

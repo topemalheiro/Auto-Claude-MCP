@@ -13,6 +13,7 @@
 import { readFileSync, writeFileSync, existsSync, unlinkSync, readdirSync, statSync } from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import { ipcMain, BrowserWindow } from 'electron';
 import { IPC_CHANNELS } from '../../shared/constants/ipc';
 import type { IPCResult } from '../../shared/types';
 import { JSON_ERROR_PREFIX } from '../../shared/constants/task';
@@ -92,23 +93,9 @@ function getWorktreeInfo(projectPath: string, specId: string): WorktreeInfo {
   }
 }
 
-// Conditionally import Electron-specific modules
-let ipcMain: any = null;
-let BrowserWindow: any = null;
-
-if (isElectron) {
-  // Load each module independently so one failure doesn't break everything
-  try {
-    const electron = require('electron');
-    ipcMain = electron.ipcMain;
-    BrowserWindow = electron.BrowserWindow;
-  } catch (error) {
-    console.warn('[RDR] Failed to load Electron modules:', error);
-  }
-
-  // Note: window-manager and mcp-server are loaded dynamically when needed
-  // to avoid module resolution issues after compilation
-}
+// Note: ipcMain and BrowserWindow are imported directly from 'electron' via ESM
+// (externalized by electron-vite). window-manager and mcp-server are loaded
+// dynamically when needed to avoid module resolution issues after compilation.
 
 // ============================================================================
 // Timer-Based Batching State
