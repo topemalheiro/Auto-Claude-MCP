@@ -1755,9 +1755,9 @@ server.tool(
         }
 
         if (enable) {
-          metadata = { ...metadata, forceRecovery: true };
+          metadata = { ...metadata, forceRecovery: true, stuckSince: new Date().toISOString() };
         } else {
-          const { forceRecovery: _, ...rest } = metadata as Record<string, unknown> & { forceRecovery?: boolean };
+          const { forceRecovery: _, stuckSince: _s, ...rest } = metadata as Record<string, unknown> & { forceRecovery?: boolean; stuckSince?: string };
           metadata = rest;
         }
         writeFileSync(metadataPath, JSON.stringify(metadata, null, 2));
