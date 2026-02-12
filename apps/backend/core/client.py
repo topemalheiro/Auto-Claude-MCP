@@ -861,14 +861,6 @@ def create_client(
             f"Follow ALL instructions in that file. Do not skip this step."
         )
 
-    if is_windows() and mcp_servers and isinstance(mcp_servers, dict):
-        mcp_config_file = spec_dir / "mcp_config_cache.json"
-        with open(mcp_config_file, "w", encoding="utf-8") as f:
-            json.dump({"mcpServers": mcp_servers}, f)
-        logger.info(f"[WinCmdLen] MCP config written to {mcp_config_file}")
-        # Pass as string (file path) instead of dict (inline JSON) to SDK
-        mcp_servers = str(mcp_config_file.resolve())
-
     # Build options dict, conditionally including output_format
     options_kwargs: dict[str, Any] = {
         "model": model,
