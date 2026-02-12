@@ -875,6 +875,13 @@ def create_client(
     else:
         logger.info(f"CLAUDE_CLI_PATH not set or invalid (value={env_cli_path!r}), SDK will auto-discover bundled CLI")
 
+    # Diagnostic: log critical Windows env vars needed for subprocess spawning
+    if is_windows():
+        critical_vars = ['SystemRoot', 'SystemDrive', 'WINDIR', 'COMSPEC', 'PATH']
+        for var in critical_vars:
+            val = os.environ.get(var)
+            logger.info(f"[WinEnv] {var}={'(SET) ' + val[:60] if val else '(MISSING)'}")
+
     # Add structured output format if specified
     # See: https://platform.claude.com/docs/en/agent-sdk/structured-outputs
     if output_format:

@@ -28,6 +28,7 @@ import { promisify } from 'util';
 import { app } from 'electron';
 import { findExecutable, findExecutableAsync, getAugmentedEnv, getAugmentedEnvAsync, shouldUseShell, existsAsync } from './env-utils';
 import { isWindows, isMacOS, isUnix, joinPaths, getExecutableExtension } from './platform';
+import { pythonEnvManager, getConfiguredPythonPath } from './python-env-manager';
 import type { ToolDetectionResult } from '../shared/types';
 import { findHomebrewPython as findHomebrewPythonUtil } from './utils/homebrew-python';
 
@@ -379,30 +380,35 @@ class CLIToolManager {
     }
 
     try {
-      const pythonPath = this.getToolPath('python');
-
-      // Guard: getToolPath returns bare "python" when not found
-      if (!path.isAbsolute(pythonPath)) {
-        console.warn(`[CLI Tools] Python path is not absolute, cannot derive bundled CLI: ${pythonPath}`);
-        return null;
+      // Strategy 1: Use PythonEnvManager's sitePackagesPath (most reliable)
+      // PythonEnvManager knows the actual venv path after initialization
+      const sitePackages = pythonEnvManager.getSitePackagesPath();
+      if (sitePackages) {
+        const bundledPath = path.join(
+          sitePackages, 'claude_agent_sdk', '_bundled', 'claude.exe'
+        );
+        if (existsSync(bundledPath)) {
+          console.warn(`[CLI Tools] Found SDK bundled CLI: ${bundledPath}`);
+          return bundledPath;
+        }
+        console.warn(`[CLI Tools] SDK bundled CLI not at: ${bundledPath}`);
       }
 
-      // Derive venv root from Python executable path
-      // Windows venv: <venv>/Scripts/python.exe
-      const scriptsDir = path.dirname(pythonPath);
-      const venvRoot = path.dirname(scriptsDir);
-
-      // Construct bundled CLI path: <venv>/Lib/site-packages/claude_agent_sdk/_bundled/claude.exe
-      const bundledPath = path.join(
-        venvRoot, 'Lib', 'site-packages', 'claude_agent_sdk', '_bundled', 'claude.exe'
-      );
-
-      if (existsSync(bundledPath)) {
-        console.warn(`[CLI Tools] Found SDK bundled CLI: ${bundledPath}`);
-        return bundledPath;
+      // Strategy 2: Derive from PythonEnvManager's pythonPath or configured path
+      const pythonPath = pythonEnvManager.getPythonPath() ?? getConfiguredPythonPath();
+      if (pythonPath && path.isAbsolute(pythonPath)) {
+        const scriptsDir = path.dirname(pythonPath);
+        const venvRoot = path.dirname(scriptsDir);
+        const bundledPath = path.join(
+          venvRoot, 'Lib', 'site-packages', 'claude_agent_sdk', '_bundled', 'claude.exe'
+        );
+        if (existsSync(bundledPath)) {
+          console.warn(`[CLI Tools] Found SDK bundled CLI (via python path): ${bundledPath}`);
+          return bundledPath;
+        }
       }
 
-      console.warn(`[CLI Tools] SDK bundled CLI not found at: ${bundledPath}`);
+      console.warn(`[CLI Tools] SDK bundled CLI not found (sitePackages=${sitePackages}, python=${pythonPath})`);
       return null;
     } catch (error) {
       console.warn(`[CLI Tools] Failed to find bundled CLI:`, error instanceof Error ? error.message : String(error));
