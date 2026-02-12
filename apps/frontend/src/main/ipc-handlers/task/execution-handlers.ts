@@ -22,6 +22,7 @@ import { findTaskWorktree } from '../../worktree-paths';
 import { projectStore } from '../../project-store';
 import { getIsolatedGitEnv, detectWorktreeBranch } from '../../utils/git-isolation';
 import { normalizePathForGit } from '../../platform';
+import { cleanupWorktree } from '../../utils/worktree-cleanup';
 
 /**
  * Safe file read that handles missing files without TOCTOU issues.
@@ -533,57 +534,27 @@ export function registerTaskExecutionHandlers(
 
         if (hasWorktree) {
           if (options?.forceCleanup) {
-            // User confirmed cleanup - delete worktree and branch
+            // User confirmed cleanup - delete worktree and branch using robust utility
             console.warn(`[TASK_UPDATE_STATUS] Cleaning up worktree for task ${taskId} (user confirmed)`);
-            try {
-              // Get the branch name before removing the worktree
-              // Use shared utility to validate detected branch matches expected pattern
-              // This prevents deleting wrong branch when worktree is corrupted/orphaned
-              const { branch, usingFallback: usingFallbackBranch } = detectWorktreeBranch(
-                worktreePath,
-                task.specId,
-                { timeout: 30000, logPrefix: '[TASK_UPDATE_STATUS]' }
-              );
+            const cleanupResult = await cleanupWorktree({
+              worktreePath,
+              projectPath: project.path,
+              specId: task.specId,
+              logPrefix: '[TASK_UPDATE_STATUS]',
+              deleteBranch: true,
+              timeout: 30000
+            });
 
-              // Remove the worktree (normalize path for git on Windows)
-              const gitPath = normalizePathForGit(worktreePath);
-              execFileSync(getToolPath('git'), ['worktree', 'remove', '--force', gitPath], {
-                cwd: project.path,
-                encoding: 'utf-8',
-                timeout: 30000,
-                env: getIsolatedGitEnv()
-              });
-              console.warn(`[TASK_UPDATE_STATUS] Worktree removed: ${worktreePath}`);
-
-              // Delete the branch (ignore errors if branch doesn't exist)
-              try {
-                execFileSync(getToolPath('git'), ['branch', '-D', branch], {
-                  cwd: project.path,
-                  encoding: 'utf-8',
-                  timeout: 30000,
-                  env: getIsolatedGitEnv()
-                });
-                console.warn(`[TASK_UPDATE_STATUS] Branch deleted: ${branch}`);
-              } catch (branchDeleteError) {
-                // Branch may not exist or may be the current branch
-                if (usingFallbackBranch) {
-                  // More concerning - fallback pattern didn't match actual branch
-                  console.warn(`[TASK_UPDATE_STATUS] Could not delete branch ${branch} using fallback pattern. Actual branch may still exist and need manual cleanup.`, branchDeleteError);
-                } else {
-                  console.warn(
-                    `[TASK_UPDATE_STATUS] Could not delete branch ${branch} (may not exist or be checked out elsewhere)`,
-                    branchDeleteError
-                  );
-                }
-              }
-
-              console.warn(`[TASK_UPDATE_STATUS] Worktree cleanup completed successfully`);
-            } catch (cleanupError) {
-              console.error(`[TASK_UPDATE_STATUS] Failed to cleanup worktree:`, cleanupError);
+            if (!cleanupResult.success) {
+              console.error(`[TASK_UPDATE_STATUS] Failed to cleanup worktree:`, cleanupResult.warnings);
               return {
                 success: false,
-                error: `Failed to cleanup worktree: ${cleanupError instanceof Error ? cleanupError.message : String(cleanupError)}`
+                error: `Failed to cleanup worktree: ${cleanupResult.warnings.join(', ')}`
               };
+            }
+
+            if (cleanupResult.warnings.length > 0) {
+              console.warn(`[TASK_UPDATE_STATUS] Worktree cleanup warnings:`, cleanupResult.warnings);
             }
           } else {
             // Worktree exists but no forceCleanup - return special response for UI to show confirmation

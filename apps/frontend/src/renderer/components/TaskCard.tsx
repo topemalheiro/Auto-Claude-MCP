@@ -774,7 +774,7 @@ export const TaskCard = memo(function TaskCard({
                           </>
                         )}
                       </DropdownMenuItem>
-                      {task.metadata?.rdrAttempts && task.metadata.rdrAttempts > 0 && (
+                      {task.metadata?.rdrAttempts != null && task.metadata.rdrAttempts > 0 && (
                         <DropdownMenuItem disabled>
                           <AlertTriangle className="mr-2 h-4 w-4" />
                           {task.metadata.rdrAttempts} recovery attempt{task.metadata.rdrAttempts > 1 ? 's' : ''}
