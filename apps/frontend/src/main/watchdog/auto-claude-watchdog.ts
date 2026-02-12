@@ -118,17 +118,13 @@ export class AutoClaudeWatchdog extends EventEmitter {
     console.log('[Watchdog] Resolved app path:', resolvedAppPath);
 
     // Launch Auto-Claude main process
-    // On Windows, we need to quote paths with spaces when using shell: true
+    // On Windows, electron in node_modules/.bin is a .cmd file — needs shell: true
+    // IMPORTANT: Do NOT manually quote paths when shell: true — Node.js handles
+    // argument escaping internally. Manual quotes + cmd.exe quotes = double-quoting
+    // which causes '"path"' is not recognized errors.
     const isWindows = process.platform === 'win32';
-    const quotedElectronPath = isWindows ? `"${resolvedElectronPath}"` : resolvedElectronPath;
-    const quotedAppPath = isWindows ? `"${resolvedAppPath}"` : resolvedAppPath;
 
-    console.log('[Watchdog] Quoted electron path:', quotedElectronPath);
-    console.log('[Watchdog] Quoted app path:', quotedAppPath);
-
-    // Launch Auto-Claude main process
-    // Use shell: true on Windows to handle .cmd files
-    this.process = spawn(quotedElectronPath, [quotedAppPath, ...args], {
+    this.process = spawn(resolvedElectronPath, [resolvedAppPath, ...args], {
       stdio: ['inherit', 'pipe', 'pipe'],
       detached: false,
       shell: isWindows,

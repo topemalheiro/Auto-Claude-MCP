@@ -129,10 +129,12 @@ process.on('uncaughtException', (error) => {
       console.log('[Launcher] Starting Electron directly without monitoring...');
 
       // Start Electron directly using spawn
+      // On Windows, electron in node_modules/.bin is a .cmd file — needs shell: true
       const { spawn } = await import('child_process');
       const electronProcess = spawn(electronPath, [appPath], {
         stdio: 'inherit',
         detached: false,
+        shell: process.platform === 'win32',
         env: { ...process.env }
       });
 
