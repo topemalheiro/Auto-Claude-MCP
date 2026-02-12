@@ -43,6 +43,9 @@ export async function updateRoadmapFeatureOutcome(
       for (const feature of roadmap.features) {
         const linkedId = feature.linked_spec_id || feature.linkedSpecId;
         if (linkedId && specIdSet.has(linkedId) && (feature.status !== 'done' || feature.task_outcome !== taskOutcome)) {
+          if (feature.status !== 'done') {
+            feature.previous_status = feature.status;
+          }
           feature.status = 'done';
           feature.task_outcome = taskOutcome;
           changed = true;
@@ -87,8 +90,9 @@ export async function revertRoadmapFeatureOutcome(
       for (const feature of roadmap.features) {
         const linkedId = feature.linked_spec_id || feature.linkedSpecId;
         if (linkedId && specIdSet.has(linkedId) && feature.task_outcome === 'archived') {
-          feature.status = 'in_progress';
+          feature.status = feature.previous_status || 'in_progress';
           delete feature.task_outcome;
+          delete feature.previous_status;
           changed = true;
         }
       }

@@ -418,18 +418,18 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
       // Invalidate cache since a task was deleted
       projectStore.invalidateTasksCache(project.id);
 
-      // Update any linked roadmap feature
-      try {
-        await updateLinkedRoadmapFeature(project.path, task.specId, 'deleted');
-      } catch (err) {
-        console.warn('[TASK_DELETE] Failed to update linked roadmap feature:', err);
-      }
-
       if (hasErrors) {
         return {
           success: false,
           error: `Failed to delete some task files: ${errors.join('; ')}`
         };
+      }
+
+      // Update any linked roadmap feature (only after successful deletion)
+      try {
+        await updateLinkedRoadmapFeature(project.path, task.specId, 'deleted');
+      } catch (err) {
+        console.warn('[TASK_DELETE] Failed to update linked roadmap feature:', err);
       }
 
       return { success: true };
