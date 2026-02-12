@@ -21,13 +21,13 @@ Use this checklist to verify all features work after resolving the 33 merge conf
 - **Files:** `rdr-handlers.ts`, `KanbanBoard.tsx`, `ipc-handlers/index.ts`
 
 ### Auto-Shutdown
-- [ ] Enable auto-shutdown in settings
-- [ ] Start tasks -> auto-shutdown detects when all reach human_review/done
-- [ ] Shutdown monitor spawns correctly (no terminal popup on Windows)
+- [X] Enable auto-shutdown in settings
+- [X] Start tasks -> auto-shutdown detects when all reach human_review/done
+- [X] Shutdown monitor spawns correctly (no terminal popup on Windows)
 - **Files:** `auto-shutdown-handlers.ts`, `index.ts`, `shutdown-monitor.ts`
 
 ### MCP Server
-- [ ] Claude Code connects to Auto-Claude MCP server
+- [X ] Claude Code connects to Auto-Claude MCP server
 - [ ] `list_tasks` returns correct task list
 - [ ] `create_task` creates a task (appears on Kanban within 2-3s)
 - [ ] `process_rdr_batch` restarts stuck tasks
@@ -35,7 +35,7 @@ Use this checklist to verify all features work after resolving the 33 merge conf
 - **Files:** `mcp-server/index.ts`, `project-store.ts`
 
 ### Task Crash Recovery
-- [ ] Kill a task agent process manually
+- [X] Kill a task agent process manually
 - [ ] Crash is detected (exit code != 0)
 - [ ] Auto-restart triggers if enabled
 - [ ] Crash info persisted to `implementation_plan.json`
@@ -53,8 +53,8 @@ Use this checklist to verify all features work after resolving the 33 merge conf
 - **Files:** `file-watcher.ts`, `project-store.ts`
 
 ### Exit Reason Persistence
-- [ ] Run a task to completion -> `exitReason: "success"` in plan
-- [ ] Task crashes -> `exitReason: "error"` saved
+- [X] Run a task to completion -> `exitReason: "success"` in plan
+- [X] Task crashes -> `exitReason: "error"` saved
 - **Files:** `coder.py`, `planner.py`
 
 ---

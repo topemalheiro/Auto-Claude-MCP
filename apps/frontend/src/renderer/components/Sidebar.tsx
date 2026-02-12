@@ -110,6 +110,8 @@ export function Sidebar({
   const { t } = useTranslation(['navigation', 'dialogs', 'common']);
   const projects = useProjectStore((state) => state.projects);
   const selectedProjectId = useProjectStore((state) => state.selectedProjectId);
+  const activeProjectId = useProjectStore((state) => state.activeProjectId);
+  const currentProjectId = activeProjectId || selectedProjectId;
   const settings = useSettingsStore((state) => state.settings);
 
   const [showAddProjectModal, setShowAddProjectModal] = useState(false);
@@ -119,7 +121,7 @@ export function Sidebar({
   const [pendingProject, setPendingProject] = useState<Project | null>(null);
   const [isInitializing, setIsInitializing] = useState(false);
 
-  const selectedProject = projects.find((p) => p.id === selectedProjectId);
+  const selectedProject = projects.find((p) => p.id === currentProjectId);
 
   // Sidebar collapsed state from settings
   const isCollapsed = settings.sidebarCollapsed ?? false;
@@ -192,7 +194,7 @@ export function Sidebar({
       }
 
       // Only handle shortcuts when a project is selected
-      if (!selectedProjectId) return;
+      if (!currentProjectId) return;
 
       // Check for modifier keys - we want plain key presses only
       if (e.metaKey || e.ctrlKey || e.altKey) return;
@@ -210,7 +212,7 @@ export function Sidebar({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedProjectId, onViewChange, visibleNavItems]);
+  }, [currentProjectId, onViewChange, visibleNavItems]);
 
   // Check git status when project changes
   useEffect(() => {
@@ -298,7 +300,7 @@ export function Sidebar({
       <button
         key={item.id}
         onClick={() => handleNavClick(item.id)}
-        disabled={!selectedProjectId}
+        disabled={!currentProjectId}
         aria-keyshortcuts={item.shortcut}
         className={cn(
           'flex w-full items-center rounded-lg text-sm transition-all duration-200',
@@ -463,7 +465,7 @@ export function Sidebar({
                 className="w-full"
                 size={isCollapsed ? "icon" : "default"}
                 onClick={onNewTaskClick}
-                disabled={!selectedProjectId || !selectedProject?.autoBuildPath}
+                disabled={!currentProjectId || !selectedProject?.autoBuildPath}
               >
                 <Plus className={isCollapsed ? "h-4 w-4" : "mr-2 h-4 w-4"} />
                 {!isCollapsed && t('actions.newTask')}
