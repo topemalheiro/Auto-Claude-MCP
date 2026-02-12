@@ -60,3 +60,47 @@ export async function updateRoadmapFeatureOutcome(
     }
   });
 }
+
+/**
+ * Revert roadmap features when a task is unarchived.
+ *
+ * Finds features matching the given specIds that have taskOutcome='archived',
+ * resets their status to 'in_progress' and removes taskOutcome.
+ */
+export async function revertRoadmapFeatureOutcome(
+  roadmapFile: string,
+  specIds: string[],
+  logPrefix = '[Roadmap]'
+): Promise<void> {
+  if (!existsSync(roadmapFile)) return;
+
+  const specIdSet = new Set(specIds);
+
+  await withFileLock(roadmapFile, async () => {
+    try {
+      const content = await readFileWithRetry(roadmapFile, { encoding: 'utf-8' });
+      const roadmap = JSON.parse(content as string);
+
+      if (!roadmap.features || !Array.isArray(roadmap.features)) return;
+
+      let changed = false;
+      for (const feature of roadmap.features) {
+        const linkedId = feature.linked_spec_id || feature.linkedSpecId;
+        if (linkedId && specIdSet.has(linkedId) && feature.task_outcome === 'archived') {
+          feature.status = 'in_progress';
+          delete feature.task_outcome;
+          changed = true;
+        }
+      }
+
+      if (changed) {
+        roadmap.metadata = roadmap.metadata || {};
+        roadmap.metadata.updated_at = new Date().toISOString();
+        await writeFileWithRetry(roadmapFile, JSON.stringify(roadmap, null, 2));
+        console.log(`${logPrefix} Reverted roadmap features for ${specIds.length} unarchived task(s)`);
+      }
+    } catch (err) {
+      console.warn(`${logPrefix} Failed to revert roadmap for tasks [${specIds.join(', ')}]:`, err);
+    }
+  });
+}
