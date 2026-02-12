@@ -90,5 +90,18 @@ export function registerDebugHandlers(): void {
     }));
   });
 
+  // Trigger native crash for watchdog testing
+  // WARNING: This will immediately crash the app!
+  ipcMain.handle(IPC_CHANNELS.DEBUG_TRIGGER_CRASH, async (): Promise<void> => {
+    logger.warn('[DEBUG] ⚠️ Triggering native crash for watchdog testing...');
+    console.log('[DEBUG] ⚠️ CRASH TEST: Triggering process.crash() in 1 second...');
+
+    // Give time for logs to flush
+    setTimeout(() => {
+      console.log('[DEBUG] 💥 CRASHING NOW!');
+      process.crash();
+    }, 1000);
+  });
+
   logger.info('Debug IPC handlers registered');
 }

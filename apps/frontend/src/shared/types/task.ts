@@ -241,6 +241,14 @@ export interface TaskMetadata {
   useWorktree?: boolean;  // If false, use direct mode (no worktree isolation) - default is true for safety
   useLocalBranch?: boolean;  // If true, use the local branch directly instead of preferring origin/branch (preserves gitignored files)
 
+  // RDR (Recover Debug Resend) configuration
+  rdrDisabled?: boolean;  // If true, RDR will skip auto-recovery for this task
+  rdrAttempts?: number;  // How many times RDR has attempted recovery
+  rdrLastAttempt?: string;  // ISO timestamp of last RDR recovery attempt
+
+  // Testing: Force recovery mode (yellow stuck outline) for testing RDR detection
+  forceRecovery?: boolean;
+
   // Archive status
   archivedAt?: string;  // ISO date when task was archived
   archivedInVersion?: string;  // Version in which task was archived (from changelog)
@@ -255,6 +263,8 @@ export interface Task {
   status: TaskStatus;
   reviewReason?: ReviewReason;  // Why task needs human review (only set when status is 'human_review')
   subtasks: Subtask[];
+  phases?: Phase[];  // Full implementation plan phases (for RDR detection)
+  planStatus?: string;  // Plan approval status (for RDR detection)
   qaReport?: QAReport;
   logs: string[];
   metadata?: TaskMetadata;  // Rich metadata from ideation or manual entry
@@ -264,8 +274,30 @@ export interface Task {
   stagedAt?: string;  // ISO timestamp when changes were staged
   location?: 'main' | 'worktree';  // Where task was loaded from (main project or worktree)
   specsPath?: string;  // Full path to specs directory for this task
+  exitReason?: TaskExitReason;  // Why task went to human_review (success, rate_limit_crash, error, auth_failure)
+  rateLimitInfo?: TaskRateLimitInfo;  // Rate limit details if exitReason is 'rate_limit_crash'
   createdAt: Date;
   updatedAt: Date;
+}
+
+// Exit reason for tasks that go to human_review
+// Helps distinguish between successful completion vs crash
+export type TaskExitReason = 'success' | 'rate_limit_crash' | 'auth_failure' | 'error';
+
+// RDR Intervention type - distinguishes what kind of help a task needs
+// Used by RDR system to categorize tasks and display appropriate labels
+// - 'recovery': Task crashed or errored - requires recovery (exitReason: error, reviewReason: errors/qa_rejected)
+// - 'resume': Task paused mid-work - can be resumed (rate_limit_crash, incomplete_work)
+// - 'stuck': Task bounced to human_review with incomplete subtasks (no clear exit reason)
+// - 'incomplete': Task has pending subtasks in active boards (in_progress, ai_review)
+export type TaskInterventionType = 'recovery' | 'resume' | 'stuck' | 'incomplete';
+
+// Rate limit info stored in plan when task crashes due to rate limit
+export interface TaskRateLimitInfo {
+  resetAt?: string;  // ISO date string when rate limit resets
+  limitType?: 'session' | 'weekly';  // Type of rate limit hit
+  profileId?: string;  // Profile that hit the limit
+  detectedAt?: string;  // When the rate limit was detected
 }
 
 // Implementation Plan (from auto-claude)
@@ -292,6 +324,9 @@ export interface ImplementationPlan {
   };
   recoveryNote?: string;
   description?: string;
+  // Rate limit crash detection (Bug #5)
+  exitReason?: TaskExitReason;  // Why task went to human_review
+  rateLimitInfo?: TaskRateLimitInfo;  // Rate limit details if exitReason is 'rate_limit_crash'
 }
 
 export interface Phase {
@@ -539,4 +574,12 @@ export interface TaskStartOptions {
   workers?: number;
   model?: string;
   baseBranch?: string; // Override base branch for worktree creation
+}
+
+export interface AutoShutdownStatus {
+  enabled: boolean;
+  monitoring: boolean;
+  tasksRemaining: number;
+  shutdownPending: boolean;
+  countdown?: number;
 }

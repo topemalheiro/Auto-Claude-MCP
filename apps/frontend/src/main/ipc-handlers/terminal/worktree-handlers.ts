@@ -25,6 +25,7 @@ import {
 import { getIsolatedGitEnv } from '../../utils/git-isolation';
 import { getToolPath } from '../../cli-tool-manager';
 import { cleanupWorktree } from '../../utils/worktree-cleanup';
+import { normalizePathForGit } from '../../platform';
 
 // Promisify execFile for async operations
 const execFileAsync = promisify(execFile);

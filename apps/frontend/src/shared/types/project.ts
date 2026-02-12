@@ -28,6 +28,24 @@ export interface ProjectSettings {
   useClaudeMd?: boolean;
   /** Maximum parallel tasks allowed (default: 3) */
   maxParallelTasks?: number;
+  /**
+   * Auto-resume tasks after rate limit reset (when task crashes due to rate limit)
+   * When enabled, tasks auto-resume when limit resets. When disabled, tasks go to Human Review.
+   * This is a per-project setting.
+   */
+  autoResumeAfterRateLimit?: boolean;
+  /**
+   * RDR (Recover Debug Resend) - Auto-recover stuck/errored tasks
+   * When enabled, automatically sends detailed error info to Claude Code for fixing.
+   * This is a per-project setting.
+   */
+  rdrEnabled?: boolean;
+  /**
+   * Enable/disable LLM Manager (Claude Code) control of builds and restarts
+   * When disabled, Auto-Build is initialized but MCP tools won't trigger builds
+   * (default: true when Auto-Build is initialized)
+   */
+  llmManagerEnabled?: boolean;
 }
 
 export interface NotificationSettings {
@@ -319,6 +337,12 @@ export interface ProjectEnvConfig {
   gitlabToken?: string;
   gitlabProject?: string; // Format: group/project or numeric ID
   gitlabAutoSync?: boolean; // Auto-sync issues on project load
+
+  // Hugging Face Integration
+  huggingfaceEnabled: boolean;
+  huggingfaceToken?: string;
+  huggingfaceRepoId?: string; // Format: username/model-name
+  huggingfaceAutoSync?: boolean; // Auto-sync on project load
 
   // Git/Worktree Settings
   defaultBranch?: string; // Base branch for worktree creation (e.g., 'main', 'develop')

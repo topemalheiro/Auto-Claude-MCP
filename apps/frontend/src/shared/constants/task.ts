@@ -53,14 +53,14 @@ export const TASK_STATUS_COLORS: Record<TaskStatusColumn | 'pr_created' | 'error
 // Used in project-store.ts to resolve duplicate tasks (main vs worktree)
 // IMPORTANT: Must follow workflow order: backlog < queue < in_progress < review < done
 export const TASK_STATUS_PRIORITY: Record<TaskStatus, number> = {
-  'done': 100,           // Highest priority - task is complete
+  'done': 100,
   'pr_created': 90,
   'human_review': 80,
   'ai_review': 70,
   'in_progress': 50,
   'queue': 30,
   'backlog': 20,
-  'error': 10           // Lowest priority
+  'error': 10
 } as const;
 
 // ============================================

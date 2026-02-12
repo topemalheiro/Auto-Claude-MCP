@@ -217,6 +217,341 @@ All state lives in `src/renderer/stores/`. Key stores:
 - `github/issues-store.ts`, `github/pr-review-store.ts` — GitHub integration
 - `insights-store.ts`, `roadmap-store.ts`, `kanban-settings-store.ts`
 
+**CV Project Path:** `C:\Users\USER\Desktop\CV Project`
+
+This project is used for testing the RDR (Recover, Debug, Resend) system with MCP integration. When RDR detects tasks needing intervention in this project, it automatically prompts Claude Code via MCP to fix them.
+
+## RDR (Recover, Debug, Resend) System
+
+**CRITICAL: Claude Code must automatically recover from JSON errors and resume stuck tasks without manual intervention.**
+
+### What RDR Does
+
+RDR is Auto-Claude's automatic recovery system that:
+1. **Monitors tasks** for JSON errors, incomplete work, and failures
+2. **Auto-fixes JSON** errors in `implementation_plan.json` files
+3. **Auto-resumes** stuck tasks by updating their status
+4. **Sends recovery prompts** to Claude Code when needed via MCP
+5. **Invokes Auto-Claude MCP tools** automatically when Claude Code receives RDR notifications
+
+### RDR Recovery Priority System (6 Levels)
+
+**P1: Auto-CONTINUE (95%)** — Set `start_requested` to restart tasks. They usually self-recover.
+- Use `process_rdr_batch` → file watcher auto-starts within 2-3 seconds
+
+**P2: Auto-RECOVER** — P1 failed, task in recovery mode (yellow outline). Click Recover button.
+- Use `recover_stuck_task(taskId, autoRestart: true)`
+
+**P3: Request Changes (4%)** — Tasks with persistent errors need troubleshooting context.
+- Use `submit_task_fix_request(taskId, feedback)` with error analysis
+
+**P4: Auto-fix JSON** — Fix corrupted/empty JSON files (can run anytime):
+  ```json
+  {
+    "feature": "Auto-recovery task",
+    "description": "Task recovered by RDR system",
+    "created_at": "2026-01-31T00:00:00Z",
+    "updated_at": "2026-01-31T00:00:00Z",
+    "status": "start_requested",
+    "phases": []
+  }
+  ```
+
+**P5: Manual Debug (RARE)** — Pattern detection, root cause investigation, manual edits
+
+**P6: Delete & Recreate / Build & Restart (LAST RESORT)** — Corrupted worktrees or Auto-Claude bugs
+
+### How to Recover Tasks
+
+**For JSON Errors (empty/malformed `implementation_plan.json`):**
+
+```bash
+# Main project
+cd "/path/to/project/.auto-claude/specs"
+for task in 071-marko 079-alpine-htmx-knockout 080-svelte-aurelia; do
+  cat > "$task/implementation_plan.json" << 'EOF'
+{
+  "feature": "Auto-recovery task",
+  "description": "Task recovered by RDR system",
+  "created_at": "2026-01-31T00:00:00Z",
+  "updated_at": "2026-01-31T00:00:00Z",
+  "status": "start_requested",
+  "phases": []
+}
+EOF
+done
+
+# Worktrees (IMPORTANT: Auto-Claude prefers worktree versions!)
+cd "/path/to/project/.auto-claude/worktrees/tasks"
+for task in 071-marko 079-alpine-htmx-knockout 080-svelte-aurelia; do
+  if [ -d "$task" ]; then
+    cat > "$task/.auto-claude/specs/$task/implementation_plan.json" << 'EOF'
+{
+  "feature": "Auto-recovery task",
+  "description": "Task recovered by RDR system",
+  "created_at": "2026-01-31T00:00:00Z",
+  "updated_at": "2026-01-31T00:00:00Z",
+  "status": "start_requested",
+  "phases": []
+}
+EOF
+  fi
+done
+```
+
+**For Stuck Tasks (plan_review, human_review status):**
+
+```bash
+# Resume incomplete tasks by changing status to start_requested
+cd "/path/to/project/.auto-claude/specs"
+for task in 073-qwik 077-shadow-component-libs 081-ats-major; do
+  sed -i 's/"status": "plan_review"/"status": "start_requested"/' "$task/implementation_plan.json"
+done
+
+# Do the same for worktrees
+cd "/path/to/project/.auto-claude/worktrees/tasks"
+for task in 073-qwik 077-shadow-component-libs 081-ats-major; do
+  if [ -d "$task" ]; then
+    sed -i 's/"status": "plan_review"/"status": "start_requested"/' "$task/.auto-claude/specs/$task/implementation_plan.json"
+  fi
+done
+```
+
+### RDR Troubleshooting
+
+**RDR not sending messages:**
+- Check startup logs for module resolution errors:
+  ```
+  [RDR] Failed to load window-manager (Windows-specific)
+  [RDR] Failed to load MCP monitor
+  ```
+- If you see these errors, the RDR module imports are broken (fixed in commit 524f5b5c)
+
+**Tasks still showing errors after recovery:**
+- Verify BOTH main and worktree JSON files are fixed
+- Auto-Claude prefers worktree versions over main project versions
+- Check file watcher is running: `[FileWatcher] Specs watcher READY`
+
+**RDR sending messages but not processing:**
+- Check if Claude Code is busy: `[RDR] BUSY: Claude Code is processing...`
+- RDR waits for idle state before sending messages
+- Verify MCP monitor is loaded: `[RDR] BUSY: Claude Code is busy (MCP connection active)`
+
+### When to Use RDR
+
+**ALWAYS use RDR for:**
+- JSON parse errors in `implementation_plan.json`
+- Tasks stuck in `plan_review` or `human_review`
+- Tasks showing `errors` status with no progress
+- Tasks with 0 phases or incomplete subtasks
+
+**NEVER manually edit tasks** unless RDR auto-fix fails multiple times.
+
+### RDR → MCP Integration (Automatic Recovery)
+
+**CRITICAL: When Claude Code receives RDR notifications, it should automatically invoke the `/auto-claude-mcp` skill to recover tasks.**
+
+**RDR Notification Format:**
+```
+[Auto-Claude RDR] Tasks needing intervention:
+
+## 071-marko: Task Name
+Status: plan_review | Exit: none
+Subtasks: 18/20 complete
+Pending: subtask details...
+
+Use MCP tools: get_task_error_details, submit_task_fix_request, process_rdr_batch
+```
+
+**Automatic Response Flow:**
+1. **Claude Code receives RDR notification** via MCP message
+2. **Invoke `/auto-claude-mcp` skill** automatically
+3. **Determine project path** from context or ask user
+4. **Apply P1: Auto-CONTINUE** (restart incomplete tasks):
+   ```bash
+   cd "/path/to/project/.auto-claude/specs"
+   for task in 071-marko 073-qwik; do
+     sed -i 's/"status": "plan_review"/"status": "start_requested"/' "$task/implementation_plan.json"
+   done
+   ```
+5. **Apply P4: Auto-fix JSON** (fix corrupted JSON errors):
+   ```bash
+   for task in 082-ats-other 083-rte-major; do
+     cat > "$task/implementation_plan.json" << 'EOF'
+   {
+     "feature": "Auto-recovery task",
+     "description": "Task recovered by RDR system",
+     "status": "start_requested",
+     "phases": []
+   }
+   EOF
+   done
+   ```
+6. **Confirm recovery** to user
+
+**Project Path Resolution:**
+- CV Project: `C:\Users\USER\Desktop\CV Project`
+- Auto-Claude-MCP: `C:\Users\USER\source\repos\Auto-Claude-MCP`
+- Ask user if path is unclear
+
+**MCP Tools Usage:**
+- Use file-based recovery (sed/cat) for direct task fixing
+- Use MCP tools (`get_rdr_batches`, `submit_task_fix_request`) when project UUID is available
+- Prefer P1 (auto-continue) over P2/P3 when possible
+
+## Dependabot Pull Requests
+
+Auto-Claude uses Dependabot to keep dependencies up-to-date. **NEVER blindly merge Dependabot PRs** - always review them first.
+
+### Dependabot Configuration
+
+Located at [.github/dependabot.yml](.github/dependabot.yml):
+- Python dependencies: Weekly scans of `/apps/backend`
+- npm dependencies: Weekly scans of `/apps/frontend`
+- GitHub Actions: Weekly scans of workflows
+- Max 5 open PRs per ecosystem
+
+### Review Checklist for Dependabot PRs
+
+Before merging ANY Dependabot PR:
+
+#### 1. Verify Package Legitimacy
+```bash
+# Check package exists and matches expected maintainer
+npm view <package>@<version>
+
+# For dotenv example:
+npm view dotenv@17.2.3
+# Should show: "published by motdotla <mot@mot.la>" (official maintainer)
+```
+
+#### 2. Check for Breaking Changes
+
+**Semantic Versioning:**
+- **Patch** (16.6.1 → 16.6.2): Bug fixes only - usually safe
+- **Minor** (16.6.1 → 16.7.0): New features, backward compatible - review changes
+- **Major** (16.6.1 → 17.0.0): Breaking changes - MUST test before merging
+
+**Check changelog:**
+```bash
+npm view <package>@<version> homepage
+# Read CHANGELOG.md or release notes
+```
+
+#### 3. Run Tests Before Merging
+
+```bash
+# Frontend changes
+cd apps/frontend && npm test
+
+# Backend changes
+cd apps/backend && .venv/bin/pytest tests/ -v
+
+# Build verification
+npm run build
+```
+
+#### 4. Security Scan
+
+```bash
+# Check for known vulnerabilities
+npm audit
+
+# Or use GitHub's Security tab to see if update fixes vulnerabilities
+```
+
+### When to Accept vs Reject
+
+| Update Type | Action |
+|-------------|--------|
+| **Patch updates** (16.6.1 → 16.6.2) | ✅ Usually safe - review and merge |
+| **Minor updates** (16.6.0 → 16.7.0) | ⚠️ Review changes, test, then merge |
+| **Major updates** (16.x → 17.x) | 🛑 DO NOT auto-merge - requires thorough testing |
+| **Pre-release** (17.0.0-rc1) | 🛑 Reject unless actively testing |
+
+### Red Flags (Potential Supply Chain Attacks)
+
+🚨 **DO NOT MERGE** if you see:
+
+1. **Unknown maintainer**:
+   ```bash
+   # Check current maintainer
+   npm view <package>@<old-version>
+   # Compare to new version
+   npm view <package>@<new-version>
+   # Maintainer should be the same
+   ```
+
+2. **Suspicious package name** (typosquatting):
+   - `dottenv` instead of `dotenv`
+   - `reacct` instead of `react`
+   - Similar-looking names
+
+3. **Unusual version jump**:
+   - 16.6.1 → 99.0.0 (suspicious large jump)
+   - 16.6.1 → 16.5.0 (downgrade - very suspicious)
+
+4. **Package not on official registry**:
+   ```bash
+   npm view <package>@<version>
+   # Should return package info, not "404 Not Found"
+   ```
+
+5. **Recently published with no history**:
+   ```bash
+   npm view <package> time
+   # Check publication dates - new packages with no history are suspicious
+   ```
+
+### Example: Reviewing the dotenv 17.2.3 Update
+
+**Dependabot PR**: Bump dotenv from 16.6.1 to 17.2.3
+
+**Review process:**
+```bash
+# 1. Verify package legitimacy
+$ npm view dotenv@17.2.3
+dotenv@17.2.3 | BSD-2-Clause
+published 4 months ago by motdotla <mot@mot.la>  # ✅ Official maintainer
+
+# 2. Check for breaking changes
+$ npm view dotenv@17.2.3 homepage
+# Read https://github.com/motdotla/dotenv/blob/master/CHANGELOG.md
+# Review breaking changes in 17.0.0
+
+# 3. Decision
+Major version bump (16.x → 17.x) = Breaking changes possible
+Action: Close PR, schedule manual upgrade and testing later
+```
+
+### Configuring Dependabot to Block Major Updates
+
+Update [.github/dependabot.yml](.github/dependabot.yml) to auto-reject major version bumps:
+
+```yaml
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/apps/frontend"
+    schedule:
+      interval: "weekly"
+    # Block major version updates
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+```
+
+This allows Dependabot to update minor/patch versions while blocking major versions that require manual review.
+
+### Security Model
+
+Three-layer defense:
+1. **OS Sandbox** - Bash command isolation
+2. **Filesystem Permissions** - Operations restricted to project directory
+3. **Command Allowlist** - Dynamic allowlist from project analysis (security.py + project_analyzer.py)
+
+Security profile cached in `.auto-claude-security.json`.
+
 Main process also has stores: `src/main/project-store.ts`, `src/main/terminal-session-store.ts`
 
 ### Styling
@@ -325,4 +660,187 @@ npm start          # Production build + run
 npm run dev        # Development mode with HMR
 
 # Project data: .auto-claude/specs/ (gitignored)
+```
+
+**With the Electron frontend**:
+```bash
+npm start        # Build and run desktop app
+npm run dev      # Run in development mode (includes --remote-debugging-port=9222 for E2E testing)
+```
+
+**For E2E Testing with QA Agents:**
+1. Start the Electron app: `npm run dev`
+2. Enable Electron MCP in `apps/backend/.env`: `ELECTRON_MCP_ENABLED=true`
+3. Run QA: `python run.py --spec 001 --qa`
+4. QA agents will automatically interact with the running app for testing
+
+**Project data storage:**
+- `.auto-claude/specs/` - Per-project data (specs, plans, QA reports, memory) - gitignored
+
+## Auto-Claude MCP Integration (For Claude Code)
+
+**IMPORTANT: When the user asks to create tasks for Auto-Claude, ALWAYS use the MCP server tools automatically.**
+
+**AUTO-REFRESH IS AUTOMATIC**: When tasks are created via MCP or direct file creation, the Electron UI auto-refreshes within 2-3 seconds. No manual refresh needed.
+
+### How to Create Tasks (For Claude Code)
+
+**ALWAYS create tasks using this exact method:**
+
+```bash
+# 1. Create spec directory
+mkdir -p ".auto-claude/specs/XXX-task-name"
+
+# 2. Create implementation_plan.json with status "pending"
+cat > ".auto-claude/specs/XXX-task-name/implementation_plan.json" << 'EOF'
+{
+  "feature": "Task Title",
+  "description": "Task description",
+  "created_at": "2026-01-28T00:00:00Z",
+  "updated_at": "2026-01-28T00:00:00Z",
+  "status": "pending",
+  "phases": []
+}
+EOF
+```
+
+**Critical requirements:**
+- `status` MUST be `"pending"` (maps to Planning/backlog column)
+- The target project MUST be selected in the Auto-Claude UI
+- File watcher triggers refresh within 2-3 seconds
+
+**Status mapping:**
+- `"pending"` → Planning (backlog)
+- `"in_progress"` → In Progress
+- `"ai_review"` → AI Review
+- `"human_review"` → Human Review
+- `"done"` → Done
+
+### When to Use Auto-Claude MCP
+
+Use the Auto-Claude MCP tools when the user says things like:
+- "Create a task for Auto-Claude"
+- "Queue this for Auto-Claude"
+- "Run this overnight in Auto-Claude"
+- "Add this to Auto-Claude"
+- "Batch these tasks"
+- Any request involving autonomous task execution
+
+### Automatic Workflow
+
+When creating Auto-Claude tasks, follow this workflow automatically:
+
+1. **Get the project ID** from the Auto-Claude UI or use `list_tasks` to find it
+
+2. **Create the task(s)** using `create_task` or `start_batch`:
+   ```json
+   {
+     "projectId": "<project-uuid>",
+     "description": "User's task description",
+     "options": {
+       "profile": "auto",
+       "requireReviewBeforeCoding": false
+     }
+   }
+   ```
+
+3. **Set up shutdown monitoring** (if user wants overnight/batch runs):
+   ```json
+   {
+     "projectId": "<project-uuid>",
+     "taskIds": ["task-id-1", "task-id-2"],
+     "onComplete": {
+       "command": "shutdown",
+       "args": ["/s", "/t", "120"],
+       "delaySeconds": 60
+     }
+   }
+   ```
+
+### Profile Selection
+
+| User Says | Profile | Reason |
+|-----------|---------|--------|
+| "simple", "quick", "fast" | `quick` | Low thinking, fast iterations |
+| "complex", "deep", "architectural" | `complex` | Maximum reasoning |
+| "overnight", "batch" | `balanced` | Cost-efficient for multiple tasks |
+| Nothing specific | `auto` | Smart defaults |
+
+### Shutdown Feature
+
+When the user mentions "shutdown when done", "overnight run", or similar:
+
+1. Create tasks with `start_batch` or multiple `create_task` calls
+2. Call `wait_for_human_review` with the `onComplete` parameter:
+   - Windows: `"command": "shutdown", "args": ["/s", "/t", "120"]`
+   - macOS/Linux: `"command": "shutdown", "args": ["-h", "+2"]`
+   - The `delaySeconds` gives a grace period before executing
+
+### Example Conversation
+
+```
+User: "Create 3 tasks for Auto-Claude and shutdown when all reach human review"
+
+Claude Code should automatically:
+1. Call start_batch with the 3 tasks
+2. Call wait_for_human_review with taskIds and shutdown onComplete
+3. Report back that tasks are queued and monitoring is active
+```
+
+### MCP Tools Reference
+
+| Tool | Purpose |
+|------|---------|
+| `create_task` | Create single task with full configuration |
+| `list_tasks` | List tasks for a project |
+| `get_task_status` | Check task status |
+| `start_task` | Start task execution |
+| `start_batch` | Create and start multiple tasks |
+| `wait_for_human_review` | Monitor tasks and run callback when all reach Human Review |
+
+### Direct File Triggering (Without MCP)
+
+Tasks can be triggered by writing files directly with `status: "start_requested"`:
+
+```bash
+mkdir -p ".auto-claude/specs/065-my-task"
+echo '{}' > ".auto-claude/specs/065-my-task/task_metadata.json"
+cat > ".auto-claude/specs/065-my-task/implementation_plan.json" << 'EOF'
+{
+  "feature": "My Task",
+  "description": "Task description",
+  "status": "start_requested",
+  "phases": [{"name": "Phase 1", "status": "pending"}]
+}
+EOF
+```
+
+The file watcher auto-starts the task within 2-3 seconds.
+
+### Task Chaining (Auto-Start on Completion)
+
+Add a `chain` field to auto-start the next task when the current one completes:
+
+```json
+{
+  "feature": "Task A",
+  "status": "pending",
+  "chain": {
+    "next_task_id": "066-task-b",
+    "on_completion": "auto_start",
+    "require_approval": false
+  }
+}
+```
+
+**Chain fields:**
+- `next_task_id` - Spec ID of the next task
+- `on_completion` - Set to `"auto_start"` for automatic triggering
+- `require_approval` - If `true`, waits for human approval
+
+**Example: A → B → C chain**
+```
+065-task-a (chains to 066) → completes → auto-triggers
+066-task-b (chains to 067) → completes → auto-triggers
+067-task-c (no chain) → completes → done
 ```

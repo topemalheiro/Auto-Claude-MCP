@@ -31,6 +31,16 @@ function GitLabIcon({ className }: { className?: string }) {
     </svg>
   );
 }
+
+// HuggingFace icon component
+function HuggingFaceIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" role="img" aria-labelledby="huggingface-icon-title">
+      <title id="huggingface-icon-title">Hugging Face</title>
+      <path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm0 1.5c4.687 0 8.5 3.813 8.5 8.5s-3.813 8.5-8.5 8.5S3.5 16.687 3.5 12 7.313 3.5 12 3.5zM8.5 9a1.5 1.5 0 100 3 1.5 1.5 0 000-3zm7 0a1.5 1.5 0 100 3 1.5 1.5 0 000-3zm-7.25 5.5s1 2.5 3.75 2.5 3.75-2.5 3.75-2.5"/>
+    </svg>
+  );
+}
 import {
   FullScreenDialog,
   FullScreenDialogContent,
@@ -93,6 +103,7 @@ const projectNavItemsConfig: NavItemConfig<ProjectSettingsSection>[] = [
   { id: 'linear', icon: Zap },
   { id: 'github', icon: Github },
   { id: 'gitlab', icon: GitLabIcon },
+  { id: 'huggingface', icon: HuggingFaceIcon },
   { id: 'memory', icon: Database }
 ];
 

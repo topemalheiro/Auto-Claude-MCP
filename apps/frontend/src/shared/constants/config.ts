@@ -67,7 +67,29 @@ export const DEFAULT_APP_SETTINGS = {
   // Anonymous error reporting (Sentry) - enabled by default to help improve the app
   sentryEnabled: true,
   // Auto-name Claude terminals based on initial message (enabled by default)
-  autoNameClaudeTerminals: true
+  autoNameClaudeTerminals: true,
+  // Auto-restart on prompt loop or crash (disabled by default for safety)
+  autoRestartOnFailure: {
+    enabled: false,
+    buildCommand: 'npm run build',
+    maxRestartsPerHour: 3,
+    cooldownMinutes: 5
+  },
+  // Auto-refresh on task changes (enabled by default for better UX)
+  autoRefreshOnTaskChanges: {
+    enabled: true,
+    debounceMs: 500,
+    refreshDelayMs: 100
+  },
+  // Crash recovery via external watchdog (enabled by default for reliability)
+  crashRecovery: {
+    enabled: true,         // When enabled: auto-restart via watchdog; when disabled: do nothing
+    autoRestart: true,     // Auto-restart after crash (if enabled is true)
+    maxRestarts: 3,        // Maximum restarts within cooldown period
+    restartCooldown: 60000 // Cooldown period in ms (1 minute)
+  },
+  // Auto-shutdown when all tasks across ALL projects reach Human Review (disabled by default)
+  autoShutdownEnabled: false
 };
 
 // ============================================
@@ -88,7 +110,9 @@ export const DEFAULT_PROJECT_SETTINGS = {
   graphitiMcpEnabled: true,
   graphitiMcpUrl: 'http://localhost:8000/mcp/',
   // Include CLAUDE.md instructions in agent context (enabled by default)
-  useClaudeMd: true
+  useClaudeMd: true,
+  // LLM Manager control - allow Claude Code to trigger builds/restarts (enabled by default)
+  llmManagerEnabled: true
 };
 
 // ============================================

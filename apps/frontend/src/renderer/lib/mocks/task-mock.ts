@@ -106,5 +106,23 @@ export const taskMock = {
   onTaskExecutionProgress: () => () => {},
   onTaskLogsChanged: () => () => {},
   onTaskLogsStream: () => () => {},
-  onMergeProgress: () => () => {}
+  onMergeProgress: () => () => {},
+  onTaskListRefresh: () => () => {},
+  onTaskAutoStart: () => () => {},
+  onTaskStatusChanged: () => () => {},
+  onTaskRegressionDetected: () => () => {},
+
+  // RDR (Recover Debug Resend) operations
+  triggerRdrProcessing: async () => ({ success: true, data: { processed: 0 } }),
+  pingRdrImmediate: async () => ({ success: true, data: { taskCount: 0, signalPath: '' } }),
+  getVSCodeWindows: async () => ({ success: true, data: [] }),
+  sendRdrToWindow: async () => ({ success: true, data: { success: true } }),
+  getRdrBatchDetails: async () => ({
+    success: true,
+    data: {
+      batches: [],
+      taskDetails: []
+    }
+  }),
+  isClaudeCodeBusy: async () => ({ success: true, data: false }) // Always idle in browser
 };

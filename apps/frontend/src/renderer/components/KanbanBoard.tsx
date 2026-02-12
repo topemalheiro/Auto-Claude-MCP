@@ -19,17 +19,19 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy
 } from '@dnd-kit/sortable';
-import { Plus, Inbox, Loader2, Eye, CheckCircle2, Archive, RefreshCw, GitPullRequest, X, Settings, ListPlus, ChevronLeft, ChevronRight, ChevronsRight, Lock, Unlock, Trash2 } from 'lucide-react';
+import { Plus, Inbox, Loader2, Eye, CheckCircle2, Archive, RefreshCw, GitPullRequest, X, Settings, ListPlus, ChevronLeft, ChevronRight, ChevronsRight, Lock, Unlock, Trash2, Zap } from 'lucide-react';
 import { Checkbox } from './ui/checkbox';
 import { ScrollArea } from './ui/scroll-area';
 import { Button } from './ui/button';
+import { Switch } from './ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import { TaskCard } from './TaskCard';
 import { SortableTaskCard } from './SortableTaskCard';
 import { QueueSettingsModal } from './QueueSettingsModal';
 import { TASK_STATUS_COLUMNS, TASK_STATUS_LABELS } from '../../shared/constants';
 import { cn } from '../lib/utils';
-import { persistTaskStatus, forceCompleteTask, archiveTasks, deleteTasks, useTaskStore, isQueueAtCapacity, DEFAULT_MAX_PARALLEL_TASKS } from '../stores/task-store';
+import { persistTaskStatus, forceCompleteTask, archiveTasks, deleteTasks, useTaskStore, isQueueAtCapacity, DEFAULT_MAX_PARALLEL_TASKS, startTask, isIncompleteHumanReview } from '../stores/task-store';
 import { updateProjectSettings, useProjectStore } from '../stores/project-store';
 import { useKanbanSettingsStore, DEFAULT_COLUMN_WIDTH, MIN_COLUMN_WIDTH, MAX_COLUMN_WIDTH, COLLAPSED_COLUMN_WIDTH_REM, MIN_COLUMN_WIDTH_REM, MAX_COLUMN_WIDTH_REM, BASE_FONT_SIZE, pxToRem } from '../stores/kanban-settings-store';
 import { useToast } from '../hooks/use-toast';
@@ -78,6 +80,7 @@ interface DroppableColumnProps {
   tasks: Task[];
   onTaskClick: (task: Task) => void;
   onStatusChange: (taskId: string, newStatus: TaskStatus) => unknown;
+  onRefresh?: () => void;
   isOver: boolean;
   onAddClick?: () => void;
   onArchiveAll?: () => void;
@@ -141,6 +144,7 @@ function droppableColumnPropsAreEqual(
   if (prevProps.isOver !== nextProps.isOver) return false;
   if (prevProps.onTaskClick !== nextProps.onTaskClick) return false;
   if (prevProps.onStatusChange !== nextProps.onStatusChange) return false;
+  if (prevProps.onRefresh !== nextProps.onRefresh) return false;
   if (prevProps.onAddClick !== nextProps.onAddClick) return false;
   if (prevProps.onArchiveAll !== nextProps.onArchiveAll) return false;
   if (prevProps.onQueueSettings !== nextProps.onQueueSettings) return false;
@@ -230,7 +234,7 @@ const getEmptyStateContent = (status: TaskStatus, t: (key: string) => string): {
   }
 };
 
-const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskClick, onStatusChange, isOver, onAddClick, onArchiveAll, onQueueSettings, onQueueAll, maxParallelTasks, archivedCount, showArchived, onToggleArchived, selectedTaskIds, onSelectAll, onDeselectAll, onToggleSelect, isCollapsed, onToggleCollapsed, columnWidth, isResizing, onResizeStart, onResizeEnd, isLocked, onToggleLocked }: DroppableColumnProps) {
+const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskClick, onStatusChange, onRefresh, isOver, onAddClick, onArchiveAll, onQueueSettings, onQueueAll, maxParallelTasks, archivedCount, showArchived, onToggleArchived, selectedTaskIds, onSelectAll, onDeselectAll, onToggleSelect, isCollapsed, onToggleCollapsed, columnWidth, isResizing, onResizeStart, onResizeEnd, isLocked, onToggleLocked }: DroppableColumnProps) {
   const { t } = useTranslation(['tasks', 'common']);
   const { setNodeRef } = useDroppable({
     id: status
@@ -299,6 +303,7 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
         task={task}
         onClick={onClickHandlers.get(task.id)!}
         onStatusChange={onStatusChangeHandlers.get(task.id)}
+        onRefresh={onRefresh}
         isSelectable={isSelectable}
         isSelected={isSelectable ? selectedTaskIds?.has(task.id) : undefined}
         onToggleSelect={onToggleSelectHandlers?.get(task.id)}
@@ -1365,6 +1370,19 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     if (!task) return;
     oldStatus = task.status;
 
+    // If dragging an archived task, unarchive it first
+    if (task?.metadata?.archivedAt) {
+      await window.electron.ipcRenderer.invoke('TASK_UNARCHIVE', {
+        projectId,
+        taskIds: [task.id]
+      });
+
+      // Exit archive mode to show task in active view
+      if (showArchived) {
+        toggleShowArchived();
+      }
+    }
+
     // Check if dropped on a column
     if (isValidDropColumn(overId)) {
       newStatus = overId;
@@ -1372,8 +1390,6 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       // Check if dropped on another task - move to that task's column
       const overTask = tasks.find((t) => t.id === overId);
       if (overTask) {
-        const task = tasks.find((t) => t.id === activeTaskId);
-        if (!task) return;
 
         // Compare visual columns
         const taskVisualColumn = getVisualColumn(task.status);
@@ -1426,49 +1442,893 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     await handleStatusChange(activeTaskId, newStatus, task);
   };
 
+  // Get project store for auto-resume and RDR toggles (per-project settings)
+  const currentProject = useProjectStore((state) => state.getSelectedProject());
+  const updateProject = useProjectStore((state) => state.updateProject);
+
+  // Per-project settings for auto-resume and RDR
+  const autoResumeEnabled = currentProject?.settings?.autoResumeAfterRateLimit ?? false;
+  const rdrEnabled = currentProject?.settings?.rdrEnabled ?? false;
+
+  // VS Code window state for RDR direct sending
+  const [vsCodeWindows, setVsCodeWindows] = useState<Array<{ handle: number; title: string; processId: number }>>([]);
+  const [selectedWindowHandle, setSelectedWindowHandle] = useState<number | null>(null);
+  const [isLoadingWindows, setIsLoadingWindows] = useState(false);
+
+  // RDR 60-second auto timer state
+  const [rdrMessageInFlight, setRdrMessageInFlight] = useState(false);
+  const rdrIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const rdrSkipBusyCheckRef = useRef(true); // Skip busy check on first send + idle events
+  const RDR_INTERVAL_MS = 30000; // 30 seconds (reduced from 60s for faster fallback)
+  const RDR_IN_FLIGHT_TIMEOUT_MS = 90000; // 90 seconds - safety net (3x polling interval to prevent double-send)
+
+  // Load VS Code windows from system
+  const loadVsCodeWindows = useCallback(async () => {
+    setIsLoadingWindows(true);
+    try {
+      const result = await window.electronAPI.getVSCodeWindows();
+      if (result.success && result.data) {
+        setVsCodeWindows(result.data);
+        // Auto-select first window if none selected
+        if (result.data.length > 0 && selectedWindowHandle === null) {
+          setSelectedWindowHandle(result.data[0].handle);
+        }
+      }
+    } catch (error) {
+      console.error('[KanbanBoard] Failed to load VS Code windows:', error);
+    } finally {
+      setIsLoadingWindows(false);
+    }
+  }, [selectedWindowHandle]);
+
+  // Load windows on mount
+  useEffect(() => {
+    loadVsCodeWindows();
+  }, [loadVsCodeWindows]);
+
+  /**
+   * Build detailed RDR message with task error information
+   * This gives Claude Code all the info it needs to act directly
+   */
+  const buildRdrMessage = useCallback((data: {
+    projectId: string;
+    projectPath?: string;
+    batches: Array<{ type: string; taskIds: string[]; taskCount: number }>;
+    taskDetails: Array<{
+      specId: string;
+      title: string;
+      description: string;
+      status: string;
+      reviewReason?: string;
+      exitReason?: string;
+      subtasks?: Array<{ name: string; status: string }>;
+      errorSummary?: string;
+      lastLogs?: Array<{ timestamp: string; phase: string; content: string }>;
+      board?: string;
+      currentPhase?: string;
+      qaSignoff?: string;
+      rdrAttempts?: number;
+      stuckSince?: string;
+    }>;
+  }): string => {
+    const lines: string[] = ['/auto-claude-rdr'];
+    lines.push('');
+    lines.push('[Auto-Claude RDR] Tasks needing intervention:');
+    lines.push('');
+    lines.push(`**Project UUID:** ${data.projectId}`);
+    lines.push(`**Project Path:** ${data.projectPath || 'unknown'}`);
+    lines.push('');
+
+    // Build task-to-batch mapping for summary display
+    const taskBatchMap: Record<string, string> = {};
+    if (data.batches) {
+      for (const batch of data.batches) {
+        for (const taskId of batch.taskIds) {
+          taskBatchMap[taskId] = batch.type;
+        }
+      }
+    }
+
+    // Calculate expected board from subtask progress + QA signoff status
+    const getExpectedBoard = (task: typeof data.taskDetails[0]): string => {
+      const subtasks = task.subtasks || [];
+      if (subtasks.length === 0) return 'Planning';
+      const completed = subtasks.filter(s => s.status === 'completed').length;
+      if (completed === subtasks.length) {
+        // QA approved → expected on Human Review (QA already validated)
+        if ((task as any).qaSignoff === 'approved') return 'Human Review';
+        return 'AI Review';
+      }
+      return 'In Progress';
+    };
+
+    // Compute per-task priority (metadata-only, NOT batch-type):
+    // P1: Default — ALL tasks needing restart (any batch type)
+    // P2: Recovery mode only — stuckSince (yellow outline)
+    // P3: JSON error — corrupted JSON file
+    // P4-6: Escalation — rdrAttempts >= 3 (P1 failed multiple times)
+    const computeTaskPriority = (task: typeof data.taskDetails[0]): number => {
+      if ((task.rdrAttempts || 0) >= 3) return 4;                // P4-6: escalation
+      if (taskBatchMap[task.specId] === 'json_error') return 3;  // P3: corrupted JSON
+      if (task.stuckSince) return 2;                              // P2: recovery mode only
+      return 1;                                                    // P1: ALL other tasks
+    };
+
+    // Group tasks by priority
+    const tasksByPriority = new Map<number, typeof data.taskDetails>();
+    for (const task of data.taskDetails) {
+      const priority = computeTaskPriority(task);
+      const existing = tasksByPriority.get(priority) || [];
+      tasksByPriority.set(priority, [...existing, task]);
+    }
+
+    // Priority labels
+    const priorityLabels: Record<number, string> = {
+      1: 'Auto-CONTINUE',
+      2: 'Auto-RECOVER',
+      3: 'Auto-fix JSON',
+      4: 'Request Changes (Escalation P4-6)'
+    };
+
+    // Recovery Summary — grouped by priority
+    lines.push('**Recovery Summary:**');
+    lines.push('');
+
+    const sortedPriorities = [...tasksByPriority.keys()].sort((a, b) => a - b);
+    for (const priority of sortedPriorities) {
+      const tasks = tasksByPriority.get(priority) || [];
+      const attemptNote = priority === 4 ? ' (3+ attempts — investigate before restarting)' : '';
+      const priorityNum = priority === 4 ? '4-6' : String(priority);
+      lines.push(`### Priority ${priorityNum}: ${priorityLabels[priority]} — ${tasks.length} task${tasks.length !== 1 ? 's' : ''}${attemptNote}`);
+      lines.push('');
+      for (const task of tasks) {
+        const completed = task.subtasks?.filter(s => s.status === 'completed').length || 0;
+        const total = task.subtasks?.length || 0;
+        const expected = getExpectedBoard(task);
+        const current = task.board || 'Unknown';
+        const boardInfo = current !== expected ? `${current} → **${expected}**` : current;
+        const exitInfo = task.exitReason ? `, exited: ${task.exitReason}` : '';
+        const attemptInfo = (task.rdrAttempts || 0) > 0 ? ` [attempt #${task.rdrAttempts}]` : '';
+        const stuckInfo = task.stuckSince ? ` [stuck since ${new Date(task.stuckSince).toLocaleTimeString('en-US', { hour12: false })}]` : '';
+        lines.push(`- ${task.specId}: ${boardInfo} (${completed}/${total}${exitInfo})${attemptInfo}${stuckInfo}`);
+      }
+      lines.push('');
+    }
+
+    // Detailed task info
+    lines.push('**Task Details:**');
+    lines.push('');
+
+    for (const task of data.taskDetails) {
+      const expected = getExpectedBoard(task);
+      const current = task.board || 'Unknown';
+      const boardMismatch = current !== expected;
+      const priority = computeTaskPriority(task);
+
+      const pTag = priority === 4 ? 'P4-6' : `P${priority}`;
+      lines.push(`## ${task.specId}: ${task.title} [${pTag}]`);
+
+      if (task.board) {
+        const phaseLabel = task.currentPhase ? ` (${task.currentPhase})` : '';
+        lines.push(`Board: ${task.board}${phaseLabel} | Expected: ${expected}${boardMismatch ? ' | **WRONG BOARD**' : ''}`);
+      }
+
+      lines.push(`Status: ${task.reviewReason || task.status} | Exit: ${task.exitReason || 'none'} | Attempts: ${task.rdrAttempts || 0}`);
+
+      if (task.subtasks && task.subtasks.length > 0) {
+        const completed = task.subtasks.filter(s => s.status === 'completed').length;
+        lines.push(`Subtasks: ${completed}/${task.subtasks.length} complete`);
+        const pending = task.subtasks.filter(s => s.status !== 'completed');
+        if (pending.length > 0) {
+          lines.push(`Pending: ${pending.map(s => s.name).join(', ')}`);
+        }
+      }
+
+      if (task.errorSummary) {
+        lines.push(`Error: ${task.errorSummary}`);
+      }
+
+      if (task.lastLogs && task.lastLogs.length > 0) {
+        lines.push('Recent Logs:');
+        for (const log of task.lastLogs) {
+          const time = new Date(log.timestamp).toLocaleTimeString('en-US', { hour12: false });
+          lines.push(`  [${time}] (${log.phase}) ${log.content}`);
+        }
+      }
+
+      lines.push('');
+    }
+
+    lines.push('---');
+    lines.push('**Recovery Instructions:**');
+    lines.push('');
+
+    const pathParam = data.projectPath ? `, projectPath: "${data.projectPath}"` : '';
+
+    // Per-priority recovery instructions
+    const p1Tasks = tasksByPriority.get(1) || [];
+    const p2Tasks = tasksByPriority.get(2) || [];
+    const p3Tasks = tasksByPriority.get(3) || [];
+    const p4Tasks = tasksByPriority.get(4) || [];
+
+    if (p1Tasks.length > 0) {
+      lines.push(`**Priority 1: Auto-CONTINUE** (${p1Tasks.length} task${p1Tasks.length !== 1 ? 's' : ''}):`);
+      lines.push('');
+      // Group P1 tasks by batch type
+      const p1BatchGroups: Record<string, string[]> = {};
+      for (const task of p1Tasks) {
+        const bt = taskBatchMap[task.specId] || 'incomplete';
+        const existing = p1BatchGroups[bt] || [];
+        p1BatchGroups[bt] = [...existing, task.specId];
+      }
+      for (const [bt, taskIds] of Object.entries(p1BatchGroups)) {
+        lines.push(`  mcp__auto-claude-manager__process_rdr_batch({`);
+        lines.push(`    projectId: "${data.projectId}",`);
+        if (data.projectPath) {
+          lines.push(`    projectPath: "${data.projectPath}",`);
+        }
+        lines.push(`    batchType: "${bt}",`);
+        lines.push(`    fixes: [${taskIds.map(id => `{ taskId: "${id}" }`).join(', ')}]`);
+        lines.push(`  })`);
+        lines.push('');
+      }
+    }
+
+    if (p2Tasks.length > 0) {
+      lines.push(`**Priority 2: Auto-RECOVER** (${p2Tasks.length} task${p2Tasks.length !== 1 ? 's' : ''} in recovery mode):`);
+      lines.push('');
+      for (const task of p2Tasks) {
+        lines.push(`  mcp__auto-claude-manager__recover_stuck_task({`);
+        lines.push(`    projectId: "${data.projectId}",`);
+        if (data.projectPath) {
+          lines.push(`    projectPath: "${data.projectPath}",`);
+        }
+        lines.push(`    taskId: "${task.specId}",`);
+        lines.push(`    autoRestart: true`);
+        lines.push(`  })`);
+        lines.push('');
+      }
+    }
+
+    if (p3Tasks.length > 0) {
+      lines.push(`**Priority 3: Auto-fix JSON** (${p3Tasks.length} task${p3Tasks.length !== 1 ? 's' : ''} with corrupted JSON):`);
+      lines.push('');
+      lines.push(`  mcp__auto-claude-manager__process_rdr_batch({`);
+      lines.push(`    projectId: "${data.projectId}",`);
+      if (data.projectPath) {
+        lines.push(`    projectPath: "${data.projectPath}",`);
+      }
+      lines.push(`    batchType: "json_error",`);
+      lines.push(`    fixes: [${p3Tasks.map(t => `{ taskId: "${t.specId}" }`).join(', ')}]`);
+      lines.push(`  })`);
+      lines.push('');
+    }
+
+    if (p4Tasks.length > 0) {
+      lines.push(`**Priority 4-6: Request Changes** (${p4Tasks.length} task${p4Tasks.length !== 1 ? 's' : ''}, 3+ attempts — investigate before restarting):`);
+      lines.push('');
+      for (const task of p4Tasks) {
+        lines.push(`  // First investigate: mcp__auto-claude-manager__get_task_error_details({ projectId: "${data.projectId}"${pathParam}, taskId: "${task.specId}" })`);
+        lines.push(`  mcp__auto-claude-manager__submit_task_fix_request({`);
+        lines.push(`    projectId: "${data.projectId}",`);
+        if (data.projectPath) {
+          lines.push(`    projectPath: "${data.projectPath}",`);
+        }
+        lines.push(`    taskId: "${task.specId}",`);
+        lines.push(`    feedback: "RDR P4: ${task.rdrAttempts || 0} recovery attempts failed. Error: ${task.errorSummary || task.exitReason || 'unknown'}. Investigate root cause."`);
+        lines.push(`  })`);
+        lines.push('');
+      }
+    }
+
+    if (p1Tasks.length > 0 || p2Tasks.length > 0) {
+      lines.push('**If recovery fails**, escalate:');
+      lines.push('- P1 tasks enter recovery mode → become P2 next iteration');
+      lines.push('- After 3+ P1 attempts → auto-escalates to P3');
+      lines.push('- P5-6 (Manual Debug / Delete & Recreate): See RDR skill docs');
+      lines.push('');
+    }
+
+    lines.push('**Available MCP Tools:**');
+    lines.push(`- \`mcp__auto-claude-manager__process_rdr_batch\` — P1: Auto-continue batch`);
+    lines.push(`- \`mcp__auto-claude-manager__recover_stuck_task\` — P2: Recover stuck task`);
+    lines.push(`- \`mcp__auto-claude-manager__submit_task_fix_request\` — P3: Request changes with fix guidance`);
+    lines.push(`- \`mcp__auto-claude-manager__get_task_error_details\` — Investigate task errors`);
+    lines.push(`- \`mcp__auto-claude-manager__get_rdr_batches\` — Get all recovery batches`);
+
+    return lines.join('\n');
+  }, []);
+
+  /**
+   * Handle automatic RDR processing every 60 seconds
+   * Skips if a message is already in-flight (Claude Code is processing)
+   */
+  const handleAutoRdr = useCallback(async () => {
+    // Skip if no window selected
+    if (!selectedWindowHandle) {
+      console.log('[RDR] Skipping auto-send - no window selected');
+      return;
+    }
+
+    // Find window from selected handle to get process ID
+    const selectedWindow = vsCodeWindows.find(w => w.handle === selectedWindowHandle);
+    if (!selectedWindow) {
+      console.log('[RDR] Skipping auto-send - selected window not found');
+      return;
+    }
+
+    // Use process ID for stable matching (title changes when user switches editor tabs)
+    const processId = selectedWindow.processId;
+
+    // Check if Claude Code is busy - SKIP on first check after enable and on idle events
+    if (rdrSkipBusyCheckRef.current) {
+      console.log('[RDR] Skipping busy check (first send or idle event)');
+      rdrSkipBusyCheckRef.current = false;
+    } else {
+      try {
+        const busyResult = await window.electronAPI.isClaudeCodeBusy(processId);
+        if (busyResult.success && busyResult.data) {
+          console.log('[RDR] Skipping auto-send - Claude Code is busy');
+          return;
+        }
+        // Claude is NOT busy — if we were in-flight, clear it (Claude finished processing)
+        if (rdrMessageInFlight) {
+          console.log('[RDR] Claude is idle while in-flight — clearing in-flight flag');
+          setRdrMessageInFlight(false);
+        }
+      } catch (error) {
+        console.warn('[RDR] Failed to check busy state, proceeding with send:', error);
+      }
+    }
+
+    // Still in-flight after busy check — Claude is actively processing our last message
+    if (rdrMessageInFlight) {
+      console.log('[RDR] Message still in-flight, will retry next poll');
+      return;
+    }
+
+    // Skip if no project
+    if (!projectId) {
+      console.log('[RDR] Skipping auto-send - no project');
+      return;
+    }
+
+    console.log('[RDR] Auto-send triggered - getting batch details...');
+
+    try {
+      // Get detailed task info via IPC
+      const result = await window.electronAPI.getRdrBatchDetails(projectId);
+
+      if (!result.success || !result.data?.taskDetails?.length) {
+        console.log('[RDR] No tasks needing intervention');
+        return;
+      }
+
+      // Build detailed message
+      const message = buildRdrMessage({ ...result.data, projectId, projectPath: result.data.projectPath });
+      console.log(`[RDR] Sending detailed message with ${result.data.taskDetails.length} tasks`);
+
+      // Mark message as in-flight
+      setRdrMessageInFlight(true);
+
+      // Send to VS Code window using process ID (stable regardless of active editor tab)
+      const sendResult = await window.electronAPI.sendRdrToWindow(processId, message);
+
+      if (sendResult.success) {
+        console.log('[RDR] Auto-send successful');
+        toast({
+          title: t('kanban.rdrSendSuccess'),
+          description: t('kanban.rdrSendSuccessDesc')
+        });
+      } else {
+        console.error('[RDR] Auto-send failed:', sendResult.data?.error);
+        setRdrMessageInFlight(false); // Allow retry immediately on failure
+      }
+
+      // Reset in-flight flag after timeout (assume Claude Code processed by then)
+      setTimeout(() => {
+        setRdrMessageInFlight(false);
+        console.log('[RDR] In-flight timeout - ready for next message');
+      }, RDR_IN_FLIGHT_TIMEOUT_MS);
+
+    } catch (error) {
+      console.error('[RDR] Auto-send error:', error);
+      setRdrMessageInFlight(false);
+    }
+  }, [rdrMessageInFlight, selectedWindowHandle, projectId, buildRdrMessage, toast, t]);
+
+  // EVENT-DRIVEN RDR: Check immediately on startup, then respond to idle events
+  useEffect(() => {
+    // Clear any existing timer
+    if (rdrIntervalRef.current) {
+      clearInterval(rdrIntervalRef.current);
+      rdrIntervalRef.current = null;
+    }
+
+    // Only start timer if RDR is enabled AND a window is selected
+    if (rdrEnabled && selectedWindowHandle) {
+      console.log(`[RDR] Starting event-driven RDR - immediate check + idle event triggers`);
+
+      // IMMEDIATE CHECK: Catch existing tasks needing intervention
+      handleAutoRdr();
+
+      // EVENT-DRIVEN: Subscribe to 'claude-code-idle' IPC event for sequential batching
+      const idleListener = (_event: any, data: { from: string; to: string; timestamp: number }) => {
+        console.log(`[RDR] EVENT: Claude Code became idle (${data.from} -> ${data.to})`);
+
+        // Clear in-flight flag — idle event proves Claude finished processing
+        setRdrMessageInFlight(false);
+
+        // Skip busy check - the idle event already proves Claude is idle
+        // Re-checking creates a race condition where state changes between emit and check
+        rdrSkipBusyCheckRef.current = true;
+        handleAutoRdr();
+      };
+
+      // @ts-ignore - electron API exists in renderer
+      window.electron?.ipcRenderer.on('claude-code-idle', idleListener);
+
+      // FALLBACK POLLING: Set up 60-second interval as fallback if event system fails
+      rdrIntervalRef.current = setInterval(() => {
+        console.log('[RDR] Fallback polling check (30s interval)');
+        handleAutoRdr();
+      }, RDR_INTERVAL_MS);
+
+      // Cleanup on unmount or dependency change
+      return () => {
+        // Remove IPC listener
+        // @ts-ignore
+        window.electron?.ipcRenderer.removeListener('claude-code-idle', idleListener);
+
+        // Clear timer and reset skip flag for next enable
+        if (rdrIntervalRef.current) {
+          clearInterval(rdrIntervalRef.current);
+          rdrIntervalRef.current = null;
+          console.log('[RDR] Auto-send timer stopped');
+        }
+        rdrSkipBusyCheckRef.current = true; // Reset for next enable
+      };
+    } else {
+      console.log('[RDR] Auto-send timer not started (RDR disabled or no window selected)');
+    }
+  }, [rdrEnabled, selectedWindowHandle, handleAutoRdr]);
+
+  // Detect task regression (started → backlog) and trigger immediate RDR
+  useEffect(() => {
+    if (!window.electronAPI?.onTaskRegressionDetected) return;
+
+    const cleanup = window.electronAPI.onTaskRegressionDetected((data) => {
+      if (data.projectId !== projectId) return;
+
+      console.warn(`[KanbanBoard] Task regression: ${data.specId} (${data.oldStatus} → ${data.newStatus})`);
+
+      toast({
+        title: t('tasks:kanban.rdrTaskRegression', 'Task Regression'),
+        description: t('tasks:kanban.rdrTaskRegressionDesc', { specId: data.specId, defaultValue: `${data.specId} went back to planning after being started` }),
+        variant: 'destructive'
+      });
+
+      // Trigger immediate RDR check (bypass 60s timer)
+      handleAutoRdr();
+    });
+    return cleanup;
+  }, [projectId, toast, t, handleAutoRdr]);
+
+  // Helper function to start a task with retry logic
+  const startTaskWithRetry = useCallback(async (taskId: string, maxRetries = 3, delayMs = 2000) => {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        await startTask(taskId);
+        console.log(`[KanbanBoard] Started task ${taskId} (attempt ${attempt})`);
+        return true; // Success
+      } catch (error) {
+        console.error(`[KanbanBoard] Failed to start task ${taskId} (attempt ${attempt}/${maxRetries}):`, error);
+        if (attempt < maxRetries) {
+          console.log(`[KanbanBoard] Retrying task ${taskId} in ${delayMs}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delayMs));
+        }
+      }
+    }
+    console.error(`[KanbanBoard] All ${maxRetries} attempts failed for task ${taskId}`);
+    return false; // All retries failed
+  }, []);
+
+  // Handle auto-resume toggle - when enabled, immediately resume all incomplete tasks
+  const handleAutoResumeToggle = async (checked: boolean) => {
+    // Update per-project setting
+    if (currentProject) {
+      const updatedSettings = {
+        ...currentProject.settings,
+        autoResumeAfterRateLimit: checked
+      };
+      updateProject(currentProject.id, { settings: updatedSettings });
+      // Persist to storage via IPC
+      await window.electronAPI.updateProjectSettings(currentProject.id, updatedSettings);
+    }
+
+    // When turning ON, resume all incomplete tasks in human_review (those showing "Needs Resume")
+    if (checked) {
+      const incompleteTasks = tasks.filter(task => isIncompleteHumanReview(task));
+
+      if (incompleteTasks.length > 0) {
+        console.log(`[KanbanBoard] Auto-resume enabled - resuming ${incompleteTasks.length} incomplete tasks`);
+
+        // Start all tasks with retry logic (run in parallel)
+        const results = await Promise.all(
+          incompleteTasks.map(task => startTaskWithRetry(task.id))
+        );
+
+        const successCount = results.filter(Boolean).length;
+        const failCount = results.length - successCount;
+        console.log(`[KanbanBoard] Auto-resume complete: ${successCount} succeeded, ${failCount} failed`);
+      } else {
+        console.log('[KanbanBoard] Auto-resume enabled - no incomplete tasks to resume');
+      }
+    }
+  };
+
+  // Handle RDR (Recover Debug Resend) toggle - when enabled, process stuck/errored tasks
+  const handleRdrToggle = async (checked: boolean) => {
+    // Update per-project setting
+    if (currentProject) {
+      const updatedSettings = {
+        ...currentProject.settings,
+        rdrEnabled: checked
+      };
+      updateProject(currentProject.id, { settings: updatedSettings });
+      // Persist to storage via IPC
+      await window.electronAPI.updateProjectSettings(currentProject.id, updatedSettings);
+    }
+
+    // RDR toggle only enables/disables monitoring - NO automatic task modification
+    // Task recovery is handled by the RDR message pipeline (polling + idle events)
+    // which reports tasks needing intervention via messages to Claude Code
+    if (checked) {
+      console.log('[KanbanBoard] RDR enabled - monitoring started (no automatic task changes)');
+    }
+  };
+
+  // Handle manual RDR ping - sends message directly to selected VS Code window
+  const handlePingRdr = async () => {
+    // Get ALL tasks in Human Review (less restrictive filter than toggle)
+    const humanReviewTasks = tasks.filter(task => task.status === 'human_review');
+
+    console.log(`[KanbanBoard] Ping RDR - ${humanReviewTasks.length} tasks in Human Review`);
+
+    if (humanReviewTasks.length === 0) {
+      toast({
+        title: t('kanban.rdrPingNoTasks'),
+        description: t('kanban.rdrPingNoTasksDesc'),
+        variant: 'default'
+      });
+      return;
+    }
+
+    // Check if a window is selected for direct sending
+    if (selectedWindowHandle) {
+      // Find window title from selected handle
+      const selectedWindow = vsCodeWindows.find(w => w.handle === selectedWindowHandle);
+      if (!selectedWindow) {
+        toast({
+          title: t('kanban.rdrSendFailed'),
+          description: 'Selected window not found',
+          variant: 'destructive'
+        });
+        return;
+      }
+
+      // Use process ID for stable matching (title changes when user switches editor tabs)
+      const processId = selectedWindow.processId;
+
+      // Send directly to VS Code window with detailed message
+      toast({
+        title: t('kanban.rdrSending'),
+        description: t('kanban.rdrSendingDesc', { count: humanReviewTasks.length })
+      });
+
+      try {
+        // Get detailed batch info for the message
+        const batchResult = await window.electronAPI.getRdrBatchDetails(projectId);
+        let message: string;
+
+        if (batchResult.success && batchResult.data?.taskDetails?.length) {
+          message = buildRdrMessage({ ...batchResult.data, projectId, projectPath: batchResult.data.projectPath });
+        } else {
+          // Fallback to simple message if no detailed info available
+          message = 'Check RDR batches and fix errored tasks';
+        }
+
+        const result = await window.electronAPI.sendRdrToWindow(processId, message);
+
+        if (result.success) {
+          toast({
+            title: t('kanban.rdrSendSuccess'),
+            description: t('kanban.rdrSendSuccessDesc'),
+            variant: 'default'
+          });
+          console.log(`[KanbanBoard] RDR message sent to window handle ${selectedWindowHandle}`);
+        } else {
+          toast({
+            title: t('kanban.rdrSendFailed'),
+            description: result.data?.error || t('kanban.rdrSendFailedDesc'),
+            variant: 'destructive'
+          });
+        }
+      } catch (error) {
+        console.error('[KanbanBoard] Send RDR error:', error);
+        toast({
+          title: t('kanban.rdrSendFailed'),
+          description: error instanceof Error ? error.message : t('kanban.rdrSendFailedDesc'),
+          variant: 'destructive'
+        });
+      }
+    } else {
+      // Fallback: write signal file for external monitoring
+      toast({
+        title: t('kanban.rdrPinging'),
+        description: t('kanban.rdrPingingDesc', { count: humanReviewTasks.length })
+      });
+
+      try {
+        const result = await window.electronAPI.pingRdrImmediate(projectId, humanReviewTasks);
+
+        if (result.success && result.data) {
+          toast({
+            title: t('kanban.rdrPingSuccess'),
+            description: t('kanban.rdrPingSuccessDesc', { count: result.data.taskCount }),
+            variant: 'default'
+          });
+          console.log(`[KanbanBoard] RDR signal file written: ${result.data.signalPath}`);
+        } else {
+          toast({
+            title: t('kanban.rdrPingFailed'),
+            description: result.error || t('kanban.rdrPingFailedDesc'),
+            variant: 'destructive'
+          });
+        }
+      } catch (error) {
+        console.error('[KanbanBoard] Ping RDR error:', error);
+        toast({
+          title: t('kanban.rdrPingFailed'),
+          description: error instanceof Error ? error.message : t('kanban.rdrPingFailedDesc'),
+          variant: 'destructive'
+        });
+      }
+    }
+  };
+
+  // Track which tasks we've already attempted to auto-resume (to prevent loops)
+  const autoResumedTasksRef = useRef<Set<string>>(new Set());
+
+  // Auto-resume on mount/reconnect if toggle is already ON
+  // Also re-runs when tasks load/change to catch tasks that weren't loaded initially
+  useEffect(() => {
+    if (!autoResumeEnabled || tasks.length === 0) return;
+
+    const incompleteTasks = tasks.filter(task =>
+      isIncompleteHumanReview(task) && !autoResumedTasksRef.current.has(task.id)
+    );
+
+    if (incompleteTasks.length > 0) {
+      console.log(`[KanbanBoard] Auto-resume active - resuming ${incompleteTasks.length} incomplete tasks`);
+
+      // Mark these tasks as attempted (to prevent re-resuming)
+      incompleteTasks.forEach(task => autoResumedTasksRef.current.add(task.id));
+
+      // Start all tasks with retry logic (run in parallel)
+      Promise.all(
+        incompleteTasks.map(task => startTaskWithRetry(task.id))
+      ).then(results => {
+        const successCount = results.filter(Boolean).length;
+        const failCount = results.length - successCount;
+        console.log(`[KanbanBoard] Auto-resume complete: ${successCount} succeeded, ${failCount} failed`);
+      });
+    }
+  }, [autoResumeEnabled, tasks, startTaskWithRetry]); // Re-run when toggle changes OR tasks load
+
+  // Clear the auto-resumed set when toggle is turned OFF (so tasks can be resumed again when turned ON)
+  useEffect(() => {
+    if (!autoResumeEnabled) {
+      autoResumedTasksRef.current.clear();
+    }
+  }, [autoResumeEnabled]);
+
   return (
     <div className="flex h-full flex-col">
-      {/* Kanban header with refresh button and expand all */}
-      {(onRefresh || collapsedColumnCount >= 3) && (
-        <div className="flex items-center justify-between px-6 pt-4 pb-2">
-          <div className="flex items-center gap-2">
-            {/* Expand All button - appears when 3+ columns are collapsed */}
-            {collapsedColumnCount >= 3 && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleExpandAll}
-                className="gap-2 text-muted-foreground hover:text-foreground"
-              >
-                <ChevronsRight className="h-4 w-4" />
-                {t('tasks:kanban.expandAll')}
-              </Button>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            {onRefresh && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onRefresh}
-                disabled={isRefreshing}
-                className="gap-2 text-muted-foreground hover:text-foreground"
-              >
-                <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
-                {isRefreshing ? t('common:buttons.refreshing') : t('tasks:refreshTasks')}
-              </Button>
-            )}
-          </div>
+      {/* Kanban header with refresh button, expand all, auto-resume, and RDR */}
+      <div className="flex items-center justify-between px-6 pt-4 pb-2">
+        <div className="flex items-center gap-2">
+          {/* Expand All button - appears when 3+ columns are collapsed */}
+          {collapsedColumnCount >= 3 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExpandAll}
+              className="gap-2 text-muted-foreground hover:text-foreground"
+            >
+              <ChevronsRight className="h-4 w-4" />
+              {t('tasks:kanban.expandAll')}
+            </Button>
+          )}
         </div>
-      )}
-      {/* Kanban columns */}
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCorners}
-        onDragStart={handleDragStart}
-        onDragOver={handleDragOver}
-        onDragEnd={handleDragEnd}
-      >
+        <div className="flex items-center gap-4">
+          {/* Auto-Resume Section */}
+          <div className="flex items-center gap-3">
+            {/* Toggle 1: Auto Resume (on limit reset) */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex items-center gap-1.5">
+                  <Switch
+                    id="kanban-auto-resume-limit"
+                    checked={autoResumeEnabled}
+                    onCheckedChange={handleAutoResumeToggle}
+                    className="scale-90"
+                  />
+                  <div className="flex flex-col text-[10px] leading-tight text-muted-foreground">
+                    <span>{t('kanban.arLimitReset')}</span>
+                    <span className="text-muted-foreground/70">{t('kanban.arLimitResetSub')}</span>
+                  </div>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-xs">
+                <p>{t('kanban.autoResumeTooltip')}</p>
+              </TooltipContent>
+            </Tooltip>
+
+            {/* RDR Section with accent border */}
+            <div className="relative border border-primary/30 rounded-lg px-3 py-2 mt-1">
+              {/* Legend-style label - positioned above border */}
+              <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-background px-2 text-[10px] uppercase tracking-wider text-primary whitespace-nowrap">
+                {t('kanban.autoResumeHeader')}
+              </span>
+
+              <div className="flex items-center gap-2">
+                {/* Toggle: RDR - Recover Debug Resend */}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex items-center gap-1.5">
+                      <Switch
+                        id="kanban-auto-rdr"
+                        checked={rdrEnabled}
+                        onCheckedChange={handleRdrToggle}
+                        className="scale-90"
+                      />
+                      <div className="flex flex-col text-[10px] leading-tight text-muted-foreground">
+                        <span className="font-medium">RDR</span>
+                        <span className="text-muted-foreground/70">Recover / Continue</span>
+                        <span className="text-muted-foreground/70">Debug</span>
+                        <span className="text-muted-foreground/70">Resend</span>
+                      </div>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-xs">
+                    <p>{t('kanban.rdrTooltip')}</p>
+                  </TooltipContent>
+                </Tooltip>
+
+                {/* VS Code Window Selector for RDR */}
+                <div className="flex items-center gap-1">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={loadVsCodeWindows}
+                        disabled={isLoadingWindows}
+                        className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+                      >
+                        <RefreshCw className={cn("h-3 w-3", isLoadingWindows && "animate-spin")} />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      <p>{t('kanban.rdrRefreshWindows')}</p>
+                    </TooltipContent>
+                  </Tooltip>
+
+                  <Select
+                    value={selectedWindowHandle?.toString() ?? ''}
+                    onValueChange={(value) => setSelectedWindowHandle(value ? parseInt(value, 10) : null)}
+                  >
+                    <SelectTrigger className="h-7 w-[140px] text-xs">
+                      <SelectValue placeholder={t('kanban.rdrSelectWindow')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {vsCodeWindows.map((win) => (
+                        <SelectItem key={win.handle} value={win.handle.toString()}>
+                          <span className="truncate max-w-[120px]" title={win.title}>
+                            {win.title.length > 25 ? `${win.title.substring(0, 25)}...` : win.title}
+                          </span>
+                        </SelectItem>
+                      ))}
+                      {vsCodeWindows.length === 0 && (
+                        <SelectItem value="none" disabled>
+                          {t('kanban.rdrNoWindows')}
+                        </SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Manual Ping RDR Button */}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handlePingRdr}
+                      disabled={!selectedWindowHandle}
+                      className={cn(
+                        "h-7 w-7 p-0",
+                        selectedWindowHandle
+                          ? "text-yellow-500 hover:text-yellow-400"
+                          : "text-muted-foreground/50"
+                      )}
+                    >
+                      <Zap className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-xs">
+                    <p>{selectedWindowHandle ? t('kanban.rdrPingTooltip') : t('kanban.rdrSelectWindowFirst')}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+            </div>
+          </div>
+
+          {/* Refresh Button */}
+          {onRefresh && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onRefresh}
+              disabled={isRefreshing}
+              className="gap-2 text-muted-foreground hover:text-foreground"
+            >
+              <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
+              {isRefreshing ? t('common:buttons.refreshing') : t('tasks:refreshTasks')}
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* Archive List View - Show when in archive mode */}
+      {showArchived ? (
+        <div className="flex flex-1 flex-col p-6 overflow-hidden">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-2xl font-semibold">{t('tasks:archivedTasks')}</h2>
+            <Button onClick={toggleShowArchived} variant="outline">
+              {t('tasks:exitArchiveMode')}
+            </Button>
+          </div>
+          <ScrollArea className="flex-1 h-full pr-4">
+            <div className="flex flex-col gap-3 pb-4">
+              {filteredTasks.filter(t => t.metadata?.archivedAt).length === 0 ? (
+                <div className="text-center text-muted-foreground py-12">
+                  {t('tasks:noArchivedTasks')}
+                </div>
+              ) : (
+                filteredTasks.filter(t => t.metadata?.archivedAt).map(task => (
+                  <TaskCard
+                    key={task.id}
+                    task={task}
+                    onClick={() => onTaskClick?.(task)}
+                    onStatusChange={(newStatus) => handleStatusChange(task.id, newStatus, task)}
+                    onRefresh={onRefresh}
+                  />
+                ))
+              )}
+            </div>
+          </ScrollArea>
+        </div>
+      ) : (
+        /* Kanban columns */
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCorners}
+          onDragStart={handleDragStart}
+          onDragOver={handleDragOver}
+          onDragEnd={handleDragEnd}
+        >
         <div className="flex flex-1 gap-4 overflow-x-auto p-6">
           {TASK_STATUS_COLUMNS.map((status) => (
             <DroppableColumn
@@ -1477,6 +2337,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
               tasks={tasksByStatus[status]}
               onTaskClick={onTaskClick}
               onStatusChange={handleStatusChange}
+              onRefresh={onRefresh}
               isOver={overColumnId === status}
               onAddClick={status === 'backlog' ? onNewTaskClick : undefined}
               onQueueAll={status === 'backlog' ? handleQueueAll : undefined}
@@ -1516,6 +2377,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
           ) : null}
         </DragOverlay>
       </DndContext>
+      )}
 
       {selectedTaskIds.size > 0 && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">

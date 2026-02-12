@@ -16,8 +16,30 @@ import type {
   SupportedTerminal,
   WorktreeCreatePROptions,
   WorktreeCreatePRResult,
-  ImageAttachment
+  ImageAttachment,
+  AutoShutdownStatus
 } from '../../shared/types';
+
+// Types for detailed RDR batch information
+export interface RdrTaskDetail {
+  specId: string;
+  title: string;
+  description: string;
+  status: TaskStatus;
+  reviewReason?: string;
+  exitReason?: string;
+  subtasks?: Array<{ name: string; status: string }>;
+  errorSummary?: string;
+}
+
+export interface RdrBatchDetails {
+  batches: Array<{
+    type: 'json_error' | 'incomplete' | 'qa_rejected' | 'errors';
+    taskIds: string[];
+    taskCount: number;
+  }>;
+  taskDetails: RdrTaskDetail[];
+}
 
 export interface TaskAPI {
   // Task Operations
@@ -73,6 +95,7 @@ export interface TaskAPI {
   worktreeDetectTools: () => Promise<IPCResult<{ ides: Array<{ id: string; name: string; path: string; installed: boolean }>; terminals: Array<{ id: string; name: string; path: string; installed: boolean }> }>>;
   archiveTasks: (projectId: string, taskIds: string[], version?: string) => Promise<IPCResult<boolean>>;
   unarchiveTasks: (projectId: string, taskIds: string[]) => Promise<IPCResult<boolean>>;
+  toggleTaskRdr: (taskId: string, disabled: boolean) => Promise<IPCResult<boolean>>;
   createWorktreePR: (taskId: string, options?: WorktreeCreatePROptions) => Promise<IPCResult<WorktreeCreatePRResult>>;
 
   // Task Event Listeners
@@ -84,6 +107,22 @@ export interface TaskAPI {
   onTaskExecutionProgress: (
     callback: (taskId: string, progress: import('../../shared/types').ExecutionProgress, projectId?: string) => void
   ) => () => void;
+  onTaskListRefresh: (callback: (projectId: string) => void) => () => void;
+  onTaskAutoStart: (callback: (projectId: string, taskId: string) => void) => () => void;
+  onTaskStatusChanged: (callback: (data: {
+    projectId: string;
+    taskId: string;
+    specId: string;
+    oldStatus: TaskStatus;
+    newStatus: TaskStatus;
+  }) => void) => () => void;
+  onTaskRegressionDetected: (callback: (data: {
+    projectId: string;
+    specId: string;
+    oldStatus: string;
+    newStatus: string;
+    timestamp: string;
+  }) => void) => () => void;
 
   // Task Phase Logs
   getTaskLogs: (projectId: string, specId: string) => Promise<IPCResult<TaskLogs | null>>;
@@ -94,6 +133,24 @@ export interface TaskAPI {
 
   // Merge Progress Events
   onMergeProgress: (callback: (taskId: string, progress: MergeProgress) => void) => () => void;
+
+  // RDR (Recover Debug Resend) Processing
+  triggerRdrProcessing: (projectId: string, taskIds: string[]) => Promise<IPCResult<{ processed: number }>>;
+  pingRdrImmediate: (projectId: string, tasks: Task[]) => Promise<IPCResult<{ taskCount: number; signalPath: string }>>;
+  autoRecoverAllTasks: (projectId: string) => Promise<IPCResult<{ recovered: number; taskIds: string[] }>>;
+
+  // VS Code Window Management (for RDR message sending)
+  getVSCodeWindows: () => Promise<IPCResult<Array<{ handle: number; title: string; processId: number }>>>;
+  sendRdrToWindow: (identifier: number | string, message: string) => Promise<IPCResult<{ success: boolean; error?: string }>>;
+
+  // Detailed RDR batch info for auto-send
+  getRdrBatchDetails: (projectId: string) => Promise<IPCResult<RdrBatchDetails>>;
+  isClaudeCodeBusy: (identifier: number | string) => Promise<IPCResult<boolean>>;
+
+  // Auto Shutdown (Global - monitors ALL projects)
+  getAutoShutdownStatus: () => Promise<IPCResult<AutoShutdownStatus>>;
+  setAutoShutdown: (enabled: boolean) => Promise<IPCResult<AutoShutdownStatus>>;
+  cancelAutoShutdown: () => Promise<IPCResult<void>>;
 }
 
 export const createTaskAPI = (): TaskAPI => ({
@@ -199,6 +256,9 @@ export const createTaskAPI = (): TaskAPI => ({
   unarchiveTasks: (projectId: string, taskIds: string[]): Promise<IPCResult<boolean>> =>
     ipcRenderer.invoke(IPC_CHANNELS.TASK_UNARCHIVE, projectId, taskIds),
 
+  toggleTaskRdr: (taskId: string, disabled: boolean): Promise<IPCResult<boolean>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.TASK_TOGGLE_RDR, taskId, disabled),
+
   createWorktreePR: (taskId: string, options?: WorktreeCreatePROptions): Promise<IPCResult<WorktreeCreatePRResult>> =>
     ipcRenderer.invoke(IPC_CHANNELS.TASK_WORKTREE_CREATE_PR, taskId, options),
 
@@ -289,6 +349,89 @@ export const createTaskAPI = (): TaskAPI => ({
     };
   },
 
+  onTaskListRefresh: (callback: (projectId: string) => void): (() => void) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      projectId: string
+    ): void => {
+      callback(projectId);
+    };
+    ipcRenderer.on(IPC_CHANNELS.TASK_LIST_REFRESH, handler);
+    return () => {
+      ipcRenderer.removeListener(IPC_CHANNELS.TASK_LIST_REFRESH, handler);
+    };
+  },
+
+  onTaskAutoStart: (callback: (projectId: string, taskId: string) => void): (() => void) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      projectId: string,
+      taskId: string
+    ): void => {
+      callback(projectId, taskId);
+    };
+    ipcRenderer.on(IPC_CHANNELS.TASK_AUTO_START, handler);
+    return () => {
+      ipcRenderer.removeListener(IPC_CHANNELS.TASK_AUTO_START, handler);
+    };
+  },
+
+  onTaskStatusChanged: (callback: (data: {
+    projectId: string;
+    taskId: string;
+    specId: string;
+    oldStatus: TaskStatus;
+    newStatus: TaskStatus;
+  }) => void): (() => void) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      data: {
+        projectId: string;
+        taskId: string;
+        specId: string;
+        oldStatus: TaskStatus;
+        newStatus: TaskStatus;
+      }
+    ): void => {
+      callback(data);
+    };
+    ipcRenderer.on(IPC_CHANNELS.TASK_STATUS_CHANGED, handler);
+    return () => {
+      ipcRenderer.removeListener(IPC_CHANNELS.TASK_STATUS_CHANGED, handler);
+    };
+  },
+
+  onTaskRegressionDetected: (
+    callback: (data: { projectId: string; specId: string; oldStatus: string; newStatus: string; timestamp: string }) => void
+  ): (() => void) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      data: { projectId: string; specId: string; oldStatus: string; newStatus: string; timestamp: string }
+    ): void => {
+      callback(data);
+    };
+    ipcRenderer.on(IPC_CHANNELS.TASK_REGRESSION_DETECTED, handler);
+    return () => {
+      ipcRenderer.removeListener(IPC_CHANNELS.TASK_REGRESSION_DETECTED, handler);
+    };
+  },
+
+  // Auto-refresh trigger (from file watcher)
+  onTaskAutoRefresh: (
+    callback: (data: { reason: string; projectId: string; specId: string }) => void
+  ): (() => void) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      data: { reason: string; projectId: string; specId: string }
+    ): void => {
+      callback(data);
+    };
+    ipcRenderer.on(IPC_CHANNELS.TASK_AUTO_REFRESH_TRIGGER, handler);
+    return () => {
+      ipcRenderer.removeListener(IPC_CHANNELS.TASK_AUTO_REFRESH_TRIGGER, handler);
+    };
+  },
+
   // Task Phase Logs
   getTaskLogs: (projectId: string, specId: string): Promise<IPCResult<TaskLogs | null>> =>
     ipcRenderer.invoke(IPC_CHANNELS.TASK_LOGS_GET, projectId, specId),
@@ -346,5 +489,42 @@ export const createTaskAPI = (): TaskAPI => ({
     return () => {
       ipcRenderer.removeListener(IPC_CHANNELS.TASK_MERGE_PROGRESS, handler);
     };
-  }
+  },
+
+  // RDR (Recover Debug Resend) Processing
+  triggerRdrProcessing: (projectId: string, taskIds: string[]): Promise<IPCResult<{ processed: number }>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.TRIGGER_RDR_PROCESSING, projectId, taskIds),
+
+  // Immediate RDR ping - writes signal file now (no 30s timer)
+  pingRdrImmediate: (projectId: string, tasks: Task[]): Promise<IPCResult<{ taskCount: number; signalPath: string }>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.PING_RDR_IMMEDIATE, projectId, tasks),
+
+  // Auto-recover all tasks with start_requested status or incomplete subtasks
+  autoRecoverAllTasks: (projectId: string): Promise<IPCResult<{ recovered: number; taskIds: string[] }>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.AUTO_RECOVER_ALL_TASKS, projectId),
+
+  // VS Code Window Management (for RDR message sending)
+  getVSCodeWindows: (): Promise<IPCResult<Array<{ handle: number; title: string; processId: number }>>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.GET_VSCODE_WINDOWS),
+
+  sendRdrToWindow: (identifier: number | string, message: string): Promise<IPCResult<{ success: boolean; error?: string }>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.SEND_RDR_TO_WINDOW, identifier, message),
+
+  // Detailed RDR batch info for auto-send
+  getRdrBatchDetails: (projectId: string): Promise<IPCResult<RdrBatchDetails>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.GET_RDR_BATCH_DETAILS, projectId),
+
+  // Check if Claude Code is busy (in a prompt loop)
+  isClaudeCodeBusy: (identifier: number | string): Promise<IPCResult<boolean>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.IS_CLAUDE_CODE_BUSY, identifier),
+
+  // Auto Shutdown (Global - monitors ALL projects)
+  getAutoShutdownStatus: () =>
+    ipcRenderer.invoke(IPC_CHANNELS.GET_AUTO_SHUTDOWN_STATUS),
+
+  setAutoShutdown: (enabled: boolean) =>
+    ipcRenderer.invoke(IPC_CHANNELS.SET_AUTO_SHUTDOWN, enabled),
+
+  cancelAutoShutdown: () =>
+    ipcRenderer.invoke(IPC_CHANNELS.CANCEL_AUTO_SHUTDOWN)
 });

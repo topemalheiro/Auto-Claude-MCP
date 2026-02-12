@@ -6,6 +6,7 @@ import { SecuritySettings } from '../../project-settings/SecuritySettings';
 import { LinearIntegration } from '../integrations/LinearIntegration';
 import { GitHubIntegration } from '../integrations/GitHubIntegration';
 import { GitLabIntegration } from '../integrations/GitLabIntegration';
+import { HuggingFaceIntegration } from '../integrations/HuggingFaceIntegration';
 import { InitializationGuard } from '../common/InitializationGuard';
 import type { ProjectSettingsSection } from '../ProjectSettingsContent';
 
@@ -164,6 +165,26 @@ export function SectionRouter({
               projectPath={project.path}
               settings={settings}
               setSettings={setSettings}
+            />
+          </InitializationGuard>
+        </SettingsSection>
+      );
+
+    case 'huggingface':
+      return (
+        <SettingsSection
+          title={t('projectSections.huggingface.integrationTitle')}
+          description={t('projectSections.huggingface.integrationDescription')}
+        >
+          <InitializationGuard
+            initialized={!!project.autoBuildPath}
+            title={t('projectSections.huggingface.integrationTitle')}
+            description={t('projectSections.huggingface.syncDescription')}
+          >
+            <HuggingFaceIntegration
+              envConfig={envConfig}
+              updateEnvConfig={updateEnvConfig}
+              projectPath={project.path}
             />
           </InitializationGuard>
         </SettingsSection>

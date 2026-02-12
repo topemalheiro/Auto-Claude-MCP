@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { unstable_batchedUpdates } from 'react-dom';
-import { useTaskStore } from '../stores/task-store';
+import { useTaskStore, loadTasks } from '../stores/task-store';
 import { useRoadmapStore } from '../stores/roadmap-store';
 import { useRateLimitStore } from '../stores/rate-limit-store';
 import { useAuthFailureStore } from '../stores/auth-failure-store';
@@ -358,6 +358,66 @@ export function useIpcListeners(): void {
       }
     );
 
+    // Task list refresh listener (for MCP-created tasks)
+    // Note: loadTasks is imported directly from task-store.ts (it's a standalone function, not a store method)
+    const cleanupTaskListRefresh = window.electronAPI.onTaskListRefresh(
+      (projectId: string) => {
+        // Only refresh if this is for the currently selected project
+        if (isTaskForCurrentProject(projectId)) {
+          console.log('[IPC] Task list refresh requested for project:', projectId);
+          loadTasks(projectId, { forceRefresh: true });
+        }
+      }
+    );
+
+    // Task auto-start listener (for MCP start_task requests)
+    const cleanupTaskAutoStart = window.electronAPI.onTaskAutoStart(
+      (projectId: string, taskId: string) => {
+        // Only auto-start if this is for the currently selected project
+        if (isTaskForCurrentProject(projectId)) {
+          console.log('[IPC] Task auto-start requested for task:', taskId);
+          // Refresh tasks first to get the latest status
+          loadTasks(projectId, { forceRefresh: true }).then(() => {
+            // Then trigger the task start
+            window.electronAPI.startTask(taskId);
+          });
+        }
+      }
+    );
+
+    // Task status changed listener (for RDR auto-recovery)
+    const cleanupTaskStatusChanged = window.electronAPI.onTaskStatusChanged(
+      (data: {
+        projectId: string;
+        taskId: string;
+        specId: string;
+        oldStatus: import('../../shared/types').TaskStatus;
+        newStatus: import('../../shared/types').TaskStatus;
+      }) => {
+        // Only refresh if this is for the currently selected project
+        if (isTaskForCurrentProject(data.projectId)) {
+          console.log(`[IPC] Task ${data.specId} status changed: ${data.oldStatus} → ${data.newStatus}`);
+          // Refresh task list to show updated board position
+          loadTasks(data.projectId, { forceRefresh: true });
+        }
+      }
+    );
+
+    // Rate limit auto-resume listener (after waiting for rate limit reset)
+    const cleanupRateLimitAutoResume = window.electronAPI.onRateLimitAutoResume(
+      (data: { taskId: string; projectId: string; source: string; profileId: string }) => {
+        // Only auto-resume if this is for the currently selected project
+        if (isTaskForCurrentProject(data.projectId)) {
+          console.log('[IPC] Rate limit auto-resume requested for task:', data.taskId);
+          // Refresh tasks first to get the latest status
+          loadTasks(data.projectId, { forceRefresh: true }).then(() => {
+            // Then trigger the task start
+            window.electronAPI.startTask(data.taskId);
+          });
+        }
+      }
+    );
+
     // Cleanup on unmount
     return () => {
       // Flush any pending batched updates before cleanup
@@ -378,6 +438,10 @@ export function useIpcListeners(): void {
       cleanupRateLimit();
       cleanupSDKRateLimit();
       cleanupAuthFailure();
+      cleanupTaskListRefresh();
+      cleanupTaskAutoStart();
+      cleanupTaskStatusChanged();
+      cleanupRateLimitAutoResume();
     };
   }, [appendLog, setError]);
 }

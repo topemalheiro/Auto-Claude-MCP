@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { AlertCircle, ExternalLink, Clock, RefreshCw, User, ChevronDown, Check, Star, Zap, FileText, ListTodo, Map, Lightbulb, Plus } from 'lucide-react';
+import { AlertCircle, ExternalLink, Clock, RefreshCw, User, ChevronDown, Check, Star, Zap, FileText, ListTodo, Map, Lightbulb, Plus, Timer, X } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -55,8 +55,22 @@ function getSourceIcon(source: SDKRateLimitInfo['source']) {
   }
 }
 
+/**
+ * Format seconds as mm:ss or hh:mm:ss
+ */
+function formatCountdown(seconds: number): string {
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = seconds % 60;
+
+  if (hours > 0) {
+    return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  }
+  return `${minutes}:${secs.toString().padStart(2, '0')}`;
+}
+
 export function SDKRateLimitModal() {
-  const { isSDKModalOpen, sdkRateLimitInfo, hideSDKRateLimitModal, clearPendingRateLimit } = useRateLimitStore();
+  const { isSDKModalOpen, sdkRateLimitInfo, hideSDKRateLimitModal, clearPendingRateLimit, isWaiting, waitState, startWaiting, updateWaitProgress, stopWaiting } = useRateLimitStore();
   const { profiles, isSwitching, setSwitching } = useClaudeProfileStore();
   const { toast } = useToast();
   const { t } = useTranslation('common');
@@ -66,6 +80,7 @@ export function SDKRateLimitModal() {
   const [isRetrying, setIsRetrying] = useState(false);
   const [isAddingProfile, setIsAddingProfile] = useState(false);
   const [newProfileName, setNewProfileName] = useState('');
+  const [isStartingWait, setIsStartingWait] = useState(false);
   const [swapInfo, setSwapInfo] = useState<{
     wasAutoSwapped: boolean;
     swapReason?: 'proactive' | 'reactive';
@@ -104,8 +119,94 @@ export function SDKRateLimitModal() {
       setIsRetrying(false);
       setIsAddingProfile(false);
       setNewProfileName('');
+      setIsStartingWait(false);
     }
   }, [isSDKModalOpen]);
+
+  // Listen for wait progress updates
+  useEffect(() => {
+    const unsubProgress = window.electronAPI.onRateLimitWaitProgress((data) => {
+      updateWaitProgress(data.secondsRemaining);
+    });
+
+    const unsubComplete = window.electronAPI.onRateLimitWaitComplete((data) => {
+      stopWaiting();
+      clearPendingRateLimit();
+      toast({
+        title: 'Rate limit reset',
+        description: `${data.source === 'task' ? 'Task' : 'Operation'} will resume automatically.`,
+      });
+    });
+
+    return () => {
+      unsubProgress();
+      unsubComplete();
+    };
+  }, [updateWaitProgress, stopWaiting, clearPendingRateLimit, toast]);
+
+  // Handle starting the wait-and-resume
+  const handleStartWait = useCallback(async () => {
+    if (!sdkRateLimitInfo || !sdkRateLimitInfo.waitDurationMs || sdkRateLimitInfo.waitDurationMs <= 0) {
+      toast({
+        variant: 'destructive',
+        title: 'Cannot start wait',
+        description: 'Reset time is not available or already passed.',
+      });
+      return;
+    }
+
+    setIsStartingWait(true);
+    try {
+      const result = await window.electronAPI.startRateLimitWait(sdkRateLimitInfo);
+      if (result.success && result.data) {
+        startWaiting({
+          waitId: result.data.waitId,
+          taskId: sdkRateLimitInfo.taskId,
+          projectId: sdkRateLimitInfo.projectId,
+          source: sdkRateLimitInfo.source,
+          profileId: sdkRateLimitInfo.profileId,
+          secondsRemaining: Math.ceil((sdkRateLimitInfo.waitDurationMs || 0) / 1000),
+          startedAt: new Date().toISOString(),
+          completesAt: sdkRateLimitInfo.resetAtDate?.toISOString() || ''
+        });
+        toast({
+          title: 'Waiting for rate limit reset',
+          description: `Will auto-resume when limit resets at ${sdkRateLimitInfo.resetTime}`,
+        });
+      } else {
+        toast({
+          variant: 'destructive',
+          title: 'Failed to start wait',
+          description: result.error || 'Unknown error',
+        });
+      }
+    } catch (err) {
+      debugError('[SDKRateLimitModal] Failed to start wait:', err);
+      toast({
+        variant: 'destructive',
+        title: 'Failed to start wait',
+        description: 'An unexpected error occurred.',
+      });
+    } finally {
+      setIsStartingWait(false);
+    }
+  }, [sdkRateLimitInfo, startWaiting, toast]);
+
+  // Handle canceling the wait
+  const handleCancelWait = useCallback(async () => {
+    if (!waitState?.waitId) return;
+
+    try {
+      await window.electronAPI.cancelRateLimitWait(waitState.waitId);
+      stopWaiting();
+      toast({
+        title: 'Wait cancelled',
+        description: 'Auto-resume has been cancelled.',
+      });
+    } catch (err) {
+      debugError('[SDKRateLimitModal] Failed to cancel wait:', err);
+    }
+  }, [waitState, stopWaiting, toast]);
 
   const loadAutoSwitchSettings = async () => {
     try {
@@ -292,20 +393,79 @@ export function SDKRateLimitModal() {
             {t('rateLimit.sdk.upgradeToProButton')}
           </Button>
 
-          {/* Reset time info */}
+          {/* Reset time info with wait-and-resume option */}
           {sdkRateLimitInfo.resetTime && (
-            <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/50 p-4">
-              <Clock className="h-5 w-5 text-muted-foreground shrink-0" />
-              <div>
-                <p className="text-sm font-medium text-foreground">
-                  {t('rateLimit.sdk.resetsLabel', { time: sdkRateLimitInfo.resetTime })}
-                </p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {sdkRateLimitInfo.limitType === 'weekly'
-                    ? t('rateLimit.sdk.weeklyLimit')
-                    : t('rateLimit.sdk.sessionLimit')}
-                </p>
-              </div>
+            <div className="rounded-lg border border-border bg-muted/50 p-4">
+              {isWaiting && waitState ? (
+                /* Waiting countdown display */
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Timer className="h-5 w-5 text-primary animate-pulse" />
+                      <span className="text-sm font-medium text-foreground">Waiting for rate limit reset...</span>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleCancelWait}
+                      className="h-6 w-6 p-0"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <div className="flex items-center justify-center">
+                    <div className="text-3xl font-mono font-bold text-primary">
+                      {formatCountdown(waitState.secondsRemaining)}
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground text-center">
+                    {sdkRateLimitInfo.source === 'task' ? 'Task will auto-resume when limit resets' : 'Operation will resume automatically'}
+                  </p>
+                  {/* Progress bar */}
+                  <div className="w-full bg-muted rounded-full h-1.5">
+                    <div
+                      className="bg-primary h-1.5 rounded-full transition-all duration-1000"
+                      style={{
+                        width: `${Math.max(0, 100 - (waitState.secondsRemaining / ((sdkRateLimitInfo.waitDurationMs || 1) / 1000)) * 100)}%`
+                      }}
+                    />
+                  </div>
+                </div>
+              ) : (
+                /* Normal reset time display with wait button */
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <Clock className="h-5 w-5 text-muted-foreground shrink-0" />
+                    <div>
+                      <p className="text-sm font-medium text-foreground">
+                        {t('rateLimit.sdk.resetsLabel', { time: sdkRateLimitInfo.resetTime })}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {sdkRateLimitInfo.limitType === 'weekly'
+                          ? t('rateLimit.sdk.weeklyLimit')
+                          : t('rateLimit.sdk.sessionLimit')}
+                      </p>
+                    </div>
+                  </div>
+                  {/* Wait & Auto-Resume button - only show if no alternative profiles and has task */}
+                  {!hasMultipleProfiles && sdkRateLimitInfo.source === 'task' && sdkRateLimitInfo.waitDurationMs && sdkRateLimitInfo.waitDurationMs > 0 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleStartWait}
+                      disabled={isStartingWait}
+                      className="gap-2 shrink-0"
+                    >
+                      {isStartingWait ? (
+                        <RefreshCw className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Timer className="h-4 w-4" />
+                      )}
+                      Wait & Resume
+                    </Button>
+                  )}
+                </div>
+              )}
             </div>
           )}
 

@@ -39,6 +39,8 @@ export interface DebugAPI {
   copyDebugInfo: () => Promise<DebugResult>;
   getRecentErrors: (maxCount?: number) => Promise<string[]>;
   listLogFiles: () => Promise<LogFileInfo[]>;
+  /** Trigger a native crash for testing watchdog recovery. WARNING: Will crash the app! */
+  triggerCrash: () => Promise<void>;
 }
 
 /**
@@ -58,5 +60,8 @@ export const createDebugAPI = (): DebugAPI => ({
     invokeIpc(IPC_CHANNELS.DEBUG_GET_RECENT_ERRORS, maxCount),
 
   listLogFiles: (): Promise<LogFileInfo[]> =>
-    invokeIpc(IPC_CHANNELS.DEBUG_LIST_LOG_FILES)
+    invokeIpc(IPC_CHANNELS.DEBUG_LIST_LOG_FILES),
+
+  triggerCrash: (): Promise<void> =>
+    invokeIpc(IPC_CHANNELS.DEBUG_TRIGGER_CRASH)
 });

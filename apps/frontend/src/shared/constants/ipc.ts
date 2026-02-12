@@ -50,6 +50,7 @@ export const IPC_CHANNELS = {
   TASK_LIST_WORKTREES: 'task:listWorktrees',
   TASK_ARCHIVE: 'task:archive',
   TASK_UNARCHIVE: 'task:unarchive',
+  TASK_TOGGLE_RDR: 'task:toggleRdr',  // Toggle RDR auto-recovery for a task
   TASK_CLEAR_STAGED_STATE: 'task:clearStagedState',
 
   // Task events (main -> renderer)
@@ -58,6 +59,11 @@ export const IPC_CHANNELS = {
   TASK_LOG: 'task:log',
   TASK_STATUS_CHANGE: 'task:statusChange',
   TASK_EXECUTION_PROGRESS: 'task:executionProgress',
+  TASK_LIST_REFRESH: 'task:listRefresh',  // External task created (MCP), UI should refresh
+  TASK_AUTO_START: 'task:autoStart',      // MCP requested task start, UI should trigger execution
+  TASK_STATUS_CHANGED: 'task:statusChanged',  // Task status changed (for RDR auto-recovery board movement)
+  TASK_AUTO_REFRESH_TRIGGER: 'task:autoRefreshTrigger',  // File watcher detected change, trigger auto-refresh if enabled
+  TASK_REGRESSION_DETECTED: 'task:regressionDetected',  // Task regressed from started/running back to backlog
 
   // Task phase logs (persistent, collapsible logs by phase)
   TASK_LOGS_GET: 'task:logsGet',           // Load logs from spec dir
@@ -362,6 +368,20 @@ export const IPC_CHANNELS = {
   GITLAB_TRIAGE_COMPLETE: 'gitlab:triage:complete',
   GITLAB_TRIAGE_ERROR: 'gitlab:triage:error',
 
+  // Hugging Face integration
+  HUGGINGFACE_CHECK_CLI: 'huggingface:checkCli',
+  HUGGINGFACE_INSTALL_CLI: 'huggingface:installCli',
+  HUGGINGFACE_CHECK_AUTH: 'huggingface:checkAuth',
+  HUGGINGFACE_LOGIN: 'huggingface:login',
+  HUGGINGFACE_LOGIN_WITH_TOKEN: 'huggingface:loginWithToken',
+  HUGGINGFACE_GET_TOKEN: 'huggingface:getToken',
+  HUGGINGFACE_GET_USER: 'huggingface:getUser',
+  HUGGINGFACE_LIST_MODELS: 'huggingface:listModels',
+  HUGGINGFACE_DETECT_REPO: 'huggingface:detectRepo',
+  HUGGINGFACE_CREATE_REPO: 'huggingface:createRepo',
+  HUGGINGFACE_GET_BRANCHES: 'huggingface:getBranches',
+  HUGGINGFACE_CHECK_CONNECTION: 'huggingface:checkConnection',
+
   // GitHub Auto-Fix operations
   GITHUB_AUTOFIX_START: 'github:autofix:start',
   GITHUB_AUTOFIX_STOP: 'github:autofix:stop',
@@ -549,6 +569,7 @@ export const IPC_CHANNELS = {
   DEBUG_GET_RECENT_ERRORS: 'debug:getRecentErrors',
   DEBUG_LIST_LOG_FILES: 'debug:listLogFiles',
   DEBUG_SIMULATE_RATE_LIMIT: 'debug:simulateRateLimit',  // Simulate rate limit for testing auto-swap
+  DEBUG_TRIGGER_CRASH: 'debug:triggerCrash', // Force native crash for watchdog testing
 
   // Claude Code CLI operations
   CLAUDE_CODE_CHECK_VERSION: 'claudeCode:checkVersion',
@@ -584,5 +605,42 @@ export const IPC_CHANNELS = {
   // Queue routing events (main -> renderer)
   QUEUE_PROFILE_SWAPPED: 'queue:profileSwapped',      // Task switched to different profile
   QUEUE_SESSION_CAPTURED: 'queue:sessionCaptured',    // Session ID captured from running task
-  QUEUE_BLOCKED_NO_PROFILES: 'queue:blockedNoProfiles' // All profiles unavailable
+  QUEUE_BLOCKED_NO_PROFILES: 'queue:blockedNoProfiles', // All profiles unavailable
+
+  // Rate limit wait-and-resume (single account scenario)
+  RATE_LIMIT_WAIT_START: 'rateLimit:waitStart',           // Started waiting for rate limit reset
+  RATE_LIMIT_WAIT_PROGRESS: 'rateLimit:waitProgress',     // Countdown update
+  RATE_LIMIT_WAIT_COMPLETE: 'rateLimit:waitComplete',     // Wait finished, ready to resume
+  RATE_LIMIT_WAIT_CANCEL: 'rateLimit:waitCancel',         // User cancelled waiting
+  RATE_LIMIT_AUTO_RESUME: 'rateLimit:autoResume',         // Trigger task auto-resume after wait
+
+  // Task rate limit crash detection (Bug #5 - smart shutdown)
+  TASK_RATE_LIMIT_CRASH: 'task:rateLimitCrash',           // Task crashed due to rate limit
+  TASK_RATE_LIMIT_WAITING: 'task:rateLimitWaiting',       // Task is waiting for rate limit reset
+
+  // RDR (Recover Debug Resend) - Auto-recover stuck/errored tasks
+  TRIGGER_RDR_PROCESSING: 'rdr:triggerProcessing',        // Trigger RDR processing for tasks
+  RDR_TASK_PROCESSED: 'rdr:taskProcessed',                // Single task processed by RDR
+  RDR_PROCESSING_COMPLETE: 'rdr:processingComplete',      // All RDR processing complete
+  RDR_BATCH_READY: 'rdr:batchReady',                      // Batch ready for MCP/Claude Code processing
+  RDR_BATCH_PROCESSED: 'rdr:batchProcessed',              // Batch processing complete
+  RDR_ITERATION_COMPLETE: 'rdr:iterationComplete',         // One iteration of batch processing done
+  PING_RDR_IMMEDIATE: 'rdr:pingImmediate',                  // Immediate RDR ping (writes signal file now)
+
+  // VS Code Window Management (for RDR message sending)
+  GET_VSCODE_WINDOWS: 'rdr:getVSCodeWindows',               // Get list of VS Code windows
+  SEND_RDR_TO_WINDOW: 'rdr:sendToWindow',                   // Send RDR message to specific window
+  GET_RDR_BATCH_DETAILS: 'rdr:getBatchDetails',             // Get detailed task info for RDR message
+  IS_CLAUDE_CODE_BUSY: 'rdr:isClaudeCodeBusy',              // Check if Claude Code is in a prompt loop
+  AUTO_RECOVER_ALL_TASKS: 'rdr:autoRecoverAllTasks',        // Auto-recover all tasks with start_requested status
+
+  // Auto Shutdown
+  GET_AUTO_SHUTDOWN_STATUS: 'autoShutdown:getStatus',       // Get auto-shutdown status for a project
+  SET_AUTO_SHUTDOWN: 'autoShutdown:set',                    // Enable/disable auto-shutdown for a project
+  CANCEL_AUTO_SHUTDOWN: 'autoShutdown:cancel',              // Cancel pending shutdown
+
+  // Auto-Restart on Loop/Crash
+  RESTART_TRIGGER_AUTO_RESTART: 'restart:triggerAutoRestart',  // Trigger build and restart
+  RESTART_CHECK_COOLDOWN: 'restart:checkCooldown',             // Check if restart is allowed
+  RESTART_GRACEFUL: 'restart:graceful'                         // Graceful restart (from MCP or user)
 } as const;

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, memo, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useViewState } from '../contexts/ViewStateContext';
 import { Play, Square, Clock, Zap, Target, Shield, Gauge, Palette, FileCode, Bug, Wrench, Loader2, AlertTriangle, RotateCcw, Archive, GitPullRequest, MoreVertical } from 'lucide-react';
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
@@ -58,6 +59,7 @@ interface TaskCardProps {
   task: Task;
   onClick: () => void;
   onStatusChange?: (newStatus: TaskStatus) => unknown;
+  onRefresh?: () => Promise<void>;  // Callback to refresh task list after operations
   // Optional selectable mode props for multi-selection
   isSelectable?: boolean;
   isSelected?: boolean;
@@ -74,6 +76,7 @@ function taskCardPropsAreEqual(prevProps: TaskCardProps, nextProps: TaskCardProp
     prevTask === nextTask &&
     prevProps.onClick === nextProps.onClick &&
     prevProps.onStatusChange === nextProps.onStatusChange &&
+    prevProps.onRefresh === nextProps.onRefresh &&
     prevProps.isSelectable === nextProps.isSelectable &&
     prevProps.isSelected === nextProps.isSelected &&
     prevProps.onToggleSelect === nextProps.onToggleSelect
@@ -105,6 +108,7 @@ function taskCardPropsAreEqual(prevProps: TaskCardProps, nextProps: TaskCardProp
     prevTask.metadata?.complexity === nextTask.metadata?.complexity &&
     prevTask.metadata?.archivedAt === nextTask.metadata?.archivedAt &&
     prevTask.metadata?.prUrl === nextTask.metadata?.prUrl &&
+    prevTask.metadata?.forceRecovery === nextTask.metadata?.forceRecovery &&
     // Check if any subtask statuses changed (compare all subtasks)
     prevTask.subtasks.every((s, i) => s.status === nextTask.subtasks[i]?.status)
   );
@@ -129,17 +133,25 @@ export const TaskCard = memo(function TaskCard({
   task,
   onClick,
   onStatusChange,
+  onRefresh,
   isSelectable,
   isSelected,
   onToggleSelect
 }: TaskCardProps) {
   const { t } = useTranslation(['tasks', 'errors']);
   const { toast } = useToast();
+  const { showArchived, setShowArchived } = useViewState();
   const [isStuck, setIsStuck] = useState(false);
   const [isRecovering, setIsRecovering] = useState(false);
-  const stuckIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [rdrDisabled, setRdrDisabled] = useState(task.metadata?.rdrDisabled ?? false);
+  const stuckCheckRef = useRef<{ timeout: NodeJS.Timeout | null; interval: NodeJS.Timeout | null }>({
+    timeout: null,
+    interval: null
+  });
 
-  const isRunning = task.status === 'in_progress';
+  // Include ai_review in stuck detection to match TaskDetailModal behavior
+  // This ensures recovery indicators persist when closing the detail modal
+  const isRunning = task.status === 'in_progress' || task.status === 'ai_review';
   const executionPhase = task.executionProgress?.phase;
   const hasActiveExecution = executionPhase && executionPhase !== 'idle' && executionPhase !== 'complete' && executionPhase !== 'failed';
 
@@ -175,56 +187,144 @@ export const TaskCard = memo(function TaskCard({
     [task.updatedAt]
   );
 
+  // Wrapped status change handler that unarchives task first if needed
+  const handleStatusChangeWithUnarchive = useCallback(async (newStatus: TaskStatus) => {
+    console.log('[TaskCard] ===== ARCHIVE MODE STATUS CHANGE =====');
+    console.log('[TaskCard] Moving task:', task.id);
+    console.log('[TaskCard] From status:', task.status, '→ To status:', newStatus);
+    console.log('[TaskCard] Task projectId:', task.projectId);
+    console.log('[TaskCard] Task archivedAt:', task.metadata?.archivedAt);
+    console.log('[TaskCard] Currently in archive mode:', showArchived);
+
+    // Check if task is archived
+    if (task.metadata?.archivedAt) {
+      try {
+        console.log('[TaskCard] 🗂️  Unarchiving task...');
+        const result = await window.electronAPI.unarchiveTasks(task.projectId, [task.id]);
+        console.log('[TaskCard] ✅ Unarchive result:', result);
+
+        // Exit archive mode to show task in active view
+        if (showArchived) {
+          console.log('[TaskCard] 🚪 Exiting archive mode...');
+          setShowArchived(false);
+          console.log('[TaskCard] ✅ Archive mode exited');
+        } else {
+          console.log('[TaskCard] ℹ️  Not in archive mode, no need to exit');
+        }
+
+        // Trigger refresh to show task in new board
+        if (onRefresh) {
+          console.log('[TaskCard] 🔄 Triggering UI refresh...');
+          await onRefresh();
+          console.log('[TaskCard] ✅ UI refresh complete');
+        } else {
+          console.log('[TaskCard] ℹ️  No onRefresh callback provided');
+        }
+      } catch (error) {
+        console.error('[TaskCard] ❌ Unarchive failed:', error);
+        console.error('[TaskCard] Error details:', {
+          name: error?.name,
+          message: error?.message,
+          stack: error?.stack
+        });
+        // Don't proceed with status change if unarchive failed
+        return;
+      }
+    } else {
+      console.log('[TaskCard] ℹ️  Task not archived, proceeding with normal status change');
+    }
+
+    // Then change status
+    console.log('[TaskCard] 🔄 Calling onStatusChange...');
+    if (onStatusChange) {
+      onStatusChange(newStatus);
+      console.log('[TaskCard] ✅ Status change called');
+    } else {
+      console.warn('[TaskCard] ⚠️  onStatusChange is not defined!');
+    }
+
+    console.log('[TaskCard] ===== ARCHIVE MODE STATUS CHANGE COMPLETE =====');
+  }, [task.metadata?.archivedAt, task.projectId, task.id, task.status, showArchived, setShowArchived, onStatusChange, onRefresh]);
+
   // Memoize status menu items to avoid recreating on every render
   const statusMenuItems = useMemo(() => {
     if (!onStatusChange) return null;
     return TASK_STATUS_COLUMNS.filter(status => status !== task.status).map((status) => (
       <DropdownMenuItem
         key={status}
-        onClick={() => onStatusChange(status)}
+        onClick={() => handleStatusChangeWithUnarchive(status)}
       >
         {t(TASK_STATUS_LABELS[status])}
       </DropdownMenuItem>
     ));
-  }, [task.status, onStatusChange, t]);
+  }, [task.status, handleStatusChangeWithUnarchive, t]);
 
-  // Catastrophic stuck detection — last-resort safety net.
-  // XState handles all normal transitions via PROCESS_EXITED events.
-  // This only fires if XState somehow fails to transition after 60s with no activity.
+  // Memoized stuck check function to avoid recreating on every render
+  const performStuckCheck = useCallback(() => {
+    // Testing: forceRecovery metadata flag bypasses all checks and forces stuck state
+    if (task.metadata?.forceRecovery) {
+      setIsStuck(true);
+      return;
+    }
+
+    const currentPhase = task.executionProgress?.phase;
+    if (shouldSkipStuckCheck(currentPhase)) {
+      if (window.DEBUG) {
+        console.log(`[TaskCard] Stuck check skipped for ${task.id} - phase is '${currentPhase}' (planning/terminal phases don't need process verification)`);
+      }
+      setIsStuck(false);
+      return;
+    }
+
+    // If any activity (status, progress, logs) was recorded recently, task is alive
+    if (hasRecentActivity(task.id)) {
+      setIsStuck(false);
+      return;
+    }
+
+    // No activity for 60s — verify process is actually gone
+    checkTaskRunning(task.id).then((actuallyRunning) => {
+      // Re-check activity in case something arrived while the IPC was in flight
+      if (hasRecentActivity(task.id)) {
+        setIsStuck(false);
+      } else {
+        setIsStuck(!actuallyRunning);
+      }
+    });
+  }, [task.id, task.executionProgress?.phase, task.metadata?.forceRecovery]);
+
+  // Check if task is stuck (status says in_progress but no actual process)
+  // Add a longer grace period to avoid false positives during process spawn
   useEffect(() => {
     if (!isRunning) {
       setIsStuck(false);
-      if (stuckIntervalRef.current) {
-        clearInterval(stuckIntervalRef.current);
-        stuckIntervalRef.current = null;
+      // Clear any pending checks
+      if (stuckCheckRef.current.timeout) {
+        clearTimeout(stuckCheckRef.current.timeout);
+        stuckCheckRef.current.timeout = null;
+      }
+      if (stuckCheckRef.current.interval) {
+        clearInterval(stuckCheckRef.current.interval);
+        stuckCheckRef.current.interval = null;
       }
       return;
     }
 
-    stuckIntervalRef.current = setInterval(() => {
-      // If any activity (status, progress, logs) was recorded recently, task is alive
-      if (hasRecentActivity(task.id)) {
-        setIsStuck(false);
-        return;
-      }
+    // Initial check after 5s grace period (increased from 2s)
+    stuckCheckRef.current.timeout = setTimeout(performStuckCheck, 5000);
 
-      // No activity for 60s — verify process is actually gone
-      checkTaskRunning(task.id).then((actuallyRunning) => {
-        // Re-check activity in case something arrived while the IPC was in flight
-        if (hasRecentActivity(task.id)) {
-          setIsStuck(false);
-        } else {
-          setIsStuck(!actuallyRunning);
-        }
-      });
-    }, STUCK_CHECK_INTERVAL_MS);
+    // Periodic re-check every 30 seconds (reduced frequency from 15s)
+    stuckCheckRef.current.interval = setInterval(performStuckCheck, 30000);
 
     return () => {
-      if (stuckIntervalRef.current) {
-        clearInterval(stuckIntervalRef.current);
+      if (stuckCheckRef.current.timeout) {
+        clearTimeout(stuckCheckRef.current.timeout);
+      }
+      if (stuckCheckRef.current.interval) {
+        clearInterval(stuckCheckRef.current.interval);
       }
     };
-  }, [task.id, isRunning]);
+  }, [task.id, isRunning, performStuckCheck]);
 
   const handleStartStop = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -253,6 +353,20 @@ export const TaskCard = memo(function TaskCard({
       setIsStuck(false);
     }
     setIsRecovering(false);
+  };
+
+  const handleToggleRdr = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const newRdrState = !rdrDisabled;
+    setRdrDisabled(newRdrState);
+
+    // Call IPC to update task metadata
+    const result = await window.electronAPI.toggleTaskRdr(task.id, newRdrState);
+    if (!result.success) {
+      console.error('[TaskCard] Failed to toggle RDR:', result.error);
+      // Revert on failure
+      setRdrDisabled(!newRdrState);
+    }
   };
 
   const handleArchive = async (e: React.MouseEvent) => {
@@ -330,8 +444,8 @@ export const TaskCard = memo(function TaskCard({
     <Card
       className={cn(
         'card-surface task-card-enhanced cursor-pointer',
-        isRunning && !isStuck && 'ring-2 ring-primary border-primary task-running-pulse',
-        isStuck && 'ring-2 ring-warning border-warning task-stuck-pulse',
+        isRunning && !isStuck && !isIncomplete && 'ring-2 ring-primary border-primary task-running-pulse',
+        (isStuck || isIncomplete) && 'ring-2 ring-warning border-warning task-stuck-pulse',
         isArchived && 'opacity-60 hover:opacity-80',
         isSelectable && isSelected && 'ring-2 ring-ring border-ring bg-accent/10'
       )}
@@ -614,7 +728,7 @@ export const TaskCard = memo(function TaskCard({
             )}
 
             {/* Move to menu for keyboard accessibility */}
-            {statusMenuItems && (
+            {(statusMenuItems || task.status === 'human_review') && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
@@ -628,9 +742,39 @@ export const TaskCard = memo(function TaskCard({
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-                  <DropdownMenuLabel>{t('actions.moveTo')}</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  {statusMenuItems}
+                  {statusMenuItems && (
+                    <>
+                      <DropdownMenuLabel>{t('actions.moveTo')}</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      {statusMenuItems}
+                    </>
+                  )}
+                  {task.status === 'human_review' && (
+                    <>
+                      {statusMenuItems && <DropdownMenuSeparator />}
+                      <DropdownMenuLabel>RDR Auto-Recovery</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={handleToggleRdr}>
+                        {rdrDisabled ? (
+                          <>
+                            <RotateCcw className="mr-2 h-4 w-4" />
+                            Enable Auto-Recovery
+                          </>
+                        ) : (
+                          <>
+                            <Square className="mr-2 h-4 w-4" />
+                            Disable Auto-Recovery
+                          </>
+                        )}
+                      </DropdownMenuItem>
+                      {task.metadata?.rdrAttempts && task.metadata.rdrAttempts > 0 && (
+                        <DropdownMenuItem disabled>
+                          <AlertTriangle className="mr-2 h-4 w-4" />
+                          {task.metadata.rdrAttempts} recovery attempt{task.metadata.rdrAttempts > 1 ? 's' : ''}
+                        </DropdownMenuItem>
+                      )}
+                    </>
+                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
             )}

@@ -294,6 +294,46 @@ export interface AppSettings {
   seenVersionWarnings?: string[];
   // Sidebar collapsed state (icons only when true)
   sidebarCollapsed?: boolean;
+  // Auto-resume tasks after rate limit reset (when task crashes due to rate limit)
+  // When enabled, a countdown timer starts and the task auto-resumes when limit resets
+  // When disabled, tasks go to Human Review and require manual restart
+  autoResumeAfterRateLimit?: boolean;
+  // RDR (Recover Debug Resend) - Auto-recover stuck/errored tasks
+  // When enabled, automatically recovers stuck tasks, analyzes errors, and submits fix requests
+  rdrEnabled?: boolean;
+  // Auto-shutdown when all tasks across ALL projects reach Human Review
+  // Global setting that monitors task progress across all projects simultaneously
+  autoShutdownEnabled?: boolean;
+  // Custom shutdown command (OS-specific, e.g., "shutdown /s /t 120" on Windows)
+  // If not set, uses platform default
+  shutdownCommand?: string;
+  // LLM Manager Auto-Restart Control
+  // Allows Claude Code (via MCP) to trigger Auto-Claude restarts when intervention is needed
+  // Also handles Claude process crashes (not app-level crashes - see crashRecovery)
+  // When disabled, tasks go to Human Review and require manual restart
+  autoRestartOnFailure?: {
+    enabled: boolean;
+    reopenCommand?: string;   // OS-specific command to start Auto-Claude after restart
+    buildCommand: string;     // Default: "npm run build"
+    maxRestartsPerHour: number; // Default: 3 (prevent infinite loops)
+    cooldownMinutes: number;   // Default: 5 (wait between restarts)
+  };
+  // Auto-refresh on task changes
+  // When enabled, automatically refreshes task list when files change (MCP, unarchive, status changes)
+  autoRefreshOnTaskChanges?: {
+    enabled: boolean;
+    debounceMs?: number;      // Default: 500ms (debounce rapid changes)
+    refreshDelayMs?: number;  // Default: 100ms (wait after file stabilizes)
+  };
+  // Crash recovery system - External watchdog for auto-restart
+  // When enabled, external watchdog monitors Auto-Claude and automatically restarts after crashes
+  // When disabled, crashes are not detected and no restart occurs
+  crashRecovery?: {
+    enabled: boolean;          // Enable/disable entire crash recovery system
+    autoRestart: boolean;      // Auto-restart after crash (if false, just log crash)
+    maxRestarts: number;       // Max restarts within cooldown period (default: 3)
+    restartCooldown: number;   // Cooldown period in ms (default: 60000 = 1 minute)
+  };
 }
 
 // Auto-Claude Source Environment Configuration (for auto-claude repo .env)

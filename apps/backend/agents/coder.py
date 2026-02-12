@@ -10,7 +10,7 @@ import json
 import logging
 import os
 import re
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from core.client import create_client
@@ -91,6 +91,37 @@ from .utils import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+# =============================================================================
+# EXIT REASON TRACKING (for RDR auto-recovery)
+# =============================================================================
+
+
+def _save_exit_reason(spec_dir: Path, exit_reason: str) -> None:
+    """
+    Write exitReason to implementation_plan.json so RDR can detect it.
+
+    This is critical for RDR auto-recovery system which monitors exitReason
+    to determine which tasks need intervention.
+
+    Args:
+        spec_dir: Spec directory containing implementation_plan.json
+        exit_reason: The reason for exit ("error", "stuckRetry_loop", etc.)
+    """
+    try:
+        plan = load_implementation_plan(spec_dir)
+        if plan:
+            plan["exitReason"] = exit_reason
+            plan["updated_at"] = datetime.now(timezone.utc).isoformat()
+
+            plan_file = spec_dir / "implementation_plan.json"
+            with open(plan_file, "w", encoding="utf-8") as f:
+                json.dump(plan, f, indent=2)
+
+            logger.info(f"Set exitReason={exit_reason} in implementation_plan.json")
+    except Exception as e:
+        logger.warning(f"Failed to write exitReason to plan: {e}")
 
 
 # =============================================================================
@@ -715,6 +746,10 @@ async def run_autonomous_agent(
                 # Check if subtask has exceeded max retries
                 attempt_count = recovery_manager.get_attempt_count(subtask_id)
                 if attempt_count >= MAX_SUBTASK_RETRIES:
+                    # Write exitReason="stuckRetry_loop" for RDR detection
+                    # (repeated file validation failures indicate stuck agent)
+                    _save_exit_reason(spec_dir, "stuckRetry_loop")
+
                     recovery_manager.mark_subtask_stuck(
                         subtask_id,
                         f"File validation failed after {attempt_count} attempts: {error_msg}",
@@ -868,6 +903,10 @@ async def run_autonomous_agent(
             # Check for stuck subtasks
             attempt_count = recovery_manager.get_attempt_count(subtask_id)
             if not success and attempt_count >= MAX_SUBTASK_RETRIES:
+                # Write exitReason="stuckRetry_loop" for RDR detection
+                # (3+ failed attempts indicates agent is stuck in a loop)
+                _save_exit_reason(spec_dir, "stuckRetry_loop")
+
                 recovery_manager.mark_subtask_stuck(
                     subtask_id, f"Failed after {attempt_count} attempts"
                 )
@@ -947,6 +986,9 @@ async def run_autonomous_agent(
             await asyncio.sleep(AUTO_CONTINUE_DELAY_SECONDS)
 
         elif status == "error":
+            # Write exitReason to implementation_plan.json so RDR can detect it
+            _save_exit_reason(spec_dir, "error")
+
             emit_phase(ExecutionPhase.FAILED, "Session encountered an error")
 
             # Check if this is a tool concurrency error (400)
@@ -1059,6 +1101,7 @@ async def run_autonomous_agent(
 
                     if wait_seconds > MAX_RATE_LIMIT_WAIT_SECONDS:
                         # Wait time too long - fail the task
+                        _save_exit_reason(spec_dir, "rate_limit")
                         print_status("Rate limit wait time too long", "error")
                         print(
                             f"Reset time would require waiting {wait_seconds / 3600:.1f} hours"
@@ -1125,6 +1168,7 @@ async def run_autonomous_agent(
 
             elif error_info and error_info.get("type") == "authentication":
                 # Authentication error - pause for user re-authentication
+                _save_exit_reason(spec_dir, "auth_failure")
                 _reset_concurrency_state()
 
                 emit_phase(

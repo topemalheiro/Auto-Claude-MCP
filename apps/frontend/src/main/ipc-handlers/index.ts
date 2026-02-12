@@ -23,6 +23,7 @@ import { registerEnvHandlers } from './env-handlers';
 import { registerLinearHandlers } from './linear-handlers';
 import { registerGithubHandlers } from './github-handlers';
 import { registerGitlabHandlers } from './gitlab-handlers';
+import { registerHuggingFaceHandlers } from './huggingface-handlers';
 import { registerIdeationHandlers } from './ideation-handlers';
 import { registerChangelogHandlers } from './changelog-handlers';
 import { registerInsightsHandlers } from './insights-handlers';
@@ -34,7 +35,13 @@ import { registerMcpHandlers } from './mcp-handlers';
 import { registerProfileHandlers } from './profile-handlers';
 import { registerScreenshotHandlers } from './screenshot-handlers';
 import { registerTerminalWorktreeIpcHandlers } from './terminal';
+import { registerRateLimitHandlers } from './rate-limit-handlers';
+import { registerRdrHandlers } from './rdr-handlers';
+import { registerRestartHandlers } from './restart-handlers';
 import { notificationService } from '../notification-service';
+
+// Auto-shutdown handlers (self-registering on import)
+import './auto-shutdown-handlers';
 
 /**
  * Setup all IPC handlers across all domains
@@ -92,6 +99,9 @@ export function setupIpcHandlers(
   // GitLab integration handlers
   registerGitlabHandlers(agentManager, getMainWindow);
 
+  // Hugging Face integration handlers
+  registerHuggingFaceHandlers();
+
   // Ideation handlers
   registerIdeationHandlers(agentManager, getMainWindow);
 
@@ -122,6 +132,15 @@ export function setupIpcHandlers(
   // Screenshot capture handlers
   registerScreenshotHandlers();
 
+  // Rate limit wait-and-resume handlers (single account scenario)
+  registerRateLimitHandlers(agentManager, getMainWindow);
+
+  // RDR (Recover Debug Resend) handlers - auto-recovery for stuck/errored tasks
+  registerRdrHandlers(agentManager);
+
+  // Auto-restart on loop/crash handlers - rebuild and restart on failure
+  registerRestartHandlers(agentManager);
+
   console.warn('[IPC] All handler modules registered successfully');
 }
 
@@ -140,6 +159,7 @@ export {
   registerLinearHandlers,
   registerGithubHandlers,
   registerGitlabHandlers,
+  registerHuggingFaceHandlers,
   registerIdeationHandlers,
   registerChangelogHandlers,
   registerInsightsHandlers,
@@ -149,5 +169,8 @@ export {
   registerClaudeCodeHandlers,
   registerMcpHandlers,
   registerProfileHandlers,
-  registerScreenshotHandlers
+  registerScreenshotHandlers,
+  registerRateLimitHandlers,
+  registerRdrHandlers,
+  registerRestartHandlers
 };

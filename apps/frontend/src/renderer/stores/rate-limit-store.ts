@@ -1,6 +1,20 @@
 import { create } from 'zustand';
 import type { RateLimitInfo, SDKRateLimitInfo } from '../../shared/types';
 
+/**
+ * Wait state for rate limit auto-resume
+ */
+interface WaitState {
+  waitId: string;
+  taskId?: string;
+  projectId?: string;
+  source: string;
+  profileId: string;
+  secondsRemaining: number;
+  startedAt: string;
+  completesAt: string;
+}
+
 interface RateLimitState {
   // Terminal rate limit modal
   isModalOpen: boolean;
@@ -15,6 +29,10 @@ interface RateLimitState {
   hasPendingRateLimit: boolean;
   pendingRateLimitType: 'terminal' | 'sdk' | null;
 
+  // Wait-and-resume state (single account scenario)
+  isWaiting: boolean;
+  waitState: WaitState | null;
+
   // Actions
   showRateLimitModal: (info: RateLimitInfo) => void;
   hideRateLimitModal: () => void;
@@ -22,6 +40,11 @@ interface RateLimitState {
   hideSDKRateLimitModal: () => void;
   reopenRateLimitModal: () => void;
   clearPendingRateLimit: () => void;
+
+  // Wait-and-resume actions
+  startWaiting: (waitState: WaitState) => void;
+  updateWaitProgress: (secondsRemaining: number) => void;
+  stopWaiting: () => void;
 }
 
 export const useRateLimitStore = create<RateLimitState>((set, get) => ({
@@ -31,6 +54,8 @@ export const useRateLimitStore = create<RateLimitState>((set, get) => ({
   sdkRateLimitInfo: null,
   hasPendingRateLimit: false,
   pendingRateLimitType: null,
+  isWaiting: false,
+  waitState: null,
 
   showRateLimitModal: (info: RateLimitInfo) => {
     set({
@@ -76,7 +101,35 @@ export const useRateLimitStore = create<RateLimitState>((set, get) => ({
       hasPendingRateLimit: false,
       pendingRateLimitType: null,
       rateLimitInfo: null,
-      sdkRateLimitInfo: null
+      sdkRateLimitInfo: null,
+      isWaiting: false,
+      waitState: null
     });
   },
+
+  // Wait-and-resume actions
+  startWaiting: (waitState: WaitState) => {
+    set({
+      isWaiting: true,
+      waitState,
+      // Close the modal since we're now waiting
+      isSDKModalOpen: false
+    });
+  },
+
+  updateWaitProgress: (secondsRemaining: number) => {
+    const { waitState } = get();
+    if (waitState) {
+      set({
+        waitState: { ...waitState, secondsRemaining }
+      });
+    }
+  },
+
+  stopWaiting: () => {
+    set({
+      isWaiting: false,
+      waitState: null
+    });
+  }
 }));

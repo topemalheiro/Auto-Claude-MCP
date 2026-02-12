@@ -478,3 +478,37 @@ export interface RoadmapProviderConfig {
  * Canny-specific status values
  */
 export type CannyStatus = 'open' | 'under review' | 'planned' | 'in progress' | 'complete' | 'closed';
+
+// ============================================
+// Hugging Face Integration Types
+// ============================================
+
+export interface HuggingFaceModel {
+  id: string;                          // e.g., "username/model-name"
+  modelId: string;                     // Short name without author
+  author: string;
+  private: boolean;
+  gated: boolean | 'auto' | 'manual';
+  downloads: number;
+  likes: number;
+  tags: string[];
+  library: string | null;              // e.g., "transformers", "diffusers"
+  pipeline_tag: string | null;         // e.g., "text-generation"
+  createdAt: string;
+  lastModified: string;
+}
+
+export interface HuggingFaceAuthResult {
+  authenticated: boolean;
+  username?: string;
+  token?: string;
+  error?: string;
+}
+
+export interface HuggingFaceSyncStatus {
+  connected: boolean;
+  username?: string;
+  repoId?: string;                     // model ID (e.g., "username/model-name")
+  lastSyncedAt?: string;
+  error?: string;
+}

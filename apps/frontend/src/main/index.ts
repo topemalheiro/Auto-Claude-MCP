@@ -38,7 +38,40 @@ for (const envPath of possibleEnvPaths) {
 import { app, BrowserWindow, shell, nativeImage, session, screen, Menu, MenuItem } from 'electron';
 import { join } from 'path';
 import { accessSync, readFileSync, writeFileSync, rmSync } from 'fs';
-import { electronApp, optimizer, is } from '@electron-toolkit/utils';
+import { optimizer } from '@electron-toolkit/utils';
+
+// Custom safe implementation to avoid module-level electron.app access
+// Using object property with function to avoid bundler getter transformation
+function isDev(): boolean {
+  try {
+    return !app.isPackaged;
+  } catch {
+    return true; // Default to dev mode if app not ready
+  }
+}
+
+const is = {
+  get dev() {
+    return isDev();
+  }
+};
+
+const electronApp = {
+  setAppUserModelId(id: string) {
+    if (process.platform === 'win32') {
+      app.setAppUserModelId(is.dev ? process.execPath : id);
+    }
+  },
+  setAutoLaunch(auto: boolean) {
+    if (process.platform === 'linux') return false;
+    const isOpenAtLogin = () => app.getLoginItemSettings().openAtLogin;
+    if (isOpenAtLogin() !== auto) {
+      app.setLoginItemSettings({ openAtLogin: auto });
+      return isOpenAtLogin() === auto;
+    }
+    return true;
+  }
+};
 import { setupIpcHandlers } from './ipc-setup';
 import { AgentManager } from './agent';
 import { TerminalManager } from './terminal-manager';
@@ -51,11 +84,14 @@ import { getAppLanguage, initAppLanguage } from './app-language';
 import { readSettingsFile } from './settings-utils';
 import { setupErrorLogging } from './app-logger';
 import { initSentryMain } from './sentry';
+import { checkAndHandleRestart, resumeTasksAfterRestart } from './ipc-handlers/restart-handlers';
+import { resetAllRdrAttempts } from './ipc-handlers/rdr-handlers';
 import { preWarmToolCache } from './cli-tool-manager';
 import { initializeClaudeProfileManager, getClaudeProfileManager } from './claude-profile-manager';
 import { isProfileAuthenticated } from './claude-profile/profile-utils';
 import { isMacOS, isWindows } from './platform';
 import { ptyDaemonClient } from './terminal/pty-daemon-client';
+import { checkAndNotifyCrash } from './crash-recovery-handler';
 import type { AppSettings, AuthFailureInfo } from '../shared/types';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -200,7 +236,7 @@ function createWindow(): void {
     trafficLightPosition: { x: 15, y: 10 },
     icon: getIconPath(),
     webPreferences: {
-      preload: join(__dirname, '../preload/index.mjs'),
+      preload: join(__dirname, '../preload/index.js'),
       sandbox: false,
       contextIsolation: true,
       nodeIntegration: false,
@@ -212,6 +248,20 @@ function createWindow(): void {
   // Show window when ready to avoid visual flash
   mainWindow.on('ready-to-show', () => {
     mainWindow?.show();
+
+    // Check for crash flag and notify Claude Code if app was restarted after crash
+    if (mainWindow) {
+      checkAndNotifyCrash(mainWindow).catch((error) => {
+        console.error('[main] Failed to check crash flag:', error);
+      });
+    }
+
+    // Pre-warm CLI cache AFTER window shows (hides any cmd.exe flashes on Windows)
+    setImmediate(() => {
+      preWarmToolCache(['claude', 'git', 'gh', 'python']).catch((error) => {
+        console.warn('[main] Failed to pre-warm CLI cache:', error);
+      });
+    });
   });
 
   // Configure initial spell check languages with proper fallback logic
@@ -471,17 +521,25 @@ app.whenReady().then(() => {
   // Setup IPC handlers (pass pythonEnvManager for Python path management)
   setupIpcHandlers(agentManager, terminalManager, () => mainWindow, pythonEnvManager);
 
+  // Check for auto-restart request from hook
+  const settings = readSettingsFile();
+  checkAndHandleRestart(settings, agentManager);
+
+  // Resume tasks that were running before restart
+  resumeTasksAfterRestart();
+
+  // Reset RDR attempts on normal startup (not P6B programmatic restart)
+  // P6B restarts leave a .restart-requested marker — preserve attempt history for those
+  const restartMarkerPath = join(app.getPath('userData'), '.restart-requested');
+  if (!existsSync(restartMarkerPath)) {
+    resetAllRdrAttempts();
+  }
+
   // Create window
   createWindow();
 
-  // Pre-warm CLI tool cache in background (non-blocking)
-  // This ensures CLI detection is done before user needs it
-  // Include all commonly used tools to prevent sync blocking on first use
-  setImmediate(() => {
-    preWarmToolCache(['claude', 'git', 'gh', 'python']).catch((error) => {
-      console.warn('[main] Failed to pre-warm CLI cache:', error);
-    });
-  });
+  // NOTE: preWarmToolCache() is now called inside createWindow()'s ready-to-show handler
+  // to ensure CLI detection runs AFTER window is visible (hides cmd.exe flashes on Windows)
 
   // Initialize Claude profile manager, then start usage monitor
   // We do this sequentially to ensure profile data (including auto-switch settings)

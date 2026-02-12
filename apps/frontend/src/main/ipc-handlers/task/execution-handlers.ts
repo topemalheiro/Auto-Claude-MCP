@@ -21,6 +21,7 @@ import { writeFileAtomicSync } from '../../utils/atomic-file';
 import { findTaskWorktree } from '../../worktree-paths';
 import { projectStore } from '../../project-store';
 import { getIsolatedGitEnv, detectWorktreeBranch } from '../../utils/git-isolation';
+import { normalizePathForGit } from '../../platform';
 
 /**
  * Safe file read that handles missing files without TOCTOU issues.
@@ -544,8 +545,9 @@ export function registerTaskExecutionHandlers(
                 { timeout: 30000, logPrefix: '[TASK_UPDATE_STATUS]' }
               );
 
-              // Remove the worktree
-              execFileSync(getToolPath('git'), ['worktree', 'remove', '--force', worktreePath], {
+              // Remove the worktree (normalize path for git on Windows)
+              const gitPath = normalizePathForGit(worktreePath);
+              execFileSync(getToolPath('git'), ['worktree', 'remove', '--force', gitPath], {
                 cwd: project.path,
                 encoding: 'utf-8',
                 timeout: 30000,
@@ -945,26 +947,10 @@ export function registerTaskExecutionHandlers(
           }
         }
 
-        // Determine the target status intelligently based on subtask progress
-        // If targetStatus is explicitly provided, use it; otherwise calculate from subtasks
-        let newStatus: TaskStatus = targetStatus || 'backlog';
-
-        if (!targetStatus && plan?.phases && Array.isArray(plan.phases)) {
-          // Analyze subtask statuses to determine appropriate recovery status
-          const { completedCount, totalCount, allCompleted } = checkSubtasksCompletion(plan);
-
-          if (totalCount > 0) {
-            if (allCompleted) {
-              // All subtasks completed - should go to review (ai_review or human_review based on source)
-              // For recovery, human_review is safer as it requires manual verification
-              newStatus = 'human_review';
-            } else if (completedCount > 0) {
-              // Some subtasks completed, some still pending - task is in progress
-              newStatus = 'in_progress';
-            }
-            // else: no subtasks completed, stay with 'backlog'
-          }
-        }
+        // Recovery should NOT change the task's board position
+        // Use explicitly provided targetStatus, or keep the current plan status
+        // The "smart" status determination was causing tasks to jump forward/backward unexpectedly
+        let newStatus: TaskStatus = targetStatus || (plan?.status as TaskStatus) || 'backlog';
 
         if (plan) {
           // Update status
@@ -1062,6 +1048,22 @@ export function registerTaskExecutionHandlers(
           }
 
           console.log(`[Recovery] Total ${totalResetCount} subtask(s) reset across all locations`);
+        }
+
+        // Clear forceRecovery from task_metadata.json (testing flag)
+        for (const dir of [specDir, mainSpecDir, worktreeSpecDir].filter(Boolean) as string[]) {
+          const metaPath = path.join(dir, 'task_metadata.json');
+          if (existsSync(metaPath)) {
+            try {
+              const meta = JSON.parse(readFileSync(metaPath, 'utf-8'));
+              if (meta.forceRecovery) {
+                delete meta.forceRecovery;
+                writeFileSync(metaPath, JSON.stringify(meta, null, 2));
+              }
+            } catch {
+              // Best-effort cleanup
+            }
+          }
         }
 
         // Stop file watcher if it was watching this task

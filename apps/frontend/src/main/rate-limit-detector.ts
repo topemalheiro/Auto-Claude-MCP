@@ -5,6 +5,7 @@
 
 import { getClaudeProfileManager } from './claude-profile-manager';
 import { getUsageMonitor } from './claude-profile/usage-monitor';
+import { parseResetTime } from './claude-profile/usage-parser';
 
 /**
  * Regex pattern to detect Claude Code rate limit messages
@@ -624,6 +625,44 @@ export function getActiveProfileId(): string {
 }
 
 /**
+ * Track rate limit events by task ID.
+ * This allows the exit handler to check if a task crashed due to rate limit.
+ */
+const rateLimitByTask = new Map<string, SDKRateLimitInfo>();
+
+/**
+ * Store rate limit info for a specific task.
+ * Called when rate limit is detected during task execution.
+ */
+export function setRateLimitForTask(taskId: string, info: SDKRateLimitInfo): void {
+  console.log(`[RateLimitDetector] Storing rate limit for task ${taskId}`);
+  rateLimitByTask.set(taskId, info);
+}
+
+/**
+ * Get rate limit info for a task (if it hit a rate limit).
+ * Used by exit handler to determine if crash was due to rate limit.
+ */
+export function getRateLimitForTask(taskId: string): SDKRateLimitInfo | undefined {
+  return rateLimitByTask.get(taskId);
+}
+
+/**
+ * Clear rate limit info for a task.
+ * Called when task completes successfully or is reset.
+ */
+export function clearRateLimitForTask(taskId: string): boolean {
+  return rateLimitByTask.delete(taskId);
+}
+
+/**
+ * Check if a task has a stored rate limit event.
+ */
+export function hasRateLimitForTask(taskId: string): boolean {
+  return rateLimitByTask.has(taskId);
+}
+
+/**
  * Information about a rate limit event for the UI
  */
 export interface SDKRateLimitInfo {
@@ -661,6 +700,18 @@ export interface SDKRateLimitInfo {
   };
   /** Why the swap occurred: 'proactive' (before limit) or 'reactive' (after limit hit) */
   swapReason?: 'proactive' | 'reactive';
+
+  // Wait-and-resume fields (for single account scenario)
+  /** Parsed reset time as Date object */
+  resetAtDate?: Date;
+  /** Time to wait until reset (milliseconds) */
+  waitDurationMs?: number;
+  /** Whether user enabled auto-wait for this rate limit */
+  isWaiting?: boolean;
+  /** Progress: seconds remaining until reset */
+  secondsRemaining?: number;
+  /** Whether task was auto-resumed after waiting */
+  wasAutoResumed?: boolean;
 }
 
 /**
@@ -679,6 +730,22 @@ export function createSDKRateLimitInfo(
     ? profileManager.getProfile(detection.profileId)
     : profileManager.getActiveProfile();
 
+  // Calculate wait duration if reset time is available
+  let resetAtDate: Date | undefined;
+  let waitDurationMs: number | undefined;
+  let secondsRemaining: number | undefined;
+
+  if (detection.resetTime) {
+    try {
+      resetAtDate = parseResetTime(detection.resetTime);
+      const now = Date.now();
+      waitDurationMs = Math.max(0, resetAtDate.getTime() - now);
+      secondsRemaining = Math.ceil(waitDurationMs / 1000);
+    } catch (err) {
+      console.error('[createSDKRateLimitInfo] Failed to parse reset time:', err);
+    }
+  }
+
   return {
     source,
     projectId: options?.projectId,
@@ -689,6 +756,10 @@ export function createSDKRateLimitInfo(
     profileName: profile?.name,
     suggestedProfile: detection.suggestedProfile,
     detectedAt: new Date(),
-    originalError: detection.originalError
+    originalError: detection.originalError,
+    // Wait-and-resume fields
+    resetAtDate,
+    waitDurationMs,
+    secondsRemaining
   };
 }

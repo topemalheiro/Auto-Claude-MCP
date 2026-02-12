@@ -323,6 +323,21 @@ export function normalizePath(inputPath: string): string {
 }
 
 /**
+ * Normalize a path for git operations
+ *
+ * Git internally stores paths with forward slashes on all platforms.
+ * On Windows, passing backslash paths to git commands like `worktree remove`
+ * can cause "is not a working tree" errors because git can't match the path
+ * to its internal representation.
+ *
+ * This function converts backslashes to forward slashes, which git accepts
+ * on all platforms (Windows, macOS, Linux).
+ */
+export function normalizePathForGit(inputPath: string): string {
+  return inputPath.replace(/\\/g, '/');
+}
+
+/**
  * Join path parts using the platform separator
  */
 export function joinPaths(...parts: string[]): string {

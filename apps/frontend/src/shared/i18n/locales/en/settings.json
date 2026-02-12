@@ -192,6 +192,12 @@
     "chronological": "Chronological (oldest first)",
     "reverseChronological": "Reverse-chronological (newest first)"
   },
+  "display": {
+    "autoRefresh": {
+      "label": "Auto-Refresh on Task Changes",
+      "description": "Automatically refresh task list when files change (MCP, unarchive, status changes)"
+    }
+  },
   "general": {
     "otherAgentSettings": "Other Agent Settings",
     "otherAgentSettingsDescription": "Additional agent configuration options",
@@ -236,7 +242,13 @@
     "autoClaudePathDescription": "Relative path to auto-claude directory in projects",
     "autoClaudePathPlaceholder": "auto-claude (default)",
     "autoNameTerminals": "Automatically name terminals",
-    "autoNameTerminalsDescription": "Use AI to generate descriptive names for terminal tabs based on their activity"
+    "autoNameTerminalsDescription": "Use AI to generate descriptive names for terminal tabs based on their activity",
+    "autoResumeAfterRateLimit": "Auto-Resume After Rate Limit",
+    "autoResumeAfterRateLimitDescription": "When a task pauses due to rate limit, automatically resume it when the limit resets. If disabled, tasks go to Human Review and require manual restart.",
+    "autoRestartOnFailure": "Auto-Start on Crash or If Required",
+    "autoRestartOnFailureDescription": "Automatically restart when a crash is detected or if the agent needs intervention. Enables unattended operation.",
+    "buildCommand": "Build Command",
+    "buildCommandPlaceholder": "npm run build"
   },
   "theme": {
     "title": "Appearance",
@@ -278,6 +290,23 @@
       "label": "Auto-name Claude terminals",
       "description": "Use AI to generate a descriptive name for Claude terminals based on your first message"
     },
+    "reopenCommand": {
+      "label": "Reopen Command",
+      "description": "Command to start Auto-Claude after restart (OS-specific and IDE/CLI specific sometimes)",
+      "placeholder": "e.g., open -a \"Auto-Claude\" (macOS)"
+    },
+    "buildCommand": {
+      "label": "Build Command",
+      "description": "Command to build Auto-Claude before restart"
+    },
+    "autoRestartOnFailure": {
+      "label": "LLM Manager Auto-Restart",
+      "description": "Allow LLM Manager to trigger Auto-Claude restarts when intervention is needed, detected through AC MCP. Enables unattended operation."
+    },
+    "crashRecovery": {
+      "label": "Crash Recovery",
+      "description": "Automatically restart Auto Claude when crashes are detected (via external watchdog)"
+    },
     "yoloMode": {
       "label": "YOLO Mode",
       "description": "Start Claude with --dangerously-skip-permissions flag, bypassing all safety prompts. Use with extreme caution.",
@@ -306,6 +335,8 @@
     "autoUpdateProjectsDescription": "Automatically update Auto Claude in projects when a new version is available",
     "betaUpdates": "Beta Updates",
     "betaUpdatesDescription": "Receive pre-release beta versions with new features (may be less stable)",
+    "crashRecovery": "Crash Recovery",
+    "crashRecoveryDescription": "Automatically restart Auto Claude when crashes are detected (via external watchdog)",
     "stableDowngradeAvailable": "Stable Version Available",
     "stableDowngradeDescription": "You're currently on a beta version. Since you've disabled beta updates, you can switch to the latest stable release.",
     "stableVersion": "Stable Version",
@@ -336,7 +367,9 @@
       "title": "General",
       "description": "Auto-Build and agent config",
       "useClaudeMd": "Use CLAUDE.md",
-      "useClaudeMdDescription": "Include CLAUDE.md instructions in agent context"
+      "useClaudeMdDescription": "Include CLAUDE.md instructions in agent context",
+      "llmManagerControl": "Enable LLM Manager Control",
+      "llmManagerControlDescription": "Allow Claude Code to trigger builds and restart Auto-Claude"
     },
     "claude": {
       "title": "Claude Auth",
@@ -370,6 +403,29 @@
       "integrationTitle": "GitLab Integration",
       "integrationDescription": "Connect to GitLab for issue tracking",
       "syncDescription": "Sync with GitLab Issues"
+    },
+    "huggingface": {
+      "title": "Hugging Face",
+      "description": "HF model sync",
+      "integrationTitle": "Hugging Face Integration",
+      "integrationDescription": "Connect to Hugging Face for model repository sync",
+      "syncDescription": "Sync with Hugging Face Hub",
+      "enableLabel": "Enable Hugging Face",
+      "enableDescription": "Sync project with a Hugging Face model repository",
+      "cliStatus": "CLI Status",
+      "cliInstalled": "Installed",
+      "cliNotInstalled": "Not installed",
+      "installCli": "Install",
+      "authStatus": "Authentication",
+      "loggedInAs": "Logged in as",
+      "notLoggedIn": "Not logged in",
+      "login": "Login",
+      "refreshStatus": "Refresh",
+      "repoIdLabel": "Model Repository",
+      "repoIdDescription": "Enter your Hugging Face model repository ID (e.g., username/model-name)",
+      "tokenInstructions": "Paste your Hugging Face access token below. You can create one at huggingface.co/settings/tokens",
+      "tokenPlaceholder": "hf_...",
+      "submitToken": "Submit"
     },
     "memory": {
       "title": "Memory",
@@ -893,5 +949,21 @@
       "label": "PR Template Filler",
       "description": "AI-fills GitHub PR templates from code changes"
     }
+  },
+  "autoShutdown": {
+    "title": "Auto Shutdown",
+    "description": "Automatically shut down your computer when all tasks reach Human Review across all projects",
+    "toggle": "Enable auto shutdown",
+    "monitoring": "Monitoring",
+    "monitoringGlobal": "Monitoring {{projects}} projects",
+    "disabled": "Disabled",
+    "tasksRemaining": "{{count}} tasks remaining",
+    "tasksRemaining_one": "{{count}} task remaining",
+    "tasksRemaining_other": "{{count}} tasks remaining",
+    "tasksRemainingGlobal": "{{count}} tasks remaining",
+    "tasksRemainingGlobal_one": "{{count}} task remaining",
+    "tasksRemainingGlobal_other": "{{count}} tasks remaining",
+    "waitingForCompletion": "Waiting for tasks...",
+    "shutdownIn": "Shutdown in {{seconds}}s"
   }
 }

@@ -2,7 +2,7 @@ import { spawn, execSync, ChildProcess } from 'child_process';
 import { existsSync, readdirSync } from 'fs';
 import path from 'path';
 import { EventEmitter } from 'events';
-import { app } from 'electron';
+import { app } from './electron-compat';
 import { findPythonCommand, getBundledPythonPath } from './python-detector';
 import { isLinux, isWindows, getPathDelimiter } from './platform';
 import { getIsolatedGitEnv } from './utils/git-isolation';

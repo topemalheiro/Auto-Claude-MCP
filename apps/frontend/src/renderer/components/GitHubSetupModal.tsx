@@ -14,7 +14,8 @@ import {
   Lock,
   Globe,
   Building,
-  User
+  User,
+  Box
 } from 'lucide-react';
 import { Button } from './ui/button';
 import {
@@ -35,8 +36,11 @@ import {
   SelectValue
 } from './ui/select';
 import { GitHubOAuthFlow } from './project-settings/GitHubOAuthFlow';
+import { HuggingFaceOAuthFlow } from './project-settings/HuggingFaceOAuthFlow';
 import { ClaudeOAuthFlow } from './project-settings/ClaudeOAuthFlow';
 import type { Project, ProjectSettings } from '../../shared/types';
+
+type ProviderType = 'github' | 'huggingface' | null;
 
 interface GitHubSetupModalProps {
   open: boolean;
@@ -46,7 +50,7 @@ interface GitHubSetupModalProps {
   onSkip?: () => void;
 }
 
-type SetupStep = 'github-auth' | 'claude-auth' | 'repo-confirm' | 'repo' | 'branch' | 'complete';
+type SetupStep = 'provider-select' | 'github-auth' | 'huggingface-auth' | 'claude-auth' | 'repo-confirm' | 'repo' | 'branch' | 'complete';
 
 /**
  * Setup Modal - Required setup flow after Auto Claude initialization
@@ -65,8 +69,10 @@ export function GitHubSetupModal({
   onSkip
 }: GitHubSetupModalProps) {
   const { t } = useTranslation('dialogs');
-  const [step, setStep] = useState<SetupStep>('github-auth');
+  const [step, setStep] = useState<SetupStep>('provider-select');
+  const [selectedProvider, setSelectedProvider] = useState<ProviderType>(null);
   const [githubToken, setGithubToken] = useState<string | null>(null);
+  const [huggingfaceToken, setHuggingfaceToken] = useState<string | null>(null);
   const [githubRepo, setGithubRepo] = useState<string | null>(null);
   const [detectedRepo, setDetectedRepo] = useState<string | null>(null);
   const [branches, setBranches] = useState<string[]>([]);
@@ -93,7 +99,9 @@ export function GitHubSetupModal({
   useEffect(() => {
     if (open) {
       // Reset all state first
+      setSelectedProvider(null);
       setGithubToken(null);
+      setHuggingfaceToken(null);
       setGithubRepo(null);
       setDetectedRepo(null);
       setBranches([]);
@@ -112,46 +120,8 @@ export function GitHubSetupModal({
       setSelectedOwner(null);
       setIsLoadingOrgs(false);
 
-      // Check for existing authentication and skip to appropriate step
-      const checkExistingAuth = async () => {
-        try {
-          // Check for existing GitHub token
-          const ghTokenResult = await window.electronAPI.getGitHubToken();
-          const hasGitHubAuth = ghTokenResult.success && ghTokenResult.data?.token;
-
-          // Check for existing Claude authentication
-          const profilesResult = await window.electronAPI.getClaudeProfiles();
-          let hasClaudeAuth = false;
-          if (profilesResult.success && profilesResult.data) {
-            const activeProfile = profilesResult.data.profiles.find(
-              (p) => p.id === profilesResult.data!.activeProfileId
-            );
-            hasClaudeAuth = !!(activeProfile?.oauthToken || (activeProfile?.isDefault && activeProfile?.configDir));
-          }
-
-          // Determine starting step based on existing auth
-          if (hasGitHubAuth && hasClaudeAuth) {
-            // Both authenticated, go directly to repo detection
-            setGithubToken(ghTokenResult.data!.token);
-            // detectRepository will be called and set the step
-            setStep('repo'); // Temporary, detectRepository will update
-            await detectRepository();
-          } else if (hasGitHubAuth) {
-            // Only GitHub authenticated, go to Claude auth
-            setGithubToken(ghTokenResult.data!.token);
-            setStep('claude-auth');
-          } else {
-            // No auth, start from beginning
-            setStep('github-auth');
-          }
-        } catch (err) {
-          console.error('Failed to check existing auth:', err);
-          // On error, start from beginning
-          setStep('github-auth');
-        }
-      };
-
-      checkExistingAuth();
+      // Always start from provider selection
+      setStep('provider-select');
     }
   }, [open]);
 
@@ -373,9 +343,115 @@ export function GitHubSetupModal({
     }
   };
 
+  // Handle provider selection
+  const handleProviderSelect = (provider: ProviderType) => {
+    setSelectedProvider(provider);
+    if (provider === 'github') {
+      setStep('github-auth');
+    } else if (provider === 'huggingface') {
+      setStep('huggingface-auth');
+    }
+  };
+
+  // Handle HuggingFace OAuth success
+  const handleHuggingFaceAuthSuccess = async (token: string) => {
+    setHuggingfaceToken(token);
+
+    // Check if Claude is already authenticated before showing auth step
+    try {
+      const profilesResult = await window.electronAPI.getClaudeProfiles();
+      if (profilesResult.success && profilesResult.data) {
+        const activeProfile = profilesResult.data.profiles.find(
+          (p) => p.id === profilesResult.data!.activeProfileId
+        );
+        if (activeProfile?.oauthToken || (activeProfile?.isDefault && activeProfile?.configDir)) {
+          // Already authenticated, skip Claude auth and go directly to repo detection
+          await detectHuggingFaceRepository();
+          return;
+        }
+      }
+    } catch (err) {
+      console.error('Failed to check Claude profiles:', err);
+    }
+
+    // Not authenticated, show Claude auth step
+    setStep('claude-auth');
+  };
+
+  // Detect HuggingFace repository from git remote
+  const detectHuggingFaceRepository = async () => {
+    setIsLoadingRepo(true);
+    setError(null);
+
+    try {
+      const result = await window.electronAPI.detectHuggingFaceRepo(project.path);
+      if (result.success && result.data) {
+        setDetectedRepo(result.data.repoId);
+        setGithubRepo(result.data.repoId); // Reuse githubRepo for simplicity
+        setStep('repo-confirm');
+      } else {
+        // No remote detected, show repo setup step
+        setStep('repo');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to detect repository');
+      setStep('repo');
+    } finally {
+      setIsLoadingRepo(false);
+    }
+  };
+
   // Render step content
   const renderStepContent = () => {
     switch (step) {
+      case 'provider-select':
+        return (
+          <>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Key className="h-5 w-5" />
+                Choose Provider
+              </DialogTitle>
+              <DialogDescription>
+                Select where you want to store your project. You can use GitHub for code repositories or Hugging Face for ML models.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="py-4 space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => handleProviderSelect('github')}
+                  className="flex flex-col items-center gap-3 p-6 rounded-lg border-2 border-dashed hover:border-primary hover:bg-primary/5 transition-colors"
+                >
+                  <Github className="h-10 w-10 text-muted-foreground" />
+                  <span className="text-sm font-medium">GitHub</span>
+                  <span className="text-xs text-muted-foreground text-center">
+                    Code repositories, issues, and PRs
+                  </span>
+                </button>
+                <button
+                  onClick={() => handleProviderSelect('huggingface')}
+                  className="flex flex-col items-center gap-3 p-6 rounded-lg border-2 border-dashed hover:border-primary hover:bg-primary/5 transition-colors"
+                >
+                  <Box className="h-10 w-10 text-muted-foreground" />
+                  <span className="text-sm font-medium">Hugging Face</span>
+                  <span className="text-xs text-muted-foreground text-center">
+                    ML models and model cards
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            <DialogFooter>
+              {onSkip && (
+                <Button variant="outline" onClick={onSkip}>
+                  Skip for now
+                </Button>
+              )}
+            </DialogFooter>
+          </>
+        );
+
       case 'github-auth':
         return (
           <>
@@ -392,6 +468,28 @@ export function GitHubSetupModal({
             <div className="py-4">
               <GitHubOAuthFlow
                 onSuccess={handleGitHubAuthSuccess}
+                onCancel={onSkip}
+              />
+            </div>
+          </>
+        );
+
+      case 'huggingface-auth':
+        return (
+          <>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Box className="h-5 w-5" />
+                Connect to Hugging Face
+              </DialogTitle>
+              <DialogDescription>
+                Authenticate with Hugging Face to manage your ML models.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="py-4">
+              <HuggingFaceOAuthFlow
+                onSuccess={handleHuggingFaceAuthSuccess}
                 onCancel={onSkip}
               />
             </div>
@@ -863,15 +961,17 @@ export function GitHubSetupModal({
       { label: 'Configure' },
     ];
 
-    // Don't show progress on complete step
-    if (step === 'complete') return null;
+    // Don't show progress on complete step or provider-select
+    if (step === 'complete' || step === 'provider-select') return null;
 
     // Map steps to progress indices
-    // Auth steps (github-auth, claude-auth, repo) = 0
+    // Auth steps (github-auth, huggingface-auth, claude-auth, repo-confirm, repo) = 0
     // Config steps (branch) = 1
     const currentIndex =
       step === 'github-auth' ? 0 :
+      step === 'huggingface-auth' ? 0 :
       step === 'claude-auth' ? 0 :
+      step === 'repo-confirm' ? 0 :
       step === 'repo' ? 0 :
       1;
 
