@@ -117,7 +117,9 @@ export const useRoadmapStore = create<RoadmapState>((set) => ({
       if (!state.roadmap) return state;
 
       const updatedFeatures = state.roadmap.features.map((feature) =>
-        feature.id === featureId ? { ...feature, status } : feature
+        feature.id === featureId
+          ? { ...feature, status, ...(status !== 'done' ? { taskOutcome: undefined, previousStatus: undefined } : {}) }
+          : feature
       );
 
       return {
