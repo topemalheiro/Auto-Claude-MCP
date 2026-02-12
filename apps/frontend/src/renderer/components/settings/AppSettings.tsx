@@ -134,11 +134,13 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
     }
   }, [open, initialSection, initialProjectSection]);
 
-  // Project state
+  // Project state — use activeProjectId (current tab) as fallback when selectedProjectId is null
   const projects = useProjectStore((state) => state.projects);
   const selectedProjectId = useProjectStore((state) => state.selectedProjectId);
+  const activeProjectId = useProjectStore((state) => state.activeProjectId);
   const selectProject = useProjectStore((state) => state.selectProject);
-  const selectedProject = projects.find((p) => p.id === selectedProjectId);
+  const effectiveProjectId = selectedProjectId || activeProjectId;
+  const selectedProject = projects.find((p) => p.id === effectiveProjectId);
 
   // Project settings hook state (lifted from child)
   const [projectSettingsHook, setProjectSettingsHook] = useState<UseProjectSettingsReturn | null>(null);
@@ -233,7 +235,7 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
   };
 
   // Determine if project nav items should be disabled
-  const projectNavDisabled = !selectedProjectId;
+  const projectNavDisabled = !effectiveProjectId;
 
   return (
     <FullScreenDialog open={open} onOpenChange={(newOpen) => {
@@ -325,7 +327,7 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
                     {/* Project Selector */}
                     <div className="px-1 mb-3">
                       <ProjectSelector
-                        selectedProjectId={selectedProjectId}
+                        selectedProjectId={effectiveProjectId}
                         onProjectChange={handleProjectChange}
                       />
                     </div>
