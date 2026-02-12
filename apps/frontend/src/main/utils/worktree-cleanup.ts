@@ -40,7 +40,7 @@ export interface WorktreeCleanupOptions {
   branchName?: string;
   /** Timeout in milliseconds for git operations (default: 30000) */
   timeout?: number;
-  /** Maximum retries for directory deletion on Windows (default: 3) */
+  /** Maximum retries for directory deletion on Windows (default: 5) */
   maxRetries?: number;
   /** Delay between retries in milliseconds (default: 500) */
   retryDelay?: number;
@@ -129,9 +129,21 @@ async function deleteDirectoryWithRetry(
     }
   }
 
-  // All retries exhausted - try shell rm -rf as fallback on Unix
-  // Node's rm() can fail with ENOTEMPTY on macOS .app bundles
-  if (process.platform !== 'win32') {
+  // All retries exhausted - try shell fallback
+  if (process.platform === 'win32') {
+    // Windows: use cmd /c rd /s /q as fallback for stubborn file locks
+    try {
+      console.warn(`${logPrefix} Node.js rm() failed, trying cmd /c rd /s /q fallback...`);
+      execFileSync('cmd.exe', ['/c', 'rd', '/s', '/q', `"${dirPath}"`], {
+        timeout: 60000,
+        windowsVerbatimArguments: true
+      });
+      return;
+    } catch {
+      // Fall through to throw original error
+    }
+  } else {
+    // Unix: Node's rm() can fail with ENOTEMPTY on macOS .app bundles
     try {
       console.warn(`${logPrefix} Node.js rm() failed, trying /bin/rm -rf fallback...`);
       execFileSync('/bin/rm', ['-rf', dirPath], { timeout: 60000 });
@@ -183,7 +195,7 @@ export async function cleanupWorktree(options: WorktreeCleanupOptions): Promise<
     deleteBranch = true,
     branchName,
     timeout = 30000,
-    maxRetries = 3,
+    maxRetries = 5,
     retryDelay = 500
   } = options;
 

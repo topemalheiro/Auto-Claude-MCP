@@ -4,57 +4,57 @@ Use this checklist to verify all features work after resolving the 33 merge conf
 
 ## Build & Launch
 
-- [X] `npm install` in `apps/frontend` -- no errors
-- [X] `npm run build` -- TypeScript compiles with no errors
-- [X] `npm run dev` -- app launches without crashes
-- [X] No console errors on startup
+- [x] `npm install` in `apps/frontend` -- no errors
+- [x] `npm run build` -- TypeScript compiles with no errors
+- [x] `npm run dev` -- app launches without crashes
+- [x] No console errors on startup
 
 ---
 
 ## Critical -- Our Mod Features (conflict-affected)
 
 ### RDR System
-- [ ] Start 2+ tasks on CV Project
-- [ ] Wait for a task to get stuck -> RDR detects it and sends recovery message
-- [ ] RDR does NOT flag actively running tasks (backlog false positive fix)
-- [ ] RDR priority escalation works (P1 -> P3 after 3 attempts)
+- [x] Start 2+ tasks on CV Project
+- [x] Wait for a task to get stuck -> RDR detects it and sends recovery message
+- [x] RDR does NOT flag actively running tasks (backlog false positive fix)
+- []RDR priority escalation works (P1 -> P3 after 3 attempts)
 - **Files:** `rdr-handlers.ts`, `KanbanBoard.tsx`, `ipc-handlers/index.ts`
 
 ### Auto-Shutdown
-- [X] Enable auto-shutdown in settings
-- [X] Start tasks -> auto-shutdown detects when all reach human_review/done
-- [X] Shutdown monitor spawns correctly (no terminal popup on Windows)
+- [x] Enable auto-shutdown in settings
+- [x] Start tasks -> auto-shutdown detects when all reach human_review/done
+- [x] Shutdown monitor spawns correctly (no terminal popup on Windows)
 - **Files:** `auto-shutdown-handlers.ts`, `index.ts`, `shutdown-monitor.ts`
 
 ### MCP Server
-- [X ] Claude Code connects to Auto-Claude MCP server
-- [ ] `list_tasks` returns correct task list
-- [ ] `create_task` creates a task (appears on Kanban within 2-3s)
-- [ ] `process_rdr_batch` restarts stuck tasks
-- [ ] `recover_stuck_task` removes yellow outline and restarts
+- [x] Claude Code connects to Auto-Claude MCP server
+- [x] `list_tasks` returns correct task list
+- [x] `create_task` creates a task (appears on Kanban within 2-3s)
+- [x] `process_rdr_batch` restarts stuck tasks
+- [x] `recover_stuck_task` removes yellow outline and restarts
 - **Files:** `mcp-server/index.ts`, `project-store.ts`
 
 ### Task Crash Recovery
-- [X] Kill a task agent process manually
-- [ ] Crash is detected (exit code != 0)
-- [ ] Auto-restart triggers if enabled
-- [ ] Crash info persisted to `implementation_plan.json`
+- [x] Kill a task agent process manually
+- [x] Crash is detected (exit code != 0)
+- []Auto-restart triggers if enabled
+- [x] Crash info persisted to `implementation_plan.json`
 - **Files:** `agent-process.ts`, `agent-events-handlers.ts`
 
 ### Rate Limit Detection
-- [ ] Rate limit crash is detected (distinct from normal errors)
-- [ ] Rate-limited tasks show correct status
+- []Rate limit crash is detected (distinct from normal errors)
+- []Rate-limited tasks show correct status
 - **Files:** `rate-limit-detector.ts`, `agent-events-handlers.ts`
 
 ### File Watcher
-- [ ] Create a new spec directory -> UI auto-refreshes within 2-3s
-- [ ] Modify `implementation_plan.json` -> board updates automatically
-- [ ] `start_requested` status triggers agent start
+- [x] Create a new spec directory -> UI auto-refreshes within 2-3s
+- [x] Modify `implementation_plan.json` -> board updates automatically
+- [x] `start_requested` status triggers agent start
 - **Files:** `file-watcher.ts`, `project-store.ts`
 
 ### Exit Reason Persistence
-- [X] Run a task to completion -> `exitReason: "success"` in plan
-- [X] Task crashes -> `exitReason: "error"` saved
+- [x] Run a task to completion -> `exitReason: "success"` in plan
+- [x] Task crashes -> `exitReason: "error"` saved
 - **Files:** `coder.py`, `planner.py`
 
 ---
@@ -62,44 +62,44 @@ Use this checklist to verify all features work after resolving the 33 merge conf
 ## High -- Upstream Features (must not break)
 
 ### Queue Management
-- [ ] Open queue settings modal from Kanban
-- [ ] Set queue capacity limits
-- [ ] Queue enforces capacity (no more than N concurrent tasks)
+- [x] Open queue settings modal from Kanban
+- [x] Set queue capacity limits
+- [x] Queue enforces capacity (no more than N concurrent tasks)
 - **Files:** `KanbanBoard.tsx`
 
 ### Kanban Column Sizing
-- [ ] Collapse/expand Kanban columns
-- [ ] Resize column widths
-- [ ] Column sizes persist across app restart
+- []Collapse/expand Kanban columns
+- []Resize column widths
+- []Column sizes persist across app restart
 - **Files:** `KanbanBoard.tsx`, `project-store.ts`
 
 ### State Machine Transitions
-- [ ] Task lifecycle: backlog -> planning -> in_progress -> ai_review -> human_review
-- [ ] No stuck transitions or missing state updates
+- [x] Task lifecycle: backlog -> planning -> in_progress -> ai_review -> human_review
+- [x] No stuck transitions or missing state updates
 - **Files:** `agent-events-handlers.ts`, `execution-handlers.ts`
 
 ### Spell Check
-- [ ] Spell check works in text inputs
-- [ ] Language detection works
+- []Spell check works in text inputs
+- []Language detection works
 - **Files:** `index.ts`
 
 ### i18n / Language
-- [ ] All UI labels render (no missing translation keys)
-- [ ] Settings labels correct (logOrder, terminalFonts, autoShutdown, autoRefresh)
-- [ ] No `translation:missing` warnings in console
+- []All UI labels render (no missing translation keys)
+- []Settings labels correct (logOrder, terminalFonts, autoShutdown, autoRefresh)
+- []No `translation:missing` warnings in console
 - **Files:** `en/*.json`, `fr/*.json`
 
 ### Terminal Fonts
-- [ ] Terminal font settings visible in Display Settings
-- [ ] Font changes apply to terminal view
+- []Terminal font settings visible in Display Settings
+- []Font changes apply to terminal view
 - **Files:** `DisplaySettings.tsx`, `settings.json`
 
 ### GitLab CLI (glab)
-- [ ] If glab installed, it's detected in agent environment
+- []If glab installed, it's detected in agent environment
 - **Files:** `agent-process.ts`
 
 ### Screenshot Capture
-- [ ] Screenshot handler registered and functional
+- []Screenshot handler registered and functional
 - **Files:** `ipc-handlers/index.ts`
 
 ---
@@ -107,41 +107,46 @@ Use this checklist to verify all features work after resolving the 33 merge conf
 ## Medium -- Shared Infrastructure (both sides touch)
 
 ### Project Store
-- [ ] Tasks don't duplicate on Kanban board
-- [ ] Worktree tasks correctly deduplicated with main tasks
-- [ ] Atomic file writes (no corrupt JSON on crash)
+- []Tasks don't duplicate on Kanban board
+- [x] Worktree tasks correctly deduplicated with main tasks
+- []Atomic file writes (no corrupt JSON on crash)
 - **Files:** `project-store.ts`
 
 ### Task Card UI
-- [ ] Start/stop task from card
-- [ ] Archive/unarchive task
-- [ ] Drag task between columns
-- [ ] Task progress displays correctly
+- [x] Start/stop task from card
+- []Archive/unarchive task
+- [x] Drag task between columns
+- [x] Task progress displays correctly
 - **Files:** `TaskCard.tsx`
 
 ### Sidebar Navigation
-- [ ] All sidebar items render correctly
-- [ ] Navigation works for all sections
+- []All sidebar items render correctly
+- []Navigation works for all sections
 - **Files:** `Sidebar.tsx`
 
 ### Worktree Operations
-- [ ] Create worktree for a task
-- [ ] Delete worktree
-- [ ] Review worktree changes
+- [x] Create worktree for a task
+- [x] Delete worktree
+- []Review worktree changes
 - **Files:** `worktree-handlers.ts` (both task/ and terminal/)
 
 ### Settings UI
-- [ ] All settings panels render
-- [ ] Settings save correctly
-- [ ] Display settings (fonts, themes) apply
+- []All settings panels render
+- []Settings save correctly
+- []Display settings (fonts, themes) apply
 - **Files:** `DisplaySettings.tsx`, `settings.ts`
 
 ---
 
 ## Notes
 
-_Add any issues found during testing here:_
+_Issues found and fixed during testing:_
 
--
--
--
+- **WinError 206** (fixed `e41b64e7`): System prompt too long for Windows CreateProcessW limit. Externalized to `system_prompt_cache.md`.
+- **MCP config crash** (fixed `efa37e6f`): `json.dump()` on SDK Server instance. Removed caching.
+- **writeFileSync missing** (fixed `efa37e6f`): Import dropped in merge.
+- **shouldSkipStuckCheck missing** (fixed `b292cee4`): Function dropped in merge.
+- **XState MARK_DONE** (fixed `914698af`): Only accepted from 3 states, added to all non-terminal states.
+- **MCP phase name mapping** (fixed `5a3e01e0`): `specCreation` not mapped to `spec` in `utils.ts`.
+- **OutputMonitor false idle** (fixed `5a3e01e0`): Added `hasUnresolvedToolUse()` dynamic check.
+- **processQueue merge regression** (fixed `d458073e`): Andy's fix lost in merge, restored + added settings change trigger.
