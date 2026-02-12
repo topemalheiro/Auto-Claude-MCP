@@ -52,7 +52,9 @@ export const taskMachine = createMachine(
           PLANNING_STARTED: 'planning',
           // Fallback: if coding starts from backlog (e.g., resumed task), go to coding
           CODING_STARTED: 'coding',
-          USER_STOPPED: 'backlog'
+          USER_STOPPED: 'backlog',
+          // Manual override: user can mark done from any state
+          MARK_DONE: 'done'
         }
       },
       planning: {
@@ -78,14 +80,18 @@ export const taskMachine = createMachine(
             { target: 'backlog', guard: 'noPlanYet', actions: 'clearReviewReason' },
             { target: 'human_review', actions: 'setReviewReasonStopped' }
           ],
-          PROCESS_EXITED: { target: 'error', guard: 'unexpectedExit', actions: 'setReviewReasonErrors' }
+          PROCESS_EXITED: { target: 'error', guard: 'unexpectedExit', actions: 'setReviewReasonErrors' },
+          // Manual override: user can mark done from any state
+          MARK_DONE: 'done'
         }
       },
       plan_review: {
         on: {
           PLAN_APPROVED: { target: 'coding', actions: 'clearReviewReason' },
           USER_STOPPED: { target: 'backlog', actions: 'clearReviewReason' },
-          PROCESS_EXITED: { target: 'error', guard: 'unexpectedExit', actions: 'setReviewReasonErrors' }
+          PROCESS_EXITED: { target: 'error', guard: 'unexpectedExit', actions: 'setReviewReasonErrors' },
+          // Manual override: user can mark done from any state
+          MARK_DONE: 'done'
         }
       },
       coding: {
@@ -98,7 +104,9 @@ export const taskMachine = createMachine(
           QA_PASSED: { target: 'human_review', actions: 'setReviewReasonCompleted' },
           CODING_FAILED: { target: 'error', actions: ['setReviewReasonErrors', 'setError'] },
           USER_STOPPED: { target: 'human_review', actions: 'setReviewReasonStopped' },
-          PROCESS_EXITED: { target: 'error', guard: 'unexpectedExit', actions: 'setReviewReasonErrors' }
+          PROCESS_EXITED: { target: 'error', guard: 'unexpectedExit', actions: 'setReviewReasonErrors' },
+          // Manual override: user can mark done from any state
+          MARK_DONE: 'done'
         }
       },
       qa_review: {
@@ -108,7 +116,9 @@ export const taskMachine = createMachine(
           QA_MAX_ITERATIONS: { target: 'error', actions: 'setReviewReasonErrors' },
           QA_AGENT_ERROR: { target: 'error', actions: 'setReviewReasonErrors' },
           USER_STOPPED: { target: 'human_review', actions: 'setReviewReasonStopped' },
-          PROCESS_EXITED: { target: 'error', guard: 'unexpectedExit', actions: 'setReviewReasonErrors' }
+          PROCESS_EXITED: { target: 'error', guard: 'unexpectedExit', actions: 'setReviewReasonErrors' },
+          // Manual override: user can mark done from any state
+          MARK_DONE: 'done'
         }
       },
       qa_fixing: {
@@ -119,7 +129,9 @@ export const taskMachine = createMachine(
           QA_MAX_ITERATIONS: { target: 'error', actions: 'setReviewReasonErrors' },
           QA_AGENT_ERROR: { target: 'error', actions: 'setReviewReasonErrors' },
           USER_STOPPED: { target: 'human_review', actions: 'setReviewReasonStopped' },
-          PROCESS_EXITED: { target: 'error', guard: 'unexpectedExit', actions: 'setReviewReasonErrors' }
+          PROCESS_EXITED: { target: 'error', guard: 'unexpectedExit', actions: 'setReviewReasonErrors' },
+          // Manual override: user can mark done from any state
+          MARK_DONE: 'done'
         }
       },
       human_review: {
@@ -137,7 +149,9 @@ export const taskMachine = createMachine(
       },
       creating_pr: {
         on: {
-          PR_CREATED: 'pr_created'
+          PR_CREATED: 'pr_created',
+          // Manual override: user can mark done from any state
+          MARK_DONE: 'done'
         }
       },
       pr_created: {
