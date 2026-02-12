@@ -9,7 +9,9 @@ import path from 'path';
 const homedir = os.homedir();
 const appData = process.platform === 'win32'
   ? path.join(homedir, 'AppData', 'Roaming')
-  : path.join(homedir, '.config');
+  : process.platform === 'darwin'
+    ? path.join(homedir, 'Library', 'Application Support')
+    : path.join(homedir, '.config');
 
 const noop = () => {};
 const noopObj = new Proxy({}, { get: () => noop });

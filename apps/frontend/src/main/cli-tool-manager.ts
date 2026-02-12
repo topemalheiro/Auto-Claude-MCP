@@ -345,15 +345,69 @@ class CLIToolManager {
     const claudePath = this.getToolPath('claude');
 
     // On Windows, .cmd files cannot be executed by anyio.open_process() / asyncio.create_subprocess_exec().
-    // Return null so the Claude Agent SDK uses its bundled claude.exe instead.
+    // Try to find the SDK's bundled claude.exe instead.
     if (isWindows() && claudePath.toLowerCase().endsWith('.cmd')) {
+      const bundledPath = this.findBundledClaudeExe();
+      if (bundledPath) {
+        console.warn(`[CLI Tools] Using SDK bundled CLI instead of .cmd: ${bundledPath}`);
+        return bundledPath;
+      }
       console.warn(
-        `[CLI Tools] Claude CLI is .cmd file, returning null so SDK uses bundled CLI: ${claudePath}`
+        `[CLI Tools] Claude CLI is .cmd file and bundled CLI not found, returning null: ${claudePath}`
       );
       return null;
     }
 
     return claudePath;
+  }
+
+  /**
+   * Find the Claude Agent SDK's bundled claude.exe in the Python venv.
+   *
+   * The SDK bundles a standalone claude.exe at:
+   *   <site-packages>/claude_agent_sdk/_bundled/claude.exe
+   *
+   * We derive the site-packages path from the detected Python executable path:
+   *   <venv>/Scripts/python.exe -> <venv>/Lib/site-packages/...
+   *
+   * @returns Path to bundled claude.exe, or null if not found
+   */
+  private findBundledClaudeExe(): string | null {
+    // Only applicable on Windows — venv layout differs on other platforms
+    if (!isWindows()) {
+      return null;
+    }
+
+    try {
+      const pythonPath = this.getToolPath('python');
+
+      // Guard: getToolPath returns bare "python" when not found
+      if (!path.isAbsolute(pythonPath)) {
+        console.warn(`[CLI Tools] Python path is not absolute, cannot derive bundled CLI: ${pythonPath}`);
+        return null;
+      }
+
+      // Derive venv root from Python executable path
+      // Windows venv: <venv>/Scripts/python.exe
+      const scriptsDir = path.dirname(pythonPath);
+      const venvRoot = path.dirname(scriptsDir);
+
+      // Construct bundled CLI path: <venv>/Lib/site-packages/claude_agent_sdk/_bundled/claude.exe
+      const bundledPath = path.join(
+        venvRoot, 'Lib', 'site-packages', 'claude_agent_sdk', '_bundled', 'claude.exe'
+      );
+
+      if (existsSync(bundledPath)) {
+        console.warn(`[CLI Tools] Found SDK bundled CLI: ${bundledPath}`);
+        return bundledPath;
+      }
+
+      console.warn(`[CLI Tools] SDK bundled CLI not found at: ${bundledPath}`);
+      return null;
+    } catch (error) {
+      console.warn(`[CLI Tools] Failed to find bundled CLI:`, error instanceof Error ? error.message : String(error));
+      return null;
+    }
   }
 
   /**
@@ -1206,10 +1260,15 @@ class CLIToolManager {
     const claudePath = await this.getToolPathAsync('claude');
 
     // On Windows, .cmd files cannot be executed by anyio.open_process() / asyncio.create_subprocess_exec().
-    // Return null so the Claude Agent SDK uses its bundled claude.exe instead.
+    // Try to find the SDK's bundled claude.exe instead.
     if (isWindows() && claudePath.toLowerCase().endsWith('.cmd')) {
+      const bundledPath = this.findBundledClaudeExe();
+      if (bundledPath) {
+        console.warn(`[CLI Tools] Using SDK bundled CLI instead of .cmd: ${bundledPath}`);
+        return bundledPath;
+      }
       console.warn(
-        `[CLI Tools] Claude CLI is .cmd file, returning null so SDK uses bundled CLI: ${claudePath}`
+        `[CLI Tools] Claude CLI is .cmd file and bundled CLI not found, returning null: ${claudePath}`
       );
       return null;
     }

@@ -505,6 +505,13 @@ def create_client(
     # Collect env vars to pass to SDK (ANTHROPIC_BASE_URL, CLAUDE_CONFIG_DIR, etc.)
     sdk_env = get_sdk_env_vars()
 
+    # On Windows, skip the SDK's version check to avoid a potential anyio.open_process() failure.
+    # The version check spawns a subprocess with different params than the main connect() call,
+    # and silently catches errors — but it can interfere with the main process on Windows.
+    if is_windows():
+        # Validated against claude-agent-sdk v1.x — becomes a no-op if SDK removes this env var
+        sdk_env["CLAUDE_AGENT_SDK_SKIP_VERSION_CHECK"] = "1"
+
     # Get the config dir for profile-specific credential lookup
     # CLAUDE_CONFIG_DIR enables per-profile Keychain entries with SHA256-hashed service names
     config_dir = sdk_env.get("CLAUDE_CONFIG_DIR")
@@ -864,7 +871,9 @@ def create_client(
     env_cli_path = os.environ.get("CLAUDE_CLI_PATH")
     if env_cli_path and validate_cli_path(env_cli_path):
         options_kwargs["cli_path"] = env_cli_path
-        logger.info(f"Using CLAUDE_CLI_PATH override: {env_cli_path}")
+        logger.info(f"Using CLAUDE_CLI_PATH override: {env_cli_path}, exists={os.path.exists(env_cli_path)}")
+    else:
+        logger.info(f"CLAUDE_CLI_PATH not set or invalid (value={env_cli_path!r}), SDK will auto-discover bundled CLI")
 
     # Add structured output format if specified
     # See: https://platform.claude.com/docs/en/agent-sdk/structured-outputs

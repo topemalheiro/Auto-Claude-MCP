@@ -20,7 +20,9 @@ export function load(url, context, nextLoad) {
     const homedir = os.homedir();
     const appData = process.platform === 'win32'
       ? path.join(homedir, 'AppData', 'Roaming')
-      : path.join(homedir, '.config');
+      : process.platform === 'darwin'
+        ? path.join(homedir, 'Library', 'Application Support')
+        : path.join(homedir, '.config');
     const userData = path.join(appData, 'auto-claude-ui');
 
     const source = `

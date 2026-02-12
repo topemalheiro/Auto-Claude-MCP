@@ -182,6 +182,22 @@ export class AgentProcessManager {
     // are available even when app is launched from Finder/Dock
     const augmentedEnv = getAugmentedEnv();
 
+    // On Windows, ensure critical system vars survive the case-sensitive JS spread chain.
+    // process.env on Windows is case-insensitive, but {...process.env} creates a case-sensitive dict.
+    // CreateProcessW needs SystemRoot/WINDIR to resolve system DLLs for subprocess spawning.
+    if (isWindows()) {
+      const criticalVars = ['SystemRoot', 'SystemDrive', 'WINDIR', 'COMSPEC', 'PATHEXT'];
+      for (const key of criticalVars) {
+        if (process.env[key] && !augmentedEnv[key]) {
+          augmentedEnv[key] = process.env[key]!;
+        }
+      }
+      // Normalize PATH casing (Windows uses 'Path', Node/Python expect 'PATH')
+      if (augmentedEnv['Path'] && !augmentedEnv['PATH']) {
+        augmentedEnv['PATH'] = augmentedEnv['Path'];
+      }
+    }
+
     // On Windows, detect and pass git-bash path for Claude Code CLI
     // Electron can detect git via where.exe, but Python subprocess may not have the same PATH
     const gitBashEnv: Record<string, string> = {};
