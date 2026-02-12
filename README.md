@@ -14,7 +14,7 @@ Fork of [Auto-Claude](https://github.com/AndyMik90/Auto-Claude) with a custom MC
 **Brief Summary:**
 You can automatically orchestrate and/or troubleshoot your tasks done by LLMs with a master LLM chat through the MCP, sort of like a manager chat. It can work 24/7, with Auto Resume on session limit reset, and has an Auto Shutdown feature to shut down your computer when all tasks are done.
 
-You can make the master LLM create batches of auto-started tasks with prompt inputs, as well as further develop the MCP to improve its maneuverability.
+You can make the master LLM create batches of auto-started tasks (use start_requested status on creation to daisy chain, or at prompt end) with prompt inputs, as well as further develop the MCP to improve its maneuverability.
 
 **This is a great tool for building dynamic pipelines and further automating your agentic workflows.**
 
