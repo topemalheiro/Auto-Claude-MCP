@@ -444,6 +444,14 @@ class ClaudeOutputMonitor extends EventEmitter {
         // stop_reason is null/undefined - could mean:
         // 1. Message is still streaming (recent message)
         // 2. JSONL format doesn't include stop_reason for completed messages (old message)
+        // 3. Tool call in progress but stop_reason not recorded in JSONL
+
+        // Check if assistant message has tool_use content blocks with no subsequent tool_result
+        // This means a tool is actively running (build, user approval, etc.)
+        if (this.hasUnresolvedToolUse(lastMessage, messages)) {
+          console.log('[OutputMonitor] stop_reason=null/undefined but tool_use pending - tool still running');
+          return 'PROCESSING';
+        }
 
         const messageAge = this.getMessageAge(lastMessage);
 
@@ -502,6 +510,30 @@ class ClaudeOutputMonitor extends EventEmitter {
 
     console.log('[OutputMonitor] Unknown state - defaulting to IDLE');
     return 'IDLE';
+  }
+
+  /**
+   * Helper: Check if the last assistant message has tool_use content blocks
+   * without a subsequent tool_result message. This means a tool is actively
+   * running (build, user approval, file edit, etc.) and Claude is NOT idle.
+   */
+  private hasUnresolvedToolUse(lastMessage: any, messages: any[]): boolean {
+    // Check if the last assistant message contains tool_use content blocks
+    const content = lastMessage.message?.content || lastMessage.content;
+    if (!Array.isArray(content)) return false;
+
+    const hasToolUse = content.some((block: any) => block.type === 'tool_use');
+    if (!hasToolUse) return false;
+
+    // Check if there's a tool_result after this message
+    const lastIndex = messages.indexOf(lastMessage);
+    for (let i = lastIndex + 1; i < messages.length; i++) {
+      if (messages[i].type === 'tool_result' || messages[i].type === 'user') {
+        return false; // Tool result received, not pending
+      }
+    }
+
+    return true; // tool_use with no subsequent tool_result = tool still running
   }
 
   /**

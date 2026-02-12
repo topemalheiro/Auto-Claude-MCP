@@ -75,7 +75,7 @@ export function toTaskMetadata(options?: TaskOptions): TaskMetadata {
   if (options.phaseModels) {
     metadata.isAutoProfile = true;
     metadata.phaseModels = {
-      specCreation: options.phaseModels.specCreation,
+      spec: options.phaseModels.specCreation,
       planning: options.phaseModels.planning,
       coding: options.phaseModels.coding,
       qa: options.phaseModels.qaReview,
@@ -85,7 +85,7 @@ export function toTaskMetadata(options?: TaskOptions): TaskMetadata {
   // Convert phase thinking
   if (options.phaseThinking) {
     metadata.phaseThinking = {
-      specCreation: options.phaseThinking.specCreation,
+      spec: options.phaseThinking.specCreation,
       planning: options.phaseThinking.planning,
       coding: options.phaseThinking.coding,
       qa: options.phaseThinking.qaReview,
