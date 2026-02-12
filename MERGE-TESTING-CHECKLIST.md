@@ -4,10 +4,10 @@ Use this checklist to verify all features work after resolving the 33 merge conf
 
 ## Build & Launch
 
-- [ ] `npm install` in `apps/frontend` -- no errors
-- [ ] `npm run build` -- TypeScript compiles with no errors
-- [ ] `npm run dev` -- app launches without crashes
-- [ ] No console errors on startup
+- [X] `npm install` in `apps/frontend` -- no errors
+- [X] `npm run build` -- TypeScript compiles with no errors
+- [X] `npm run dev` -- app launches without crashes
+- [X] No console errors on startup
 
 ---
 
