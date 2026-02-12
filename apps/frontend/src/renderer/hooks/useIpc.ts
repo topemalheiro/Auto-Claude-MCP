@@ -215,13 +215,14 @@ export function useIpcListeners(): void {
 
         // Sync roadmap feature when task completes
         if (status === 'done' || status === 'pr_created') {
-          const roadmapState = useRoadmapStore.getState();
-          roadmapState.markFeatureDoneBySpecId(taskId);
-          // Persist to disk
-          const rm = roadmapState.roadmap;
+          useRoadmapStore.getState().markFeatureDoneBySpecId(taskId);
+          // Re-read state after mutation to get updated roadmap
+          const rm = useRoadmapStore.getState().roadmap;
           const currentProjectId = useProjectStore.getState().activeProjectId || useProjectStore.getState().selectedProjectId;
           if (rm && currentProjectId) {
-            window.electronAPI.saveRoadmap(currentProjectId, rm);
+            window.electronAPI.saveRoadmap(currentProjectId, rm).catch((err) => {
+              console.error('[useIpc] Failed to persist roadmap after task completion:', err);
+            });
           }
         }
       }

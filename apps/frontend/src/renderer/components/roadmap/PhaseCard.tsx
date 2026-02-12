@@ -1,4 +1,4 @@
-import { CheckCircle2, Circle, ExternalLink, Play, TrendingUp } from 'lucide-react';
+import { Archive, CheckCircle2, Circle, ExternalLink, Play, TrendingUp } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
@@ -105,7 +105,11 @@ export function PhaseCard({
                 )}
               </div>
               {feature.taskOutcome ? (
-                <CheckCircle2 className="h-4 w-4 text-success flex-shrink-0" />
+                feature.taskOutcome === 'archived' ? (
+                  <Archive className="h-4 w-4 text-success flex-shrink-0" />
+                ) : (
+                  <CheckCircle2 className="h-4 w-4 text-success flex-shrink-0" />
+                )
               ) : feature.status === 'done' ? (
                 <CheckCircle2 className="h-4 w-4 text-success flex-shrink-0" />
               ) : feature.linkedSpecId ? (

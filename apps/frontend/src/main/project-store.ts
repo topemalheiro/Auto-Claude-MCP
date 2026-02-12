@@ -9,6 +9,7 @@ import { getTaskWorktreeDir } from './worktree-paths';
 import { findAllSpecPaths } from './utils/spec-path-helpers';
 import { ensureAbsolutePath } from './utils/path-helpers';
 import { writeFileAtomicSync } from './utils/atomic-file';
+import { updateRoadmapFeatureOutcome } from './utils/roadmap-utils';
 
 interface TabState {
   openProjectIds: string[];
@@ -826,34 +827,9 @@ export class ProjectStore {
       ? path.join(project.autoBuildPath, 'roadmap')
       : path.join(project.path, AUTO_BUILD_PATHS.ROADMAP_DIR);
     const roadmapFile = path.join(roadmapDir, AUTO_BUILD_PATHS.ROADMAP_FILE);
-    if (!existsSync(roadmapFile)) return;
-
-    try {
-      const content = readFileSync(roadmapFile, 'utf-8');
-      const roadmap = JSON.parse(content);
-      if (!roadmap.features || !Array.isArray(roadmap.features)) return;
-
-      const taskIdSet = new Set(taskIds);
-      let changed = false;
-
-      for (const feature of roadmap.features) {
-        const linkedId = feature.linked_spec_id || feature.linkedSpecId;
-        if (linkedId && taskIdSet.has(linkedId) && feature.status !== 'done') {
-          feature.status = 'done';
-          feature.task_outcome = 'archived';
-          changed = true;
-        }
-      }
-
-      if (changed) {
-        roadmap.metadata = roadmap.metadata || {};
-        roadmap.metadata.updated_at = new Date().toISOString();
-        writeFileAtomicSync(roadmapFile, JSON.stringify(roadmap, null, 2));
-        console.log(`[ProjectStore] Updated roadmap features for ${taskIds.length} archived task(s)`);
-      }
-    } catch (err) {
+    updateRoadmapFeatureOutcome(roadmapFile, taskIds, 'archived', '[ProjectStore]').catch((err) => {
       console.warn('[ProjectStore] Failed to update roadmap for archived tasks:', err);
-    }
+    });
   }
 
   /**

@@ -5,6 +5,7 @@ import path from 'path';
 import { execFileSync } from 'child_process';
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, Dirent } from 'fs';
 import { writeFileAtomicSync } from '../../utils/atomic-file';
+import { updateRoadmapFeatureOutcome } from '../../utils/roadmap-utils';
 import { projectStore } from '../../project-store';
 import { titleGenerator } from '../../title-generator';
 import { AgentManager } from '../../agent';
@@ -105,9 +106,8 @@ function truncateToTitle(description: string): string {
 }
 
 /**
- * Update a linked roadmap feature when a task is deleted or archived.
- * Reads the roadmap JSON, finds any feature with matching linkedSpecId,
- * sets status to 'done' and taskOutcome, then saves back.
+ * Update a linked roadmap feature when a task is deleted.
+ * Delegates to shared utility with file locking and retry.
  */
 async function updateLinkedRoadmapFeature(
   projectPath: string,
@@ -119,34 +119,7 @@ async function updateLinkedRoadmapFeature(
     ? path.join(autoBuildPath, 'roadmap')
     : path.join(projectPath, AUTO_BUILD_PATHS.ROADMAP_DIR);
   const roadmapFile = path.join(roadmapDir, AUTO_BUILD_PATHS.ROADMAP_FILE);
-
-  if (!existsSync(roadmapFile)) return;
-
-  try {
-    const content = readFileSync(roadmapFile, 'utf-8');
-    const roadmap = JSON.parse(content);
-
-    if (!roadmap.features || !Array.isArray(roadmap.features)) return;
-
-    let changed = false;
-    for (const feature of roadmap.features) {
-      const linkedId = feature.linked_spec_id || feature.linkedSpecId;
-      if (linkedId === specId && feature.status !== 'done') {
-        feature.status = 'done';
-        feature.task_outcome = taskOutcome;
-        changed = true;
-      }
-    }
-
-    if (changed) {
-      roadmap.metadata = roadmap.metadata || {};
-      roadmap.metadata.updated_at = new Date().toISOString();
-      writeFileAtomicSync(roadmapFile, JSON.stringify(roadmap, null, 2));
-      console.log(`[TASK_CRUD] Updated linked roadmap feature for spec ${specId} with outcome: ${taskOutcome}`);
-    }
-  } catch (err) {
-    console.warn(`[TASK_CRUD] Failed to update roadmap for spec ${specId}:`, err);
-  }
+  await updateRoadmapFeatureOutcome(roadmapFile, [specId], taskOutcome, '[TASK_CRUD]');
 }
 
 /**
