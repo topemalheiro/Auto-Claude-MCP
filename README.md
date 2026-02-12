@@ -5,6 +5,8 @@
 [![YouTube](https://img.shields.io/badge/YouTube-Subscribe-FF0000?style=flat-square&logo=youtube&logoColor=white)](https://www.youtube.com/@AndreMikalsen)
 [![CI](https://img.shields.io/github/actions/workflow/status/AndyMik90/Auto-Claude/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/AndyMik90/Auto-Claude/actions)
 
+# Most recent features are in develop branch!
+
 ## **To get the 'Master LLM' working properly through the MCP, either with RDR or general MCP usage, you'll need to copy the folders inside the skills folder in .claude to your personal \.claude\skills folder.**
 
 Fork of [Auto-Claude](https://github.com/AndyMik90/Auto-Claude) with a custom MCP system, automatic recovery, and infrastructure for autonomous overnight batch runs. I added **22,000+ lines** across 114 files on top of main.
