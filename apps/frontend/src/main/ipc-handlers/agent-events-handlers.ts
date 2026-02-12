@@ -29,6 +29,7 @@ import {
 import { startRateLimitWaitForTask } from "../rate-limit-waiter";
 import { readSettingsFile } from "../settings-utils";
 import { queueTaskForRdr } from "./rdr-handlers";
+import { projectStore } from "../project-store";
 
 /**
  * Register all agent-events-related IPC handlers
