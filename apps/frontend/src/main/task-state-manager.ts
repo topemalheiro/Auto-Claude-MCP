@@ -129,12 +129,13 @@ export class TaskStateManager {
         return true;
       }
       case 'backlog':
-        this.handleUiEvent(taskId, { type: 'USER_STOPPED', hasPlan: false }, task, project);
+        // Force-move to backlog from any state (USER_STOPPED only goes to backlog from planning)
+        this.handleUiEvent(taskId, { type: 'FORCE_BACKLOG' }, task, project);
         return true;
       case 'human_review':
-        // Already in human_review (e.g., stage-only merge keeps task in review).
-        // Emit status directly since there's no XState transition needed.
-        this.emitStatus(taskId, 'human_review', task.reviewReason ?? 'completed', project.id);
+        // Force-move to human_review via XState transition (not just emitStatus)
+        // so the state persists across refreshes
+        this.handleUiEvent(taskId, { type: 'FORCE_HUMAN_REVIEW' }, task, project);
         return true;
       default:
         return false;

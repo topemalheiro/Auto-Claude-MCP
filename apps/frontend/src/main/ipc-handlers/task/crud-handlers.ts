@@ -14,6 +14,7 @@ import { cleanupWorktree } from '../../utils/worktree-cleanup';
 import { getToolPath } from '../../cli-tool-manager';
 import { getIsolatedGitEnv } from '../../utils/git-isolation';
 import { taskStateManager } from '../../task-state-manager';
+import { fileWatcher } from '../../file-watcher';
 import { safeBreadcrumb } from '../../sentry';
 
 /**
@@ -346,10 +347,14 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
         return { success: false, error: 'Task or project not found' };
       }
 
-      // Check if task is currently running
-      const isRunning = agentManager.isRunning(taskId);
-      if (isRunning) {
-        return { success: false, error: 'Cannot delete a running task. Stop the task first.' };
+      // Force-kill any running agent process before deletion
+      // This ensures file locks are released before we try to delete the worktree
+      if (agentManager.isRunning(taskId)) {
+        console.warn(`[TASK_DELETE] Task ${taskId} is running — force-killing agent before deletion`);
+        agentManager.killTask(taskId);
+        fileWatcher.unwatch(taskId);
+        // Give the process a moment to release file handles
+        await new Promise(resolve => setTimeout(resolve, 1000));
       }
 
       let hasErrors = false;

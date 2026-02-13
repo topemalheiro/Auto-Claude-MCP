@@ -740,6 +740,83 @@ server.tool(
         action = 'removed_stuck_timestamp';
       }
 
+      // Clear forceRecovery from plan metadata (if present)
+      if (plan.metadata?.forceRecovery) {
+        delete plan.metadata.forceRecovery;
+        recovered = true;
+        action += (action ? ' + ' : '') + 'cleared_plan_force_recovery';
+      }
+
+      // Clear forceRecovery from task_metadata.json (testing flag)
+      // Mirror the pattern from execution-handlers.ts IPC Recover button
+      const metaDirs = [specDir];
+      const worktreeMetaDir = path.join(
+        resolvedProjectPath, '.auto-claude', 'worktrees', 'tasks', taskId,
+        '.auto-claude', 'specs', taskId
+      );
+      if (existsSync(worktreeMetaDir)) metaDirs.push(worktreeMetaDir);
+
+      for (const dir of metaDirs) {
+        const metaPath = path.join(dir, 'task_metadata.json');
+        if (existsSync(metaPath)) {
+          try {
+            const meta = JSON.parse(readFileSync(metaPath, 'utf-8'));
+            if (meta.forceRecovery) {
+              delete meta.forceRecovery;
+              writeFileSync(metaPath, JSON.stringify(meta, null, 2));
+              console.log(`[MCP] Cleared forceRecovery flag from ${metaPath}`);
+              recovered = true;
+              action += (action ? ' + ' : '') + 'cleared_metadata_force_recovery';
+            }
+          } catch { /* Best-effort cleanup */ }
+        }
+      }
+
+      // ALREADY-CORRECT GUARD: Don't restart tasks that are on the right board
+      // Skip ONLY if: (1) on correct board AND (2) no stuck/recovery flags were present
+      // If stuck flags were cleared (recovered=true), still restart to exit recovery state
+      if (autoRestart && !recovered) {
+        const routingPlan = existsSync(worktreePlanPath)
+          ? JSON.parse(readFileSync(worktreePlanPath, 'utf-8'))
+          : plan;
+
+        const allSubtasks = (routingPlan.phases || []).flatMap((p: any) => p.subtasks || []);
+        const total = allSubtasks.length;
+        const completed = allSubtasks.filter((s: any) => s.status === 'completed').length;
+
+        let correctBoard: string;
+        if (total === 0) {
+          correctBoard = 'backlog';
+        } else if (completed === total) {
+          correctBoard = 'ai_review';
+        } else {
+          const implPhase = (routingPlan.phases || []).find((p: any) => p.name === 'Implementation');
+          const validationPhase = (routingPlan.phases || []).find((p: any) => p.name === 'Validation');
+          const implDone = implPhase?.subtasks?.length > 0 && implPhase.subtasks.every((s: any) => s.status === 'completed');
+          const valIncomplete = validationPhase?.subtasks?.some((s: any) => s.status !== 'completed');
+          correctBoard = (implDone && valIncomplete) ? 'ai_review' : 'in_progress';
+        }
+
+        const currentTask = projectStore.getTaskBySpecId(projectId, taskId);
+        if (currentTask && currentTask.status === correctBoard) {
+          console.log(`[MCP] Task ${taskId} already on correct board (${correctBoard}) — skipping restart`);
+          return {
+            content: [{
+              type: 'text' as const,
+              text: JSON.stringify({
+                success: true,
+                taskId,
+                recovered: false,
+                autoRestart: false,
+                action: 'skipped_restart_already_correct',
+                targetBoard: correctBoard,
+                message: `Task ${taskId} is already on correct board (${correctBoard}). No restart needed.`
+              }, null, 2)
+            }]
+          };
+        }
+      }
+
       // If autoRestart, also set start_requested (triggers Priority 1 auto-resume)
       if (autoRestart) {
         plan.status = 'start_requested';
@@ -771,6 +848,9 @@ server.tool(
           if (worktreePlan.metadata?.stuckSince) {
             delete worktreePlan.metadata.stuckSince;
           }
+          if (worktreePlan.metadata?.forceRecovery) {
+            delete worktreePlan.metadata.forceRecovery;
+          }
 
           if (autoRestart) {
             worktreePlan.status = 'start_requested';
@@ -795,6 +875,41 @@ server.tool(
         }
       }
 
+      // Direct board routing: Update ProjectStore status based on subtask progress
+      // This bypasses file watcher race conditions and gives immediate UI feedback
+      let targetBoard: string | undefined;
+      if (autoRestart) {
+        try {
+          const routingPlan = existsSync(worktreePlanPath)
+            ? JSON.parse(readFileSync(worktreePlanPath, 'utf-8'))
+            : plan;
+
+          const allSubtasks = (routingPlan.phases || []).flatMap((p: any) => p.subtasks || []);
+          const total = allSubtasks.length;
+          const completed = allSubtasks.filter((s: any) => s.status === 'completed').length;
+
+          if (total === 0) {
+            targetBoard = 'backlog';
+          } else if (completed === total) {
+            targetBoard = 'ai_review';
+          } else {
+            const implPhase = (routingPlan.phases || []).find((p: any) => p.name === 'Implementation');
+            const validationPhase = (routingPlan.phases || []).find((p: any) => p.name === 'Validation');
+            const implDone = implPhase?.subtasks?.length > 0 && implPhase.subtasks.every((s: any) => s.status === 'completed');
+            const valIncomplete = validationPhase?.subtasks?.some((s: any) => s.status !== 'completed');
+            targetBoard = (implDone && valIncomplete) ? 'ai_review' : 'in_progress';
+          }
+
+          const storeTask = projectStore.getTaskBySpecId(projectId, taskId);
+          if (storeTask && storeTask.status !== targetBoard) {
+            projectStore.updateTaskStatus(projectId, taskId, targetBoard as any);
+            console.log(`[MCP] Direct board routing: ${taskId} → ${targetBoard} (was ${storeTask.status})`);
+          }
+        } catch (routeErr) {
+          console.warn(`[MCP] Board routing failed for ${taskId}:`, routeErr);
+        }
+      }
+
       return {
         content: [{
           type: 'text' as const,
@@ -804,8 +919,9 @@ server.tool(
             recovered,
             autoRestart,
             action,
+            targetBoard,
             message: autoRestart
-              ? `Task ${taskId} recovered and set to restart. File watcher will auto-start within 2-3 seconds.`
+              ? `Task ${taskId} recovered and routed to ${targetBoard || 'unknown'}. File watcher will auto-start within 2-3 seconds.`
               : `Task ${taskId} recovered (exit recovery mode). Task will not auto-restart - manually start if needed.`
           }, null, 2)
         }]
@@ -1570,9 +1686,9 @@ Batch Type: ${batchType}
               targetBoard = (implDone && valIncomplete) ? 'ai_review' : 'in_progress';
             }
 
-            const task = projectStore.getTaskBySpecId(resolvedProjectId, fix.taskId);
+            const task = projectStore.getTaskBySpecId(projectId, fix.taskId);
             if (task && task.status !== targetBoard) {
-              const routed = projectStore.updateTaskStatus(resolvedProjectId, fix.taskId, targetBoard as any);
+              const routed = projectStore.updateTaskStatus(projectId, fix.taskId, targetBoard as any);
               if (routed) {
                 console.log(`[MCP] Direct board routing: ${fix.taskId} → ${targetBoard} (was ${task.status})`);
               }

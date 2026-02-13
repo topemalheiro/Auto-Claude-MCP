@@ -31,6 +31,8 @@ export type TaskEvent =
   | { type: 'USER_STOPPED'; hasPlan?: boolean }
   | { type: 'USER_RESUMED' }
   | { type: 'MARK_DONE' }
+  | { type: 'FORCE_BACKLOG' }
+  | { type: 'FORCE_HUMAN_REVIEW' }
   | { type: 'CREATE_PR' }
   | { type: 'PR_CREATED'; prUrl: string };
 
@@ -53,8 +55,10 @@ export const taskMachine = createMachine(
           // Fallback: if coding starts from backlog (e.g., resumed task), go to coding
           CODING_STARTED: 'coding',
           USER_STOPPED: 'backlog',
-          // Manual override: user can mark done from any state
-          MARK_DONE: 'done'
+          // Manual overrides: user can force-move tasks between boards
+          MARK_DONE: 'done',
+          FORCE_BACKLOG: { target: 'backlog', actions: 'clearReviewReason' },
+          FORCE_HUMAN_REVIEW: { target: 'human_review', actions: 'setReviewReasonStopped' }
         }
       },
       planning: {
@@ -81,8 +85,10 @@ export const taskMachine = createMachine(
             { target: 'human_review', actions: 'setReviewReasonStopped' }
           ],
           PROCESS_EXITED: { target: 'error', guard: 'unexpectedExit', actions: 'setReviewReasonErrors' },
-          // Manual override: user can mark done from any state
-          MARK_DONE: 'done'
+          // Manual overrides: user can force-move tasks between boards
+          MARK_DONE: 'done',
+          FORCE_BACKLOG: { target: 'backlog', actions: 'clearReviewReason' },
+          FORCE_HUMAN_REVIEW: { target: 'human_review', actions: 'setReviewReasonStopped' }
         }
       },
       plan_review: {
@@ -90,8 +96,10 @@ export const taskMachine = createMachine(
           PLAN_APPROVED: { target: 'coding', actions: 'clearReviewReason' },
           USER_STOPPED: { target: 'backlog', actions: 'clearReviewReason' },
           PROCESS_EXITED: { target: 'error', guard: 'unexpectedExit', actions: 'setReviewReasonErrors' },
-          // Manual override: user can mark done from any state
-          MARK_DONE: 'done'
+          // Manual overrides: user can force-move tasks between boards
+          MARK_DONE: 'done',
+          FORCE_BACKLOG: { target: 'backlog', actions: 'clearReviewReason' },
+          FORCE_HUMAN_REVIEW: { target: 'human_review', actions: 'setReviewReasonStopped' }
         }
       },
       coding: {
@@ -105,8 +113,10 @@ export const taskMachine = createMachine(
           CODING_FAILED: { target: 'error', actions: ['setReviewReasonErrors', 'setError'] },
           USER_STOPPED: { target: 'human_review', actions: 'setReviewReasonStopped' },
           PROCESS_EXITED: { target: 'error', guard: 'unexpectedExit', actions: 'setReviewReasonErrors' },
-          // Manual override: user can mark done from any state
-          MARK_DONE: 'done'
+          // Manual overrides: user can force-move tasks between boards
+          MARK_DONE: 'done',
+          FORCE_BACKLOG: { target: 'backlog', actions: 'clearReviewReason' },
+          FORCE_HUMAN_REVIEW: { target: 'human_review', actions: 'setReviewReasonStopped' }
         }
       },
       qa_review: {
@@ -117,8 +127,10 @@ export const taskMachine = createMachine(
           QA_AGENT_ERROR: { target: 'error', actions: 'setReviewReasonErrors' },
           USER_STOPPED: { target: 'human_review', actions: 'setReviewReasonStopped' },
           PROCESS_EXITED: { target: 'error', guard: 'unexpectedExit', actions: 'setReviewReasonErrors' },
-          // Manual override: user can mark done from any state
-          MARK_DONE: 'done'
+          // Manual overrides: user can force-move tasks between boards
+          MARK_DONE: 'done',
+          FORCE_BACKLOG: { target: 'backlog', actions: 'clearReviewReason' },
+          FORCE_HUMAN_REVIEW: { target: 'human_review', actions: 'setReviewReasonStopped' }
         }
       },
       qa_fixing: {
@@ -130,33 +142,42 @@ export const taskMachine = createMachine(
           QA_AGENT_ERROR: { target: 'error', actions: 'setReviewReasonErrors' },
           USER_STOPPED: { target: 'human_review', actions: 'setReviewReasonStopped' },
           PROCESS_EXITED: { target: 'error', guard: 'unexpectedExit', actions: 'setReviewReasonErrors' },
-          // Manual override: user can mark done from any state
-          MARK_DONE: 'done'
+          // Manual overrides: user can force-move tasks between boards
+          MARK_DONE: 'done',
+          FORCE_BACKLOG: { target: 'backlog', actions: 'clearReviewReason' },
+          FORCE_HUMAN_REVIEW: { target: 'human_review', actions: 'setReviewReasonStopped' }
         }
       },
       human_review: {
         on: {
           CREATE_PR: 'creating_pr',
           MARK_DONE: 'done',
-          USER_RESUMED: { target: 'coding', actions: 'clearReviewReason' }
+          USER_RESUMED: { target: 'coding', actions: 'clearReviewReason' },
+          FORCE_BACKLOG: { target: 'backlog', actions: 'clearReviewReason' },
+          FORCE_HUMAN_REVIEW: { target: 'human_review', actions: 'setReviewReasonStopped' }
         }
       },
       error: {
         on: {
           USER_RESUMED: { target: 'coding', actions: 'clearReviewReason' },
-          MARK_DONE: 'done'
+          MARK_DONE: 'done',
+          FORCE_BACKLOG: { target: 'backlog', actions: 'clearReviewReason' },
+          FORCE_HUMAN_REVIEW: { target: 'human_review', actions: 'setReviewReasonStopped' }
         }
       },
       creating_pr: {
         on: {
           PR_CREATED: 'pr_created',
-          // Manual override: user can mark done from any state
-          MARK_DONE: 'done'
+          MARK_DONE: 'done',
+          FORCE_BACKLOG: { target: 'backlog', actions: 'clearReviewReason' },
+          FORCE_HUMAN_REVIEW: { target: 'human_review', actions: 'setReviewReasonStopped' }
         }
       },
       pr_created: {
         on: {
-          MARK_DONE: 'done'
+          MARK_DONE: 'done',
+          FORCE_BACKLOG: { target: 'backlog', actions: 'clearReviewReason' },
+          FORCE_HUMAN_REVIEW: { target: 'human_review', actions: 'setReviewReasonStopped' }
         }
       },
       done: {
