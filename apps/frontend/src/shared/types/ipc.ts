@@ -252,7 +252,7 @@ export interface ElectronAPI {
   getTerminalSessions: (projectPath: string) => Promise<IPCResult<TerminalSession[]>>;
   restoreTerminalSession: (session: TerminalSession, cols?: number, rows?: number) => Promise<IPCResult<TerminalRestoreResult>>;
   clearTerminalSessions: (projectPath: string) => Promise<IPCResult>;
-  resumeClaudeInTerminal: (id: string, sessionId?: string) => void;
+  resumeClaudeInTerminal: (id: string, sessionId?: string, options?: { migratedSession?: boolean }) => void;
   activateDeferredClaudeResume: (id: string) => void;
   getTerminalSessionDates: (projectPath?: string) => Promise<IPCResult<SessionDateInfo[]>>;
   getTerminalSessionsForDate: (date: string, projectPath: string) => Promise<IPCResult<TerminalSession[]>>;
