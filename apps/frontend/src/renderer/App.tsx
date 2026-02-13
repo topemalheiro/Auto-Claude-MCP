@@ -632,10 +632,12 @@ export function App() {
         console.log('[App] Project:', data.projectId, 'Spec:', data.specId);
 
         // Only refresh if the event is for the current project
+        // Use light refresh (no forceRefresh) to avoid clearing XState actors
+        // Cache is already invalidated in main process by agent-events handler
         const currentProjectId = activeProjectId || selectedProjectId;
         if (currentProjectId && data.projectId === currentProjectId) {
-          console.log('[App] Refreshing tasks for current project');
-          handleRefreshTasks();
+          console.log('[App] Light-refreshing tasks for current project (preserving XState actors)');
+          loadTasks(currentProjectId);
         } else {
           console.log('[App] Skipping refresh - event for different project');
         }
@@ -648,7 +650,7 @@ export function App() {
       }
       cleanup();
     };
-  }, [settings.autoRefreshOnTaskChanges, activeProjectId, selectedProjectId, handleRefreshTasks]);
+  }, [settings.autoRefreshOnTaskChanges, activeProjectId, selectedProjectId]);
 
   const handleCloseTaskDetail = () => {
     setSelectedTask(null);

@@ -365,7 +365,9 @@ export function useIpcListeners(): void {
         // Only refresh if this is for the currently selected project
         if (isTaskForCurrentProject(projectId)) {
           console.log('[IPC] Task list refresh requested for project:', projectId);
-          loadTasks(projectId, { forceRefresh: true });
+          // Light refresh: cache already invalidated in main process by agent-events handler
+          // Do NOT use forceRefresh — it calls clearAllTasks() which destroys running XState actors
+          loadTasks(projectId);
         }
       }
     );
@@ -376,8 +378,8 @@ export function useIpcListeners(): void {
         // Only auto-start if this is for the currently selected project
         if (isTaskForCurrentProject(projectId)) {
           console.log('[IPC] Task auto-start requested for task:', taskId);
-          // Refresh tasks first to get the latest status
-          loadTasks(projectId, { forceRefresh: true }).then(() => {
+          // Light refresh: cache already invalidated in main process
+          loadTasks(projectId).then(() => {
             // Then trigger the task start
             window.electronAPI.startTask(taskId);
           });
@@ -397,8 +399,8 @@ export function useIpcListeners(): void {
         // Only refresh if this is for the currently selected project
         if (isTaskForCurrentProject(data.projectId)) {
           console.log(`[IPC] Task ${data.specId} status changed: ${data.oldStatus} → ${data.newStatus}`);
-          // Refresh task list to show updated board position
-          loadTasks(data.projectId, { forceRefresh: true });
+          // Light refresh: cache already invalidated in main process
+          loadTasks(data.projectId);
         }
       }
     );
@@ -409,8 +411,8 @@ export function useIpcListeners(): void {
         // Only auto-resume if this is for the currently selected project
         if (isTaskForCurrentProject(data.projectId)) {
           console.log('[IPC] Rate limit auto-resume requested for task:', data.taskId);
-          // Refresh tasks first to get the latest status
-          loadTasks(data.projectId, { forceRefresh: true }).then(() => {
+          // Light refresh: cache already invalidated in main process
+          loadTasks(data.projectId).then(() => {
             // Then trigger the task start
             window.electronAPI.startTask(data.taskId);
           });
