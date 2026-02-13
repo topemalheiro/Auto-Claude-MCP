@@ -184,8 +184,11 @@ export function registerTaskExecutionHandlers(
         // Task is in active work phase — keep on current board, agent will resume
         console.warn('[TASK_START] XState:', currentXState, '- staying on current board');
       } else if (currentXState === 'backlog' || !currentXState) {
-        // Fresh start or no XState actor — use fallback logic
-        if (task.status === 'human_review' && task.reviewReason === 'plan_review') {
+        // Fresh start or no XState actor — use fallback logic based on task.status
+        if (task.status === 'ai_review') {
+          console.warn('[TASK_START] No XState actor, task on AI Review -> qa_review via FORCE_AI_REVIEW');
+          taskStateManager.handleUiEvent(taskId, { type: 'FORCE_AI_REVIEW' }, task, project);
+        } else if (task.status === 'human_review' && task.reviewReason === 'plan_review') {
           console.warn('[TASK_START] No XState actor, task data: plan_review -> coding via PLAN_APPROVED');
           taskStateManager.handleUiEvent(taskId, { type: 'PLAN_APPROVED' }, task, project);
         } else if (task.status === 'human_review' || task.status === 'error') {

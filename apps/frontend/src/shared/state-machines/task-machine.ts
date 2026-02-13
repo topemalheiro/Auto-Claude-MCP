@@ -33,6 +33,7 @@ export type TaskEvent =
   | { type: 'MARK_DONE' }
   | { type: 'FORCE_BACKLOG' }
   | { type: 'FORCE_HUMAN_REVIEW' }
+  | { type: 'FORCE_AI_REVIEW' }
   | { type: 'CREATE_PR' }
   | { type: 'PR_CREATED'; prUrl: string };
 
@@ -58,7 +59,8 @@ export const taskMachine = createMachine(
           // Manual overrides: user can force-move tasks between boards
           MARK_DONE: 'done',
           FORCE_BACKLOG: { target: 'backlog', actions: 'clearReviewReason' },
-          FORCE_HUMAN_REVIEW: { target: 'human_review', actions: 'setReviewReasonStopped' }
+          FORCE_HUMAN_REVIEW: { target: 'human_review', actions: 'setReviewReasonStopped' },
+          FORCE_AI_REVIEW: { target: 'qa_review', actions: 'clearReviewReason' }
         }
       },
       planning: {
@@ -88,7 +90,8 @@ export const taskMachine = createMachine(
           // Manual overrides: user can force-move tasks between boards
           MARK_DONE: 'done',
           FORCE_BACKLOG: { target: 'backlog', actions: 'clearReviewReason' },
-          FORCE_HUMAN_REVIEW: { target: 'human_review', actions: 'setReviewReasonStopped' }
+          FORCE_HUMAN_REVIEW: { target: 'human_review', actions: 'setReviewReasonStopped' },
+          FORCE_AI_REVIEW: { target: 'qa_review', actions: 'clearReviewReason' }
         }
       },
       plan_review: {
@@ -99,7 +102,8 @@ export const taskMachine = createMachine(
           // Manual overrides: user can force-move tasks between boards
           MARK_DONE: 'done',
           FORCE_BACKLOG: { target: 'backlog', actions: 'clearReviewReason' },
-          FORCE_HUMAN_REVIEW: { target: 'human_review', actions: 'setReviewReasonStopped' }
+          FORCE_HUMAN_REVIEW: { target: 'human_review', actions: 'setReviewReasonStopped' },
+          FORCE_AI_REVIEW: { target: 'qa_review', actions: 'clearReviewReason' }
         }
       },
       coding: {
@@ -116,7 +120,8 @@ export const taskMachine = createMachine(
           // Manual overrides: user can force-move tasks between boards
           MARK_DONE: 'done',
           FORCE_BACKLOG: { target: 'backlog', actions: 'clearReviewReason' },
-          FORCE_HUMAN_REVIEW: { target: 'human_review', actions: 'setReviewReasonStopped' }
+          FORCE_HUMAN_REVIEW: { target: 'human_review', actions: 'setReviewReasonStopped' },
+          FORCE_AI_REVIEW: { target: 'qa_review', actions: 'clearReviewReason' }
         }
       },
       qa_review: {
@@ -130,7 +135,8 @@ export const taskMachine = createMachine(
           // Manual overrides: user can force-move tasks between boards
           MARK_DONE: 'done',
           FORCE_BACKLOG: { target: 'backlog', actions: 'clearReviewReason' },
-          FORCE_HUMAN_REVIEW: { target: 'human_review', actions: 'setReviewReasonStopped' }
+          FORCE_HUMAN_REVIEW: { target: 'human_review', actions: 'setReviewReasonStopped' },
+          FORCE_AI_REVIEW: { target: 'qa_review', actions: 'clearReviewReason' }
         }
       },
       qa_fixing: {
@@ -145,7 +151,8 @@ export const taskMachine = createMachine(
           // Manual overrides: user can force-move tasks between boards
           MARK_DONE: 'done',
           FORCE_BACKLOG: { target: 'backlog', actions: 'clearReviewReason' },
-          FORCE_HUMAN_REVIEW: { target: 'human_review', actions: 'setReviewReasonStopped' }
+          FORCE_HUMAN_REVIEW: { target: 'human_review', actions: 'setReviewReasonStopped' },
+          FORCE_AI_REVIEW: { target: 'qa_review', actions: 'clearReviewReason' }
         }
       },
       human_review: {
@@ -154,7 +161,8 @@ export const taskMachine = createMachine(
           MARK_DONE: 'done',
           USER_RESUMED: { target: 'coding', actions: 'clearReviewReason' },
           FORCE_BACKLOG: { target: 'backlog', actions: 'clearReviewReason' },
-          FORCE_HUMAN_REVIEW: { target: 'human_review', actions: 'setReviewReasonStopped' }
+          FORCE_HUMAN_REVIEW: { target: 'human_review', actions: 'setReviewReasonStopped' },
+          FORCE_AI_REVIEW: { target: 'qa_review', actions: 'clearReviewReason' }
         }
       },
       error: {
@@ -162,7 +170,8 @@ export const taskMachine = createMachine(
           USER_RESUMED: { target: 'coding', actions: 'clearReviewReason' },
           MARK_DONE: 'done',
           FORCE_BACKLOG: { target: 'backlog', actions: 'clearReviewReason' },
-          FORCE_HUMAN_REVIEW: { target: 'human_review', actions: 'setReviewReasonStopped' }
+          FORCE_HUMAN_REVIEW: { target: 'human_review', actions: 'setReviewReasonStopped' },
+          FORCE_AI_REVIEW: { target: 'qa_review', actions: 'clearReviewReason' }
         }
       },
       creating_pr: {
@@ -170,14 +179,16 @@ export const taskMachine = createMachine(
           PR_CREATED: 'pr_created',
           MARK_DONE: 'done',
           FORCE_BACKLOG: { target: 'backlog', actions: 'clearReviewReason' },
-          FORCE_HUMAN_REVIEW: { target: 'human_review', actions: 'setReviewReasonStopped' }
+          FORCE_HUMAN_REVIEW: { target: 'human_review', actions: 'setReviewReasonStopped' },
+          FORCE_AI_REVIEW: { target: 'qa_review', actions: 'clearReviewReason' }
         }
       },
       pr_created: {
         on: {
           MARK_DONE: 'done',
           FORCE_BACKLOG: { target: 'backlog', actions: 'clearReviewReason' },
-          FORCE_HUMAN_REVIEW: { target: 'human_review', actions: 'setReviewReasonStopped' }
+          FORCE_HUMAN_REVIEW: { target: 'human_review', actions: 'setReviewReasonStopped' },
+          FORCE_AI_REVIEW: { target: 'qa_review', actions: 'clearReviewReason' }
         }
       },
       done: {

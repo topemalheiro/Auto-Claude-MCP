@@ -137,6 +137,10 @@ export class TaskStateManager {
         // so the state persists across refreshes
         this.handleUiEvent(taskId, { type: 'FORCE_HUMAN_REVIEW' }, task, project);
         return true;
+      case 'ai_review':
+        // Force-move to ai_review (qa_review XState state) via XState transition
+        this.handleUiEvent(taskId, { type: 'FORCE_AI_REVIEW' }, task, project);
+        return true;
       default:
         return false;
     }
