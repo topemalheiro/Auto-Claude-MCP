@@ -56,6 +56,7 @@ import {
   expandHomePath,
   getEmailFromConfigDir
 } from './claude-profile/profile-utils';
+import { debugLog } from '../shared/utils/debug-logger';
 
 /**
  * Manages Claude Code profiles for multi-account support.
@@ -95,9 +96,9 @@ export class ClaudeProfileManager {
     const loadedData = await loadProfileStoreAsync(this.storePath);
     if (loadedData) {
       this.data = loadedData;
-      console.log('[ClaudeProfileManager] Loaded profile store with', this.data.profiles.length, 'profiles');
+      debugLog('[ClaudeProfileManager] Loaded profile store with', this.data.profiles.length, 'profiles');
     } else {
-      console.log('[ClaudeProfileManager] No existing profile store found, using defaults');
+      debugLog('[ClaudeProfileManager] No existing profile store found, using defaults');
     }
 
     // Run one-time migration to fix corrupted emails
@@ -155,17 +156,17 @@ export class ClaudeProfileManager {
   private populateSubscriptionMetadata(): void {
     let needsSave = false;
 
-    console.log('[ClaudeProfileManager] populateSubscriptionMetadata: checking', this.data.profiles.length, 'profiles');
+    debugLog('[ClaudeProfileManager] populateSubscriptionMetadata: checking', this.data.profiles.length, 'profiles');
 
     for (const profile of this.data.profiles) {
       if (!profile.configDir) {
-        console.log('[ClaudeProfileManager] populateSubscriptionMetadata: skipping profile', profile.id, '(no configDir)');
+        debugLog('[ClaudeProfileManager] populateSubscriptionMetadata: skipping profile', profile.id, '(no configDir)');
         continue;
       }
 
       // Skip if profile already has subscription metadata
       if (profile.subscriptionType && profile.rateLimitTier) {
-        console.log('[ClaudeProfileManager] populateSubscriptionMetadata: profile', profile.id, 'already has metadata:', {
+        debugLog('[ClaudeProfileManager] populateSubscriptionMetadata: profile', profile.id, 'already has metadata:', {
           subscriptionType: profile.subscriptionType,
           rateLimitTier: profile.rateLimitTier
         });
@@ -559,7 +560,7 @@ export class ClaudeProfileManager {
       // Fallback: retrieve OAuth token directly from Keychain when configDir is missing.
       // Without configDir, Claude CLI cannot resolve credentials automatically,
       // so we inject CLAUDE_CODE_OAUTH_TOKEN as a direct override.
-      console.warn(
+      debugLog(
         '[ClaudeProfileManager] Profile has no configDir configured:',
         profile.name,
         '- falling back to Keychain token lookup. Subscription display may be degraded.'
@@ -568,9 +569,9 @@ export class ClaudeProfileManager {
       const credentials = getCredentialsFromKeychain(undefined, true);
       if (credentials.token) {
         env.CLAUDE_CODE_OAUTH_TOKEN = credentials.token;
-        console.warn('[ClaudeProfileManager] Injected CLAUDE_CODE_OAUTH_TOKEN from Keychain for profile:', profile.name);
+        debugLog('[ClaudeProfileManager] Injected CLAUDE_CODE_OAUTH_TOKEN from Keychain for profile:', profile.name);
       } else {
-        console.warn(
+        debugLog(
           '[ClaudeProfileManager] No token found in Keychain for profile without configDir:',
           profile.name,
           credentials.error ? `(error: ${credentials.error})` : ''
@@ -833,8 +834,26 @@ export class ClaudeProfileManager {
       return {};
     }
 
-    // If no configDir is defined, fall back to default
     if (!profile.configDir) {
+      // Fallback: retrieve OAuth token directly from Keychain when configDir is missing.
+      // Without configDir, Claude CLI cannot resolve credentials automatically,
+      // so we inject CLAUDE_CODE_OAUTH_TOKEN as a direct override.
+      // This mirrors the fallback in getActiveProfileEnv().
+      debugLog(
+        '[ClaudeProfileManager] getProfileEnv: profile has no configDir:',
+        profile.name,
+        '- falling back to Keychain token lookup.'
+      );
+
+      const credentials = getCredentialsFromKeychain(undefined, true);
+      if (credentials.token) {
+        debugLog('[ClaudeProfileManager] getProfileEnv: injected CLAUDE_CODE_OAUTH_TOKEN from Keychain for profile:', profile.name);
+        return { CLAUDE_CODE_OAUTH_TOKEN: credentials.token };
+      }
+      debugLog(
+        '[ClaudeProfileManager] getProfileEnv: no token found in Keychain for profile without configDir:',
+        profile.name
+      );
       return {};
     }
 

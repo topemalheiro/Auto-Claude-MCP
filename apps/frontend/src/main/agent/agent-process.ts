@@ -252,7 +252,7 @@ export class AgentProcessManager {
     // We check profileEnv specifically (not mergedEnv) to avoid clearing the token
     // when CLAUDE_CONFIG_DIR comes from the shell environment rather than the profile.
     if (profileEnv.CLAUDE_CONFIG_DIR) {
-      delete mergedEnv.CLAUDE_CODE_OAUTH_TOKEN;
+      mergedEnv.CLAUDE_CODE_OAUTH_TOKEN = '';
       debugLog('[AgentProcess:setupEnv] Profile provides CLAUDE_CONFIG_DIR, cleared CLAUDE_CODE_OAUTH_TOKEN from spawn env');
     }
 
