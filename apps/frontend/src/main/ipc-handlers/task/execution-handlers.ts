@@ -172,29 +172,32 @@ export function registerTaskExecutionHandlers(
       console.warn('[TASK_START] Current XState:', currentXState, '| Task status:', task.status, task.reviewReason);
 
       if (currentXState === 'plan_review') {
-        // XState says plan_review - send PLAN_APPROVED
         console.warn('[TASK_START] XState: plan_review -> coding via PLAN_APPROVED');
         taskStateManager.handleUiEvent(taskId, { type: 'PLAN_APPROVED' }, task, project);
       } else if (currentXState === 'human_review' || currentXState === 'error') {
-        // XState says human_review or error - send USER_RESUMED
         console.warn('[TASK_START] XState:', currentXState, '-> coding via USER_RESUMED');
         taskStateManager.handleUiEvent(taskId, { type: 'USER_RESUMED' }, task, project);
-      } else if (currentXState) {
-        // XState actor exists but in another state (coding, planning, etc.)
-        // This shouldn't happen normally, but handle gracefully
-        console.warn('[TASK_START] XState in unexpected state:', currentXState, '- sending PLANNING_STARTED');
-        taskStateManager.handleUiEvent(taskId, { type: 'PLANNING_STARTED' }, task, project);
-      } else if (task.status === 'human_review' && task.reviewReason === 'plan_review') {
-        // No XState actor - fallback to task data (e.g., after app restart)
-        console.warn('[TASK_START] No XState actor, task data: plan_review -> coding via PLAN_APPROVED');
-        taskStateManager.handleUiEvent(taskId, { type: 'PLAN_APPROVED' }, task, project);
-      } else if (task.status === 'human_review' || task.status === 'error') {
-        // No XState actor - fallback to task data for resuming
-        console.warn('[TASK_START] No XState actor, task data:', task.status, '-> coding via USER_RESUMED');
-        taskStateManager.handleUiEvent(taskId, { type: 'USER_RESUMED' }, task, project);
+      } else if (currentXState === 'qa_review' || currentXState === 'qa_fixing') {
+        // Task is in QA phase — keep on AI Review board, agent will emit QA events
+        console.warn('[TASK_START] XState:', currentXState, '- staying on AI Review board');
+      } else if (currentXState === 'coding' || currentXState === 'planning') {
+        // Task is in active work phase — keep on current board, agent will resume
+        console.warn('[TASK_START] XState:', currentXState, '- staying on current board');
+      } else if (currentXState === 'backlog' || !currentXState) {
+        // Fresh start or no XState actor — use fallback logic
+        if (task.status === 'human_review' && task.reviewReason === 'plan_review') {
+          console.warn('[TASK_START] No XState actor, task data: plan_review -> coding via PLAN_APPROVED');
+          taskStateManager.handleUiEvent(taskId, { type: 'PLAN_APPROVED' }, task, project);
+        } else if (task.status === 'human_review' || task.status === 'error') {
+          console.warn('[TASK_START] No XState actor, task data:', task.status, '-> coding via USER_RESUMED');
+          taskStateManager.handleUiEvent(taskId, { type: 'USER_RESUMED' }, task, project);
+        } else {
+          console.warn('[TASK_START] Fresh start via PLANNING_STARTED');
+          taskStateManager.handleUiEvent(taskId, { type: 'PLANNING_STARTED' }, task, project);
+        }
       } else {
-        // Fresh start - PLANNING_STARTED transitions from backlog to planning
-        console.warn('[TASK_START] Fresh start via PLANNING_STARTED');
+        // Unknown XState state — default to fresh start
+        console.warn('[TASK_START] Unknown XState state:', currentXState, '- fresh start via PLANNING_STARTED');
         taskStateManager.handleUiEvent(taskId, { type: 'PLANNING_STARTED' }, task, project);
       }
 
