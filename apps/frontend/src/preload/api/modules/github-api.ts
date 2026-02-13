@@ -308,6 +308,9 @@ export interface GitHubAPI {
   onPRReviewError: (
     callback: (projectId: string, error: { prNumber: number; error: string }) => void
   ) => IpcListenerCleanup;
+  onPRReviewStateChange: (
+    callback: (key: string, state: PRReviewStatePayload) => void
+  ) => IpcListenerCleanup;
   onPRLogsUpdated: (
     callback: (projectId: string, data: { prNumber: number; entryCount: number }) => void
   ) => IpcListenerCleanup;
@@ -450,6 +453,23 @@ export interface PRReviewProgress {
   prNumber: number;
   progress: number;
   message: string;
+}
+
+/**
+ * PR review state payload (emitted on state machine transitions)
+ */
+export interface PRReviewStatePayload {
+  state: string;
+  prNumber: number;
+  projectId: string;
+  isReviewing: boolean;
+  startedAt: string | null;
+  progress: PRReviewProgress | null;
+  result: PRReviewResult | null;
+  previousResult: PRReviewResult | null;
+  error: string | null;
+  isExternalReview: boolean;
+  isFollowup: boolean;
 }
 
 /**
@@ -775,6 +795,11 @@ export const createGitHubAPI = (): GitHubAPI => ({
     callback: (projectId: string, error: { prNumber: number; error: string }) => void
   ): IpcListenerCleanup =>
     createIpcListener(IPC_CHANNELS.GITHUB_PR_REVIEW_ERROR, callback),
+
+  onPRReviewStateChange: (
+    callback: (key: string, state: PRReviewStatePayload) => void
+  ): IpcListenerCleanup =>
+    createIpcListener(IPC_CHANNELS.GITHUB_PR_REVIEW_STATE_CHANGE, callback),
 
   onPRLogsUpdated: (
     callback: (projectId: string, data: { prNumber: number; entryCount: number }) => void
