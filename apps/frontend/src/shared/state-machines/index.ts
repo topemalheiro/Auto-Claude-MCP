@@ -7,3 +7,12 @@ export {
   mapStateToLegacy,
 } from './task-state-utils';
 export type { TaskStateName } from './task-state-utils';
+
+export { prReviewMachine } from './pr-review-machine';
+export type { PRReviewContext, PRReviewEvent } from './pr-review-machine';
+export {
+  PR_REVIEW_STATE_NAMES,
+  PR_REVIEW_SETTLED_STATES,
+  mapPRReviewStateToLegacy,
+} from './pr-review-state-utils';
+export type { PRReviewStateName } from './pr-review-state-utils';
