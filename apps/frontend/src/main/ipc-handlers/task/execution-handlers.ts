@@ -622,11 +622,15 @@ export function registerTaskExecutionHandlers(
           }
         }
 
-        // Auto-stop task when status changes AWAY from 'in_progress' and process IS running
-        // This handles the case where user drags a running task back to Planning/backlog
-        if (status !== 'in_progress' && agentManager.isRunning(taskId)) {
-          console.warn('[TASK_UPDATE_STATUS] Stopping task due to status change away from in_progress:', taskId);
-          agentManager.killTask(taskId);
+        // Auto-stop task when status changes AWAY from 'in_progress'
+        // This handles the case where user drags a running task to Planning/Human Review/Done/etc.
+        if (status !== 'in_progress') {
+          const isRunning = agentManager.isRunning(taskId);
+          console.log(`[TASK_UPDATE_STATUS] Target status: ${status}, agent running: ${isRunning}, taskId: ${taskId}`);
+          if (isRunning) {
+            console.warn(`[TASK_UPDATE_STATUS] Killing agent for task ${taskId} (moving to ${status})`);
+            agentManager.killTask(taskId);
+          }
         }
 
         // Auto-start task when status changes to 'in_progress' and no process is running
@@ -852,16 +856,10 @@ export function registerTaskExecutionHandlers(
       const isActuallyRunning = agentManager.isRunning(taskId);
 
       if (isActuallyRunning) {
-        return {
-          success: false,
-          error: 'Task is still running. Stop it first before recovering.',
-          data: {
-            taskId,
-            recovered: false,
-            newStatus: 'in_progress' as TaskStatus,
-            message: 'Task is still running'
-          }
-        };
+        console.log(`[Recovery] Killing running agent for task ${taskId} before recovery`);
+        agentManager.killTask(taskId);
+        // Brief pause to let process exit cleanly
+        await new Promise(resolve => setTimeout(resolve, 500));
       }
 
       // Find task and project

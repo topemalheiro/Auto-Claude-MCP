@@ -807,14 +807,25 @@ export class AgentProcessManager {
     };
 
     childProcess.stdout?.on('data', (data: Buffer) => {
+      if (this.state.wasSpawnKilled(spawnId)) return;
       stdoutBuffer = processBufferedOutput(stdoutBuffer, data.toString('utf-8'));
     });
 
     childProcess.stderr?.on('data', (data: Buffer) => {
+      if (this.state.wasSpawnKilled(spawnId)) return;
       stderrBuffer = processBufferedOutput(stderrBuffer, data.toString('utf-8'));
     });
 
     childProcess.on('exit', (code: number | null, signal: NodeJS.Signals | null) => {
+      this.state.deleteProcess(taskId);
+
+      // Check killed FIRST — don't process any output from killed processes
+      if (this.state.wasSpawnKilled(spawnId)) {
+        this.state.clearKilledSpawn(spawnId);
+        console.log(`[AgentProcess] Process exit for killed task ${taskId} — discarding buffered output`);
+        return;
+      }
+
       if (stdoutBuffer.trim()) {
         this.emitter.emit('log', taskId, stdoutBuffer + '\n', projectId);
         processLog(stdoutBuffer);
@@ -822,13 +833,6 @@ export class AgentProcessManager {
       if (stderrBuffer.trim()) {
         this.emitter.emit('log', taskId, stderrBuffer + '\n', projectId);
         processLog(stderrBuffer);
-      }
-
-      this.state.deleteProcess(taskId);
-
-      if (this.state.wasSpawnKilled(spawnId)) {
-        this.state.clearKilledSpawn(spawnId);
-        return;
       }
 
       if (code !== 0) {

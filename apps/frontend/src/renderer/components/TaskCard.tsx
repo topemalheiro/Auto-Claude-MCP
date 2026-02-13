@@ -358,6 +358,8 @@ export const TaskCard = memo(function TaskCard({
     const result = await recoverStuckTask(task.id, { autoRestart: true });
     if (result.success) {
       setIsStuck(false);
+    } else {
+      console.error('[TaskCard] Recovery failed:', result.message || result.error);
     }
     setIsRecovering(false);
   };

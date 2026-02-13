@@ -355,6 +355,19 @@ export class FileWatcher extends EventEmitter {
             });
           }
 
+          // Handle forceRecovery: kill running agent so task actually stops
+          // test_force_recovery MCP tool sets metadata.forceRecovery = true but can't kill agents
+          // (MCP server runs in a separate process). The main process detects it here and kills the agent.
+          if (plan.metadata?.forceRecovery === true) {
+            console.log(`[FileWatcher] forceRecovery detected for ${specId} - emitting task-force-recovery`);
+            this.emit('task-force-recovery', {
+              projectId,
+              projectPath,
+              specDir,
+              specId
+            });
+          }
+
           // Handle start_requested (board routing + task start)
           if (plan.status === 'start_requested') {
 
