@@ -459,6 +459,37 @@ export function registerAgenteventsHandlers(
     });
   });
 
+  // Handle force-recovery XState revert: after a cross-process PID kill (from MCP),
+  // buffered stdout events (e.g., QA_PASSED) may have already transitioned XState
+  // before the exit handler fires. This event fires in the exit handler AFTER all
+  // buffered events, and reverts XState to the intended target board.
+  agentManager.on("force-recovery-revert", (taskId: string, targetBoard: string, projectId?: string) => {
+    console.warn(`[AgentEvents] force-recovery-revert: reverting ${taskId} XState to ${targetBoard}`);
+    const result = findTaskAndProject(taskId, projectId);
+    if (result) {
+      const { task, project } = result;
+      const eventMap: Record<string, import('../../shared/state-machines/task-machine').TaskEvent> = {
+        'ai_review': { type: 'FORCE_AI_REVIEW' },
+        'in_progress': { type: 'USER_RESUMED' },
+        'backlog': { type: 'FORCE_BACKLOG' },
+        'human_review': { type: 'FORCE_HUMAN_REVIEW' }
+      };
+      const event = eventMap[targetBoard] || { type: 'FORCE_AI_REVIEW' };
+      taskStateManager.handleUiEvent(taskId, event, task, project);
+      console.warn(`[AgentEvents] force-recovery-revert: sent ${event.type} to XState for ${taskId}`);
+
+      // Forward to renderer for devtools logging
+      safeSendToRenderer(getMainWindow, IPC_CHANNELS.DEBUG_EVENT, {
+        type: 'force-recovery-revert',
+        taskId,
+        targetBoard,
+        timestamp: new Date().toISOString()
+      });
+    } else {
+      console.warn(`[AgentEvents] force-recovery-revert: could not find task/project for ${taskId}`);
+    }
+  });
+
   // Handle task status changes from file watcher (for RDR auto-recovery)
   fileWatcher.on("task-status-changed", (data: {
     projectId: string;

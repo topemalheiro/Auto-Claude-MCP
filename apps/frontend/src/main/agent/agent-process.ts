@@ -858,7 +858,12 @@ export class AgentProcessManager {
         if (existsSync(metaPath)) {
           const meta = JSON.parse(readFileSync(metaPath, 'utf-8'));
           if (meta.forceRecovery) {
-            console.warn(`[AgentProcess] Process exit for force-recovery task ${taskId} — treating as killed (forceRecovery=true in metadata)`);
+            const revertBoard = meta.forceRecoveryTargetBoard || 'ai_review';
+            console.warn(`[AgentProcess] Process exit for force-recovery task ${taskId} — reverting XState to ${revertBoard}`);
+            // Emit revert event AFTER all buffered stdout events have been processed.
+            // This undoes any XState transitions caused by events (e.g., QA_PASSED → human_review)
+            // that arrived in the pipe buffer before the cross-process kill took effect.
+            this.emitter.emit('force-recovery-revert', taskId, revertBoard, projectId);
             return;
           }
         }
