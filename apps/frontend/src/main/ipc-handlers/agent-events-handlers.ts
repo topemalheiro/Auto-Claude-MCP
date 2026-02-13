@@ -439,6 +439,7 @@ export function registerAgenteventsHandlers(
   // Handle forceRecovery: kill running agent when test_force_recovery MCP tool is used
   // MCP server runs in a separate process and can't access agentManager directly,
   // so it sets metadata.forceRecovery=true and the file watcher emits this event.
+  // Note: MCP also does a direct PID kill for instant response; this is the backup cleanup path.
   fileWatcher.on("task-force-recovery", (data: { projectId: string; projectPath: string; specDir: string; specId: string }) => {
     console.log(`[AgentEvents] task-force-recovery event received for ${data.specId}`);
     const isRunning = agentManager.isRunning(data.specId);
@@ -446,8 +447,16 @@ export function registerAgenteventsHandlers(
       console.log(`[AgentEvents] Killing running agent for ${data.specId} (forceRecovery)`);
       agentManager.killTask(data.specId);
     } else {
-      console.log(`[AgentEvents] No running agent for ${data.specId} - forceRecovery flag set only`);
+      console.log(`[AgentEvents] No running agent for ${data.specId} - forceRecovery flag set only (may have been killed by MCP direct PID kill)`);
     }
+
+    // Forward to renderer for devtools logging
+    safeSendToRenderer(getMainWindow, IPC_CHANNELS.DEBUG_EVENT, {
+      type: 'force-recovery',
+      taskId: data.specId,
+      agentKilled: isRunning,
+      timestamp: new Date().toISOString()
+    });
   });
 
   // Handle task status changes from file watcher (for RDR auto-recovery)

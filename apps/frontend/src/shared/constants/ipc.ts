@@ -64,6 +64,7 @@ export const IPC_CHANNELS = {
   TASK_STATUS_CHANGED: 'task:statusChanged',  // Task status changed (for RDR auto-recovery board movement)
   TASK_AUTO_REFRESH_TRIGGER: 'task:autoRefreshTrigger',  // File watcher detected change, trigger auto-refresh if enabled
   TASK_REGRESSION_DETECTED: 'task:regressionDetected',  // Task regressed from started/running back to backlog
+  DEBUG_EVENT: 'debug:event',  // Debug event forwarded to renderer (force-recovery, agent kills, etc.)
 
   // Task phase logs (persistent, collapsible logs by phase)
   TASK_LOGS_GET: 'task:logsGet',           // Load logs from spec dir

@@ -39,7 +39,7 @@ import { projectStore } from '../project-store.js';
 import { readAndClearSignalFile } from '../ipc-handlers/rdr-handlers.js';
 import { existsSync, readFileSync, unlinkSync } from 'fs';
 import { join } from 'path';
-import { homedir } from 'os';
+import { homedir, tmpdir } from 'os';
 import type {
   TaskOptions,
   TaskCategory,
@@ -1942,11 +1942,30 @@ server.tool(
           }
         }
 
+        // 5. Directly kill agent process if PID file exists (cross-process kill)
+        // This bypasses the file watcher's 500ms awaitWriteFinish delay
+        let agentKilled = false;
+        if (enable) {
+          const pidPath = join(tmpdir(), 'auto-claude-pids', `${taskId}.pid`);
+          if (existsSync(pidPath)) {
+            try {
+              const pid = parseInt(readFileSync(pidPath, 'utf-8').trim(), 10);
+              if (pid > 0) {
+                process.kill(pid);
+                agentKilled = true;
+                console.warn(`[MCP] Killed agent process PID ${pid} for ${taskId} (forceRecovery — direct cross-process kill)`);
+              }
+            } catch (err) {
+              console.warn(`[MCP] Could not kill agent PID for ${taskId}: ${err}`);
+            }
+          }
+        }
+
         results.push({
           taskId,
           success: true,
           action: enable
-            ? `forceRecovery=true, status=${targetBoard}`
+            ? `forceRecovery=true, status=${targetBoard}${agentKilled ? ', agent killed' : ''}`
             : 'forceRecovery removed'
         });
       } catch (error) {
@@ -1960,6 +1979,7 @@ server.tool(
     }
 
     const successCount = results.filter(r => r.success).length;
+    const killedCount = results.filter(r => r.action?.includes('agent killed')).length;
 
     return {
       content: [{
@@ -1967,7 +1987,7 @@ server.tool(
         text: JSON.stringify({
           success: successCount > 0,
           message: enable
-            ? `Forced ${successCount}/${taskIds.length} tasks into recovery mode on ${targetBoard} board. File watcher will pick up changes within 2-3s.`
+            ? `Forced ${successCount}/${taskIds.length} tasks into recovery mode on ${targetBoard} board.${killedCount > 0 ? ` Killed ${killedCount} running agent(s) instantly.` : ' No running agents found (file watcher will handle within 2-3s).'}`
             : `Removed forceRecovery from ${successCount}/${taskIds.length} tasks.`,
           results
         }, null, 2)

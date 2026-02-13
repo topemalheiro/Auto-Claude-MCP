@@ -202,13 +202,8 @@ export function useIpcListeners(): void {
 
     const cleanupStatus = window.electronAPI.onTaskStatusChange(
       (taskId: string, status: TaskStatus, projectId?: string, reviewReason?: import('../../shared/types').ReviewReason) => {
-        // Debug: Log received status change
-        console.log(`[useIpc] Received TASK_STATUS_CHANGE:`, {
-          taskId,
-          status,
-          reviewReason,
-          projectId
-        });
+        // Debug: Log received status change (use console.warn + stringified for devtools visibility)
+        console.warn(`[useIpc] TASK_STATUS_CHANGE: ${taskId} → ${status} (reason: ${reviewReason || 'none'}, project: ${projectId || 'unknown'})`);
         // Filter by project to prevent multi-project interference
         if (!isTaskForCurrentProject(projectId)) return;
         queueUpdate(taskId, { status, reviewReason });
@@ -420,6 +415,13 @@ export function useIpcListeners(): void {
       }
     );
 
+    // Debug event listener (force-recovery, agent kills, etc.)
+    const cleanupDebugEvent = window.electronAPI.onDebugEvent?.(
+      (data: { type: string; taskId?: string; agentKilled?: boolean; timestamp: string }) => {
+        console.warn(`[DEBUG] ${data.type}: task=${data.taskId || 'unknown'} agentKilled=${data.agentKilled ?? 'n/a'} @ ${data.timestamp}`);
+      }
+    );
+
     // Cleanup on unmount
     return () => {
       // Flush any pending batched updates before cleanup
@@ -444,6 +446,7 @@ export function useIpcListeners(): void {
       cleanupTaskAutoStart();
       cleanupTaskStatusChanged();
       cleanupRateLimitAutoResume();
+      cleanupDebugEvent?.();
     };
   }, [appendLog, setError]);
 }

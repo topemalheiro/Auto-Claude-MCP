@@ -151,6 +151,9 @@ export interface TaskAPI {
   getAutoShutdownStatus: () => Promise<IPCResult<AutoShutdownStatus>>;
   setAutoShutdown: (enabled: boolean) => Promise<IPCResult<AutoShutdownStatus>>;
   cancelAutoShutdown: () => Promise<IPCResult<void>>;
+
+  // Debug Events (forwarded from main process for devtools logging)
+  onDebugEvent: (callback: (data: { type: string; taskId?: string; agentKilled?: boolean; timestamp: string; [key: string]: unknown }) => void) => () => void;
 }
 
 export const createTaskAPI = (): TaskAPI => ({
@@ -526,5 +529,21 @@ export const createTaskAPI = (): TaskAPI => ({
     ipcRenderer.invoke(IPC_CHANNELS.SET_AUTO_SHUTDOWN, enabled),
 
   cancelAutoShutdown: () =>
-    ipcRenderer.invoke(IPC_CHANNELS.CANCEL_AUTO_SHUTDOWN)
+    ipcRenderer.invoke(IPC_CHANNELS.CANCEL_AUTO_SHUTDOWN),
+
+  // Debug Events
+  onDebugEvent: (
+    callback: (data: { type: string; taskId?: string; agentKilled?: boolean; timestamp: string; [key: string]: unknown }) => void
+  ): (() => void) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      data: { type: string; taskId?: string; agentKilled?: boolean; timestamp: string }
+    ): void => {
+      callback(data);
+    };
+    ipcRenderer.on(IPC_CHANNELS.DEBUG_EVENT, handler);
+    return () => {
+      ipcRenderer.removeListener(IPC_CHANNELS.DEBUG_EVENT, handler);
+    };
+  }
 });

@@ -1,7 +1,7 @@
 import { spawn } from 'child_process';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { existsSync, readFileSync, writeFileSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync, unlinkSync, mkdirSync } from 'fs';
 import { app } from 'electron';
 
 // ESM-compatible __dirname
@@ -26,6 +26,24 @@ import { getOAuthModeClearVars } from './env-utils';
 import { getAugmentedEnv } from '../env-utils';
 import { getToolInfo, getClaudeCliPathForSdk } from '../cli-tool-manager';
 import { killProcessGracefully, isWindows } from '../platform';
+import { tmpdir } from 'os';
+
+// ─── PID file helpers (for cross-process kill from MCP server) ─────────────
+const PID_DIR = path.join(tmpdir(), 'auto-claude-pids');
+
+function writePidFile(taskId: string, pid: number): void {
+  try {
+    mkdirSync(PID_DIR, { recursive: true });
+    writeFileSync(path.join(PID_DIR, `${taskId}.pid`), String(pid));
+  } catch { /* best effort */ }
+}
+
+function deletePidFile(taskId: string): void {
+  try {
+    const p = path.join(PID_DIR, `${taskId}.pid`);
+    if (existsSync(p)) unlinkSync(p);
+  } catch { /* best effort */ }
+}
 
 /**
  * Type for supported CLI tools
@@ -655,6 +673,11 @@ export class AgentProcessManager {
     // Update the tracked process with the actual spawned ChildProcess
     this.state.updateProcess(taskId, { process: childProcess });
 
+    // Write PID file for cross-process kill (MCP force recovery)
+    if (childProcess.pid) {
+      writePidFile(taskId, childProcess.pid);
+    }
+
     // Check if this spawn was killed during async setup (before spawn() completed).
     // If so, terminate the newly created process immediately to prevent orphaned processes.
     // Note: wasSpawnKilled() is checked AFTER updateProcess() because killProcess()
@@ -818,6 +841,7 @@ export class AgentProcessManager {
 
     childProcess.on('exit', (code: number | null, signal: NodeJS.Signals | null) => {
       this.state.deleteProcess(taskId);
+      deletePidFile(taskId);
 
       // Check killed FIRST — don't process any output from killed processes
       if (this.state.wasSpawnKilled(spawnId)) {
@@ -825,6 +849,20 @@ export class AgentProcessManager {
         console.log(`[AgentProcess] Process exit for killed task ${taskId} — discarding buffered output`);
         return;
       }
+
+      // Check for cross-process kill (MCP force recovery killed PID directly,
+      // bypassing agentManager.killTask / markSpawnAsKilled)
+      try {
+        const specDir = path.join(cwd, '.auto-claude', 'specs', taskId);
+        const metaPath = path.join(specDir, 'task_metadata.json');
+        if (existsSync(metaPath)) {
+          const meta = JSON.parse(readFileSync(metaPath, 'utf-8'));
+          if (meta.forceRecovery) {
+            console.warn(`[AgentProcess] Process exit for force-recovery task ${taskId} — treating as killed (forceRecovery=true in metadata)`);
+            return;
+          }
+        }
+      } catch { /* ignore — fall through to normal exit handling */ }
 
       if (stdoutBuffer.trim()) {
         this.emitter.emit('log', taskId, stdoutBuffer + '\n', projectId);
@@ -918,6 +956,7 @@ export class AgentProcessManager {
 
     // Mark this specific spawn as killed so its exit handler knows to ignore
     this.state.markSpawnAsKilled(agentProcess.spawnId);
+    deletePidFile(taskId);
 
     // If process hasn't been spawned yet (still in async setup phase, before spawn() returns),
     // just remove from tracking. The spawn() call will still complete, but the spawned process
