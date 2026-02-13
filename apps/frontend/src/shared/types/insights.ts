@@ -2,7 +2,7 @@
  * Insights and ideation types
  */
 
-import type { TaskMetadata } from './task';
+import type { TaskMetadata, ImageAttachment } from './task';
 
 // ============================================
 // Ideation Types
@@ -186,6 +186,8 @@ export interface InsightsChatMessage {
     description: string;
     metadata?: TaskMetadata;
   }>;
+  // Image attachments (screenshots, pasted images)
+  images?: ImageAttachment[];
   // Tools used during this response (assistant messages only)
   toolsUsed?: InsightsToolUsage[];
 }
