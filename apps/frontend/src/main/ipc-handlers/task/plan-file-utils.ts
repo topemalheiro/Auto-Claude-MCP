@@ -254,6 +254,15 @@ export function persistPlanStatusAndReasonSync(
       console.log(`[plan-file-utils] Creating minimal plan for XState persistence: ${planPath}`);
     }
 
+    // Guard — skip persistence when force-recovery is active.
+    // The recovery system is holding this task on a specific board.
+    // Without this, buffered stdout events (e.g., QA_PASSED) cause XState
+    // to transition, and the subscriber overwrites the plan with the wrong status.
+    if ((plan.metadata as Record<string, unknown> | undefined)?.forceRecovery === true) {
+      console.warn(`[plan-file-utils] Skipping status persistence — forceRecovery active: ${planPath}`);
+      return false;
+    }
+
     plan.status = status;
     plan.planStatus = mapStatusToPlanStatus(status);
     plan.reviewReason = reviewReason;

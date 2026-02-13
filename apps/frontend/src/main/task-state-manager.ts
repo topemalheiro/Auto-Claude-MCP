@@ -275,7 +275,11 @@ export class TaskStateManager {
         projectId: project.id
       });
 
-      this.persistStatus(task, project, status, reviewReason, stateValue, executionPhase);
+      const persisted = this.persistStatus(task, project, status, reviewReason, stateValue, executionPhase);
+      if (!persisted) {
+        console.warn(`[TaskStateManager] Skipping emitStatus for ${taskId} — forceRecovery blocked persistence`);
+        return;
+      }
       this.emitStatus(taskId, status, reviewReason, project.id);
 
       // Also emit execution progress to sync phase display with column
@@ -295,12 +299,15 @@ export class TaskStateManager {
     reviewReason?: ReviewReason,
     xstateState?: string,
     executionPhase?: string
-  ): void {
+  ): boolean {
     const mainPlanPath = getPlanPath(project, task);
-    persistPlanStatusAndReasonSync(mainPlanPath, status, reviewReason, project.id, xstateState, executionPhase);
+    const mainPersisted = persistPlanStatusAndReasonSync(mainPlanPath, status, reviewReason, project.id, xstateState, executionPhase);
+
+    // If main persistence was blocked by forceRecovery, skip worktree too
+    if (!mainPersisted) return false;
 
     const worktreePath = findTaskWorktree(project.path, task.specId);
-    if (!worktreePath) return;
+    if (!worktreePath) return true;
 
     const specsBaseDir = getSpecsDir(project.autoBuildPath);
     const worktreePlanPath = path.join(
@@ -312,6 +319,7 @@ export class TaskStateManager {
     if (existsSync(worktreePlanPath)) {
       persistPlanStatusAndReasonSync(worktreePlanPath, status, reviewReason, project.id, xstateState, executionPhase);
     }
+    return true;
   }
 
   /**
