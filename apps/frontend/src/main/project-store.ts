@@ -688,6 +688,13 @@ export class ProjectStore {
       return { status: finalStatus, reviewReason: finalReviewReason };
     }
 
+    // Skip auto-correction for tasks in force recovery mode — the recovery system
+    // is intentionally holding them on a specific board (e.g., ai_review for RDR testing).
+    // Without this, auto-correction overrides XState's force-recovery-revert event.
+    if (plan?.metadata?.forceRecovery === true) {
+      return { status: finalStatus, reviewReason: finalReviewReason };
+    }
+
     // Skip auto-correction if plan was recently updated (backend may still be writing)
     if (plan?.updated_at) {
       const updatedAt = new Date(plan.updated_at).getTime();

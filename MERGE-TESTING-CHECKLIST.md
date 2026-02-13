@@ -17,7 +17,7 @@ Use this checklist to verify all features work after resolving the 33 merge conf
 - [x] Start 2+ tasks on CV Project
 - [x] Wait for a task to get stuck -> RDR detects it and sends recovery message
 - [x] RDR does NOT flag actively running tasks (backlog false positive fix)
-- []RDR priority escalation works (P1 -> P3 after 3 attempts)
+- [ ] RDR priority escalation works (P1 -> P3 after 3 attempts)
 - **Files:** `rdr-handlers.ts`, `KanbanBoard.tsx`, `ipc-handlers/index.ts`
 
 ### Auto-Shutdown
@@ -37,13 +37,13 @@ Use this checklist to verify all features work after resolving the 33 merge conf
 ### Task Crash Recovery
 - [x] Kill a task agent process manually
 - [x] Crash is detected (exit code != 0)
-- []Auto-restart triggers if enabled
+- [ ] Auto-restart triggers if enabled
 - [x] Crash info persisted to `implementation_plan.json`
 - **Files:** `agent-process.ts`, `agent-events-handlers.ts`
 
 ### Rate Limit Detection
-- []Rate limit crash is detected (distinct from normal errors)
-- []Rate-limited tasks show correct status
+- [ ] Rate limit crash is detected (distinct from normal errors)
+- [ ] Rate-limited tasks show correct status
 - **Files:** `rate-limit-detector.ts`, `agent-events-handlers.ts`
 
 ### File Watcher
@@ -68,9 +68,9 @@ Use this checklist to verify all features work after resolving the 33 merge conf
 - **Files:** `KanbanBoard.tsx`
 
 ### Kanban Column Sizing
-- []Collapse/expand Kanban columns
-- []Resize column widths
-- []Column sizes persist across app restart
+- [ ] Collapse/expand Kanban columns
+- [ ] Resize column widths
+- [ ] Column sizes persist across app restart
 - **Files:** `KanbanBoard.tsx`, `project-store.ts`
 
 ### State Machine Transitions
@@ -79,27 +79,27 @@ Use this checklist to verify all features work after resolving the 33 merge conf
 - **Files:** `agent-events-handlers.ts`, `execution-handlers.ts`
 
 ### Spell Check
-- []Spell check works in text inputs
-- []Language detection works
+- [ ] Spell check works in text inputs
+- [ ] Language detection works
 - **Files:** `index.ts`
 
 ### i18n / Language
-- []All UI labels render (no missing translation keys)
-- []Settings labels correct (logOrder, terminalFonts, autoShutdown, autoRefresh)
-- []No `translation:missing` warnings in console
+- [ ] All UI labels render (no missing translation keys)
+- [ ] Settings labels correct (logOrder, terminalFonts, autoShutdown, autoRefresh)
+- [ ] No `translation:missing` warnings in console
 - **Files:** `en/*.json`, `fr/*.json`
 
 ### Terminal Fonts
-- []Terminal font settings visible in Display Settings
-- []Font changes apply to terminal view
+- [ ] Terminal font settings visible in Display Settings
+- [ ] Font changes apply to terminal view
 - **Files:** `DisplaySettings.tsx`, `settings.json`
 
 ### GitLab CLI (glab)
-- []If glab installed, it's detected in agent environment
+- [ ] If glab installed, it's detected in agent environment
 - **Files:** `agent-process.ts`
 
 ### Screenshot Capture
-- []Screenshot handler registered and functional
+- [ ] Screenshot handler registered and functional
 - **Files:** `ipc-handlers/index.ts`
 
 ---
@@ -107,33 +107,33 @@ Use this checklist to verify all features work after resolving the 33 merge conf
 ## Medium -- Shared Infrastructure (both sides touch)
 
 ### Project Store
-- []Tasks don't duplicate on Kanban board
+- [ ] Tasks don't duplicate on Kanban board
 - [x] Worktree tasks correctly deduplicated with main tasks
-- []Atomic file writes (no corrupt JSON on crash)
+- [ ] Atomic file writes (no corrupt JSON on crash)
 - **Files:** `project-store.ts`
 
 ### Task Card UI
 - [x] Start/stop task from card
-- []Archive/unarchive task
+- [ ] Archive/unarchive task
 - [x] Drag task between columns
 - [x] Task progress displays correctly
 - **Files:** `TaskCard.tsx`
 
 ### Sidebar Navigation
-- []All sidebar items render correctly
-- []Navigation works for all sections
+- [ ] All sidebar items render correctly
+- [ ] Navigation works for all sections
 - **Files:** `Sidebar.tsx`
 
 ### Worktree Operations
 - [x] Create worktree for a task
 - [x] Delete worktree
-- []Review worktree changes
+- [ ] Review worktree changes
 - **Files:** `worktree-handlers.ts` (both task/ and terminal/)
 
 ### Settings UI
-- []All settings panels render
-- []Settings save correctly
-- []Display settings (fonts, themes) apply
+- [ ] All settings panels render
+- [ ] Settings save correctly
+- [ ] Display settings (fonts, themes) apply
 - **Files:** `DisplaySettings.tsx`, `settings.ts`
 
 ---
