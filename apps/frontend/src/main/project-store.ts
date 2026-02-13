@@ -680,9 +680,11 @@ export class ProjectStore {
     const completedCount = subtasks.filter(s => s.status === 'completed').length;
     const allCompleted = completedCount === subtasks.length;
 
-    // Only auto-correct if all subtasks are done and status is in an incomplete coding state.
-    // Preserve ai_review (QA in progress), error (needs investigation), human_review, done, pr_created.
-    if (!allCompleted || finalStatus === 'human_review' || finalStatus === 'done' || finalStatus === 'pr_created' || finalStatus === 'ai_review' || finalStatus === 'error') {
+    // Only auto-correct if all subtasks are done and status is in an active coding state (in_progress).
+    // Preserve backlog (user explicitly moved here), ai_review (QA in progress),
+    // error (needs investigation), human_review, done, pr_created.
+    // IMPORTANT: backlog must be preserved — user drags tasks to Planning intentionally via FORCE_BACKLOG.
+    if (!allCompleted || finalStatus === 'backlog' || finalStatus === 'human_review' || finalStatus === 'done' || finalStatus === 'pr_created' || finalStatus === 'ai_review' || finalStatus === 'error') {
       return { status: finalStatus, reviewReason: finalReviewReason };
     }
 
