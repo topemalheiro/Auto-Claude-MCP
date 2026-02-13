@@ -11,13 +11,15 @@ import type {
   TerminalProcess,
   WindowGetter,
   TerminalOperationResult,
-  TerminalProfileChangeInfo
+  TerminalProfileChangeInfo,
+  TerminalSwapState
 } from './types';
 import * as PtyManager from './pty-manager';
 import * as SessionHandler from './session-handler';
 import * as TerminalLifecycle from './terminal-lifecycle';
 import * as TerminalEventHandler from './terminal-event-handler';
 import * as ClaudeIntegration from './claude-integration-handler';
+import { migrateSession } from '../claude-profile/session-utils';
 import { debugLog, debugError } from '../../shared/utils/debug-logger';
 
 export class TerminalManager {
@@ -223,13 +225,13 @@ export class TerminalManager {
   /**
    * Resume Claude in a terminal asynchronously (non-blocking)
    */
-  async resumeClaudeAsync(id: string, sessionId?: string): Promise<void> {
+  async resumeClaudeAsync(id: string, sessionId?: string, options?: { migratedSession?: boolean }): Promise<void> {
     const terminal = this.terminals.get(id);
     if (!terminal) {
       return;
     }
 
-    await ClaudeIntegration.resumeClaudeAsync(terminal, sessionId, this.getWindow);
+    await ClaudeIntegration.resumeClaudeAsync(terminal, sessionId, this.getWindow, options);
   }
 
   /**
@@ -247,11 +249,92 @@ export class TerminalManager {
       return;
     }
 
+    // Determine if this is a post-swap deferred resume
+    const isPostSwap = terminal.swapState?.isSwapping === true && terminal.swapState?.sessionMigrated === true;
+
     // Clear the pending flag
     terminal.pendingClaudeResume = false;
 
+    // Clear swap state if this was a post-swap resume
+    if (isPostSwap) {
+      terminal.swapState = undefined;
+    }
+
     // Now actually resume Claude
-    await ClaudeIntegration.resumeClaudeAsync(terminal, undefined, this.getWindow);
+    await ClaudeIntegration.resumeClaudeAsync(terminal, undefined, this.getWindow, isPostSwap ? { migratedSession: true } : undefined);
+  }
+
+  /**
+   * Orchestrate a profile swap for a single terminal.
+   * Captures the current session, migrates it to the target profile, and marks swap state.
+   * Called from the CLAUDE_PROFILE_SET_ACTIVE IPC handler for each terminal.
+   *
+   * @returns Info about the swap result for the event payload
+   */
+  async swapProfileAndResume(
+    terminalId: string,
+    sourceConfigDir: string,
+    targetConfigDir: string,
+    targetProfileId: string
+  ): Promise<{ sessionMigrated: boolean; sessionId?: string; isClaudeMode: boolean }> {
+    const terminal = this.terminals.get(terminalId);
+    if (!terminal) {
+      return { sessionMigrated: false, isClaudeMode: false };
+    }
+
+    const isClaudeMode = terminal.isClaudeMode;
+    const sessionId = terminal.claudeSessionId;
+    const sourceProfileId = terminal.claudeProfileId ?? 'unknown';
+
+    // If no active Claude session or no session ID, skip migration
+    if (!isClaudeMode || !sessionId) {
+      debugLog('[terminal-manager] No active Claude session for terminal:', terminalId, '- skipping migration');
+      return { sessionMigrated: false, isClaudeMode };
+    }
+
+    // Mark swap state: capturing session
+    terminal.swapState = {
+      isSwapping: true,
+      phase: 'capturing_session',
+      targetProfileId,
+      sourceProfileId,
+      sessionMigrated: false
+    };
+
+    // Migrate the session from source to target profile
+    terminal.swapState.phase = 'migrating';
+    debugLog('[terminal-manager] Migrating session for terminal:', terminalId, 'session:', sessionId);
+
+    const migrationResult = migrateSession(
+      sourceConfigDir,
+      targetConfigDir,
+      terminal.cwd,
+      sessionId
+    );
+
+    if (!migrationResult.success) {
+      debugError('[terminal-manager] Session migration failed for terminal:', terminalId, 'error:', migrationResult.error);
+      terminal.swapState.error = migrationResult.error;
+      terminal.swapState.sessionMigrated = false;
+      return { sessionMigrated: false, sessionId, isClaudeMode };
+    }
+
+    // Migration succeeded
+    terminal.swapState.sessionMigrated = true;
+    terminal.swapState.phase = 'recreating';
+    debugLog('[terminal-manager] Session migrated successfully for terminal:', terminalId);
+
+    // Notify renderer about swap progress
+    const win = this.getWindow();
+    if (win && !win.isDestroyed()) {
+      win.webContents.send('TERMINAL_SWAP_PROGRESS', {
+        terminalId,
+        phase: 'migrating',
+        sessionMigrated: true
+      });
+    }
+
+    return { sessionMigrated: true, sessionId, isClaudeMode };
   }
 
   /**
