@@ -28,6 +28,37 @@ export interface TerminalProcess {
   shellType?: WindowsShellType;
   /** Whether this terminal is waiting for Claude onboarding to complete (login flow) */
   awaitingOnboardingComplete?: boolean;
+  /** Current account swap state (tracks progress of profile switching) */
+  swapState?: TerminalSwapState;
+}
+
+/**
+ * Phase of a terminal account swap operation
+ */
+export type TerminalSwapPhase =
+  | 'capturing_session'
+  | 'migrating'
+  | 'recreating'
+  | 'resuming';
+
+/**
+ * Tracks the progress of an account swap for a terminal.
+ * Enables the main process to track swap progress independently
+ * of the renderer's XState machine.
+ */
+export interface TerminalSwapState {
+  /** Whether a swap is currently in progress */
+  isSwapping: boolean;
+  /** Current phase of the swap operation */
+  phase: TerminalSwapPhase;
+  /** Profile ID being swapped to */
+  targetProfileId: string;
+  /** Profile ID being swapped from */
+  sourceProfileId: string;
+  /** Whether the Claude session was successfully migrated */
+  sessionMigrated: boolean;
+  /** Error message if the swap failed */
+  error?: string;
 }
 
 /**
