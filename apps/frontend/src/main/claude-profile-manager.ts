@@ -86,6 +86,8 @@ export class ClaudeProfileManager {
       return;
     }
 
+    console.log('[ClaudeProfileManager] Starting initialization...');
+
     // Ensure directory exists (async) - mkdir with recursive:true is idempotent
     await mkdir(this.configDir, { recursive: true });
 
@@ -93,6 +95,9 @@ export class ClaudeProfileManager {
     const loadedData = await loadProfileStoreAsync(this.storePath);
     if (loadedData) {
       this.data = loadedData;
+      console.log('[ClaudeProfileManager] Loaded profile store with', this.data.profiles.length, 'profiles');
+    } else {
+      console.log('[ClaudeProfileManager] No existing profile store found, using defaults');
     }
 
     // Run one-time migration to fix corrupted emails
@@ -104,6 +109,7 @@ export class ClaudeProfileManager {
     this.populateSubscriptionMetadata();
 
     this.initialized = true;
+    console.log('[ClaudeProfileManager] Initialization complete');
   }
 
   /**
@@ -149,13 +155,20 @@ export class ClaudeProfileManager {
   private populateSubscriptionMetadata(): void {
     let needsSave = false;
 
+    console.log('[ClaudeProfileManager] populateSubscriptionMetadata: checking', this.data.profiles.length, 'profiles');
+
     for (const profile of this.data.profiles) {
       if (!profile.configDir) {
+        console.log('[ClaudeProfileManager] populateSubscriptionMetadata: skipping profile', profile.id, '(no configDir)');
         continue;
       }
 
       // Skip if profile already has subscription metadata
       if (profile.subscriptionType && profile.rateLimitTier) {
+        console.log('[ClaudeProfileManager] populateSubscriptionMetadata: profile', profile.id, 'already has metadata:', {
+          subscriptionType: profile.subscriptionType,
+          rateLimitTier: profile.rateLimitTier
+        });
         continue;
       }
 
