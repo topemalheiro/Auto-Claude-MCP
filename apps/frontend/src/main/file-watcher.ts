@@ -1,5 +1,5 @@
 import chokidar, { FSWatcher } from 'chokidar';
-import { readFileSync, existsSync } from 'fs';
+import { readFileSync, existsSync, writeFileSync } from 'fs';
 import path from 'path';
 import { EventEmitter } from 'events';
 import type { ImplementationPlan, Task, TaskStatus } from '../shared/types';
@@ -366,6 +366,31 @@ export class FileWatcher extends EventEmitter {
               specDir,
               specId
             });
+
+            // Consume the flag: forceRecovery is a one-time intent, not persistent state.
+            // Without this, every subsequent plan file change re-triggers the agent kill,
+            // preventing recover_stuck_task from successfully restarting the task.
+            try {
+              delete plan.metadata.forceRecovery;
+              const planPath = path.join(specDir, 'implementation_plan.json');
+              writeFileSync(planPath, JSON.stringify(plan, null, 2));
+              console.log(`[FileWatcher] Consumed forceRecovery flag from ${specId} plan metadata`);
+
+              // Also clear from worktree plan to prevent re-contamination
+              const worktreePlanPath = path.join(
+                projectPath, '.auto-claude', 'worktrees', 'tasks', specId,
+                '.auto-claude', 'specs', specId, 'implementation_plan.json'
+              );
+              if (existsSync(worktreePlanPath)) {
+                const wtPlan = JSON.parse(readFileSync(worktreePlanPath, 'utf-8'));
+                if (wtPlan.metadata?.forceRecovery) {
+                  delete wtPlan.metadata.forceRecovery;
+                  writeFileSync(worktreePlanPath, JSON.stringify(wtPlan, null, 2));
+                }
+              }
+            } catch (err) {
+              console.warn(`[FileWatcher] Failed to consume forceRecovery for ${specId}:`, err);
+            }
           }
 
           // Handle start_requested (board routing + task start)

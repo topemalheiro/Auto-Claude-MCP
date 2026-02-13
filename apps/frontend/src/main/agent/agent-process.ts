@@ -864,6 +864,16 @@ export class AgentProcessManager {
             // This undoes any XState transitions caused by events (e.g., QA_PASSED → human_review)
             // that arrived in the pipe buffer before the cross-process kill took effect.
             this.emitter.emit('force-recovery-revert', taskId, revertBoard, projectId);
+
+            // Consume the flags: forceRecovery is a one-time intent, not persistent state.
+            // Without this, future agent runs on this task would also trigger force-recovery-revert.
+            try {
+              delete meta.forceRecovery;
+              delete meta.forceRecoveryTargetBoard;
+              writeFileSync(metaPath, JSON.stringify(meta, null, 2));
+              console.log(`[AgentProcess] Consumed forceRecovery flags from ${taskId} task_metadata.json`);
+            } catch { /* best effort */ }
+
             return;
           }
         }
