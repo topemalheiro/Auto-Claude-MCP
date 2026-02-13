@@ -1,5 +1,5 @@
 import chokidar, { FSWatcher } from 'chokidar';
-import { readFileSync, existsSync, writeFileSync } from 'fs';
+import { readFileSync, existsSync } from 'fs';
 import path from 'path';
 import { EventEmitter } from 'events';
 import type { ImplementationPlan, Task, TaskStatus } from '../shared/types';
@@ -68,6 +68,18 @@ function determineResumeStatus(task: Task, plan: ImplementationPlan): TaskStatus
 export class FileWatcher extends EventEmitter {
   private watchers: Map<string, WatcherInfo> = new Map();
   private specsWatchers: Map<string, SpecsWatcherInfo> = new Map();
+  // Dedup set: tracks tasks that have had force-recovery emitted.
+  // Prevents re-killing on subsequent plan writes while keeping forceRecovery
+  // in the plan for the persistPlanStatusAndReasonSync guard.
+  private forceRecoveryEmitted = new Set<string>();
+
+  /**
+   * Clear the force-recovery dedup entry for a task.
+   * Called when recovery completes (force-recovery-revert, recover_stuck_task).
+   */
+  clearForceRecoveryDedup(specId: string): void {
+    this.forceRecoveryEmitted.delete(specId);
+  }
 
   /**
    * Start watching a task's implementation plan
@@ -358,39 +370,18 @@ export class FileWatcher extends EventEmitter {
           // Handle forceRecovery: kill running agent so task actually stops
           // test_force_recovery MCP tool sets metadata.forceRecovery = true but can't kill agents
           // (MCP server runs in a separate process). The main process detects it here and kills the agent.
-          if (plan.metadata?.forceRecovery === true) {
-            console.log(`[FileWatcher] forceRecovery detected for ${specId} - emitting task-force-recovery`);
+          // IMPORTANT: Do NOT consume forceRecovery from the plan here. The flag must stay
+          // in the plan so persistPlanStatusAndReasonSync's guard can block XState subscriber
+          // writes (buffered QA_PASSED → human_review). Use a dedup Set to prevent re-killing.
+          if (plan.metadata?.forceRecovery === true && !this.forceRecoveryEmitted.has(specId)) {
+            this.forceRecoveryEmitted.add(specId);
+            console.log(`[FileWatcher] forceRecovery detected for ${specId} - emitting task-force-recovery (deduped)`);
             this.emit('task-force-recovery', {
               projectId,
               projectPath,
               specDir,
               specId
             });
-
-            // Consume the flag: forceRecovery is a one-time intent, not persistent state.
-            // Without this, every subsequent plan file change re-triggers the agent kill,
-            // preventing recover_stuck_task from successfully restarting the task.
-            try {
-              delete plan.metadata.forceRecovery;
-              const planPath = path.join(specDir, 'implementation_plan.json');
-              writeFileSync(planPath, JSON.stringify(plan, null, 2));
-              console.log(`[FileWatcher] Consumed forceRecovery flag from ${specId} plan metadata`);
-
-              // Also clear from worktree plan to prevent re-contamination
-              const worktreePlanPath = path.join(
-                projectPath, '.auto-claude', 'worktrees', 'tasks', specId,
-                '.auto-claude', 'specs', specId, 'implementation_plan.json'
-              );
-              if (existsSync(worktreePlanPath)) {
-                const wtPlan = JSON.parse(readFileSync(worktreePlanPath, 'utf-8'));
-                if (wtPlan.metadata?.forceRecovery) {
-                  delete wtPlan.metadata.forceRecovery;
-                  writeFileSync(worktreePlanPath, JSON.stringify(wtPlan, null, 2));
-                }
-              }
-            } catch (err) {
-              console.warn(`[FileWatcher] Failed to consume forceRecovery for ${specId}:`, err);
-            }
           }
 
           // Handle start_requested (board routing + task start)

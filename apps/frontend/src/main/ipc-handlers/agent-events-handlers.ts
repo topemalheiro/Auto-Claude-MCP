@@ -478,6 +478,9 @@ export function registerAgenteventsHandlers(
       taskStateManager.handleUiEvent(taskId, event, task, project);
       console.warn(`[AgentEvents] force-recovery-revert: sent ${event.type} to XState for ${taskId}`);
 
+      // Clear force-recovery dedup so future test_force_recovery calls work
+      fileWatcher.clearForceRecoveryDedup(taskId);
+
       // Forward to renderer for devtools logging
       safeSendToRenderer(getMainWindow, IPC_CHANNELS.DEBUG_EVENT, {
         type: 'force-recovery-revert',
