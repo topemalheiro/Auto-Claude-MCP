@@ -847,6 +847,32 @@ export class AgentProcessManager {
       if (this.state.wasSpawnKilled(spawnId)) {
         this.state.clearKilledSpawn(spawnId);
         console.log(`[AgentProcess] Process exit for killed task ${taskId} — discarding buffered output`);
+
+        // Even for spawn-killed processes, check if this was a force-recovery kill.
+        // Race condition: file watcher's task-force-recovery handler calls killTask()
+        // which sets wasSpawnKilled, but we still need force-recovery-revert to fire
+        // so XState goes to the correct board (undoing any buffered QA_PASSED → human_review).
+        try {
+          const specDir = path.join(cwd, '.auto-claude', 'specs', taskId);
+          const metaPath = path.join(specDir, 'task_metadata.json');
+          if (existsSync(metaPath)) {
+            const meta = JSON.parse(readFileSync(metaPath, 'utf-8'));
+            if (meta.forceRecovery) {
+              const revertBoard = meta.forceRecoveryTargetBoard || 'ai_review';
+              console.warn(`[AgentProcess] Spawn-killed but has forceRecovery — reverting XState to ${revertBoard}`);
+              this.emitter.emit('force-recovery-revert', taskId, revertBoard, projectId);
+
+              // Consume the flags
+              try {
+                delete meta.forceRecovery;
+                delete meta.forceRecoveryTargetBoard;
+                writeFileSync(metaPath, JSON.stringify(meta, null, 2));
+                console.log(`[AgentProcess] Consumed forceRecovery flags from ${taskId} task_metadata.json`);
+              } catch { /* best effort */ }
+            }
+          }
+        } catch { /* ignore */ }
+
         return;
       }
 
