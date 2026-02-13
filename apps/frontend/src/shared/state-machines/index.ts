@@ -7,3 +7,6 @@ export {
   mapStateToLegacy,
 } from './task-state-utils';
 export type { TaskStateName } from './task-state-utils';
+
+export { terminalMachine } from './terminal-machine';
+export type { TerminalContext, TerminalEvent } from './terminal-machine';
