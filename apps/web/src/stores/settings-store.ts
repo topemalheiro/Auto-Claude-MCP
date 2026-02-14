@@ -43,7 +43,7 @@ export async function loadSettings() {
 export async function saveSettings(updates: Partial<AppSettings>) {
   useSettingsStore.getState().updateSettings(updates);
   try {
-    await apiClient.updateSettings(updates);
+    await apiClient.saveSettings(updates);
   } catch {
     // Settings saved locally even if API fails
   }
