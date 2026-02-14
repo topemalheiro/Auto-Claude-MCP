@@ -19,7 +19,7 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy
 } from '@dnd-kit/sortable';
-import { Plus, Inbox, Loader2, Eye, CheckCircle2, Archive, RefreshCw, GitPullRequest, X, Settings, ListPlus, ChevronLeft, ChevronRight, ChevronsRight, Lock, Unlock, Trash2, Zap } from 'lucide-react';
+import { Plus, Inbox, Loader2, Eye, CheckCircle2, Archive, RefreshCw, GitPullRequest, X, Settings, ListPlus, ChevronLeft, ChevronRight, ChevronsRight, Lock, Unlock, Trash2, Zap, ShieldOff, Shield } from 'lucide-react';
 import { Checkbox } from './ui/checkbox';
 import { ScrollArea } from './ui/scroll-area';
 import { Button } from './ui/button';
@@ -904,6 +904,33 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       }
     }
   }, [selectedTaskIds, deselectAllTasks, toast, t]);
+
+  // Check if all selected tasks have RDR disabled
+  const allSelectedRdrDisabled = useMemo(() => {
+    return selectedTasks.length > 0 && selectedTasks.every(t => t.metadata?.rdrDisabled);
+  }, [selectedTasks]);
+
+  // Handle bulk RDR toggle
+  const handleBulkToggleRdr = useCallback(async () => {
+    if (selectedTaskIds.size === 0) return;
+
+    const newDisabled = !allSelectedRdrDisabled;
+    const taskIds = Array.from(selectedTaskIds);
+    let successCount = 0;
+
+    for (const taskId of taskIds) {
+      const result = await window.electronAPI.toggleTaskRdr(taskId, newDisabled);
+      if (result.success) successCount++;
+    }
+
+    if (successCount > 0) {
+      toast({
+        title: `RDR ${newDisabled ? 'disabled' : 'enabled'} for ${successCount} task${successCount > 1 ? 's' : ''}`,
+      });
+      // Trigger refresh to update task cards
+      onRefresh?.();
+    }
+  }, [selectedTaskIds, allSelectedRdrDisabled, toast, onRefresh]);
 
   const handleArchiveAll = async () => {
     // Get projectId from the first task (all tasks should have the same projectId)
@@ -2485,6 +2512,15 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
             >
               <GitPullRequest className="h-4 w-4" />
               {t('kanban.createPRs')}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="gap-2 text-muted-foreground hover:text-foreground"
+              onClick={handleBulkToggleRdr}
+            >
+              {allSelectedRdrDisabled ? <Shield className="h-4 w-4" /> : <ShieldOff className="h-4 w-4" />}
+              {allSelectedRdrDisabled ? 'Enable RDR' : 'Disable RDR'}
             </Button>
             <Button
               variant="ghost"
