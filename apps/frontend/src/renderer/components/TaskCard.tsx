@@ -791,32 +791,6 @@ export const TaskCard = memo(function TaskCard({
                       {statusMenuItems}
                     </>
                   )}
-                  {task.status === 'human_review' && (
-                    <>
-                      {statusMenuItems && <DropdownMenuSeparator />}
-                      <DropdownMenuLabel>RDR Auto-Recovery</DropdownMenuLabel>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={handleToggleRdr}>
-                        {rdrDisabled ? (
-                          <>
-                            <RotateCcw className="mr-2 h-4 w-4" />
-                            Enable Auto-Recovery
-                          </>
-                        ) : (
-                          <>
-                            <Square className="mr-2 h-4 w-4" />
-                            Disable Auto-Recovery
-                          </>
-                        )}
-                      </DropdownMenuItem>
-                      {task.metadata?.rdrAttempts != null && task.metadata.rdrAttempts > 0 && (
-                        <DropdownMenuItem disabled>
-                          <AlertTriangle className="mr-2 h-4 w-4" />
-                          {task.metadata.rdrAttempts} recovery attempt{task.metadata.rdrAttempts > 1 ? 's' : ''}
-                        </DropdownMenuItem>
-                      )}
-                    </>
-                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
             )}
