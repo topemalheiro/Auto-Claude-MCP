@@ -68,8 +68,6 @@ Use this checklist to verify all features work after resolving the 33 merge conf
 - **Files:** `KanbanBoard.tsx`
 
 ### Kanban Column Sizing
-- [ ] Collapse/expand Kanban columns
-- [ ] Resize column widths
 - [ ] Column sizes persist across app restart
 - **Files:** `KanbanBoard.tsx`, `project-store.ts`
 

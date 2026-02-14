@@ -475,46 +475,55 @@ export function killProcessGracefully(
     log('process.once unavailable, cannot track exit state');
   }
 
-  // Attempt graceful termination (may throw if process dead)
-  try {
-    if (isWindows()) {
-      childProcess.kill();  // Windows: no signal argument
-    } else {
-      childProcess.kill('SIGTERM');
-    }
-    log('Graceful kill signal sent');
-  } catch (err) {
-    log('Graceful kill failed (process likely dead):',
-      err instanceof Error ? err.message : String(err));
-  }
-
-  // ALWAYS schedule force-kill fallback OUTSIDE the try-catch
-  // This ensures fallback runs even if .kill() threw
-  if (pid) {
-    forceKillTimer = setTimeout(() => {
-      if (hasExited) {
-        log('Process already exited, skipping force kill');
-        return;
-      }
-
+  if (isWindows() && pid) {
+    // Windows: Use taskkill /f /t IMMEDIATELY to kill the entire process tree.
+    // childProcess.kill() on Windows calls TerminateProcess which only kills the
+    // parent process, leaving children (e.g. claude CLI subprocess) as orphans.
+    // The orphaned children keep running, making the "Stop" button ineffective.
+    // taskkill /f /t kills the parent AND all child processes in one shot.
+    try {
+      log('Running taskkill /f /t for PID:', pid);
+      spawn(getTaskkillExePath(), ['/pid', pid.toString(), '/f', '/t'], {
+        stdio: 'ignore',
+        detached: true
+      }).unref();
+    } catch (err) {
+      log('taskkill failed, falling back to childProcess.kill():',
+        err instanceof Error ? err.message : String(err));
       try {
-        if (isWindows()) {
-          log('Running taskkill for PID:', pid);
-          spawn(getTaskkillExePath(), ['/pid', pid.toString(), '/f', '/t'], {
-            stdio: 'ignore',
-            detached: true
-          }).unref();
-        } else if (!childProcess.killed) {
-          log('Sending SIGKILL to PID:', pid);
-          childProcess.kill('SIGKILL');
-        }
-      } catch (err) {
-        log('Force kill failed:',
-          err instanceof Error ? err.message : String(err));
-      }
-    }, timeoutMs);
+        childProcess.kill();
+      } catch { /* process likely dead */ }
+    }
+  } else {
+    // Unix: Graceful SIGTERM, then SIGKILL after timeout
+    try {
+      childProcess.kill('SIGTERM');
+      log('Graceful kill signal sent');
+    } catch (err) {
+      log('Graceful kill failed (process likely dead):',
+        err instanceof Error ? err.message : String(err));
+    }
 
-    // Unref timer so it doesn't prevent Node.js from exiting
-    forceKillTimer.unref();
+    if (pid) {
+      forceKillTimer = setTimeout(() => {
+        if (hasExited) {
+          log('Process already exited, skipping force kill');
+          return;
+        }
+
+        try {
+          if (!childProcess.killed) {
+            log('Sending SIGKILL to PID:', pid);
+            childProcess.kill('SIGKILL');
+          }
+        } catch (err) {
+          log('Force kill failed:',
+            err instanceof Error ? err.message : String(err));
+        }
+      }, timeoutMs);
+
+      // Unref timer so it doesn't prevent Node.js from exiting
+      forceKillTimer.unref();
+    }
   }
 }
