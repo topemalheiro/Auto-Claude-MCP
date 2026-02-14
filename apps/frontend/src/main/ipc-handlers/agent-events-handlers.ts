@@ -468,6 +468,38 @@ export function registerAgenteventsHandlers(
     const result = findTaskAndProject(taskId, projectId);
     if (result) {
       const { task, project } = result;
+
+      // Clear forceRecovery from plan files BEFORE sending XState event.
+      // The guard in persistPlanStatusAndReasonSync blocks writes when forceRecovery is active.
+      // We must clear it first so the subscriber can persist the CORRECT status (ai_review)
+      // and emit TASK_STATUS_CHANGE to the renderer — making the transition instant.
+      try {
+        const mainPlanPath = getPlanPath(project, task);
+        const mainPlan = JSON.parse(readFileSync(mainPlanPath, 'utf-8'));
+        if (mainPlan.metadata?.forceRecovery) {
+          delete mainPlan.metadata.forceRecovery;
+          delete mainPlan.metadata.forceRecoveryTargetBoard;
+          writeFileSync(mainPlanPath, JSON.stringify(mainPlan, null, 2));
+          console.warn(`[AgentEvents] Cleared forceRecovery from main plan for ${taskId}`);
+        }
+        const worktreePath = findTaskWorktree(project.path, task.specId);
+        if (worktreePath) {
+          const specsBaseDir = getSpecsDir(project.autoBuildPath);
+          const wtPlanPath = path.join(worktreePath, specsBaseDir, task.specId, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
+          if (existsSync(wtPlanPath)) {
+            const wtPlan = JSON.parse(readFileSync(wtPlanPath, 'utf-8'));
+            if (wtPlan.metadata?.forceRecovery) {
+              delete wtPlan.metadata.forceRecovery;
+              delete wtPlan.metadata.forceRecoveryTargetBoard;
+              writeFileSync(wtPlanPath, JSON.stringify(wtPlan, null, 2));
+            }
+          }
+        }
+      } catch (err) {
+        console.warn(`[AgentEvents] Failed to clear forceRecovery from plans for ${taskId}:`, err);
+      }
+
+      // NOW send XState event — subscriber will persist + emit successfully
       const eventMap: Record<string, import('../../shared/state-machines/task-machine').TaskEvent> = {
         'ai_review': { type: 'FORCE_AI_REVIEW' },
         'in_progress': { type: 'USER_RESUMED' },
