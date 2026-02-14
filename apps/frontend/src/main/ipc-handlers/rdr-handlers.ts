@@ -277,6 +277,13 @@ function enrichTaskWithWorktreeData(task: TaskInfo, projectPath: string): TaskIn
 function isLegitimateHumanReview(task: TaskInfo): boolean {
   const progress = calculateTaskProgress(task);
 
+  // User explicitly stopped this task — it's NEVER a legitimate review
+  // reviewReason=stopped means user clicked Stop, regardless of QA approval status
+  // If user wants to opt out of RDR, they use "Disable Auto-Recovery" in the three-dot menu
+  if (task.reviewReason === 'stopped') {
+    return false;
+  }
+
   // QA-approved tasks at 100% are done — exitReason is a session-level artifact, not work-quality
   // If QA agent wrote approved, it validated the work. Crashes happen AFTER approval was written.
   if (progress === 100 && (task.qaSignoff === 'approved' || task.reviewReason === 'completed')) {
