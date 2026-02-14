@@ -100,10 +100,10 @@ export function registerAgenteventsHandlers(
     // force it to human_review after a short delay. This prevents tasks from getting stuck
     // in in_progress state when the process exits without XState properly handling it.
     setTimeout(() => {
-      const { task: checkTask } = findTaskAndProject(taskId, projectId);
-      if (checkTask && checkTask.status === 'in_progress') {
-        console.warn(`[agent-events-handlers] Task ${taskId} still in_progress 500ms after exit, forcing to human_review`);
-        taskStateManager.forceTransition(taskId, 'human_review', 'errors', checkTask, exitProject);
+      const { task: checkTask, project: checkProject } = findTaskAndProject(taskId, projectId);
+      if (checkTask && checkTask.status === 'in_progress' && checkProject) {
+        console.warn(`[agent-events-handlers] Task ${taskId} still in_progress 500ms after exit, forcing USER_STOPPED`);
+        taskStateManager.handleUiEvent(taskId, { type: 'USER_STOPPED', hasPlan: true }, checkTask, checkProject);
       }
     }, 500);
 
