@@ -14,6 +14,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from './ui/dropdown-menu';
+import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import { cn, formatRelativeTime, sanitizeMarkdownForDisplay } from '../lib/utils';
 import { PhaseProgressIndicator } from './PhaseProgressIndicator';
 import {
@@ -71,6 +72,8 @@ interface TaskCardProps {
   isSelectable?: boolean;
   isSelected?: boolean;
   onToggleSelect?: () => void;
+  // Whether the global RDR toggle is enabled (per-project setting)
+  rdrEnabled?: boolean;
 }
 
 // Custom comparator for React.memo - only re-render when relevant task data changes
@@ -86,15 +89,17 @@ function taskCardPropsAreEqual(prevProps: TaskCardProps, nextProps: TaskCardProp
     prevProps.onRefresh === nextProps.onRefresh &&
     prevProps.isSelectable === nextProps.isSelectable &&
     prevProps.isSelected === nextProps.isSelected &&
-    prevProps.onToggleSelect === nextProps.onToggleSelect
+    prevProps.onToggleSelect === nextProps.onToggleSelect &&
+    prevProps.rdrEnabled === nextProps.rdrEnabled
   ) {
     return true;
   }
 
-  // Check selectable props first (cheap comparison)
+  // Check selectable and rdrEnabled props first (cheap comparison)
   if (
     prevProps.isSelectable !== nextProps.isSelectable ||
-    prevProps.isSelected !== nextProps.isSelected
+    prevProps.isSelected !== nextProps.isSelected ||
+    prevProps.rdrEnabled !== nextProps.rdrEnabled
   ) {
     return false;
   }
@@ -143,7 +148,8 @@ export const TaskCard = memo(function TaskCard({
   onRefresh,
   isSelectable,
   isSelected,
-  onToggleSelect
+  onToggleSelect,
+  rdrEnabled
 }: TaskCardProps) {
   const { t } = useTranslation(['tasks', 'errors']);
   const { toast } = useToast();
@@ -735,6 +741,27 @@ export const TaskCard = memo(function TaskCard({
                 )}
               </Button>
             )}
+
+            {/* Per-task RDR toggle */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  className={cn(
+                    "h-6 w-6 rounded-full flex items-center justify-center text-[8px] font-bold transition-colors",
+                    rdrDisabled
+                      ? "bg-muted text-muted-foreground opacity-50"
+                      : "bg-primary/15 text-primary"
+                  )}
+                  onClick={(e) => { e.stopPropagation(); handleToggleRdr(e); }}
+                >
+                  RDR
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                <p>{rdrDisabled ? 'Enable RDR' : 'Disable RDR'}</p>
+              </TooltipContent>
+            </Tooltip>
 
             {/* Move to menu for keyboard accessibility */}
             {(statusMenuItems || task.status === 'human_review') && (

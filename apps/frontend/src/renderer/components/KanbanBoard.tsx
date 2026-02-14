@@ -107,6 +107,8 @@ interface DroppableColumnProps {
   // Lock props
   isLocked?: boolean;
   onToggleLocked?: () => void;
+  // Whether the global RDR toggle is enabled (per-project setting)
+  rdrEnabled?: boolean;
 }
 
 /**
@@ -165,6 +167,7 @@ function droppableColumnPropsAreEqual(
   if (prevProps.onResizeEnd !== nextProps.onResizeEnd) return false;
   if (prevProps.isLocked !== nextProps.isLocked) return false;
   if (prevProps.onToggleLocked !== nextProps.onToggleLocked) return false;
+  if (prevProps.rdrEnabled !== nextProps.rdrEnabled) return false;
 
   // Compare selection props
   const prevSelected = prevProps.selectedTaskIds;
@@ -235,7 +238,7 @@ const getEmptyStateContent = (status: TaskStatus, t: (key: string) => string): {
   }
 };
 
-const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskClick, onStatusChange, onRefresh, isOver, onAddClick, onArchiveAll, onQueueSettings, onQueueAll, maxParallelTasks, archivedCount, showArchived, onToggleArchived, selectedTaskIds, onSelectAll, onDeselectAll, onToggleSelect, isCollapsed, onToggleCollapsed, columnWidth, isResizing, onResizeStart, onResizeEnd, isLocked, onToggleLocked }: DroppableColumnProps) {
+const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskClick, onStatusChange, onRefresh, isOver, onAddClick, onArchiveAll, onQueueSettings, onQueueAll, maxParallelTasks, archivedCount, showArchived, onToggleArchived, selectedTaskIds, onSelectAll, onDeselectAll, onToggleSelect, isCollapsed, onToggleCollapsed, columnWidth, isResizing, onResizeStart, onResizeEnd, isLocked, onToggleLocked, rdrEnabled }: DroppableColumnProps) {
   const { t } = useTranslation(['tasks', 'common']);
   const { setNodeRef } = useDroppable({
     id: status
@@ -308,9 +311,10 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
         isSelectable={isSelectable}
         isSelected={isSelectable ? selectedTaskIds?.has(task.id) : undefined}
         onToggleSelect={onToggleSelectHandlers?.get(task.id)}
+        rdrEnabled={rdrEnabled}
       />
     ));
-  }, [tasks, onClickHandlers, onStatusChangeHandlers, onToggleSelectHandlers, selectedTaskIds]);
+  }, [tasks, onClickHandlers, onStatusChangeHandlers, onToggleSelectHandlers, selectedTaskIds, rdrEnabled]);
 
   const getColumnBorderColor = (): string => {
     switch (status) {
@@ -2399,6 +2403,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
                     onClick={() => onTaskClick?.(task)}
                     onStatusChange={(newStatus) => handleStatusChange(task.id, newStatus, task)}
                     onRefresh={onRefresh}
+                    rdrEnabled={rdrEnabled}
                   />
                 ))
               )}
@@ -2449,6 +2454,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
               onResizeEnd={handleResizeEnd}
               isLocked={columnPreferences?.[status]?.isLocked}
               onToggleLocked={() => handleToggleColumnLocked(status)}
+              rdrEnabled={rdrEnabled}
             />
           ))}
         </div>
@@ -2457,7 +2463,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
         <DragOverlay>
           {activeTask ? (
             <div className="drag-overlay-card">
-              <TaskCard task={activeTask} onClick={() => {}} />
+              <TaskCard task={activeTask} onClick={() => {}} rdrEnabled={rdrEnabled} />
             </div>
           ) : null}
         </DragOverlay>
