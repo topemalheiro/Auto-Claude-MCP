@@ -1,0 +1,35 @@
+{
+  "sections": {
+    "project": "Projet",
+    "tools": "Outils"
+  },
+  "items": {
+    "kanban": "Tableau Kanban",
+    "terminals": "Terminaux Agent",
+    "insights": "Insights",
+    "roadmap": "Feuille de route",
+    "ideation": "Idéation",
+    "changelog": "Journal des modifications",
+    "context": "Contexte",
+    "githubIssues": "Issues GitHub",
+    "githubPRs": "PRs GitHub",
+    "gitlabIssues": "Issues GitLab",
+    "gitlabMRs": "MRs GitLab",
+    "worktrees": "Worktrees",
+    "agentTools": "Aperçu MCP"
+  },
+  "actions": {
+    "settings": "Paramètres",
+    "help": "Aide & Feedback",
+    "newTask": "Nouvelle tâche",
+    "collapseSidebar": "Réduire la barre latérale",
+    "expandSidebar": "Développer la barre latérale"
+  },
+  "tooltips": {
+    "settings": "Paramètres de l'application",
+    "help": "Aide & Feedback"
+  },
+  "messages": {
+    "initializeToCreateTasks": "Initialisez Auto Claude pour créer des tâches"
+  }
+}

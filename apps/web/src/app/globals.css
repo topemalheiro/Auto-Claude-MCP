@@ -1,72 +1,61 @@
 @import "tailwindcss";
+@import "../../../../../packages/ui/src/styles/theme.css";
 
-@theme {
-  /* Colors */
-  --color-background: oklch(1 0 0);
-  --color-foreground: oklch(0.145 0 0);
-  --color-card: oklch(1 0 0);
-  --color-card-foreground: oklch(0.145 0 0);
-  --color-popover: oklch(1 0 0);
-  --color-popover-foreground: oklch(0.145 0 0);
-  --color-primary: oklch(0.205 0.072 265.755);
-  --color-primary-foreground: oklch(0.985 0 0);
-  --color-secondary: oklch(0.97 0 0);
-  --color-secondary-foreground: oklch(0.205 0 0);
-  --color-muted: oklch(0.97 0 0);
-  --color-muted-foreground: oklch(0.556 0 0);
-  --color-accent: oklch(0.97 0 0);
-  --color-accent-foreground: oklch(0.205 0 0);
-  --color-destructive: oklch(0.577 0.245 27.325);
-  --color-destructive-foreground: oklch(0.577 0.245 27.325);
-  --color-border: oklch(0.922 0 0);
-  --color-input: oklch(0.922 0 0);
-  --color-ring: oklch(0.708 0.165 254.624);
-  --color-sidebar: oklch(0.985 0 0);
-  --color-sidebar-foreground: oklch(0.145 0 0);
-
-  /* Border Radius */
-  --radius-sm: 0.25rem;
-  --radius-md: 0.375rem;
-  --radius-lg: 0.5rem;
-  --radius-xl: 0.75rem;
+/* Base styles */
+* {
+  border-color: var(--border);
 }
 
-.dark {
-  --color-background: oklch(0.145 0 0);
-  --color-foreground: oklch(0.985 0 0);
-  --color-card: oklch(0.185 0 0);
-  --color-card-foreground: oklch(0.985 0 0);
-  --color-popover: oklch(0.185 0 0);
-  --color-popover-foreground: oklch(0.985 0 0);
-  --color-primary: oklch(0.708 0.165 254.624);
-  --color-primary-foreground: oklch(0.145 0 0);
-  --color-secondary: oklch(0.248 0 0);
-  --color-secondary-foreground: oklch(0.985 0 0);
-  --color-muted: oklch(0.248 0 0);
-  --color-muted-foreground: oklch(0.646 0 0);
-  --color-accent: oklch(0.248 0 0);
-  --color-accent-foreground: oklch(0.985 0 0);
-  --color-destructive: oklch(0.396 0.141 25.768);
-  --color-destructive-foreground: oklch(0.637 0.237 25.331);
-  --color-border: oklch(0.295 0 0);
-  --color-input: oklch(0.295 0 0);
-  --color-ring: oklch(0.551 0.177 259.082);
-  --color-sidebar: oklch(0.165 0 0);
-  --color-sidebar-foreground: oklch(0.985 0 0);
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  font-feature-settings: "rlig" 1, "calt" 1;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-@layer base {
-  * {
-    @apply border-border;
-  }
-
-  body {
-    @apply bg-background text-foreground;
-    font-feature-settings: "rlig" 1, "calt" 1;
-  }
+/* Typography utilities */
+.font-mono {
+  font-family: var(--font-mono);
 }
 
-/* Scrollbar styles */
+/* Card styles - following design system card-based modularity */
+.card-surface {
+  background-color: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+}
+
+.dark .card-surface {
+  box-shadow: none;
+}
+
+:root .card-surface {
+  box-shadow: var(--shadow-md);
+}
+
+/* Interactive card hover state */
+.card-interactive {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.card-interactive:hover {
+  border-color: var(--primary);
+}
+
+/* Surface elevated - for dropdowns, popovers */
+.surface-elevated {
+  background-color: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.dark .surface-elevated {
+  background-color: #1A1A1F;
+}
+
+/* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -77,12 +66,57 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: oklch(0.5 0 0 / 0.3);
-  border-radius: 3px;
+  background: var(--muted-foreground);
+  opacity: 0.3;
+  border-radius: var(--radius-full);
+  transition: background 0.2s;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: oklch(0.5 0 0 / 0.5);
+  opacity: 0.5;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(134, 143, 151, 0.3);
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(134, 143, 151, 0.5);
+}
+
+/* Focus visible styles */
+.focus-ring {
+  outline: none;
+}
+
+.focus-ring:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* Column status colors for Kanban */
+.column-backlog {
+  border-top-color: var(--muted-foreground);
+}
+
+.column-queue {
+  border-top-color: #22d3ee;
+}
+
+.column-in-progress {
+  border-top-color: var(--info);
+}
+
+.column-ai-review {
+  border-top-color: var(--warning);
+}
+
+.column-human-review {
+  border-top-color: #A855F7;
+}
+
+.column-done {
+  border-top-color: var(--success);
 }
 
 /* Line clamp utility */

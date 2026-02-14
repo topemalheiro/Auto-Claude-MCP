@@ -3,15 +3,80 @@
   "loading": "Chargement...",
   "loadingData": "Chargement de {{dataType}}...",
   "buttons": {
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "skip": "Passer",
+    "next": "Suivant",
+    "back": "Retour",
+    "close": "Fermer",
+    "delete": "Supprimer",
+    "confirm": "Confirmer",
+    "retry": "Réessayer",
+    "create": "Créer",
+    "open": "Ouvrir",
+    "start": "Démarrer",
+    "stop": "Arrêter",
+    "refresh": "Actualiser",
+    "refreshing": "Actualisation...",
+    "add": "Ajouter",
+    "apply": "Appliquer",
+    "gotIt": "Compris",
+    "continue": "Continuer",
+    "saving": "Enregistrement...",
+    "deleting": "Suppression...",
     "getStarted": "Commencer",
     "learnMore": "En savoir plus sur Auto Claude Cloud",
     "signIn": "Se connecter avec GitHub",
     "signOut": "Se déconnecter",
     "goToDashboard": "Aller au tableau de bord",
-    "create": "Nouveau {{itemType}}",
     "manageSubscription": "Gérer l'abonnement",
     "upgrade": "Mettre à niveau vers {{tier}}",
     "redirecting": "Redirection..."
+  },
+  "actions": {
+    "save": "Enregistrer",
+    "apply": "Appliquer",
+    "delete": "Supprimer",
+    "settings": "Paramètres"
+  },
+  "labels": {
+    "loading": "Chargement...",
+    "error": "Erreur",
+    "success": "Succès",
+    "initializing": "Initialisation...",
+    "saving": "Enregistrement...",
+    "creating": "Création...",
+    "noData": "Aucune donnée",
+    "optional": "Optionnel",
+    "required": "Requis",
+    "dismiss": "Ignorer",
+    "important": "Important"
+  },
+  "selection": {
+    "select": "Sélectionner",
+    "done": "Terminé",
+    "selected": "{{count}} sélectionné(s)",
+    "selectAll": "Tout sélectionner",
+    "clearSelection": "Effacer la sélection",
+    "deleteSelected": "Supprimer la sélection",
+    "selectedOfTotal": "{{selected}} sur {{total}} sélectionné(s)"
+  },
+  "time": {
+    "justNow": "À l'instant",
+    "minutesAgo": "Il y a {{count}} min",
+    "hoursAgo": "Il y a {{count}}h",
+    "daysAgo": "Il y a {{count}}j"
+  },
+  "errors": {
+    "generic": "Une erreur s'est produite",
+    "unknownError": "Une erreur inconnue s'est produite",
+    "operationFailed": "Opération échouée",
+    "networkError": "Erreur réseau",
+    "notFound": "Non trouvé",
+    "unauthorized": "Non autorisé",
+    "checkoutFailed": "Échec du démarrage du paiement. Veuillez réessayer.",
+    "portalFailed": "Échec de l'ouverture du portail de facturation. Veuillez réessayer.",
+    "loginRequired": "Veuillez vous connecter pour voir les paramètres."
   },
   "navigation": {
     "specs": "Spécifications",
@@ -25,10 +90,5 @@
     "pro": "Pro",
     "team": "Équipe",
     "enterprise": "Entreprise"
-  },
-  "errors": {
-    "checkoutFailed": "Échec du démarrage du paiement. Veuillez réessayer.",
-    "portalFailed": "Échec de l'ouverture du portail de facturation. Veuillez réessayer.",
-    "loginRequired": "Veuillez vous connecter pour voir les paramètres."
   }
 }

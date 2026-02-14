@@ -3,15 +3,80 @@
   "loading": "Loading...",
   "loadingData": "Loading {{dataType}}...",
   "buttons": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "skip": "Skip",
+    "next": "Next",
+    "back": "Back",
+    "close": "Close",
+    "delete": "Delete",
+    "confirm": "Confirm",
+    "retry": "Retry",
+    "create": "Create",
+    "open": "Open",
+    "start": "Start",
+    "stop": "Stop",
+    "refresh": "Refresh",
+    "refreshing": "Refreshing...",
+    "add": "Add",
+    "apply": "Apply",
+    "gotIt": "Got it",
+    "continue": "Continue",
+    "saving": "Saving...",
+    "deleting": "Deleting...",
     "getStarted": "Get Started",
     "learnMore": "Learn about Auto Claude Cloud",
     "signIn": "Sign in with GitHub",
     "signOut": "Sign Out",
     "goToDashboard": "Go to Dashboard",
-    "create": "New {{itemType}}",
     "manageSubscription": "Manage Subscription",
     "upgrade": "Upgrade to {{tier}}",
     "redirecting": "Redirecting..."
+  },
+  "actions": {
+    "save": "Save",
+    "apply": "Apply",
+    "delete": "Delete",
+    "settings": "Settings"
+  },
+  "labels": {
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "initializing": "Initializing...",
+    "saving": "Saving...",
+    "creating": "Creating...",
+    "noData": "No data",
+    "optional": "Optional",
+    "required": "Required",
+    "dismiss": "Dismiss",
+    "important": "Important"
+  },
+  "selection": {
+    "select": "Select",
+    "done": "Done",
+    "selected": "{{count}} selected",
+    "selectAll": "Select All",
+    "clearSelection": "Clear Selection",
+    "deleteSelected": "Delete Selected",
+    "selectedOfTotal": "{{selected}} of {{total}} selected"
+  },
+  "time": {
+    "justNow": "Just now",
+    "minutesAgo": "{{count}}m ago",
+    "hoursAgo": "{{count}}h ago",
+    "daysAgo": "{{count}}d ago"
+  },
+  "errors": {
+    "generic": "An error occurred",
+    "unknownError": "An unknown error occurred",
+    "operationFailed": "Operation failed",
+    "networkError": "Network error",
+    "notFound": "Not found",
+    "unauthorized": "Unauthorized",
+    "checkoutFailed": "Failed to start checkout. Please try again.",
+    "portalFailed": "Failed to open billing portal. Please try again.",
+    "loginRequired": "Please log in to view settings."
   },
   "navigation": {
     "specs": "Specs",
@@ -25,10 +90,5 @@
     "pro": "Pro",
     "team": "Team",
     "enterprise": "Enterprise"
-  },
-  "errors": {
-    "checkoutFailed": "Failed to start checkout. Please try again.",
-    "portalFailed": "Failed to open billing portal. Please try again.",
-    "loginRequired": "Please log in to view settings."
   }
 }
