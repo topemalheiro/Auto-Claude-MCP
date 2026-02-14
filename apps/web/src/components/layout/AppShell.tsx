@@ -7,7 +7,9 @@ import { useUIStore } from "@/stores/ui-store";
 import { useProjectStore } from "@/stores/project-store";
 import { useTaskStore } from "@/stores/task-store";
 import { loadTasks } from "@/stores/task-store";
+import { useSettingsStore } from "@/stores/settings-store";
 import { KanbanBoard } from "@/components/kanban/KanbanBoard";
+import { TaskCreationWizard } from "@/components/kanban/TaskCreationWizard";
 import { RoadmapView } from "@/components/roadmap/RoadmapView";
 import { IdeationView } from "@/components/ideation/IdeationView";
 import { InsightsView } from "@/components/insights/InsightsView";
@@ -15,14 +17,19 @@ import { ChangelogView } from "@/components/changelog/ChangelogView";
 import { ContextView } from "@/components/context/ContextView";
 import { GitHubIssuesView } from "@/components/github/GitHubIssuesView";
 import { GitHubPRsView } from "@/components/github/GitHubPRsView";
+import { GitLabIssuesView } from "@/components/gitlab/GitLabIssuesView";
+import { GitLabMRsView } from "@/components/gitlab/GitLabMRsView";
 import { SettingsView } from "@/components/settings/SettingsView";
 import { WelcomeScreen } from "./WelcomeScreen";
 
 export function AppShell() {
   const activeView = useUIStore((s) => s.activeView);
+  const isNewTaskDialogOpen = useUIStore((s) => s.isNewTaskDialogOpen);
+  const setNewTaskDialogOpen = useUIStore((s) => s.setNewTaskDialogOpen);
   const activeProjectId = useProjectStore((s) => s.activeProjectId);
   const selectedProjectId = useProjectStore((s) => s.selectedProjectId);
   const projects = useProjectStore((s) => s.projects);
+  const settings = useSettingsStore((s) => s.settings);
 
   const currentProjectId = activeProjectId || selectedProjectId;
   const selectedProject = projects.find((p) => p.id === currentProjectId);
@@ -36,24 +43,69 @@ export function AppShell() {
     }
   }, [currentProjectId]);
 
-  // Apply theme
+  // Apply theme from settings
   useEffect(() => {
     const root = document.documentElement;
     const prefersDark = window.matchMedia("(prefers-color-scheme: dark)");
 
     const applyTheme = () => {
-      // Default to dark for now
-      if (prefersDark.matches) {
+      if (settings.theme === "dark") {
         root.classList.add("dark");
-      } else {
+      } else if (settings.theme === "light") {
         root.classList.remove("dark");
+      } else {
+        // System preference
+        if (prefersDark.matches) {
+          root.classList.add("dark");
+        } else {
+          root.classList.remove("dark");
+        }
       }
     };
 
     applyTheme();
     prefersDark.addEventListener("change", applyTheme);
     return () => prefersDark.removeEventListener("change", applyTheme);
-  }, []);
+  }, [settings.theme]);
+
+  // Keyboard shortcuts for navigation
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger shortcuts when typing in inputs
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement ||
+        (e.target as HTMLElement)?.isContentEditable
+      ) {
+        return;
+      }
+
+      if (!currentProjectId) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+      const key = e.key.toUpperCase();
+      const viewMap: Record<string, typeof activeView> = {
+        K: "kanban",
+        N: "insights",
+        D: "roadmap",
+        I: "ideation",
+        L: "changelog",
+        C: "context",
+        G: "github-issues",
+        P: "github-prs",
+        B: "gitlab-issues",
+        R: "gitlab-merge-requests",
+      };
+
+      if (viewMap[key]) {
+        e.preventDefault();
+        useUIStore.getState().setActiveView(viewMap[key]);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [currentProjectId]);
 
   const renderContent = () => {
     if (!selectedProject) {
@@ -77,6 +129,10 @@ export function AppShell() {
         return <GitHubIssuesView projectId={currentProjectId!} />;
       case "github-prs":
         return <GitHubPRsView projectId={currentProjectId!} />;
+      case "gitlab-issues":
+        return <GitLabIssuesView projectId={currentProjectId!} />;
+      case "gitlab-merge-requests":
+        return <GitLabMRsView projectId={currentProjectId!} />;
       case "settings":
         return <SettingsView />;
       default:
@@ -97,6 +153,15 @@ export function AppShell() {
         {/* Main content area */}
         <main className="flex-1 overflow-hidden">{renderContent()}</main>
       </div>
+
+      {/* Task Creation Wizard */}
+      {currentProjectId && (
+        <TaskCreationWizard
+          open={isNewTaskDialogOpen}
+          onClose={() => setNewTaskDialogOpen(false)}
+          projectId={currentProjectId}
+        />
+      )}
     </div>
   );
 }

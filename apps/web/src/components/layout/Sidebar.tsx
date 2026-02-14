@@ -12,6 +12,7 @@ import {
   FileText,
   Github,
   GitPullRequest,
+  GitMerge,
   HelpCircle,
   PanelLeft,
   PanelLeftClose,
@@ -42,6 +43,11 @@ const githubNavItems: NavItem[] = [
   { id: "github-prs", label: "GitHub PRs", icon: GitPullRequest, shortcut: "P" },
 ];
 
+const gitlabNavItems: NavItem[] = [
+  { id: "gitlab-issues", label: "GitLab Issues", icon: Github, shortcut: "B" },
+  { id: "gitlab-merge-requests", label: "GitLab MRs", icon: GitMerge, shortcut: "R" },
+];
+
 export function Sidebar() {
   const settings = useSettingsStore((s) => s.settings);
   const activeView = useUIStore((s) => s.activeView);
@@ -56,9 +62,9 @@ export function Sidebar() {
     saveSettings({ sidebarCollapsed: !isCollapsed });
   };
 
-  // For now, show GitHub items by default (env config will drive this later)
+  // Show GitHub and GitLab items by default (env config will drive this later)
   const visibleNavItems = useMemo(() => {
-    return [...baseNavItems, ...githubNavItems];
+    return [...baseNavItems, ...githubNavItems, ...gitlabNavItems];
   }, []);
 
   const renderNavItem = (item: NavItem) => {
