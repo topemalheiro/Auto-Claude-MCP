@@ -274,6 +274,16 @@ describe('terminalMachine', () => {
       expect(snapshot.context.claudeSessionId).toBeUndefined();
     });
 
+    it('should transition to claude_active on CLAUDE_ACTIVE (race condition)', () => {
+      const snapshot = runEvents(
+        [{ type: 'CLAUDE_ACTIVE', claudeSessionId: 'race-session' }],
+        'pending_resume',
+        { claudeSessionId: 'old-session', profileId: 'profile-1' }
+      );
+      expect(snapshot.value).toBe('claude_active');
+      expect(snapshot.context.claudeSessionId).toBe('race-session');
+    });
+
     it('should transition to exited on SHELL_EXITED from pending_resume', () => {
       const snapshot = runEvents(
         [{ type: 'SHELL_EXITED' }],

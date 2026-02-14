@@ -12,7 +12,6 @@ import type {
   WindowGetter,
   TerminalOperationResult,
   TerminalProfileChangeInfo,
-  TerminalSwapState
 } from './types';
 import * as PtyManager from './pty-manager';
 import * as SessionHandler from './session-handler';
@@ -117,6 +116,7 @@ export class TerminalManager {
    * Kill all terminal processes
    */
   async killAll(): Promise<void> {
+    this.migratedSessionFlags.clear();
     this.saveTimer = await TerminalLifecycle.destroyAllTerminals(
       this.terminals,
       this.saveTimer
@@ -269,19 +269,11 @@ export class TerminalManager {
       return;
     }
 
-    // Determine if this is a post-swap deferred resume
-    const isPostSwap = terminal.swapState?.isSwapping === true && terminal.swapState?.sessionMigrated === true;
-
     // Clear the pending flag
     terminal.pendingClaudeResume = false;
 
-    // Clear swap state if this was a post-swap resume
-    if (isPostSwap) {
-      terminal.swapState = undefined;
-    }
-
     // Now actually resume Claude
-    await ClaudeIntegration.resumeClaudeAsync(terminal, undefined, this.getWindow, isPostSwap ? { migratedSession: true } : undefined);
+    await ClaudeIntegration.resumeClaudeAsync(terminal, undefined, this.getWindow);
   }
 
   /**

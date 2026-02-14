@@ -116,6 +116,7 @@ export const terminalMachine = createMachine(
       },
       pending_resume: {
         on: {
+          CLAUDE_ACTIVE: { target: 'claude_active', actions: 'setClaudeSessionId' },
           RESUME_COMPLETE: { target: 'claude_active', actions: 'setClaudeSessionId' },
           RESUME_FAILED: { target: 'shell_ready', actions: ['setError', 'clearSession'] },
           SHELL_EXITED: { target: 'exited', actions: 'clearSession' },

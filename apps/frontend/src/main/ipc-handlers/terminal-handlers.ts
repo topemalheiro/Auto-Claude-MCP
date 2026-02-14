@@ -275,7 +275,7 @@ export function registerTerminalHandlers(
                 to: targetConfigDir
               });
 
-              const migrationResult = migrateSession(
+              const migrationResult = await migrateSession(
                 sourceConfigDir,
                 targetConfigDir,
                 terminal.cwd,
