@@ -1092,7 +1092,7 @@ class TestModuleLevelFunctions:
         assert "reason" in status
         assert "errors" in status
 
-        # Note: Line 641 (status["available"] = True) requires LadybugDB/kuzu to be installed.
+        # Note: Line 644 (status["available"] = True) requires LadybugDB/kuzu to be installed.
         # Since LadybugDB/kuzu may not be installed in all test environments, that line
         # may be marked with pragma: no cover. The except clause is tested here.
 
