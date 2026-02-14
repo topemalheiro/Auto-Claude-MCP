@@ -687,7 +687,9 @@ server.tool(
 
       // COMPLETION GUARD: Don't restart QA-approved tasks at 100%
       // Check both main plan and worktree to prevent restart loops
+      // Exception: reviewReason=stopped means user explicitly stopped — always allow recovery
       const checkQaComplete = (planData: any): boolean => {
+        if (planData.reviewReason === 'stopped') return false;
         const allSubtasks = (planData.phases || []).flatMap((p: any) => p.subtasks || []);
         const total = allSubtasks.length;
         const completed = allSubtasks.filter((s: any) => s.status === 'completed').length;
@@ -991,7 +993,9 @@ server.tool(
     }
 
     // COMPLETION GUARD: Don't restart QA-approved tasks at 100%
+    // Exception: reviewReason=stopped means user explicitly stopped — always allow fix request
     const checkQaComplete = (planData: any): boolean => {
+      if (planData.reviewReason === 'stopped') return false;
       const allSubtasks = (planData.phases || []).flatMap((p: any) => p.subtasks || []);
       const total = allSubtasks.length;
       const completed = allSubtasks.filter((s: any) => s.status === 'completed').length;
@@ -1412,16 +1416,16 @@ server.tool(
       // Hard errors (error, auth_failure) override QA approval — task genuinely failed
       // Wrong-board tasks need recovery to transition to correct status
       try {
-        const checkQaGuard = (planData: any): { qaApproved: boolean; exitReason?: string; status?: string } => {
+        const checkQaGuard = (planData: any): { qaApproved: boolean; exitReason?: string; status?: string; reviewReason?: string } => {
           const allSubtasks = (planData.phases || []).flatMap((p: any) => p.subtasks || []);
           const total = allSubtasks.length;
           const completed = allSubtasks.filter((s: any) => s.status === 'completed').length;
           const qaApproved = planData.qa_signoff?.status === 'approved' && total > 0 && completed === total;
-          return { qaApproved, exitReason: planData.exitReason as string | undefined, status: planData.status as string | undefined };
+          return { qaApproved, exitReason: planData.exitReason as string | undefined, status: planData.status as string | undefined, reviewReason: planData.reviewReason as string | undefined };
         };
 
         // Check worktree first (source of truth), then main plan
-        let qaGuard: { qaApproved: boolean; exitReason?: string; status?: string } = { qaApproved: false };
+        let qaGuard: { qaApproved: boolean; exitReason?: string; status?: string; reviewReason?: string } = { qaApproved: false };
         const wtGuardPath = path.join(resolvedProjectPath, '.auto-claude', 'worktrees', 'tasks', fix.taskId, '.auto-claude', 'specs', fix.taskId, 'implementation_plan.json');
         if (existsSync(wtGuardPath)) {
           qaGuard = checkQaGuard(JSON.parse(readFileSync(wtGuardPath, 'utf-8')));
@@ -1431,13 +1435,15 @@ server.tool(
         }
 
         if (qaGuard.qaApproved) {
+          // User stopped this task — always allow recovery regardless of QA status
+          const isStopped = qaGuard.reviewReason === 'stopped';
           const hasHardError = qaGuard.exitReason === 'error' || qaGuard.exitReason === 'auth_failure';
           // Note: 'approved' is a non-standard worktree status — NOT terminal here.
           // Task needs recovery to move to proper human_review board.
           const terminalStatuses = ['human_review', 'done', 'pr_created'];
           const onCorrectBoard = terminalStatuses.includes(qaGuard.status || '');
 
-          if (!hasHardError && onCorrectBoard) {
+          if (!isStopped && !hasHardError && onCorrectBoard) {
             console.log(`[MCP] Skipping ${fix.taskId} - QA-approved at 100% on ${qaGuard.status}, no hard error`);
             results.push({ taskId: fix.taskId, success: false, action: 'skipped_complete', priority: 0, error: 'Task QA-approved at 100% — skipping to prevent restart loop' });
             continue;
