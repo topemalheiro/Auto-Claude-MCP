@@ -94,6 +94,14 @@ export const prReviewMachine = createMachine(
             target: 'error',
             actions: 'setError',
           },
+          CANCEL_REVIEW: {
+            target: 'error',
+            actions: 'setCancelledError',
+          },
+          CLEAR_REVIEW: {
+            target: 'idle',
+            actions: 'clearContext',
+          },
         },
       },
       completed: {
@@ -105,6 +113,9 @@ export const prReviewMachine = createMachine(
           START_FOLLOWUP_REVIEW: {
             target: 'reviewing',
             actions: 'setFollowupReviewStart',
+          },
+          REVIEW_COMPLETE: {
+            actions: 'setResult',
           },
           CLEAR_REVIEW: {
             target: 'idle',

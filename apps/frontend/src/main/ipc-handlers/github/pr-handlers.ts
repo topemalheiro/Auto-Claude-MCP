@@ -2494,6 +2494,21 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
     }
   );
 
+  // Notify main process about external review completion or timeout
+  // Called by renderer when its polling detects an external review has finished on disk
+  ipcMain.handle(
+    IPC_CHANNELS.GITHUB_PR_NOTIFY_EXTERNAL_REVIEW_COMPLETE,
+    async (_, projectId: string, prNumber: number, result: PRReviewResult | null): Promise<void> => {
+      debugLog("notifyExternalReviewComplete handler called", { projectId, prNumber, hasResult: !!result });
+      if (result) {
+        prReviewStateManager.handleComplete(projectId, prNumber, result);
+      } else {
+        // Timeout — no result found within polling window
+        prReviewStateManager.handleError(projectId, prNumber, "External review timed out after 30 minutes");
+      }
+    }
+  );
+
   // Check for new commits since last review
   ipcMain.handle(
     IPC_CHANNELS.GITHUB_PR_CHECK_NEW_COMMITS,

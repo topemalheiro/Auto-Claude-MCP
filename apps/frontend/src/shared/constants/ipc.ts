@@ -408,6 +408,7 @@ export const IPC_CHANNELS = {
   GITHUB_PR_CHECK_MERGE_READINESS: 'github:pr:checkMergeReadiness',
   GITHUB_PR_MARK_REVIEW_POSTED: 'github:pr:markReviewPosted',
   GITHUB_PR_UPDATE_BRANCH: 'github:pr:updateBranch',
+  GITHUB_PR_NOTIFY_EXTERNAL_REVIEW_COMPLETE: 'github:pr:notifyExternalReviewComplete',
 
   // GitHub PR Review events (main -> renderer)
   GITHUB_PR_REVIEW_PROGRESS: 'github:pr:reviewProgress',

@@ -285,6 +285,9 @@ export interface GitHubAPI {
   getPRReview: (projectId: string, prNumber: number) => Promise<PRReviewResult | null>;
   getPRReviewsBatch: (projectId: string, prNumbers: number[]) => Promise<Record<number, PRReviewResult | null>>;
 
+  // External review notification (renderer tells main process about external review completion/timeout)
+  notifyExternalReviewComplete: (projectId: string, prNumber: number, result: PRReviewResult | null) => Promise<void>;
+
   // Follow-up review operations
   checkNewCommits: (projectId: string, prNumber: number) => Promise<NewCommitsCheck>;
   checkMergeReadiness: (projectId: string, prNumber: number) => Promise<MergeReadiness>;
@@ -755,6 +758,10 @@ export const createGitHubAPI = (): GitHubAPI => ({
 
   getPRReviewsBatch: (projectId: string, prNumbers: number[]): Promise<Record<number, PRReviewResult | null>> =>
     invokeIpc(IPC_CHANNELS.GITHUB_PR_GET_REVIEWS_BATCH, projectId, prNumbers),
+
+  // External review notification
+  notifyExternalReviewComplete: (projectId: string, prNumber: number, result: PRReviewResult | null): Promise<void> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_PR_NOTIFY_EXTERNAL_REVIEW_COMPLETE, projectId, prNumber, result),
 
   // Follow-up review operations
   checkNewCommits: (projectId: string, prNumber: number): Promise<NewCommitsCheck> =>

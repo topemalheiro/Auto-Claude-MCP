@@ -214,6 +214,7 @@ const browserMockAPI: ElectronAPI = {
     markReviewPosted: async () => true,
     getPRReview: async () => null,
     getPRReviewsBatch: async () => ({}),
+    notifyExternalReviewComplete: async () => {},
     deletePRReview: async () => true,
     checkNewCommits: async () => ({ hasNewCommits: false, newCommitCount: 0 }),
     checkMergeReadiness: async () => ({ isDraft: false, mergeable: 'UNKNOWN' as const, isBehind: false, ciStatus: 'none' as const, blockers: [] }),

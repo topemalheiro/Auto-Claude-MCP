@@ -420,8 +420,9 @@ export function PRDetail({
     const pollForCompletion = async () => {
       // Timeout: stop polling after 30 minutes to avoid indefinite polling
       if (Date.now() - pollStart > MAX_POLL_DURATION_MS) {
-        // XState now handles external review state - timeout is managed by the state machine
         console.warn('[PRDetail] External review polling timed out after 30 minutes');
+        // Notify main process so the XState actor transitions to error state
+        await window.electronAPI.github.notifyExternalReviewComplete(projectId, pr.number, null);
         return;
       }
 
@@ -432,8 +433,8 @@ export function PRDetail({
           // Otherwise this is a stale result from a previous review still on disk
           // (in-progress results are intentionally NOT saved to disk).
           if (startedAt && result.reviewedAt && new Date(result.reviewedAt) > new Date(startedAt)) {
-            // XState now handles review completion via IPC events - no need to manually set result
-            console.log('[PRDetail] External review completed, result handled by XState');
+            // Notify main process so the XState actor transitions to completed state
+            await window.electronAPI.github.notifyExternalReviewComplete(projectId, pr.number, result);
           }
         }
       } catch {
