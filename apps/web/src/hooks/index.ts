@@ -6,3 +6,12 @@ export { usePRQueue, usePR } from "./usePRQueue";
 export { useAgentSession, useSpecSessions } from "./useAgentSession";
 export { useCloudMode } from "./useCloudMode";
 export { useCurrentUser } from "./useCurrentUser";
+export { useWebSocketEvent } from "./useWebSocketEvent";
+export { useAgentProgress } from "./useAgentProgress";
+export { useRealTimeEvents } from "./useRealTimeEvents";
+export {
+  useKeyboardShortcuts,
+  createDefaultShortcuts,
+  type KeyboardShortcut,
+} from "./useKeyboardShortcuts";
+export { useFileExplorer, type FileNode } from "./useFileExplorer";
