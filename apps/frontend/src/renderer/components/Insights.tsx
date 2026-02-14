@@ -210,20 +210,24 @@ export function Insights({ projectId }: InsightsProps) {
     return await renameSession(projectId, sessionId, newTitle);
   };
 
-  const handleArchiveSession = (sessionId: string) => {
-    archiveSession(projectId, sessionId);
+  const handleArchiveSession = async (sessionId: string) => {
+    await archiveSession(projectId, sessionId);
+    await loadInsightsSessions(projectId, showArchived);
   };
 
-  const handleUnarchiveSession = (sessionId: string) => {
-    unarchiveSession(projectId, sessionId);
+  const handleUnarchiveSession = async (sessionId: string) => {
+    await unarchiveSession(projectId, sessionId);
+    await loadInsightsSessions(projectId, showArchived);
   };
 
-  const handleDeleteSessions = (sessionIds: string[]) => {
-    deleteSessions(projectId, sessionIds);
+  const handleDeleteSessions = async (sessionIds: string[]) => {
+    await deleteSessions(projectId, sessionIds);
+    await loadInsightsSessions(projectId, showArchived);
   };
 
-  const handleArchiveSessions = (sessionIds: string[]) => {
-    archiveSessions(projectId, sessionIds);
+  const handleArchiveSessions = async (sessionIds: string[]) => {
+    await archiveSessions(projectId, sessionIds);
+    await loadInsightsSessions(projectId, showArchived);
   };
 
   const handleToggleShowArchived = () => {
