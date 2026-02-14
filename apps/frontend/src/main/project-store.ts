@@ -972,11 +972,13 @@ export class ProjectStore {
    * @param disabled - If true, RDR will skip auto-recovery for this task
    */
   toggleTaskRdr(taskId: string, disabled: boolean): boolean {
-    // Find the project that contains this task
+    // Find the project that contains this task by checking spec directories
+    // (this.data.projects doesn't have tasks loaded — tasks are read from disk)
     let targetProject: Project | null = null;
     for (const project of this.data.projects) {
-      const task = project.tasks?.find((t) => t.id === taskId);
-      if (task) {
+      const specsDir = getSpecsDir(project.autoBuildPath);
+      const specPath = path.join(project.path, specsDir, taskId);
+      if (existsSync(specPath)) {
         targetProject = project;
         break;
       }
