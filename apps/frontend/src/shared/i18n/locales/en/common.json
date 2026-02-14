@@ -604,7 +604,9 @@
     "showMoreFeatures": "Show {{count}} more feature",
     "showMoreFeatures_plural": "Show {{count}} more features",
     "showLessFeatures": "Show less",
-    "archiveFeature": "Archive"
+    "archiveFeature": "Archive",
+    "archiveFeatureConfirmTitle": "Archive Feature?",
+    "archiveFeatureConfirmDescription": "This will remove \"{{title}}\" from your roadmap."
   },
   "roadmapGeneration": {
     "progress": "Progress",

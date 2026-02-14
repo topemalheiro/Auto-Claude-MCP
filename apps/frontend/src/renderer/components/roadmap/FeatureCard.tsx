@@ -21,7 +21,7 @@ export function FeatureCard({
   onArchive,
   hasCompetitorInsight = false,
 }: FeatureCardProps) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('common');
 
   return (
     <Card className="p-4 hover:bg-muted/50 cursor-pointer transition-colors" onClick={onClick}>

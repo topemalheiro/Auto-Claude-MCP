@@ -114,29 +114,6 @@ export function useFeatureDelete(projectId: string) {
   return { deleteFeature: handleDeleteFeature };
 }
 
-/**
- * Hook to archive features from roadmap (removes from view)
- */
-export function useFeatureArchive(projectId: string) {
-  const deleteFeature = useRoadmapStore((state) => state.deleteFeature);
-
-  const handleArchiveFeature = async (featureId: string) => {
-    // Remove from store
-    deleteFeature(featureId);
-
-    // Persist to file
-    const roadmap = useRoadmapStore.getState().roadmap;
-    if (roadmap) {
-      try {
-        await window.electronAPI.saveRoadmap(projectId, roadmap);
-      } catch (error) {
-        console.error('Failed to save roadmap after archive:', error);
-      }
-    }
-  };
-
-  return { archiveFeature: handleArchiveFeature };
-}
 
 /**
  * Hook to manage roadmap generation actions

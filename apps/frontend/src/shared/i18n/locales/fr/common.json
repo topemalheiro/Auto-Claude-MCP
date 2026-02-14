@@ -604,7 +604,9 @@
     "showMoreFeatures": "Afficher {{count}} fonctionnalité supplémentaire",
     "showMoreFeatures_plural": "Afficher {{count}} fonctionnalités supplémentaires",
     "showLessFeatures": "Afficher moins",
-    "archiveFeature": "Archiver"
+    "archiveFeature": "Archiver",
+    "archiveFeatureConfirmTitle": "Archiver la fonctionnalité ?",
+    "archiveFeatureConfirmDescription": "Cela supprimera \"{{title}}\" de votre feuille de route."
   },
   "roadmapGeneration": {
     "progress": "Progression",

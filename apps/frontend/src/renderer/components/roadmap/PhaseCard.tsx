@@ -121,7 +121,7 @@ export function PhaseCard({
               {feature.taskOutcome ? (
                 <span className="flex items-center gap-1 flex-shrink-0">
                   <TaskOutcomeBadge outcome={feature.taskOutcome} size="lg" showLabel={false} />
-                  {onArchive && (
+                  {feature.status === 'done' && onArchive && (
                     <Button
                       variant="ghost"
                       size="sm"

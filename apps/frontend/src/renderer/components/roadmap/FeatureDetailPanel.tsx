@@ -37,6 +37,7 @@ export function FeatureDetailPanel({
 }: FeatureDetailPanelProps) {
   const { t } = useTranslation('common');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
 
   const handleArchive = () => {
     onArchive?.(feature.id);
@@ -231,7 +232,7 @@ export function FeatureDetailPanel({
             <Button
               variant="outline"
               className="w-full"
-              onClick={handleArchive}
+              onClick={() => setShowArchiveConfirm(true)}
               aria-label={t('accessibility.archiveFeatureAriaLabel')}
             >
               <Archive className="h-4 w-4 mr-2" />
@@ -252,7 +253,7 @@ export function FeatureDetailPanel({
             <Button
               variant="outline"
               className="w-full"
-              onClick={handleArchive}
+              onClick={() => setShowArchiveConfirm(true)}
               aria-label={t('accessibility.archiveFeatureAriaLabel')}
             >
               <Archive className="h-4 w-4 mr-2" />
@@ -267,6 +268,31 @@ export function FeatureDetailPanel({
             </Button>
           </div>
         )
+      )}
+
+      {/* Archive Confirmation */}
+      {showArchiveConfirm && (
+        <div className="absolute inset-0 bg-background/95 flex items-center justify-center p-6 z-10">
+          <div className="text-center space-y-4">
+            <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mx-auto">
+              <Archive className="h-6 w-6 text-muted-foreground" />
+            </div>
+            <div>
+              <h3 className="font-semibold">{t('roadmap.archiveFeatureConfirmTitle')}</h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                {t('roadmap.archiveFeatureConfirmDescription', { title: feature.title })}
+              </p>
+            </div>
+            <div className="flex gap-2 justify-center">
+              <Button variant="outline" onClick={() => setShowArchiveConfirm(false)}>
+                {t('buttons.cancel')}
+              </Button>
+              <Button onClick={handleArchive}>
+                {t('roadmap.archiveFeature')}
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Delete Confirmation */}

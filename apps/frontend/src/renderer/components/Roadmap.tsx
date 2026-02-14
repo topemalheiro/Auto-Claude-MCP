@@ -8,7 +8,7 @@ import { RoadmapHeader } from './roadmap/RoadmapHeader';
 import { RoadmapEmptyState } from './roadmap/RoadmapEmptyState';
 import { RoadmapTabs } from './roadmap/RoadmapTabs';
 import { FeatureDetailPanel } from './roadmap/FeatureDetailPanel';
-import { useRoadmapData, useFeatureActions, useRoadmapGeneration, useRoadmapSave, useFeatureDelete, useFeatureArchive } from './roadmap/hooks';
+import { useRoadmapData, useFeatureActions, useRoadmapGeneration, useRoadmapSave, useFeatureDelete } from './roadmap/hooks';
 import { getCompetitorInsightsForFeature } from './roadmap/utils';
 import type { RoadmapFeature } from '../../shared/types';
 import type { RoadmapProps } from './roadmap/types';
@@ -25,7 +25,6 @@ export function Roadmap({ projectId, onGoToTask }: RoadmapProps) {
   const { convertFeatureToSpec } = useFeatureActions();
   const { saveRoadmap } = useRoadmapSave(projectId);
   const { deleteFeature } = useFeatureDelete(projectId);
-  const { archiveFeature } = useFeatureArchive(projectId);
   const {
     competitorAnalysisDate,
     // New dialog for existing analysis
@@ -56,7 +55,7 @@ export function Roadmap({ projectId, onGoToTask }: RoadmapProps) {
   };
 
   const handleArchiveFeature = async (featureId: string) => {
-    await archiveFeature(featureId);
+    await deleteFeature(featureId);
     if (selectedFeature?.id === featureId) {
       setSelectedFeature(null);
     }
