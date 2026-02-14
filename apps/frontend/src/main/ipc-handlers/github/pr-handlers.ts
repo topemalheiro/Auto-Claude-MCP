@@ -2892,19 +2892,25 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
         return;
       }
 
-      // Get previous result for followup context
-      const previousResult = await withProjectOrNull(projectId, async (project) => {
-        return getReviewResult(project, prNumber) ?? undefined;
-      }) ?? undefined;
-
-      // Notify state manager that followup review is starting
-      prReviewStateManager.handleStartFollowupReview(projectId, prNumber, previousResult);
-
       try {
         await withProjectOrNull(projectId, async (project) => {
           const sendProgress = (progress: PRReviewProgress): void => {
             prReviewStateManager.handleProgress(projectId, prNumber, progress);
           };
+
+          const reviewKey = getReviewKey(projectId, prNumber);
+
+          // Check if already running — before notifying state manager to avoid stuck reviewing state
+          if (runningReviews.has(reviewKey)) {
+            debugLog("Follow-up review already running", { reviewKey });
+            return;
+          }
+
+          // Get previous result for followup context
+          const previousResult = getReviewResult(project, prNumber) ?? undefined;
+
+          // Notify state manager that followup review is starting (after duplicate check)
+          prReviewStateManager.handleStartFollowupReview(projectId, prNumber, previousResult);
 
           // Comprehensive validation of GitHub module
           const validation = await validateGitHubModule(project);
@@ -2914,13 +2920,6 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
           }
 
           const backendPath = validation.backendPath!;
-          const reviewKey = getReviewKey(projectId, prNumber);
-
-          // Check if already running
-          if (runningReviews.has(reviewKey)) {
-            debugLog("Follow-up review already running", { reviewKey });
-            return;
-          }
 
           // Register as running BEFORE CI wait to prevent race conditions
           // Use CI_WAIT_PLACEHOLDER sentinel until real process is spawned

@@ -193,7 +193,7 @@ describe('prReviewMachine', () => {
     });
   });
 
-  describe('guard: reject START_REVIEW when already reviewing', () => {
+  describe('reject START_REVIEW when already reviewing', () => {
     it('should stay in reviewing when START_REVIEW is sent again', () => {
       const snapshot = runEvents([
         { type: 'START_REVIEW', prNumber: 42, projectId: 'proj-1' },

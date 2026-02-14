@@ -59,10 +59,6 @@ export const prReviewMachine = createMachine(
       },
       reviewing: {
         on: {
-          START_REVIEW: {
-            target: 'reviewing',
-            guard: 'isNotAlreadyReviewing',
-          },
           SET_PROGRESS: {
             actions: 'setProgress',
           },
@@ -77,6 +73,10 @@ export const prReviewMachine = createMachine(
           CANCEL_REVIEW: {
             target: 'error',
             actions: 'setCancelledError',
+          },
+          CLEAR_REVIEW: {
+            target: 'idle',
+            actions: 'clearContext',
           },
           DETECT_EXTERNAL_REVIEW: {
             target: 'externalReview',
@@ -142,9 +142,6 @@ export const prReviewMachine = createMachine(
     },
   },
   {
-    guards: {
-      isNotAlreadyReviewing: () => false,
-    },
     actions: {
       setReviewStart: assign({
         prNumber: ({ event }) => (event as { prNumber: number }).prNumber,
