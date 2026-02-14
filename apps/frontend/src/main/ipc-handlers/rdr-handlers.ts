@@ -776,7 +776,8 @@ function getAllTaskInfo(projectId: string, taskIds: string[]): TaskInfo[] {
       subtasks: task.subtasks,
       phases: task.phases,           // CRITICAL: Needed for calculateTaskProgress()
       exitReason: task.exitReason,   // Needed for recovery detection
-      planStatus: task.planStatus    // Needed for plan_review detection
+      planStatus: task.planStatus,   // Needed for plan_review detection
+      rdrDisabled: task.metadata?.rdrDisabled  // Respect per-task RDR opt-out
     }));
 }
 
@@ -1944,10 +1945,14 @@ export function registerRdrHandlers(agentManager?: AgentManager): void {
         const projectPath = project?.path;
         const rawTasks = projectStore.getTasks(projectId);
 
-        // Filter out archived tasks BEFORE enrichment (matching auto-shutdown logic)
+        // Filter out archived and rdrDisabled tasks BEFORE enrichment
         const nonArchivedTasks = rawTasks.filter(t => {
           if (t.metadata?.archivedAt) {
             console.log(`[RDR] ⏭️  Skipping ${t.specId} - archived at ${t.metadata.archivedAt}`);
+            return false;
+          }
+          if (t.metadata?.rdrDisabled) {
+            console.log(`[RDR] ⏭️  Skipping ${t.specId} - RDR disabled by user`);
             return false;
           }
           return true;
