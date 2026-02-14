@@ -975,7 +975,7 @@ export class ProjectStore {
     // Find the project that contains this task
     let targetProject: Project | null = null;
     for (const project of this.data.projects) {
-      const task = project.tasks.find((t) => t.id === taskId);
+      const task = project.tasks?.find((t) => t.id === taskId);
       if (task) {
         targetProject = project;
         break;
