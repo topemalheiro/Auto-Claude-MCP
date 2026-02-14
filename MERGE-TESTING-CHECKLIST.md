@@ -2,6 +2,17 @@
 
 Use this checklist to verify all features work after resolving the 33 merge conflicts.
 
+
+## Main checklist
+
+- [x?] RDR priority escalation works (P1 -> P3 after 3 attempts)
+- [x] Auto-Recover — recover a single or batches of tasks
+- [ ] Auto-Continue working in batch or single task tool [x] Working for In Progress
+- [ ] Queue not moving when task regresses from Progress to Planning and sending RDR when RDR is ON
+- [x?] Regression of tasks RDR detection working
+- [x] All incomplete tasks in HR and Regressed to backlog pinged in RDR - test with the method from previous entry
+- [ ] Auto-Resume on Rate Limit Reset
+
 ## Build & Launch
 
 - [x] `npm install` in `apps/frontend` -- no errors
@@ -17,7 +28,7 @@ Use this checklist to verify all features work after resolving the 33 merge conf
 - [x] Start 2+ tasks on CV Project
 - [x] Wait for a task to get stuck -> RDR detects it and sends recovery message
 - [x] RDR does NOT flag actively running tasks (backlog false positive fix)
-- [ ] RDR priority escalation works (P1 -> P3 after 3 attempts)
+- [x?] RDR priority escalation works (P1 -> P3 after 3 attempts)
 - **Files:** `rdr-handlers.ts`, `KanbanBoard.tsx`, `ipc-handlers/index.ts`
 
 ### Auto-Shutdown
@@ -34,8 +45,8 @@ Use this checklist to verify all features work after resolving the 33 merge conf
 - [x] `recover_stuck_task` removes yellow outline and restarts
 - [ ] Auto-Continue working in batch or single task tool [x] Working for In Progress
 - [ ] Queue not moving when task regresses from Progress to Planning and sending RDR when RDR is ON
-- [?X] Regression of tasks RDR detection working
-- [ ] All incomplete tasks in HR and Regressed to backlog pinged in RDR - test with the method from previous entry
+- [x?] Regression of tasks RDR detection working
+- [x] All incomplete tasks in HR and Regressed to backlog pinged in RDR - test with the method from previous entry
 - **Files:** `mcp-server/index.ts`, `project-store.ts`
 
 ### Task Crash Recovery
@@ -44,11 +55,6 @@ Use this checklist to verify all features work after resolving the 33 merge conf
 - [???] Auto-restart triggers if enabled
 - [x] Crash info persisted to `implementation_plan.json`
 - **Files:** `agent-process.ts`, `agent-events-handlers.ts`
-
-### Rate Limit Detection
-- [ ] Rate limit crash is detected (distinct from normal errors)
-- [ ] Rate-limited tasks show correct status
-- **Files:** `rate-limit-detector.ts`, `agent-events-handlers.ts`
 
 ### File Watcher
 - [x] Create a new spec directory -> UI auto-refreshes within 2-3s
@@ -75,10 +81,6 @@ Use this checklist to verify all features work after resolving the 33 merge conf
 - [x] Task lifecycle: backlog -> planning -> in_progress -> ai_review -> human_review
 - [x] No stuck transitions or missing state updates
 - **Files:** `agent-events-handlers.ts`, `execution-handlers.ts`
-
-### Worktree Operations
-- [ ] Review worktree changes
-- **Files:** `worktree-handlers.ts` (both task/ and terminal/)
 
 ---
 
