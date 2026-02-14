@@ -70,8 +70,8 @@ export class InsightsService extends EventEmitter {
   /**
    * List all sessions for a project
    */
-  listSessions(projectPath: string): InsightsSessionSummary[] {
-    return this.sessionManager.listSessions(projectPath);
+  listSessions(projectPath: string, includeArchived = false): InsightsSessionSummary[] {
+    return this.sessionManager.listSessions(projectPath, includeArchived);
   }
 
   /**
@@ -93,6 +93,34 @@ export class InsightsService extends EventEmitter {
    */
   deleteSession(projectId: string, projectPath: string, sessionId: string): boolean {
     return this.sessionManager.deleteSession(projectId, projectPath, sessionId);
+  }
+
+  /**
+   * Archive a session
+   */
+  archiveSession(projectId: string, projectPath: string, sessionId: string): boolean {
+    return this.sessionManager.archiveSession(projectId, projectPath, sessionId);
+  }
+
+  /**
+   * Unarchive a session
+   */
+  unarchiveSession(projectPath: string, sessionId: string): boolean {
+    return this.sessionManager.unarchiveSession(projectPath, sessionId);
+  }
+
+  /**
+   * Delete multiple sessions
+   */
+  deleteSessions(projectId: string, projectPath: string, sessionIds: string[]): { deletedIds: string[]; failedIds: string[] } {
+    return this.sessionManager.deleteSessions(projectId, projectPath, sessionIds);
+  }
+
+  /**
+   * Archive multiple sessions
+   */
+  archiveSessions(projectId: string, projectPath: string, sessionIds: string[]): { archivedIds: string[]; failedIds: string[] } {
+    return this.sessionManager.archiveSessions(projectId, projectPath, sessionIds);
   }
 
   /**
