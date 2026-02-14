@@ -1,0 +1,101 @@
+{
+  "context": {
+    "title": "Contexte du projet",
+    "reindex": "Ré-indexer",
+    "tabs": {
+      "overview": "Vue d'ensemble",
+      "services": "Services",
+      "memories": "Souvenirs"
+    },
+    "fields": {
+      "projectStructure": "Structure du projet",
+      "type": "Type",
+      "monorepo": "Monorepo",
+      "services": "Services",
+      "memorySystem": "Système de mémoire",
+      "status": "Statut",
+      "active": "Actif",
+      "episodes": "Épisodes",
+      "database": "Base de données",
+      "ladybugDB": "LadybugDB",
+      "language": "Langage",
+      "framework": "Framework",
+      "path": "Chemin"
+    },
+    "empty": {
+      "noMemories": "Aucun souvenir pour le moment",
+      "noMemoriesDescription": "Au fur et à mesure que l'IA travaille sur les tâches, elle accumule des souvenirs sur votre base de code - des motifs, des pièges et des découvertes qui améliorent le travail futur."
+    },
+    "search": {
+      "memories": "Rechercher des souvenirs..."
+    }
+  },
+  "github": {
+    "issues": {
+      "title": "Issues GitHub",
+      "notConnected": "GitHub non connecté",
+      "notConnectedDescription": "Connectez votre dépôt GitHub pour synchroniser les issues et créer des tâches à partir de celles-ci.",
+      "configure": "Configurer GitHub",
+      "search": "Rechercher des issues...",
+      "createTask": "Créer une tâche à partir de l'issue"
+    },
+    "prs": {
+      "title": "Pull Requests",
+      "search": "Rechercher des PRs...",
+      "stats": {
+        "additions": "Ajouts",
+        "deletions": "Suppressions",
+        "files": "Fichiers",
+        "filesCount": "{{count}} fichiers"
+      },
+      "status": "Statut",
+      "reviewStatus": "Statut de la revue",
+      "aiReview": "Revue IA",
+      "startAiReview": "Démarrer la revue de code IA",
+      "reviews": {
+        "pending": "En attente de revue",
+        "approved": "Approuvé",
+        "changesRequested": "Modifications demandées",
+        "inReview": "En cours de revue"
+      },
+      "filters": {
+        "all": "Tous",
+        "open": "Ouverts",
+        "merged": "Fusionnés",
+        "closed": "Fermés"
+      }
+    }
+  },
+  "gitlab": {
+    "issues": {
+      "title": "Issues GitLab",
+      "notConnected": "GitLab non connecté",
+      "notConnectedDescription": "Connectez votre projet GitLab pour synchroniser les issues et créer des tâches.",
+      "configure": "Configurer GitLab",
+      "search": "Rechercher des issues...",
+      "createTask": "Créer une tâche à partir de l'issue"
+    },
+    "mrs": {
+      "title": "Merge Requests",
+      "search": "Rechercher des merge requests...",
+      "stats": {
+        "additions": "Ajouts",
+        "deletions": "Suppressions",
+        "files": "Fichiers",
+        "filesCount": "{{count}} fichiers"
+      },
+      "status": "Statut",
+      "approvals": "Approbations",
+      "approvalsCount": "{{current}}/{{required}} approbations",
+      "aiReview": "Revue IA",
+      "startAiReview": "Démarrer la revue de code IA",
+      "draft": "Brouillon",
+      "filters": {
+        "all": "Tous",
+        "opened": "Ouverts",
+        "merged": "Fusionnés",
+        "closed": "Fermés"
+      }
+    }
+  }
+}

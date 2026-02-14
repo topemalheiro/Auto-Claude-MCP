@@ -76,6 +76,21 @@ vi.mock('@/lib/convex-imports', () => ({
   getConvexClient: vi.fn(),
 }));
 
+// Mock window.matchMedia for jsdom (used by theme detection in AppShell)
+Object.defineProperty(window, 'matchMedia', {
+  writable: true,
+  value: vi.fn().mockImplementation(query => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+  })),
+});
+
 // Mock scrollIntoView for Radix UI components in jsdom
 if (typeof HTMLElement !== 'undefined' && !HTMLElement.prototype.scrollIntoView) {
   Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {

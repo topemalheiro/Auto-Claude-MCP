@@ -1,0 +1,124 @@
+{
+  "roadmap": {
+    "title": "Feuille de route",
+    "refresh": "Actualiser",
+    "addFeature": "Ajouter une fonctionnalité",
+    "tabs": {
+      "board": "Tableau",
+      "timeline": "Chronologie",
+      "list": "Liste"
+    },
+    "empty": {
+      "title": "Aucune feuille de route",
+      "description": "Générez une feuille de route alimentée par l'IA basée sur le codebase, l'architecture et les objectifs de votre projet.",
+      "generate": "Générer la feuille de route"
+    },
+    "detail": {
+      "title": "Détails de la fonctionnalité",
+      "priority": "Priorité",
+      "effort": "Effort",
+      "phase": "Phase",
+      "status": "Statut",
+      "convertToTask": "Convertir en tâche"
+    },
+    "table": {
+      "feature": "Fonctionnalité",
+      "phase": "Phase",
+      "priority": "Priorité",
+      "status": "Statut",
+      "effort": "Effort"
+    },
+    "status": {
+      "inProgress": "En cours",
+      "completed": "Terminé",
+      "planned": "Planifié"
+    },
+    "priority": {
+      "high": "élevée",
+      "medium": "moyenne",
+      "low": "faible"
+    },
+    "effort": {
+      "large": "Important",
+      "medium": "Moyen",
+      "small": "Faible"
+    },
+    "phases": {
+      "phase1": "Phase 1 : Fondation",
+      "phase2": "Phase 2 : Fonctionnalités principales",
+      "phase3": "Phase 3 : Intégration"
+    }
+  },
+  "ideation": {
+    "title": "Idéation",
+    "regenerate": "Régénérer",
+    "analyzeCodebase": "Analyser le codebase",
+    "allFilter": "Tout ({{count}})",
+    "categoryCount": "{{label}} ({{count}})",
+    "empty": {
+      "title": "Aucune idée",
+      "description": "Laissez l'IA analyser votre codebase et suggérer des améliorations, des fonctionnalités et des optimisations.",
+      "generate": "Générer des idées"
+    },
+    "categories": {
+      "codeImprovements": {
+        "label": "Qualité du code",
+        "description": "Refactoring et améliorations du code"
+      },
+      "securityHardening": {
+        "label": "Sécurité",
+        "description": "Vulnérabilités de sécurité et correctifs"
+      },
+      "performanceOptimization": {
+        "label": "Performance",
+        "description": "Optimisation de la vitesse et des ressources"
+      },
+      "uiUxImprovements": {
+        "label": "UI/UX",
+        "description": "Améliorations de l'expérience utilisateur"
+      },
+      "bugPredictions": {
+        "label": "Prédictions de bugs",
+        "description": "Bugs potentiels et cas limites"
+      },
+      "newFeatures": {
+        "label": "Fonctionnalités",
+        "description": "Suggestions de nouvelles fonctionnalités"
+      }
+    },
+    "impact": "Impact : {{level}}",
+    "effort": "Effort : {{level}}"
+  },
+  "insights": {
+    "title": "Analyses IA",
+    "chatHistory": "Historique des conversations",
+    "welcomeTitle": "Analyses IA",
+    "welcomeDescription": "Posez des questions sur votre codebase. Je peux analyser la qualité du code, trouver des bugs, suggérer des améliorations, et plus encore.",
+    "placeholder": "Posez une question sur votre codebase...",
+    "you": "Vous",
+    "aiAssistant": "Assistant IA",
+    "suggestions": {
+      "complexity": "Quelles sont les parties les plus complexes de ce codebase ?",
+      "security": "Trouver les vulnérabilités de sécurité potentielles",
+      "performance": "Suggérer des optimisations de performance",
+      "tests": "Quels tests manquent ?",
+      "architecture": "Analyser l'architecture et suggérer des améliorations"
+    }
+  },
+  "changelog": {
+    "title": "Journal des modifications",
+    "refresh": "Actualiser",
+    "newRelease": "Nouvelle version",
+    "empty": {
+      "title": "Aucun journal",
+      "description": "Générez un journal des modifications à partir de vos tâches terminées et de vos pull requests fusionnées.",
+      "generate": "Générer le journal"
+    },
+    "changeTypes": {
+      "added": "Ajouté",
+      "changed": "Modifié",
+      "fixed": "Corrigé",
+      "removed": "Supprimé"
+    }
+  }
+}

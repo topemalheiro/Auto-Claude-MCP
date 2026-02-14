@@ -15,6 +15,7 @@ import {
   Eye,
 } from "lucide-react";
 import { cn } from "@auto-claude/ui";
+import { useTranslation } from "react-i18next";
 
 interface GitHubPRsViewProps {
   projectId: string;
@@ -88,14 +89,22 @@ const STATE_COLORS: Record<string, string> = {
   closed: "text-red-500",
 };
 
-const REVIEW_STATUS_CONFIG: Record<string, { label: string; color: string }> = {
-  pending: { label: "Pending Review", color: "bg-yellow-500/10 text-yellow-600" },
-  approved: { label: "Approved", color: "bg-green-500/10 text-green-600" },
-  changes_requested: { label: "Changes Requested", color: "bg-red-500/10 text-red-600" },
-  reviewing: { label: "In Review", color: "bg-blue-500/10 text-blue-600" },
+const REVIEW_STATUS_COLORS: Record<string, string> = {
+  pending: "bg-yellow-500/10 text-yellow-600",
+  approved: "bg-green-500/10 text-green-600",
+  changes_requested: "bg-red-500/10 text-red-600",
+  reviewing: "bg-blue-500/10 text-blue-600",
+};
+
+const REVIEW_STATUS_KEYS: Record<string, string> = {
+  pending: "github.prs.reviews.pending",
+  approved: "github.prs.reviews.approved",
+  changes_requested: "github.prs.reviews.changesRequested",
+  reviewing: "github.prs.reviews.inReview",
 };
 
 export function GitHubPRsView({ projectId }: GitHubPRsViewProps) {
+  const { t } = useTranslation("integrations");
   const [prs] = useState(PLACEHOLDER_PRS);
   const [selectedPR, setSelectedPR] = useState<PullRequest | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -115,7 +124,7 @@ export function GitHubPRsView({ projectId }: GitHubPRsViewProps) {
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <h1 className="text-sm font-semibold flex items-center gap-2">
             <GitPullRequest className="h-4 w-4" />
-            Pull Requests
+            {t("github.prs.title")}
           </h1>
           <button className="flex h-7 w-7 items-center justify-center rounded-md hover:bg-accent transition-colors">
             <RefreshCw className="h-3.5 w-3.5" />
@@ -128,7 +137,7 @@ export function GitHubPRsView({ projectId }: GitHubPRsViewProps) {
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
             <input
               className="w-full rounded-md border border-border bg-background pl-8 pr-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary/20"
-              placeholder="Search PRs..."
+              placeholder={t("github.prs.search")}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -143,7 +152,7 @@ export function GitHubPRsView({ projectId }: GitHubPRsViewProps) {
                 )}
                 onClick={() => setFilter(f)}
               >
-                {f === "all" ? "All" : f.charAt(0).toUpperCase() + f.slice(1)}
+                {t(`github.prs.filters.${f}`)}
               </button>
             ))}
           </div>
@@ -154,7 +163,8 @@ export function GitHubPRsView({ projectId }: GitHubPRsViewProps) {
           {filteredPRs.map((pr) => {
             const StateIcon = STATE_ICONS[pr.state] || GitPullRequest;
             const stateColor = STATE_COLORS[pr.state] || "text-muted-foreground";
-            const reviewConfig = REVIEW_STATUS_CONFIG[pr.reviewStatus];
+            const reviewColor = REVIEW_STATUS_COLORS[pr.reviewStatus];
+            const reviewKey = REVIEW_STATUS_KEYS[pr.reviewStatus];
 
             return (
               <div
@@ -180,8 +190,8 @@ export function GitHubPRsView({ projectId }: GitHubPRsViewProps) {
                         {label.name}
                       </span>
                     ))}
-                    <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-medium", reviewConfig.color)}>
-                      {reviewConfig.label}
+                    <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-medium", reviewColor)}>
+                      {t(reviewKey)}
                     </span>
                   </div>
                   <div className="mt-1 flex items-center gap-3 text-[10px] text-muted-foreground">
@@ -189,7 +199,7 @@ export function GitHubPRsView({ projectId }: GitHubPRsViewProps) {
                     <span>{pr.createdAt}</span>
                     <span className="text-green-600">+{pr.additions}</span>
                     <span className="text-red-600">-{pr.deletions}</span>
-                    <span>{pr.files} files</span>
+                    <span>{t("github.prs.stats.filesCount", { count: pr.files })}</span>
                   </div>
                 </div>
               </div>
@@ -208,7 +218,7 @@ export function GitHubPRsView({ projectId }: GitHubPRsViewProps) {
             <div className="flex items-center gap-2">
               <button className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
                 <Eye className="h-3 w-3" />
-                AI Review
+                {t("github.prs.aiReview")}
               </button>
               <a
                 href="#"
@@ -226,25 +236,25 @@ export function GitHubPRsView({ projectId }: GitHubPRsViewProps) {
               <div className="grid grid-cols-4 gap-3">
                 <div className="rounded-md border border-border p-3 text-center">
                   <p className="text-lg font-semibold text-green-600">+{selectedPR.additions}</p>
-                  <p className="text-[10px] text-muted-foreground">Additions</p>
+                  <p className="text-[10px] text-muted-foreground">{t("github.prs.stats.additions")}</p>
                 </div>
                 <div className="rounded-md border border-border p-3 text-center">
                   <p className="text-lg font-semibold text-red-600">-{selectedPR.deletions}</p>
-                  <p className="text-[10px] text-muted-foreground">Deletions</p>
+                  <p className="text-[10px] text-muted-foreground">{t("github.prs.stats.deletions")}</p>
                 </div>
                 <div className="rounded-md border border-border p-3 text-center">
                   <p className="text-lg font-semibold">{selectedPR.files}</p>
-                  <p className="text-[10px] text-muted-foreground">Files</p>
+                  <p className="text-[10px] text-muted-foreground">{t("github.prs.stats.files")}</p>
                 </div>
                 <div className="rounded-md border border-border p-3 text-center">
                   <p className="text-lg font-semibold capitalize">{selectedPR.state}</p>
-                  <p className="text-[10px] text-muted-foreground">Status</p>
+                  <p className="text-[10px] text-muted-foreground">{t("github.prs.status")}</p>
                 </div>
               </div>
 
               {/* Review status */}
               <div className="rounded-lg border border-border p-4">
-                <h3 className="text-sm font-medium mb-2">Review Status</h3>
+                <h3 className="text-sm font-medium mb-2">{t("github.prs.reviewStatus")}</h3>
                 <div className="flex items-center gap-2">
                   {selectedPR.reviewStatus === "approved" ? (
                     <CheckCircle2 className="h-4 w-4 text-green-500" />
@@ -254,7 +264,7 @@ export function GitHubPRsView({ projectId }: GitHubPRsViewProps) {
                     <Clock className="h-4 w-4 text-yellow-500" />
                   )}
                   <span className="text-sm">
-                    {REVIEW_STATUS_CONFIG[selectedPR.reviewStatus]?.label}
+                    {t(REVIEW_STATUS_KEYS[selectedPR.reviewStatus])}
                   </span>
                 </div>
               </div>
@@ -262,7 +272,7 @@ export function GitHubPRsView({ projectId }: GitHubPRsViewProps) {
               {/* AI Review button */}
               <button className="w-full flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm text-primary-foreground hover:bg-primary/90 transition-colors">
                 <Eye className="h-4 w-4" />
-                Start AI Code Review
+                {t("github.prs.startAiReview")}
               </button>
             </div>
           </div>

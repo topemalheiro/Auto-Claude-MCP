@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslation } from "react-i18next";
 import {
   AlertCircle,
   CheckCircle2,
@@ -28,24 +29,13 @@ const PRIORITY_COLORS: Record<string, string> = {
   low: "border-l-blue-500",
 };
 
-const CATEGORY_LABELS: Record<string, string> = {
-  feature: "Feature",
-  bug_fix: "Bug Fix",
-  refactoring: "Refactor",
-  documentation: "Docs",
-  security: "Security",
-  performance: "Perf",
-  ui_ux: "UI/UX",
-  infrastructure: "Infra",
-  testing: "Testing",
-};
-
 interface TaskCardProps {
   task: Task;
   onClick: () => void;
 }
 
 export function TaskCard({ task, onClick }: TaskCardProps) {
+  const { t } = useTranslation("kanban");
   const priority = task.metadata?.priority;
   const category = task.metadata?.category;
   const StatusIcon = STATUS_ICONS[task.status] || Clock;
@@ -80,7 +70,7 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
       <div className="mt-2 flex items-center gap-2 flex-wrap">
         {category && (
           <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-            {CATEGORY_LABELS[category] || category}
+            {t(`card.category.${category}`, category)}
           </span>
         )}
 
@@ -118,6 +108,24 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
         </div>
       )}
 
+      {/* Remapped status badges */}
+      {task.status === "pr_created" && (
+        <div className="mt-2">
+          <span className="inline-flex items-center gap-1 rounded-full bg-green-500/10 px-2 py-0.5 text-[10px] font-medium text-green-600">
+            <GitPullRequest className="h-3 w-3" />
+            {t("card.badges.prCreated")}
+          </span>
+        </div>
+      )}
+      {task.status === "error" && (
+        <div className="mt-2">
+          <span className="inline-flex items-center gap-1 rounded-full bg-red-500/10 px-2 py-0.5 text-[10px] font-medium text-red-600">
+            <AlertCircle className="h-3 w-3" />
+            {t("card.badges.error")}
+          </span>
+        </div>
+      )}
+
       {/* Review reason badge */}
       {task.status === "human_review" && task.reviewReason && (
         <div className="mt-2">
@@ -134,11 +142,7 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
                 "bg-blue-500/10 text-blue-600"
             )}
           >
-            {task.reviewReason === "completed" && "Ready for Review"}
-            {task.reviewReason === "errors" && "Has Errors"}
-            {task.reviewReason === "qa_rejected" && "QA Rejected"}
-            {task.reviewReason === "plan_review" && "Plan Review"}
-            {task.reviewReason === "stopped" && "Stopped"}
+            {t(`card.review.${task.reviewReason}`, task.reviewReason)}
           </span>
         </div>
       )}

@@ -1,0 +1,72 @@
+{
+  "onboarding": {
+    "title": "Welcome to Auto Claude",
+    "titleDescription": "Let's get you set up in a few simple steps. Auto Claude uses AI to help you manage tasks, review code, generate roadmaps, and accelerate your development workflow.",
+    "steps": {
+      "welcome": "Welcome",
+      "apiKey": "API Key",
+      "project": "Project",
+      "complete": "Complete"
+    },
+    "apiConfiguration": {
+      "title": "API Configuration",
+      "description": "Configure your Claude API key to enable AI-powered features.",
+      "authMethod": "Authentication Method",
+      "claudeOAuth": "Claude OAuth",
+      "claudeOAuthDescription": "Sign in with your Anthropic account",
+      "apiKey": "API Key",
+      "apiKeyDescription": "Enter your API key manually"
+    },
+    "connectProject": {
+      "title": "Connect a Project",
+      "description": "Point Auto Claude at a project directory to get started.",
+      "selectDirectory": "Select Project Directory",
+      "selectDirectoryDescription": "Choose a local project folder to analyze"
+    },
+    "complete": {
+      "title": "You're All Set!",
+      "description": "Auto Claude is ready to help you build better software. Start by creating your first task or exploring your project's codebase."
+    },
+    "actions": {
+      "skipSetup": "Skip Setup",
+      "back": "Back",
+      "continue": "Continue",
+      "getStarted": "Get Started"
+    }
+  },
+  "sidebar": {
+    "brand": "Auto Claude",
+    "brandShort": "AC",
+    "sectionProject": "Project",
+    "nav": {
+      "tasks": "Tasks",
+      "insights": "Insights",
+      "roadmap": "Roadmap",
+      "ideation": "Ideation",
+      "changelog": "Changelog",
+      "context": "Context",
+      "githubIssues": "GitHub Issues",
+      "githubPrs": "GitHub PRs",
+      "gitlabIssues": "GitLab Issues",
+      "gitlabMrs": "GitLab MRs"
+    },
+    "actions": {
+      "settings": "Settings",
+      "newTask": "New Task"
+    },
+    "aria": {
+      "expandSidebar": "Expand sidebar",
+      "collapseSidebar": "Collapse sidebar",
+      "help": "Help"
+    }
+  },
+  "welcome": {
+    "title": "Welcome to Auto Claude",
+    "description": "Get started by connecting a project. Auto Claude will help you manage tasks, generate roadmaps, review code, and more.",
+    "connectProject": "Connect a Project",
+    "subtext": "Point Auto Claude at a local project directory to get started."
+  },
+  "projectTabBar": {
+    "addProject": "Add project"
+  }
+}

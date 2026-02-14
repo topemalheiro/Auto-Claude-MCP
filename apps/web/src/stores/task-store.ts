@@ -2,6 +2,17 @@ import { create } from "zustand";
 import type { Task, TaskStatus } from "@auto-claude/types";
 import { apiClient } from "@/lib/data";
 
+const VALID_TRANSITIONS: Record<TaskStatus, TaskStatus[]> = {
+  backlog: ["queue"],
+  queue: ["in_progress", "backlog"],
+  in_progress: ["ai_review", "human_review", "error", "backlog"],
+  ai_review: ["in_progress", "done", "human_review", "error"],
+  human_review: ["in_progress", "done", "backlog"],
+  done: ["backlog"],
+  pr_created: ["done"],
+  error: ["in_progress", "human_review", "backlog"],
+};
+
 interface TaskState {
   tasks: Task[];
   isLoading: boolean;
@@ -38,10 +49,20 @@ export async function loadTasks(projectId: string) {
       tasks: result.tasks as Task[],
       isLoading: false,
     });
-  } catch (error) {
+  } catch (err) {
+    // Network errors (backend not running) and timeouts → silent empty state.
+    // API errors (4xx/5xx) → surface so the UI can display them.
+    const isNetworkError =
+      err instanceof TypeError ||
+      (err instanceof Error && err.name === "AbortError");
     useTaskStore.setState({
+      tasks: [],
       isLoading: false,
-      error: error instanceof Error ? error.message : "Failed to load tasks",
+      error: isNetworkError
+        ? null
+        : err instanceof Error
+          ? err.message
+          : "Failed to load tasks",
     });
   }
 }
@@ -51,6 +72,12 @@ export async function updateTaskStatus(
   taskId: string,
   status: TaskStatus
 ) {
+  const currentTask = useTaskStore.getState().tasks.find((t) => t.id === taskId);
+  if (currentTask && !VALID_TRANSITIONS[currentTask.status]?.includes(status)) {
+    console.warn(`Invalid transition: ${currentTask.status} -> ${status}`);
+    return;
+  }
+
   try {
     await apiClient.updateTaskStatus(projectId, taskId, status);
     useTaskStore.getState().updateTask(taskId, { status });

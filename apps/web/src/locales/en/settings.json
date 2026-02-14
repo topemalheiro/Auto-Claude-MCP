@@ -21,5 +21,77 @@
       "teamMembers": "Team Members: {{current}} / {{limit}}",
       "unlimited": "Unlimited"
     }
+  },
+  "sections": {
+    "general": {
+      "title": "General",
+      "description": "Configure general application settings."
+    },
+    "appearance": {
+      "title": "Appearance",
+      "description": "Customize the look and feel of the application."
+    },
+    "accounts": {
+      "title": "Accounts",
+      "description": "Manage API keys and authentication."
+    },
+    "github": {
+      "title": "GitHub Integration",
+      "description": "Connect and configure your GitHub repository."
+    },
+    "notifications": {
+      "title": "Notifications",
+      "description": "Configure notification preferences."
+    },
+    "advanced": {
+      "title": "Advanced",
+      "description": "Advanced configuration options."
+    }
+  },
+  "fields": {
+    "language": "Language",
+    "languageDescription": "Select your preferred language",
+    "theme": "Theme",
+    "claudeApi": "Claude API",
+    "claudeApiDescription": "Configure your Claude API authentication for AI features.",
+    "repository": "Repository",
+    "repositoryLabel": "Repository (owner/repo)",
+    "mainBranch": "Main Branch",
+    "memorySystem": "Memory System",
+    "memorySystemDescription": "Configure the AI memory system for your projects."
+  },
+  "actions": {
+    "configure": "Configure"
+  },
+  "status": {
+    "active": "Active",
+    "usingLadybugDb": "Using LadybugDB embedded database"
+  },
+  "placeholders": {
+    "ownerRepo": "owner/repo",
+    "main": "main"
+  },
+  "languages": {
+    "en": "English",
+    "fr": "French"
+  },
+  "themes": {
+    "light": "light",
+    "dark": "dark",
+    "system": "system"
+  },
+  "notifications": {
+    "taskCompleted": {
+      "label": "Task Completed",
+      "description": "Notify when a task finishes execution"
+    },
+    "taskFailed": {
+      "label": "Task Failed",
+      "description": "Notify when a task encounters an error"
+    },
+    "reviewNeeded": {
+      "label": "Review Needed",
+      "description": "Notify when a task needs human review"
+    }
   }
 }

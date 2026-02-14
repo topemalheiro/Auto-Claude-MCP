@@ -21,40 +21,41 @@ import { cn } from "@auto-claude/ui";
 import { useSettingsStore, saveSettings } from "@/stores/settings-store";
 import { useUIStore, type SidebarView } from "@/stores/ui-store";
 import { useProjectStore } from "@/stores/project-store";
+import { useTranslation } from "react-i18next";
 
 interface NavItem {
   id: SidebarView;
-  label: string;
+  labelKey: string;
   icon: React.ElementType;
   shortcut?: string;
 }
 
 const baseNavItems: NavItem[] = [
-  { id: "kanban", label: "Tasks", icon: LayoutGrid, shortcut: "K" },
-  { id: "insights", label: "Insights", icon: Sparkles, shortcut: "N" },
-  { id: "roadmap", label: "Roadmap", icon: Map, shortcut: "D" },
-  { id: "ideation", label: "Ideation", icon: Lightbulb, shortcut: "I" },
-  { id: "changelog", label: "Changelog", icon: FileText, shortcut: "L" },
-  { id: "context", label: "Context", icon: BookOpen, shortcut: "C" },
+  { id: "kanban", labelKey: "sidebar.nav.tasks", icon: LayoutGrid, shortcut: "K" },
+  { id: "insights", labelKey: "sidebar.nav.insights", icon: Sparkles, shortcut: "N" },
+  { id: "roadmap", labelKey: "sidebar.nav.roadmap", icon: Map, shortcut: "D" },
+  { id: "ideation", labelKey: "sidebar.nav.ideation", icon: Lightbulb, shortcut: "I" },
+  { id: "changelog", labelKey: "sidebar.nav.changelog", icon: FileText, shortcut: "L" },
+  { id: "context", labelKey: "sidebar.nav.context", icon: BookOpen, shortcut: "C" },
 ];
 
 const githubNavItems: NavItem[] = [
-  { id: "github-issues", label: "GitHub Issues", icon: Github, shortcut: "G" },
-  { id: "github-prs", label: "GitHub PRs", icon: GitPullRequest, shortcut: "P" },
+  { id: "github-issues", labelKey: "sidebar.nav.githubIssues", icon: Github, shortcut: "G" },
+  { id: "github-prs", labelKey: "sidebar.nav.githubPrs", icon: GitPullRequest, shortcut: "P" },
 ];
 
 const gitlabNavItems: NavItem[] = [
-  { id: "gitlab-issues", label: "GitLab Issues", icon: Github, shortcut: "B" },
-  { id: "gitlab-merge-requests", label: "GitLab MRs", icon: GitMerge, shortcut: "R" },
+  { id: "gitlab-issues", labelKey: "sidebar.nav.gitlabIssues", icon: Github, shortcut: "B" },
+  { id: "gitlab-merge-requests", labelKey: "sidebar.nav.gitlabMrs", icon: GitMerge, shortcut: "R" },
 ];
 
 export function Sidebar() {
   const settings = useSettingsStore((s) => s.settings);
   const activeView = useUIStore((s) => s.activeView);
   const setActiveView = useUIStore((s) => s.setActiveView);
-  const setSettingsDialogOpen = useUIStore((s) => s.setSettingsDialogOpen);
   const setNewTaskDialogOpen = useUIStore((s) => s.setNewTaskDialogOpen);
   const activeProjectId = useProjectStore((s) => s.activeProjectId);
+  const { t } = useTranslation("layout");
 
   const isCollapsed = settings.sidebarCollapsed ?? false;
 
@@ -87,7 +88,7 @@ export function Sidebar() {
         <Icon className="h-4 w-4 shrink-0" />
         {!isCollapsed && (
           <>
-            <span className="flex-1 text-left">{item.label}</span>
+            <span className="flex-1 text-left">{t(item.labelKey)}</span>
             {item.shortcut && (
               <kbd className="pointer-events-none hidden h-5 select-none items-center gap-1 rounded-md border border-border bg-secondary px-1.5 font-mono text-[10px] font-medium text-muted-foreground sm:flex">
                 {item.shortcut}
@@ -114,10 +115,10 @@ export function Sidebar() {
         )}
       >
         {!isCollapsed && (
-          <span className="text-lg font-bold text-primary">Auto Claude</span>
+          <span className="text-lg font-bold text-primary">{t("sidebar.brand")}</span>
         )}
         {isCollapsed && (
-          <span className="text-lg font-bold text-primary">AC</span>
+          <span className="text-lg font-bold text-primary">{t("sidebar.brandShort")}</span>
         )}
       </div>
 
@@ -133,7 +134,7 @@ export function Sidebar() {
         <button
           className="flex h-7 w-7 items-center justify-center rounded-md hover:bg-accent"
           onClick={toggleSidebar}
-          aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          aria-label={isCollapsed ? t("sidebar.aria.expandSidebar") : t("sidebar.aria.collapseSidebar")}
         >
           {isCollapsed ? (
             <PanelLeft className="h-4 w-4" />
@@ -155,7 +156,7 @@ export function Sidebar() {
         >
           {!isCollapsed && (
             <h3 className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Project
+              {t("sidebar.sectionProject")}
             </h3>
           )}
           <nav className="space-y-1">{visibleNavItems.map(renderNavItem)}</nav>
@@ -183,17 +184,17 @@ export function Sidebar() {
               "flex items-center rounded-md hover:bg-accent transition-colors",
               isCollapsed ? "h-8 w-8 justify-center" : "flex-1 gap-2 px-3 py-1.5 text-sm justify-start"
             )}
-            onClick={() => setSettingsDialogOpen(true)}
+            onClick={() => setActiveView("settings")}
           >
             <Settings className="h-4 w-4" />
-            {!isCollapsed && "Settings"}
+            {!isCollapsed && t("sidebar.actions.settings")}
           </button>
           <button
             className="flex h-8 w-8 items-center justify-center rounded-md hover:bg-accent transition-colors"
             onClick={() =>
               window.open("https://github.com/AndyMik90/Auto-Claude/issues", "_blank")
             }
-            aria-label="Help"
+            aria-label={t("sidebar.aria.help")}
           >
             <HelpCircle className="h-4 w-4" />
           </button>
@@ -209,7 +210,7 @@ export function Sidebar() {
           disabled={!activeProjectId}
         >
           <Plus className={isCollapsed ? "h-4 w-4" : "mr-2 h-4 w-4"} />
-          {!isCollapsed && "New Task"}
+          {!isCollapsed && t("sidebar.actions.newTask")}
         </button>
       </div>
     </div>

@@ -12,6 +12,7 @@ import {
   GitMerge,
 } from "lucide-react";
 import { cn } from "@auto-claude/ui";
+import { useTranslation } from "react-i18next";
 
 interface GitLabMRsViewProps {
   projectId: string;
@@ -84,6 +85,7 @@ const STATE_COLORS: Record<string, string> = {
 };
 
 export function GitLabMRsView({ projectId }: GitLabMRsViewProps) {
+  const { t } = useTranslation("integrations");
   const [mrs] = useState(PLACEHOLDER_MRS);
   const [selectedMR, setSelectedMR] = useState<MergeRequest | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -102,7 +104,7 @@ export function GitLabMRsView({ projectId }: GitLabMRsViewProps) {
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <h1 className="text-sm font-semibold flex items-center gap-2">
             <GitMerge className="h-4 w-4" />
-            Merge Requests
+            {t("gitlab.mrs.title")}
           </h1>
           <button className="flex h-7 w-7 items-center justify-center rounded-md hover:bg-accent transition-colors">
             <RefreshCw className="h-3.5 w-3.5" />
@@ -114,7 +116,7 @@ export function GitLabMRsView({ projectId }: GitLabMRsViewProps) {
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
             <input
               className="w-full rounded-md border border-border bg-background pl-8 pr-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary/20"
-              placeholder="Search merge requests..."
+              placeholder={t("gitlab.mrs.search")}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -129,7 +131,7 @@ export function GitLabMRsView({ projectId }: GitLabMRsViewProps) {
                 )}
                 onClick={() => setFilter(f)}
               >
-                {f === "all" ? "All" : f.charAt(0).toUpperCase() + f.slice(1)}
+                {t(`gitlab.mrs.filters.${f}`)}
               </button>
             ))}
           </div>
@@ -153,7 +155,7 @@ export function GitLabMRsView({ projectId }: GitLabMRsViewProps) {
                 <div className="mt-1 flex items-center gap-1.5 flex-wrap">
                   {mr.draft && (
                     <span className="rounded-full bg-yellow-500/10 text-yellow-600 px-2 py-0.5 text-[10px] font-medium">
-                      Draft
+                      {t("gitlab.mrs.draft")}
                     </span>
                   )}
                   {mr.labels.map((label) => (
@@ -170,7 +172,7 @@ export function GitLabMRsView({ projectId }: GitLabMRsViewProps) {
                   <span>{mr.createdAt}</span>
                   <span className="text-green-600">+{mr.additions}</span>
                   <span className="text-red-600">-{mr.deletions}</span>
-                  <span>{mr.changedFiles} files</span>
+                  <span>{t("gitlab.mrs.stats.filesCount", { count: mr.changedFiles })}</span>
                 </div>
               </div>
             </div>
@@ -188,7 +190,7 @@ export function GitLabMRsView({ projectId }: GitLabMRsViewProps) {
             <div className="flex items-center gap-2">
               <button className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
                 <Eye className="h-3 w-3" />
-                AI Review
+                {t("gitlab.mrs.aiReview")}
               </button>
               <a
                 href="#"
@@ -205,24 +207,24 @@ export function GitLabMRsView({ projectId }: GitLabMRsViewProps) {
               <div className="grid grid-cols-4 gap-3">
                 <div className="rounded-md border border-border p-3 text-center">
                   <p className="text-lg font-semibold text-green-600">+{selectedMR.additions}</p>
-                  <p className="text-[10px] text-muted-foreground">Additions</p>
+                  <p className="text-[10px] text-muted-foreground">{t("gitlab.mrs.stats.additions")}</p>
                 </div>
                 <div className="rounded-md border border-border p-3 text-center">
                   <p className="text-lg font-semibold text-red-600">-{selectedMR.deletions}</p>
-                  <p className="text-[10px] text-muted-foreground">Deletions</p>
+                  <p className="text-[10px] text-muted-foreground">{t("gitlab.mrs.stats.deletions")}</p>
                 </div>
                 <div className="rounded-md border border-border p-3 text-center">
                   <p className="text-lg font-semibold">{selectedMR.changedFiles}</p>
-                  <p className="text-[10px] text-muted-foreground">Files</p>
+                  <p className="text-[10px] text-muted-foreground">{t("gitlab.mrs.stats.files")}</p>
                 </div>
                 <div className="rounded-md border border-border p-3 text-center">
                   <p className="text-lg font-semibold capitalize">{selectedMR.state}</p>
-                  <p className="text-[10px] text-muted-foreground">Status</p>
+                  <p className="text-[10px] text-muted-foreground">{t("gitlab.mrs.status")}</p>
                 </div>
               </div>
 
               <div className="rounded-lg border border-border p-4">
-                <h3 className="text-sm font-medium mb-2">Approvals</h3>
+                <h3 className="text-sm font-medium mb-2">{t("gitlab.mrs.approvals")}</h3>
                 <div className="flex items-center gap-2">
                   {selectedMR.approvals >= selectedMR.approvalsRequired ? (
                     <CheckCircle2 className="h-4 w-4 text-green-500" />
@@ -230,14 +232,14 @@ export function GitLabMRsView({ projectId }: GitLabMRsViewProps) {
                     <Clock className="h-4 w-4 text-yellow-500" />
                   )}
                   <span className="text-sm">
-                    {selectedMR.approvals}/{selectedMR.approvalsRequired} approvals
+                    {t("gitlab.mrs.approvalsCount", { current: selectedMR.approvals, required: selectedMR.approvalsRequired })}
                   </span>
                 </div>
               </div>
 
               <button className="w-full flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm text-primary-foreground hover:bg-primary/90 transition-colors">
                 <Eye className="h-4 w-4" />
-                Start AI Code Review
+                {t("gitlab.mrs.startAiReview")}
               </button>
             </div>
           </div>

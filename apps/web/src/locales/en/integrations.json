@@ -1,0 +1,101 @@
+{
+  "context": {
+    "title": "Project Context",
+    "reindex": "Re-index",
+    "tabs": {
+      "overview": "Overview",
+      "services": "Services",
+      "memories": "Memories"
+    },
+    "fields": {
+      "projectStructure": "Project Structure",
+      "type": "Type",
+      "monorepo": "Monorepo",
+      "services": "Services",
+      "memorySystem": "Memory System",
+      "status": "Status",
+      "active": "Active",
+      "episodes": "Episodes",
+      "database": "Database",
+      "ladybugDB": "LadybugDB",
+      "language": "Language",
+      "framework": "Framework",
+      "path": "Path"
+    },
+    "empty": {
+      "noMemories": "No Memories Yet",
+      "noMemoriesDescription": "As the AI works on tasks, it builds up memories about your codebase - patterns, gotchas, and discoveries that improve future work."
+    },
+    "search": {
+      "memories": "Search memories..."
+    }
+  },
+  "github": {
+    "issues": {
+      "title": "GitHub Issues",
+      "notConnected": "GitHub Not Connected",
+      "notConnectedDescription": "Connect your GitHub repository to sync issues and create tasks from them.",
+      "configure": "Configure GitHub",
+      "search": "Search issues...",
+      "createTask": "Create Task from Issue"
+    },
+    "prs": {
+      "title": "Pull Requests",
+      "search": "Search PRs...",
+      "stats": {
+        "additions": "Additions",
+        "deletions": "Deletions",
+        "files": "Files",
+        "filesCount": "{{count}} files"
+      },
+      "status": "Status",
+      "reviewStatus": "Review Status",
+      "aiReview": "AI Review",
+      "startAiReview": "Start AI Code Review",
+      "reviews": {
+        "pending": "Pending Review",
+        "approved": "Approved",
+        "changesRequested": "Changes Requested",
+        "inReview": "In Review"
+      },
+      "filters": {
+        "all": "All",
+        "open": "Open",
+        "merged": "Merged",
+        "closed": "Closed"
+      }
+    }
+  },
+  "gitlab": {
+    "issues": {
+      "title": "GitLab Issues",
+      "notConnected": "GitLab Not Connected",
+      "notConnectedDescription": "Connect your GitLab project to sync issues and create tasks.",
+      "configure": "Configure GitLab",
+      "search": "Search issues...",
+      "createTask": "Create Task from Issue"
+    },
+    "mrs": {
+      "title": "Merge Requests",
+      "search": "Search merge requests...",
+      "stats": {
+        "additions": "Additions",
+        "deletions": "Deletions",
+        "files": "Files",
+        "filesCount": "{{count}} files"
+      },
+      "status": "Status",
+      "approvals": "Approvals",
+      "approvalsCount": "{{current}}/{{required}} approvals",
+      "aiReview": "AI Review",
+      "startAiReview": "Start AI Code Review",
+      "draft": "Draft",
+      "filters": {
+        "all": "All",
+        "opened": "Opened",
+        "merged": "Merged",
+        "closed": "Closed"
+      }
+    }
+  }
+}

@@ -21,5 +21,77 @@
       "teamMembers": "Membres de l'équipe : {{current}} / {{limit}}",
       "unlimited": "Illimité"
     }
+  },
+  "sections": {
+    "general": {
+      "title": "Général",
+      "description": "Configurer les paramètres généraux de l'application."
+    },
+    "appearance": {
+      "title": "Apparence",
+      "description": "Personnaliser l'apparence de l'application."
+    },
+    "accounts": {
+      "title": "Comptes",
+      "description": "Gérer les clés API et l'authentification."
+    },
+    "github": {
+      "title": "Intégration GitHub",
+      "description": "Connecter et configurer votre dépôt GitHub."
+    },
+    "notifications": {
+      "title": "Notifications",
+      "description": "Configurer les préférences de notification."
+    },
+    "advanced": {
+      "title": "Avancé",
+      "description": "Options de configuration avancées."
+    }
+  },
+  "fields": {
+    "language": "Langue",
+    "languageDescription": "Sélectionnez votre langue préférée",
+    "theme": "Thème",
+    "claudeApi": "API Claude",
+    "claudeApiDescription": "Configurez votre authentification API Claude pour les fonctionnalités IA.",
+    "repository": "Dépôt",
+    "repositoryLabel": "Dépôt (propriétaire/dépôt)",
+    "mainBranch": "Branche principale",
+    "memorySystem": "Système de mémoire",
+    "memorySystemDescription": "Configurez le système de mémoire IA pour vos projets."
+  },
+  "actions": {
+    "configure": "Configurer"
+  },
+  "status": {
+    "active": "Actif",
+    "usingLadybugDb": "Utilisation de la base de données intégrée LadybugDB"
+  },
+  "placeholders": {
+    "ownerRepo": "propriétaire/dépôt",
+    "main": "main"
+  },
+  "languages": {
+    "en": "English",
+    "fr": "Français"
+  },
+  "themes": {
+    "light": "clair",
+    "dark": "sombre",
+    "system": "système"
+  },
+  "notifications": {
+    "taskCompleted": {
+      "label": "Tâche terminée",
+      "description": "Notifier lorsqu'une tâche termine son exécution"
+    },
+    "taskFailed": {
+      "label": "Tâche échouée",
+      "description": "Notifier lorsqu'une tâche rencontre une erreur"
+    },
+    "reviewNeeded": {
+      "label": "Révision nécessaire",
+      "description": "Notifier lorsqu'une tâche nécessite une révision humaine"
+    }
   }
 }

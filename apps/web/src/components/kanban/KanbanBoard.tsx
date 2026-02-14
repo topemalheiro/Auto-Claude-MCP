@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Plus,
   Inbox,
@@ -30,19 +31,20 @@ const TASK_STATUS_COLUMNS: TaskStatus[] = [
 
 const COLUMN_CONFIG: Record<
   string,
-  { label: string; icon: React.ElementType; color: string }
+  { labelKey: string; icon: React.ElementType; color: string }
 > = {
-  backlog: { label: "Backlog", icon: Inbox, color: "text-muted-foreground" },
-  queue: { label: "Queue", icon: Loader2, color: "text-blue-500" },
-  in_progress: { label: "In Progress", icon: Loader2, color: "text-yellow-500" },
-  ai_review: { label: "AI Review", icon: Eye, color: "text-purple-500" },
-  human_review: { label: "Human Review", icon: Eye, color: "text-orange-500" },
-  done: { label: "Done", icon: CheckCircle2, color: "text-green-500" },
-  pr_created: { label: "PR Created", icon: GitPullRequest, color: "text-green-600" },
-  error: { label: "Error", icon: AlertCircle, color: "text-red-500" },
+  backlog: { labelKey: "columns.backlog", icon: Inbox, color: "text-muted-foreground" },
+  queue: { labelKey: "columns.queue", icon: Loader2, color: "text-blue-500" },
+  in_progress: { labelKey: "columns.in_progress", icon: Loader2, color: "text-yellow-500" },
+  ai_review: { labelKey: "columns.ai_review", icon: Eye, color: "text-purple-500" },
+  human_review: { labelKey: "columns.human_review", icon: Eye, color: "text-orange-500" },
+  done: { labelKey: "columns.done", icon: CheckCircle2, color: "text-green-500" },
+  pr_created: { labelKey: "columns.pr_created", icon: GitPullRequest, color: "text-green-600" },
+  error: { labelKey: "columns.error", icon: AlertCircle, color: "text-red-500" },
 };
 
 export function KanbanBoard() {
+  const { t } = useTranslation("kanban");
   const tasks = useTaskStore((s) => s.tasks);
   const isLoading = useTaskStore((s) => s.isLoading);
   const activeProjectId = useProjectStore((s) => s.activeProjectId);
@@ -96,7 +98,7 @@ export function KanbanBoard() {
     <div className="flex h-full flex-col">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-border px-6 py-3">
-        <h1 className="text-lg font-semibold">Tasks</h1>
+        <h1 className="text-lg font-semibold">{t("board.title")}</h1>
         <div className="flex items-center gap-2">
           <button
             className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
@@ -106,14 +108,14 @@ export function KanbanBoard() {
             <RefreshCw
               className={cn("h-3.5 w-3.5", isRefreshing && "animate-spin")}
             />
-            Refresh
+            {t("board.refresh")}
           </button>
           <button
             className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground hover:bg-primary/90 transition-colors"
             onClick={() => setNewTaskDialogOpen(true)}
           >
             <Plus className="h-3.5 w-3.5" />
-            New Task
+            {t("board.newTask")}
           </button>
         </div>
       </div>
@@ -133,7 +135,7 @@ export function KanbanBoard() {
               {/* Column header */}
               <div className="flex items-center gap-2 px-3 py-2.5 border-b border-border">
                 <Icon className={cn("h-4 w-4", config.color)} />
-                <span className="text-sm font-medium">{config.label}</span>
+                <span className="text-sm font-medium">{t(config.labelKey)}</span>
                 <span className="ml-auto rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground">
                   {columnTasks.length}
                 </span>
@@ -143,7 +145,7 @@ export function KanbanBoard() {
               <div className="flex-1 overflow-y-auto p-2 space-y-2">
                 {columnTasks.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-                    <p className="text-xs">No tasks</p>
+                    <p className="text-xs">{t("board.noTasks")}</p>
                   </div>
                 ) : (
                   columnTasks.map((task) => (

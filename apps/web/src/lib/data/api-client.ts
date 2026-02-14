@@ -16,23 +16,32 @@ class ApiClient {
 
   private async request<T>(
     path: string,
-    options: RequestInit = {}
+    options: RequestInit = {},
+    timeoutMs: number = 3000
   ): Promise<T> {
     const url = `${this.baseUrl}${path}`;
-    const response = await fetch(url, {
-      headers: {
-        "Content-Type": "application/json",
-        ...options.headers,
-      },
-      ...options,
-    });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
-    if (!response.ok) {
-      const error = await response.text().catch(() => "Unknown error");
-      throw new Error(`API error ${response.status}: ${error}`);
+    try {
+      const response = await fetch(url, {
+        ...options,
+        headers: {
+          "Content-Type": "application/json",
+          ...options.headers,
+        },
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        const error = await response.text().catch(() => "Unknown error");
+        throw new Error(`API error ${response.status}: ${error}`);
+      }
+
+      return response.json();
+    } finally {
+      clearTimeout(timeout);
     }
-
-    return response.json();
   }
 
   // Projects
@@ -83,9 +92,11 @@ class ApiClient {
   }
 
   async generateRoadmap(projectId: string) {
-    return this.request(`/api/projects/${projectId}/roadmap/generate`, {
-      method: "POST",
-    });
+    return this.request(
+      `/api/projects/${projectId}/roadmap/generate`,
+      { method: "POST" },
+      30000
+    );
   }
 
   // Changelog
@@ -118,10 +129,11 @@ class ApiClient {
 
   // Insights
   async sendInsightsMessage(projectId: string, message: string) {
-    return this.request(`/api/projects/${projectId}/insights`, {
-      method: "POST",
-      body: JSON.stringify({ message }),
-    });
+    return this.request(
+      `/api/projects/${projectId}/insights`,
+      { method: "POST", body: JSON.stringify({ message }) },
+      30000
+    );
   }
 
   // Context

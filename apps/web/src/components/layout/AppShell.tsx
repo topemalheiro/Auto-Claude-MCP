@@ -78,6 +78,7 @@ export function AppShell() {
       if (
         e.target instanceof HTMLInputElement ||
         e.target instanceof HTMLTextAreaElement ||
+        e.target instanceof HTMLSelectElement ||
         (e.target as HTMLElement)?.isContentEditable
       ) {
         return;
@@ -111,6 +112,11 @@ export function AppShell() {
   }, [currentProjectId]);
 
   const renderContent = () => {
+    // Settings is always accessible, even without a project
+    if (activeView === "settings") {
+      return <SettingsView />;
+    }
+
     if (!selectedProject) {
       return <WelcomeScreen />;
     }
@@ -136,8 +142,6 @@ export function AppShell() {
         return <GitLabIssuesView projectId={currentProjectId!} />;
       case "gitlab-merge-requests":
         return <GitLabMRsView projectId={currentProjectId!} />;
-      case "settings":
-        return <SettingsView />;
       default:
         return <KanbanBoard />;
     }

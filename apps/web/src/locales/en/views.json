@@ -1,0 +1,124 @@
+{
+  "roadmap": {
+    "title": "Roadmap",
+    "refresh": "Refresh",
+    "addFeature": "Add Feature",
+    "tabs": {
+      "board": "Board",
+      "timeline": "Timeline",
+      "list": "List"
+    },
+    "empty": {
+      "title": "No Roadmap Yet",
+      "description": "Generate an AI-powered roadmap based on your project's codebase, architecture, and goals.",
+      "generate": "Generate Roadmap"
+    },
+    "detail": {
+      "title": "Feature Details",
+      "priority": "Priority",
+      "effort": "Effort",
+      "phase": "Phase",
+      "status": "Status",
+      "convertToTask": "Convert to Task"
+    },
+    "table": {
+      "feature": "Feature",
+      "phase": "Phase",
+      "priority": "Priority",
+      "status": "Status",
+      "effort": "Effort"
+    },
+    "status": {
+      "inProgress": "In Progress",
+      "completed": "Completed",
+      "planned": "Planned"
+    },
+    "priority": {
+      "high": "high",
+      "medium": "medium",
+      "low": "low"
+    },
+    "effort": {
+      "large": "Large",
+      "medium": "Medium",
+      "small": "Small"
+    },
+    "phases": {
+      "phase1": "Phase 1: Foundation",
+      "phase2": "Phase 2: Core Features",
+      "phase3": "Phase 3: Integration"
+    }
+  },
+  "ideation": {
+    "title": "Ideation",
+    "regenerate": "Regenerate",
+    "analyzeCodebase": "Analyze Codebase",
+    "allFilter": "All ({{count}})",
+    "categoryCount": "{{label}} ({{count}})",
+    "empty": {
+      "title": "No Ideas Yet",
+      "description": "Let AI analyze your codebase and suggest improvements, features, and optimizations.",
+      "generate": "Generate Ideas"
+    },
+    "categories": {
+      "codeImprovements": {
+        "label": "Code Quality",
+        "description": "Refactoring and code improvements"
+      },
+      "securityHardening": {
+        "label": "Security",
+        "description": "Security vulnerabilities and fixes"
+      },
+      "performanceOptimization": {
+        "label": "Performance",
+        "description": "Speed and resource optimization"
+      },
+      "uiUxImprovements": {
+        "label": "UI/UX",
+        "description": "User experience improvements"
+      },
+      "bugPredictions": {
+        "label": "Bug Predictions",
+        "description": "Potential bugs and edge cases"
+      },
+      "newFeatures": {
+        "label": "Features",
+        "description": "New feature suggestions"
+      }
+    },
+    "impact": "Impact: {{level}}",
+    "effort": "Effort: {{level}}"
+  },
+  "insights": {
+    "title": "AI Insights",
+    "chatHistory": "Chat History",
+    "welcomeTitle": "AI Insights",
+    "welcomeDescription": "Ask questions about your codebase. I can analyze code quality, find bugs, suggest improvements, and more.",
+    "placeholder": "Ask about your codebase...",
+    "you": "You",
+    "aiAssistant": "AI Assistant",
+    "suggestions": {
+      "complexity": "What are the most complex parts of this codebase?",
+      "security": "Find potential security vulnerabilities",
+      "performance": "Suggest performance optimizations",
+      "tests": "What tests are missing?",
+      "architecture": "Analyze the architecture and suggest improvements"
+    }
+  },
+  "changelog": {
+    "title": "Changelog",
+    "refresh": "Refresh",
+    "newRelease": "New Release",
+    "empty": {
+      "title": "No Changelog",
+      "description": "Generate a changelog from your completed tasks and merged pull requests.",
+      "generate": "Generate Changelog"
+    },
+    "changeTypes": {
+      "added": "Added",
+      "changed": "Changed",
+      "fixed": "Fixed",
+      "removed": "Removed"
+    }
+  }
+}

@@ -1,0 +1,109 @@
+{
+  "board": {
+    "title": "Tasks",
+    "refresh": "Refresh",
+    "newTask": "New Task",
+    "noTasks": "No tasks"
+  },
+  "columns": {
+    "backlog": "Backlog",
+    "queue": "Queue",
+    "in_progress": "In Progress",
+    "ai_review": "AI Review",
+    "human_review": "Human Review",
+    "done": "Done",
+    "pr_created": "PR Created",
+    "error": "Error"
+  },
+  "card": {
+    "category": {
+      "feature": "Feature",
+      "bug_fix": "Bug Fix",
+      "refactoring": "Refactor",
+      "documentation": "Docs",
+      "security": "Security",
+      "performance": "Perf",
+      "ui_ux": "UI/UX",
+      "infrastructure": "Infra",
+      "testing": "Testing"
+    },
+    "badges": {
+      "prCreated": "PR Created",
+      "error": "Error"
+    },
+    "review": {
+      "completed": "Ready for Review",
+      "errors": "Has Errors",
+      "qa_rejected": "QA Rejected",
+      "plan_review": "Plan Review",
+      "stopped": "Stopped"
+    }
+  },
+  "detail": {
+    "description": "Description",
+    "executionProgress": "Execution Progress",
+    "phase": "Phase: {{phase}}",
+    "subtasks": "Subtasks ({{completed}}/{{total}})",
+    "qaReport": "QA Report",
+    "qaStatus": "Status: {{status}}",
+    "details": "Details",
+    "priority": "Priority",
+    "complexity": "Complexity",
+    "impact": "Impact",
+    "model": "Model",
+    "viewPullRequest": "View Pull Request",
+    "title": "Title"
+  },
+  "wizard": {
+    "newTask": "New Task",
+    "steps": {
+      "details": "1. Details",
+      "config": "2. Config",
+      "review": "3. Review"
+    },
+    "taskTitle": "Task Title",
+    "titlePlaceholder": "What needs to be done?",
+    "descriptionLabel": "Description",
+    "descriptionPlaceholder": "Describe the task in detail. What's the expected outcome? Any specific requirements?",
+    "categoryLabel": "Category",
+    "priorityLabel": "Priority",
+    "complexityLabel": "Complexity",
+    "cancel": "Cancel",
+    "back": "Back",
+    "continue": "Continue",
+    "createTask": "Create Task",
+    "reviewTask": "Review Task",
+    "untitled": "Untitled",
+    "aiHandlesRest": "AI will handle the rest",
+    "aiHandlesRestDescription": "Auto Claude will analyze the task, create a plan, write code, and run tests automatically.",
+    "category": {
+      "feature": "Feature",
+      "bug_fix": "Bug Fix",
+      "refactoring": "Refactoring",
+      "documentation": "Documentation",
+      "security": "Security",
+      "performance": "Performance",
+      "ui_ux": "UI/UX",
+      "infrastructure": "Infrastructure",
+      "testing": "Testing"
+    },
+    "priority": {
+      "urgent": "Urgent",
+      "high": "High",
+      "medium": "Medium",
+      "low": "Low"
+    },
+    "complexityOption": {
+      "trivial": "Trivial",
+      "trivialDesc": "Quick fix, single file",
+      "small": "Small",
+      "smallDesc": "Few files, straightforward",
+      "medium": "Medium",
+      "mediumDesc": "Multiple files, some complexity",
+      "large": "Large",
+      "largeDesc": "Many files, cross-cutting",
+      "complex": "Complex",
+      "complexDesc": "Architectural changes"
+    }
+  }
+}

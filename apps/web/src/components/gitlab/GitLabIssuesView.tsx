@@ -12,6 +12,7 @@ import {
   Tag,
 } from "lucide-react";
 import { cn } from "@auto-claude/ui";
+import { useTranslation } from "react-i18next";
 
 // GitLab icon as inline SVG since lucide-react's GitlabIcon may not be available in all versions
 function GitLabIcon({ className }: { className?: string }) {
@@ -71,6 +72,7 @@ const PLACEHOLDER_ISSUES: GitLabIssue[] = [
 ];
 
 export function GitLabIssuesView({ projectId }: GitLabIssuesViewProps) {
+  const { t } = useTranslation("integrations");
   const [issues] = useState(PLACEHOLDER_ISSUES);
   const [selectedIssue, setSelectedIssue] = useState<GitLabIssue | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -85,13 +87,13 @@ export function GitLabIssuesView({ projectId }: GitLabIssuesViewProps) {
               <GitLabIcon className="h-8 w-8 text-muted-foreground" />
             </div>
           </div>
-          <h2 className="mb-3 text-xl font-semibold">GitLab Not Connected</h2>
+          <h2 className="mb-3 text-xl font-semibold">{t("gitlab.issues.notConnected")}</h2>
           <p className="mb-6 text-sm text-muted-foreground">
-            Connect your GitLab project to sync issues and create tasks.
+            {t("gitlab.issues.notConnectedDescription")}
           </p>
           <button className="flex items-center gap-2 mx-auto rounded-lg bg-primary px-6 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors">
             <Settings className="h-4 w-4" />
-            Configure GitLab
+            {t("gitlab.issues.configure")}
           </button>
         </div>
       </div>
@@ -105,7 +107,7 @@ export function GitLabIssuesView({ projectId }: GitLabIssuesViewProps) {
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <h1 className="text-sm font-semibold flex items-center gap-2">
             <GitLabIcon className="h-4 w-4" />
-            GitLab Issues
+            {t("gitlab.issues.title")}
           </h1>
           <button className="flex h-7 w-7 items-center justify-center rounded-md hover:bg-accent transition-colors">
             <RefreshCw className="h-3.5 w-3.5" />
@@ -117,7 +119,7 @@ export function GitLabIssuesView({ projectId }: GitLabIssuesViewProps) {
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
             <input
               className="w-full rounded-md border border-border bg-background pl-8 pr-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary/20"
-              placeholder="Search issues..."
+              placeholder={t("gitlab.issues.search")}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -199,7 +201,7 @@ export function GitLabIssuesView({ projectId }: GitLabIssuesViewProps) {
               <div className="pt-4 border-t border-border">
                 <button className="flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-primary/90 transition-colors">
                   <ArrowRight className="h-3.5 w-3.5" />
-                  Create Task from Issue
+                  {t("gitlab.issues.createTask")}
                 </button>
               </div>
             </div>

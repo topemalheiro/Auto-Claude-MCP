@@ -34,31 +34,60 @@ vi.mock('next/link', () => ({
   ),
 }));
 
-// Mock i18next
+// Mock i18next - load actual English locale files for realistic rendering
+import enCommon from '@/locales/en/common.json';
+import enPages from '@/locales/en/pages.json';
+import enLayout from '@/locales/en/layout.json';
+import enKanban from '@/locales/en/kanban.json';
+import enViews from '@/locales/en/views.json';
+import enIntegrations from '@/locales/en/integrations.json';
+import enSettings from '@/locales/en/settings.json';
+
+const locales: Record<string, any> = {
+  common: enCommon,
+  pages: enPages,
+  layout: enLayout,
+  kanban: enKanban,
+  views: enViews,
+  integrations: enIntegrations,
+  settings: enSettings,
+};
+
+function resolveKey(key: string, ns: string, params?: any): string {
+  // Handle "ns:key" format
+  let namespace = ns;
+  let path = key;
+  if (key.includes(':')) {
+    const [nsOverride, ...rest] = key.split(':');
+    namespace = nsOverride;
+    path = rest.join(':');
+  }
+  const data = locales[namespace];
+  if (!data) return key;
+  const value = path.split('.').reduce((obj: any, k: string) => obj?.[k], data);
+  if (typeof value !== 'string') return key;
+  if (params) {
+    return value.replace(/\{\{(\w+)\}\}/g, (_: string, p: string) => params[p] ?? '');
+  }
+  return value;
+}
+
 vi.mock('react-i18next', () => ({
-  useTranslation: () => ({
-    t: (key: string, params?: any) => {
-      // Simple translation mock that returns the key
-      if (key === 'pages:home.selfHosted.title') return 'Auto Claude Dashboard';
-      if (key === 'pages:home.selfHosted.mode') return 'Running in self-hosted mode';
-      if (key === 'pages:home.selfHosted.unlockFeatures') return 'Unlock Premium Features';
-      if (key === 'pages:home.selfHosted.featuresDescription') return 'Upgrade to cloud mode';
-      if (key === 'common:navigation.specs') return 'Specs';
-      if (key === 'common:navigation.teams') return 'Teams';
-      if (key === 'common:navigation.personas') return 'Personas';
-      if (key === 'common:navigation.prQueue') return 'PR Queue';
-      if (key === 'common:navigation.settings') return 'Settings';
-      if (key === 'common:buttons.learnMore') return 'Learn More';
-      if (key === 'pages:home.landing.title') return 'Welcome to Auto Claude';
-      if (key === 'pages:home.landing.subtitle') return 'AI-powered development';
-      if (key === 'common:buttons.getStarted') return 'Get Started';
-      if (key === 'common:loading') return 'Loading...';
-      if (key === 'pages:home.welcome') return `Welcome, ${params?.name || 'User'}!`;
-      if (key === 'pages:home.tier') return `Tier: ${params?.tier || 'free'}`;
-      return key;
-    },
+  useTranslation: (ns: string = 'common') => ({
+    t: (key: string, params?: any) => resolveKey(key, ns, params),
     i18n: { language: 'en' },
   }),
+}));
+
+// Mock the data layer to prevent API calls from stores
+vi.mock('@/lib/data', () => ({
+  apiClient: {
+    getProjects: vi.fn(() => Promise.resolve({ projects: [] })),
+    getTasks: vi.fn(() => Promise.resolve({ tasks: [] })),
+    getSettings: vi.fn(() => Promise.resolve({ settings: {} })),
+    updateSettings: vi.fn(() => Promise.resolve({})),
+    updateTaskStatus: vi.fn(() => Promise.resolve({})),
+  },
 }));
 
 describe('HomePage', () => {
@@ -75,42 +104,53 @@ describe('HomePage', () => {
       });
     });
 
-    it('should render without crashing in self-hosted mode', () => {
+    it('should render the AppShell with sidebar and welcome screen', () => {
       render(<HomePage />);
-      expect(screen.getByText('Auto Claude Dashboard')).toBeInTheDocument();
+      // Sidebar renders "Auto Claude" branding
+      expect(screen.getByText('Auto Claude')).toBeInTheDocument();
+      // WelcomeScreen renders when no project is selected
+      expect(screen.getByText('Welcome to Auto Claude')).toBeInTheDocument();
     });
 
-    it('should show self-hosted mode indicator', () => {
+    it('should show the welcome screen when no project is selected', () => {
       render(<HomePage />);
-      expect(screen.getByText('Running in self-hosted mode')).toBeInTheDocument();
+      expect(screen.getByText('Welcome to Auto Claude')).toBeInTheDocument();
+      expect(
+        screen.getByText(/Get started by connecting a project/)
+      ).toBeInTheDocument();
     });
 
-    it('should display upgrade CTA in self-hosted mode', () => {
+    it('should display the Connect a Project button', () => {
       render(<HomePage />);
-      expect(screen.getByText('Unlock Premium Features')).toBeInTheDocument();
-      expect(screen.getByText('Upgrade to cloud mode')).toBeInTheDocument();
+      const connectButton = screen.getByRole('button', { name: /Connect a Project/i });
+      expect(connectButton).toBeInTheDocument();
     });
 
-    it('should show learn more button linking to autoclaude.com', () => {
+    it('should show sidebar navigation items', () => {
       render(<HomePage />);
-      const learnMoreLink = screen.getByText('Learn More');
-      expect(learnMoreLink).toBeInTheDocument();
-      expect(learnMoreLink.closest('a')).toHaveAttribute('href', 'https://autoclaude.com');
+      expect(screen.getByText('Tasks')).toBeInTheDocument();
+      expect(screen.getByText('Insights')).toBeInTheDocument();
+      expect(screen.getByText('Roadmap')).toBeInTheDocument();
+      expect(screen.getByText('Ideation')).toBeInTheDocument();
+      expect(screen.getByText('Changelog')).toBeInTheDocument();
+      expect(screen.getByText('Context')).toBeInTheDocument();
     });
 
-    it('should show specs navigation link', () => {
+    it('should show Settings button in the sidebar', () => {
       render(<HomePage />);
-      const specsLink = screen.getByText('Specs');
-      expect(specsLink).toBeInTheDocument();
-      expect(specsLink.closest('a')).toHaveAttribute('href', '/specs');
+      expect(screen.getByText('Settings')).toBeInTheDocument();
     });
 
-    it('should not show cloud-only navigation links in self-hosted mode', () => {
+    it('should not disable Settings button when no project is active', () => {
       render(<HomePage />);
-      // Teams, Personas, PR Queue should not be visible in self-hosted mode
-      expect(screen.queryByText('Teams')).not.toBeInTheDocument();
-      expect(screen.queryByText('Personas')).not.toBeInTheDocument();
-      expect(screen.queryByText('PR Queue')).not.toBeInTheDocument();
+      const settingsButton = screen.getByText('Settings').closest('button');
+      expect(settingsButton).not.toBeDisabled();
+    });
+
+    it('should disable nav items when no project is active', () => {
+      render(<HomePage />);
+      const tasksButton = screen.getByText('Tasks').closest('button');
+      expect(tasksButton).toBeDisabled();
     });
 
     it('should render main element', () => {
@@ -129,20 +169,20 @@ describe('HomePage', () => {
 
       // Mock the AuthGate components to show unauthenticated state
       const { CloudAuthenticated, CloudUnauthenticated, CloudAuthLoading } = await import('@/providers/AuthGate');
-      vi.mocked(CloudAuthenticated).mockImplementation(() => null);
+      vi.mocked(CloudAuthenticated).mockImplementation(() => null as unknown as React.ReactElement);
       vi.mocked(CloudUnauthenticated).mockImplementation(({ children }) => <>{children}</>);
-      vi.mocked(CloudAuthLoading).mockImplementation(() => null);
+      vi.mocked(CloudAuthLoading).mockImplementation(() => null as unknown as React.ReactElement);
     });
 
     it('should render without crashing in cloud mode', () => {
       render(<HomePage />);
-      expect(screen.getByText('Welcome to Auto Claude')).toBeInTheDocument();
+      expect(screen.getByText('Auto Claude Cloud')).toBeInTheDocument();
     });
 
     it('should show landing page for unauthenticated users', () => {
       render(<HomePage />);
-      expect(screen.getByText('Welcome to Auto Claude')).toBeInTheDocument();
-      expect(screen.getByText('AI-powered development')).toBeInTheDocument();
+      expect(screen.getByText('Auto Claude Cloud')).toBeInTheDocument();
+      expect(screen.getByText('Cloud-synced specs, personas, and team collaboration')).toBeInTheDocument();
     });
 
     it('should show get started button linking to login', () => {
@@ -184,22 +224,25 @@ describe('HomePage', () => {
       vi.mocked(CloudAuthLoading).mockImplementation(() => null);
     });
 
-    it('should show welcome message with user name', () => {
+    it('should render the AppShell for authenticated cloud users', () => {
       render(<HomePage />);
-      expect(screen.getByText('Welcome, Test User!')).toBeInTheDocument();
+      // AppShell renders Sidebar with branding
+      expect(screen.getByText('Auto Claude')).toBeInTheDocument();
     });
 
-    it('should show user tier', () => {
+    it('should show welcome screen when no project is selected', () => {
       render(<HomePage />);
-      expect(screen.getByText('Tier: pro')).toBeInTheDocument();
+      expect(screen.getByText('Welcome to Auto Claude')).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: /Connect a Project/i })
+      ).toBeInTheDocument();
     });
 
-    it('should show all navigation links for authenticated users', () => {
+    it('should show sidebar navigation items for authenticated users', () => {
       render(<HomePage />);
-      const linkTexts = ['Specs', 'Teams', 'Personas', 'PR Queue', 'Settings'];
-
-      linkTexts.forEach(text => {
-        expect(screen.getByText(text)).toBeInTheDocument();
+      const navLabels = ['Tasks', 'Insights', 'Roadmap', 'Ideation', 'Changelog', 'Context'];
+      navLabels.forEach(label => {
+        expect(screen.getByText(label)).toBeInTheDocument();
       });
     });
   });
@@ -240,7 +283,7 @@ describe('HomePage', () => {
       expect(headings.length).toBeGreaterThan(0);
     });
 
-    it('should have accessible links', async () => {
+    it('should have accessible buttons in self-hosted mode', async () => {
       const { useCloudMode } = await import('@/hooks/useCloudMode');
       vi.mocked(useCloudMode).mockReturnValue({
         isCloud: false,
@@ -248,11 +291,8 @@ describe('HomePage', () => {
       });
 
       render(<HomePage />);
-      const links = screen.getAllByRole('link');
-      expect(links.length).toBeGreaterThan(0);
-      links.forEach(link => {
-        expect(link).toHaveAttribute('href');
-      });
+      const buttons = screen.getAllByRole('button');
+      expect(buttons.length).toBeGreaterThan(0);
     });
   });
 });

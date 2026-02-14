@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import {
   X,
   CheckCircle2,
@@ -12,23 +14,22 @@ import {
 import { cn } from "@auto-claude/ui";
 import type { Task } from "@auto-claude/types";
 
-const STATUS_LABELS: Record<string, string> = {
-  backlog: "Backlog",
-  queue: "Queue",
-  in_progress: "In Progress",
-  ai_review: "AI Review",
-  human_review: "Human Review",
-  done: "Done",
-  pr_created: "PR Created",
-  error: "Error",
-};
-
 interface TaskDetailModalProps {
   task: Task;
   onClose: () => void;
 }
 
 export function TaskDetailModal({ task, onClose }: TaskDetailModalProps) {
+  const { t } = useTranslation("kanban");
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop */}
@@ -54,7 +55,7 @@ export function TaskDetailModal({ task, onClose }: TaskDetailModalProps) {
                     "bg-secondary text-muted-foreground"
                 )}
               >
-                {STATUS_LABELS[task.status] || task.status}
+                {t(`columns.${task.status}`, task.status)}
               </span>
               {task.metadata?.category && (
                 <span className="rounded-full bg-secondary px-2.5 py-0.5 text-xs text-muted-foreground">
@@ -77,7 +78,7 @@ export function TaskDetailModal({ task, onClose }: TaskDetailModalProps) {
           {/* Description */}
           {task.description && (
             <div>
-              <h3 className="text-sm font-medium mb-2">Description</h3>
+              <h3 className="text-sm font-medium mb-2">{t("detail.description")}</h3>
               <p className="text-sm text-muted-foreground whitespace-pre-wrap">
                 {task.description}
               </p>
@@ -87,11 +88,11 @@ export function TaskDetailModal({ task, onClose }: TaskDetailModalProps) {
           {/* Execution Progress */}
           {task.executionProgress && (
             <div>
-              <h3 className="text-sm font-medium mb-2">Execution Progress</h3>
+              <h3 className="text-sm font-medium mb-2">{t("detail.executionProgress")}</h3>
               <div className="rounded-lg border border-border p-4">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm text-muted-foreground capitalize">
-                    Phase: {task.executionProgress.phase}
+                    {t("detail.phase", { phase: task.executionProgress.phase })}
                   </span>
                   <span className="text-sm font-medium">
                     {task.executionProgress.overallProgress}%
@@ -118,8 +119,10 @@ export function TaskDetailModal({ task, onClose }: TaskDetailModalProps) {
           {task.subtasks && task.subtasks.length > 0 && (
             <div>
               <h3 className="text-sm font-medium mb-2">
-                Subtasks ({task.subtasks.filter((s) => s.status === "completed").length}/
-                {task.subtasks.length})
+                {t("detail.subtasks", {
+                  completed: task.subtasks.filter((s) => s.status === "completed").length,
+                  total: task.subtasks.length,
+                })}
               </h3>
               <div className="space-y-2">
                 {task.subtasks.map((subtask) => (
@@ -166,7 +169,7 @@ export function TaskDetailModal({ task, onClose }: TaskDetailModalProps) {
           {/* QA Report */}
           {task.qaReport && (
             <div>
-              <h3 className="text-sm font-medium mb-2">QA Report</h3>
+              <h3 className="text-sm font-medium mb-2">{t("detail.qaReport")}</h3>
               <div
                 className={cn(
                   "rounded-lg border p-4",
@@ -179,7 +182,7 @@ export function TaskDetailModal({ task, onClose }: TaskDetailModalProps) {
                 )}
               >
                 <p className="text-sm font-medium capitalize">
-                  Status: {task.qaReport.status}
+                  {t("detail.qaStatus", { status: task.qaReport.status })}
                 </p>
                 {task.qaReport.issues && task.qaReport.issues.length > 0 && (
                   <ul className="mt-2 space-y-1">
@@ -208,11 +211,11 @@ export function TaskDetailModal({ task, onClose }: TaskDetailModalProps) {
           {/* Metadata */}
           {task.metadata && (
             <div>
-              <h3 className="text-sm font-medium mb-2">Details</h3>
+              <h3 className="text-sm font-medium mb-2">{t("detail.details")}</h3>
               <div className="grid grid-cols-2 gap-3">
                 {task.metadata.priority && (
                   <div className="rounded-md border border-border p-3">
-                    <p className="text-xs text-muted-foreground">Priority</p>
+                    <p className="text-xs text-muted-foreground">{t("detail.priority")}</p>
                     <p className="text-sm font-medium capitalize">
                       {task.metadata.priority}
                     </p>
@@ -220,7 +223,7 @@ export function TaskDetailModal({ task, onClose }: TaskDetailModalProps) {
                 )}
                 {task.metadata.complexity && (
                   <div className="rounded-md border border-border p-3">
-                    <p className="text-xs text-muted-foreground">Complexity</p>
+                    <p className="text-xs text-muted-foreground">{t("detail.complexity")}</p>
                     <p className="text-sm font-medium capitalize">
                       {task.metadata.complexity}
                     </p>
@@ -228,7 +231,7 @@ export function TaskDetailModal({ task, onClose }: TaskDetailModalProps) {
                 )}
                 {task.metadata.impact && (
                   <div className="rounded-md border border-border p-3">
-                    <p className="text-xs text-muted-foreground">Impact</p>
+                    <p className="text-xs text-muted-foreground">{t("detail.impact")}</p>
                     <p className="text-sm font-medium capitalize">
                       {task.metadata.impact}
                     </p>
@@ -236,7 +239,7 @@ export function TaskDetailModal({ task, onClose }: TaskDetailModalProps) {
                 )}
                 {task.metadata.model && (
                   <div className="rounded-md border border-border p-3">
-                    <p className="text-xs text-muted-foreground">Model</p>
+                    <p className="text-xs text-muted-foreground">{t("detail.model")}</p>
                     <p className="text-sm font-medium capitalize">
                       {task.metadata.model}
                     </p>
@@ -256,7 +259,7 @@ export function TaskDetailModal({ task, onClose }: TaskDetailModalProps) {
                 className="flex items-center gap-2 rounded-lg border border-border p-3 hover:bg-accent transition-colors"
               >
                 <GitPullRequest className="h-4 w-4 text-green-500" />
-                <span className="text-sm">View Pull Request</span>
+                <span className="text-sm">{t("detail.viewPullRequest")}</span>
                 <ExternalLink className="h-3 w-3 text-muted-foreground ml-auto" />
               </a>
             </div>

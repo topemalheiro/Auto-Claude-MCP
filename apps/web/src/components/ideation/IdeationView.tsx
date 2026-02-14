@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Lightbulb,
   Sparkles,
@@ -28,18 +29,31 @@ type IdeaCategory =
   | "bug_predictions"
   | "new_features";
 
-const CATEGORIES: {
-  id: IdeaCategory;
-  label: string;
-  icon: React.ElementType;
-  description: string;
-}[] = [
-  { id: "code_improvements", label: "Code Quality", icon: Code, description: "Refactoring and code improvements" },
-  { id: "security_hardening", label: "Security", icon: Shield, description: "Security vulnerabilities and fixes" },
-  { id: "performance_optimization", label: "Performance", icon: Zap, description: "Speed and resource optimization" },
-  { id: "ui_ux_improvements", label: "UI/UX", icon: Paintbrush, description: "User experience improvements" },
-  { id: "bug_predictions", label: "Bug Predictions", icon: Bug, description: "Potential bugs and edge cases" },
-  { id: "new_features", label: "Features", icon: Sparkles, description: "New feature suggestions" },
+const CATEGORY_ICONS: Record<IdeaCategory, React.ElementType> = {
+  code_improvements: Code,
+  security_hardening: Shield,
+  performance_optimization: Zap,
+  ui_ux_improvements: Paintbrush,
+  bug_predictions: Bug,
+  new_features: Sparkles,
+};
+
+const CATEGORY_KEYS: Record<IdeaCategory, string> = {
+  code_improvements: "ideation.categories.codeImprovements",
+  security_hardening: "ideation.categories.securityHardening",
+  performance_optimization: "ideation.categories.performanceOptimization",
+  ui_ux_improvements: "ideation.categories.uiUxImprovements",
+  bug_predictions: "ideation.categories.bugPredictions",
+  new_features: "ideation.categories.newFeatures",
+};
+
+const CATEGORY_IDS: IdeaCategory[] = [
+  "code_improvements",
+  "security_hardening",
+  "performance_optimization",
+  "ui_ux_improvements",
+  "bug_predictions",
+  "new_features",
 ];
 
 interface Idea {
@@ -59,6 +73,7 @@ const PLACEHOLDER_IDEAS: Idea[] = [
 ];
 
 export function IdeationView({ projectId }: IdeationViewProps) {
+  const { t } = useTranslation("views");
   const [selectedCategory, setSelectedCategory] = useState<IdeaCategory | null>(null);
   const [ideas] = useState<Idea[]>(PLACEHOLDER_IDEAS);
   const [isEmpty] = useState(false);
@@ -76,14 +91,13 @@ export function IdeationView({ projectId }: IdeationViewProps) {
               <Lightbulb className="h-8 w-8 text-primary" />
             </div>
           </div>
-          <h2 className="mb-3 text-xl font-semibold">No Ideas Yet</h2>
+          <h2 className="mb-3 text-xl font-semibold">{t("ideation.empty.title")}</h2>
           <p className="mb-6 text-sm text-muted-foreground">
-            Let AI analyze your codebase and suggest improvements, features,
-            and optimizations.
+            {t("ideation.empty.description")}
           </p>
           <button className="flex items-center gap-2 mx-auto rounded-lg bg-primary px-6 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors">
             <Sparkles className="h-4 w-4" />
-            Generate Ideas
+            {t("ideation.empty.generate")}
           </button>
         </div>
       </div>
@@ -94,15 +108,15 @@ export function IdeationView({ projectId }: IdeationViewProps) {
     <div className="flex h-full flex-col overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-border px-6 py-3">
-        <h1 className="text-lg font-semibold">Ideation</h1>
+        <h1 className="text-lg font-semibold">{t("ideation.title")}</h1>
         <div className="flex items-center gap-2">
           <button className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
             <RefreshCw className="h-3.5 w-3.5" />
-            Regenerate
+            {t("ideation.regenerate")}
           </button>
           <button className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground hover:bg-primary/90 transition-colors">
             <Sparkles className="h-3.5 w-3.5" />
-            Analyze Codebase
+            {t("ideation.analyzeCodebase")}
           </button>
         </div>
       </div>
@@ -117,22 +131,22 @@ export function IdeationView({ projectId }: IdeationViewProps) {
             )}
             onClick={() => setSelectedCategory(null)}
           >
-            All ({ideas.length})
+            {t("ideation.allFilter", { count: ideas.length })}
           </button>
-          {CATEGORIES.map((cat) => {
-            const Icon = cat.icon;
-            const count = ideas.filter((i) => i.category === cat.id).length;
+          {CATEGORY_IDS.map((catId) => {
+            const Icon = CATEGORY_ICONS[catId];
+            const count = ideas.filter((i) => i.category === catId).length;
             return (
               <button
-                key={cat.id}
+                key={catId}
                 className={cn(
                   "shrink-0 flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
-                  selectedCategory === cat.id ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground"
+                  selectedCategory === catId ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground"
                 )}
-                onClick={() => setSelectedCategory(cat.id)}
+                onClick={() => setSelectedCategory(catId)}
               >
                 <Icon className="h-3 w-3" />
-                {cat.label} ({count})
+                {t("ideation.categoryCount", { label: t(`${CATEGORY_KEYS[catId]}.label`), count })}
               </button>
             );
           })}
@@ -143,8 +157,7 @@ export function IdeationView({ projectId }: IdeationViewProps) {
       <div className="flex-1 overflow-y-auto p-6">
         <div className="space-y-3 max-w-3xl">
           {filteredIdeas.map((idea) => {
-            const category = CATEGORIES.find((c) => c.id === idea.category);
-            const Icon = category?.icon || Lightbulb;
+            const Icon = CATEGORY_ICONS[idea.category] || Lightbulb;
 
             return (
               <div
@@ -165,10 +178,10 @@ export function IdeationView({ projectId }: IdeationViewProps) {
                         idea.impact === "medium" && "bg-yellow-500/10 text-yellow-600",
                         idea.impact === "low" && "bg-blue-500/10 text-blue-600"
                       )}>
-                        Impact: {idea.impact}
+                        {t("ideation.impact", { level: idea.impact })}
                       </span>
                       <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-                        Effort: {idea.effort}
+                        {t("ideation.effort", { level: idea.effort })}
                       </span>
                     </div>
                   </div>

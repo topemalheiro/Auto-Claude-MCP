@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { cn } from "@auto-claude/ui";
 import { useSettingsStore, saveSettings } from "@/stores/settings-store";
+import { useTranslation } from "react-i18next";
 
 type SettingsSection =
   | "general"
@@ -26,28 +27,30 @@ type SettingsSection =
   | "notifications"
   | "advanced";
 
-const SECTIONS: {
-  id: SettingsSection;
-  label: string;
-  icon: React.ElementType;
-}[] = [
-  { id: "general", label: "General", icon: Settings },
-  { id: "appearance", label: "Appearance", icon: Palette },
-  { id: "accounts", label: "Accounts", icon: Key },
-  { id: "github", label: "GitHub", icon: Github },
-  { id: "notifications", label: "Notifications", icon: Bell },
-  { id: "advanced", label: "Advanced", icon: Database },
+const SECTION_IDS: { id: SettingsSection; icon: React.ElementType }[] = [
+  { id: "general", icon: Settings },
+  { id: "appearance", icon: Palette },
+  { id: "accounts", icon: Key },
+  { id: "github", icon: Github },
+  { id: "notifications", icon: Bell },
+  { id: "advanced", icon: Database },
 ];
 
 export function SettingsView() {
   const [activeSection, setActiveSection] = useState<SettingsSection>("general");
   const settings = useSettingsStore((s) => s.settings);
+  const { t } = useTranslation("settings");
+
+  const SECTIONS = SECTION_IDS.map((s) => ({
+    ...s,
+    label: t(`sections.${s.id}.title`),
+  }));
 
   return (
     <div className="flex h-full overflow-hidden">
       {/* Sidebar */}
       <div className="w-56 border-r border-border bg-card/50 p-4">
-        <h1 className="text-sm font-semibold mb-4 px-3">Settings</h1>
+        <h1 className="text-sm font-semibold mb-4 px-3">{t("title")}</h1>
         <nav className="space-y-1">
           {SECTIONS.map((section) => {
             const Icon = section.icon;
@@ -76,23 +79,23 @@ export function SettingsView() {
           {activeSection === "general" && (
             <div className="space-y-6">
               <div>
-                <h2 className="text-lg font-semibold mb-1">General</h2>
+                <h2 className="text-lg font-semibold mb-1">{t("sections.general.title")}</h2>
                 <p className="text-sm text-muted-foreground">
-                  Configure general application settings.
+                  {t("sections.general.description")}
                 </p>
               </div>
 
               <div className="space-y-4">
                 <div className="flex items-center justify-between rounded-lg border border-border p-4">
                   <div>
-                    <p className="text-sm font-medium">Language</p>
+                    <p className="text-sm font-medium">{t("fields.language")}</p>
                     <p className="text-xs text-muted-foreground">
-                      Select your preferred language
+                      {t("fields.languageDescription")}
                     </p>
                   </div>
                   <select className="rounded-md border border-border bg-background px-3 py-1.5 text-sm">
-                    <option value="en">English</option>
-                    <option value="fr">French</option>
+                    <option value="en">{t("languages.en")}</option>
+                    <option value="fr">{t("languages.fr")}</option>
                   </select>
                 </div>
               </div>
@@ -102,16 +105,16 @@ export function SettingsView() {
           {activeSection === "appearance" && (
             <div className="space-y-6">
               <div>
-                <h2 className="text-lg font-semibold mb-1">Appearance</h2>
+                <h2 className="text-lg font-semibold mb-1">{t("sections.appearance.title")}</h2>
                 <p className="text-sm text-muted-foreground">
-                  Customize the look and feel of the application.
+                  {t("sections.appearance.description")}
                 </p>
               </div>
 
               <div className="space-y-4">
                 {/* Theme */}
                 <div className="rounded-lg border border-border p-4">
-                  <p className="text-sm font-medium mb-3">Theme</p>
+                  <p className="text-sm font-medium mb-3">{t("fields.theme")}</p>
                   <div className="grid grid-cols-3 gap-3">
                     {(["light", "dark", "system"] as const).map((theme) => {
                       const Icon = theme === "light" ? Sun : theme === "dark" ? Moon : Monitor;
@@ -128,7 +131,7 @@ export function SettingsView() {
                         >
                           <Icon className="h-5 w-5" />
                           <span className="text-xs font-medium capitalize">
-                            {theme}
+                            {t(`themes.${theme}`)}
                           </span>
                         </button>
                       );
@@ -142,9 +145,9 @@ export function SettingsView() {
           {activeSection === "accounts" && (
             <div className="space-y-6">
               <div>
-                <h2 className="text-lg font-semibold mb-1">Accounts</h2>
+                <h2 className="text-lg font-semibold mb-1">{t("sections.accounts.title")}</h2>
                 <p className="text-sm text-muted-foreground">
-                  Manage API keys and authentication.
+                  {t("sections.accounts.description")}
                 </p>
               </div>
 
@@ -152,13 +155,13 @@ export function SettingsView() {
                 <div className="rounded-lg border border-border p-4">
                   <div className="flex items-center gap-2 mb-3">
                     <Key className="h-4 w-4 text-primary" />
-                    <p className="text-sm font-medium">Claude API</p>
+                    <p className="text-sm font-medium">{t("fields.claudeApi")}</p>
                   </div>
                   <p className="text-xs text-muted-foreground mb-3">
-                    Configure your Claude API authentication for AI features.
+                    {t("fields.claudeApiDescription")}
                   </p>
                   <button className="rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-primary/90 transition-colors">
-                    Configure
+                    {t("actions.configure")}
                   </button>
                 </div>
               </div>
@@ -168,9 +171,9 @@ export function SettingsView() {
           {activeSection === "github" && (
             <div className="space-y-6">
               <div>
-                <h2 className="text-lg font-semibold mb-1">GitHub Integration</h2>
+                <h2 className="text-lg font-semibold mb-1">{t("sections.github.title")}</h2>
                 <p className="text-sm text-muted-foreground">
-                  Connect and configure your GitHub repository.
+                  {t("sections.github.description")}
                 </p>
               </div>
 
@@ -178,21 +181,21 @@ export function SettingsView() {
                 <div className="rounded-lg border border-border p-4">
                   <div className="flex items-center gap-2 mb-3">
                     <Github className="h-4 w-4" />
-                    <p className="text-sm font-medium">Repository</p>
+                    <p className="text-sm font-medium">{t("fields.repository")}</p>
                   </div>
                   <div className="space-y-3">
                     <div>
-                      <label className="text-xs text-muted-foreground">Repository (owner/repo)</label>
+                      <label className="text-xs text-muted-foreground">{t("fields.repositoryLabel")}</label>
                       <input
                         className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
-                        placeholder="owner/repo"
+                        placeholder={t("placeholders.ownerRepo")}
                       />
                     </div>
                     <div>
-                      <label className="text-xs text-muted-foreground">Main Branch</label>
+                      <label className="text-xs text-muted-foreground">{t("fields.mainBranch")}</label>
                       <input
                         className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
-                        placeholder="main"
+                        placeholder={t("placeholders.main")}
                       />
                     </div>
                   </div>
@@ -204,25 +207,21 @@ export function SettingsView() {
           {activeSection === "notifications" && (
             <div className="space-y-6">
               <div>
-                <h2 className="text-lg font-semibold mb-1">Notifications</h2>
+                <h2 className="text-lg font-semibold mb-1">{t("sections.notifications.title")}</h2>
                 <p className="text-sm text-muted-foreground">
-                  Configure notification preferences.
+                  {t("sections.notifications.description")}
                 </p>
               </div>
 
               <div className="space-y-4">
-                {[
-                  { label: "Task Completed", description: "Notify when a task finishes execution" },
-                  { label: "Task Failed", description: "Notify when a task encounters an error" },
-                  { label: "Review Needed", description: "Notify when a task needs human review" },
-                ].map((item) => (
+                {(["taskCompleted", "taskFailed", "reviewNeeded"] as const).map((key) => (
                   <div
-                    key={item.label}
+                    key={key}
                     className="flex items-center justify-between rounded-lg border border-border p-4"
                   >
                     <div>
-                      <p className="text-sm font-medium">{item.label}</p>
-                      <p className="text-xs text-muted-foreground">{item.description}</p>
+                      <p className="text-sm font-medium">{t(`notifications.${key}.label`)}</p>
+                      <p className="text-xs text-muted-foreground">{t(`notifications.${key}.description`)}</p>
                     </div>
                     <button className="relative inline-flex h-6 w-11 items-center rounded-full bg-primary transition-colors">
                       <span className="inline-block h-4 w-4 transform rounded-full bg-white transition-transform translate-x-6" />
@@ -236,9 +235,9 @@ export function SettingsView() {
           {activeSection === "advanced" && (
             <div className="space-y-6">
               <div>
-                <h2 className="text-lg font-semibold mb-1">Advanced</h2>
+                <h2 className="text-lg font-semibold mb-1">{t("sections.advanced.title")}</h2>
                 <p className="text-sm text-muted-foreground">
-                  Advanced configuration options.
+                  {t("sections.advanced.description")}
                 </p>
               </div>
 
@@ -246,17 +245,17 @@ export function SettingsView() {
                 <div className="rounded-lg border border-border p-4">
                   <div className="flex items-center gap-2 mb-3">
                     <Database className="h-4 w-4 text-primary" />
-                    <p className="text-sm font-medium">Memory System</p>
+                    <p className="text-sm font-medium">{t("fields.memorySystem")}</p>
                   </div>
                   <p className="text-xs text-muted-foreground mb-3">
-                    Configure the AI memory system for your projects.
+                    {t("fields.memorySystemDescription")}
                   </p>
                   <div className="flex items-center gap-2">
                     <span className="rounded-full bg-green-500/10 text-green-600 px-2 py-0.5 text-xs">
-                      Active
+                      {t("status.active")}
                     </span>
                     <span className="text-xs text-muted-foreground">
-                      Using LadybugDB embedded database
+                      {t("status.usingLadybugDb")}
                     </span>
                   </div>
                 </div>

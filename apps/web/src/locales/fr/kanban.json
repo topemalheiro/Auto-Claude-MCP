@@ -1,0 +1,109 @@
+{
+  "board": {
+    "title": "Tâches",
+    "refresh": "Actualiser",
+    "newTask": "Nouvelle tâche",
+    "noTasks": "Aucune tâche"
+  },
+  "columns": {
+    "backlog": "Backlog",
+    "queue": "File d'attente",
+    "in_progress": "En cours",
+    "ai_review": "Revue IA",
+    "human_review": "Revue humaine",
+    "done": "Terminé",
+    "pr_created": "PR créée",
+    "error": "Erreur"
+  },
+  "card": {
+    "category": {
+      "feature": "Fonctionnalité",
+      "bug_fix": "Correction de bug",
+      "refactoring": "Refactoring",
+      "documentation": "Docs",
+      "security": "Sécurité",
+      "performance": "Perf",
+      "ui_ux": "UI/UX",
+      "infrastructure": "Infra",
+      "testing": "Tests"
+    },
+    "badges": {
+      "prCreated": "PR créée",
+      "error": "Erreur"
+    },
+    "review": {
+      "completed": "Prêt pour revue",
+      "errors": "Contient des erreurs",
+      "qa_rejected": "Rejeté par QA",
+      "plan_review": "Revue du plan",
+      "stopped": "Arrêté"
+    }
+  },
+  "detail": {
+    "description": "Description",
+    "executionProgress": "Progression de l'exécution",
+    "phase": "Phase : {{phase}}",
+    "subtasks": "Sous-tâches ({{completed}}/{{total}})",
+    "qaReport": "Rapport QA",
+    "qaStatus": "Statut : {{status}}",
+    "details": "Détails",
+    "priority": "Priorité",
+    "complexity": "Complexité",
+    "impact": "Impact",
+    "model": "Modèle",
+    "viewPullRequest": "Voir la Pull Request",
+    "title": "Titre"
+  },
+  "wizard": {
+    "newTask": "Nouvelle tâche",
+    "steps": {
+      "details": "1. Détails",
+      "config": "2. Config",
+      "review": "3. Revue"
+    },
+    "taskTitle": "Titre de la tâche",
+    "titlePlaceholder": "Que faut-il faire ?",
+    "descriptionLabel": "Description",
+    "descriptionPlaceholder": "Décrivez la tâche en détail. Quel est le résultat attendu ? Des exigences spécifiques ?",
+    "categoryLabel": "Catégorie",
+    "priorityLabel": "Priorité",
+    "complexityLabel": "Complexité",
+    "cancel": "Annuler",
+    "back": "Retour",
+    "continue": "Continuer",
+    "createTask": "Créer la tâche",
+    "reviewTask": "Vérifier la tâche",
+    "untitled": "Sans titre",
+    "aiHandlesRest": "L'IA s'occupe du reste",
+    "aiHandlesRestDescription": "Auto Claude analysera la tâche, créera un plan, écrira le code et exécutera les tests automatiquement.",
+    "category": {
+      "feature": "Fonctionnalité",
+      "bug_fix": "Correction de bug",
+      "refactoring": "Refactoring",
+      "documentation": "Documentation",
+      "security": "Sécurité",
+      "performance": "Performance",
+      "ui_ux": "UI/UX",
+      "infrastructure": "Infrastructure",
+      "testing": "Tests"
+    },
+    "priority": {
+      "urgent": "Urgent",
+      "high": "Haute",
+      "medium": "Moyenne",
+      "low": "Basse"
+    },
+    "complexityOption": {
+      "trivial": "Trivial",
+      "trivialDesc": "Correction rapide, un seul fichier",
+      "small": "Petit",
+      "smallDesc": "Quelques fichiers, simple",
+      "medium": "Moyen",
+      "mediumDesc": "Plusieurs fichiers, un peu complexe",
+      "large": "Grand",
+      "largeDesc": "Beaucoup de fichiers, transversal",
+      "complex": "Complexe",
+      "complexDesc": "Changements architecturaux"
+    }
+  }
+}

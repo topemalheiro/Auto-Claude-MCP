@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Map,
   Plus,
@@ -32,21 +33,21 @@ interface Feature {
 // Placeholder data for UI layout -- will be replaced with API data
 const PLACEHOLDER_PHASES = [
   {
-    name: "Phase 1: Foundation",
+    nameKey: "roadmap.phases.phase1" as const,
     features: [
       { id: "1", title: "Core Authentication", description: "User login, registration, and session management", phase: "Phase 1", priority: "high" as const, status: "completed" as const, effort: "Large" },
       { id: "2", title: "Database Schema", description: "Initial database models and migrations", phase: "Phase 1", priority: "high" as const, status: "completed" as const, effort: "Medium" },
     ],
   },
   {
-    name: "Phase 2: Core Features",
+    nameKey: "roadmap.phases.phase2" as const,
     features: [
       { id: "3", title: "Task Management", description: "CRUD operations for tasks and subtasks", phase: "Phase 2", priority: "high" as const, status: "in_progress" as const, effort: "Large" },
       { id: "4", title: "Real-time Updates", description: "WebSocket integration for live updates", phase: "Phase 2", priority: "medium" as const, status: "planned" as const, effort: "Medium" },
     ],
   },
   {
-    name: "Phase 3: Integration",
+    nameKey: "roadmap.phases.phase3" as const,
     features: [
       { id: "5", title: "GitHub Integration", description: "Issue sync and PR management", phase: "Phase 3", priority: "medium" as const, status: "planned" as const, effort: "Large" },
       { id: "6", title: "CI/CD Pipeline", description: "Automated deployment workflows", phase: "Phase 3", priority: "low" as const, status: "planned" as const, effort: "Small" },
@@ -55,9 +56,16 @@ const PLACEHOLDER_PHASES = [
 ];
 
 export function RoadmapView({ projectId }: RoadmapViewProps) {
+  const { t } = useTranslation("views");
   const [activeTab, setActiveTab] = useState<"kanban" | "timeline" | "list">("kanban");
   const [selectedFeature, setSelectedFeature] = useState<Feature | null>(null);
   const [isEmpty] = useState(false);
+
+  const statusLabel = (status: Feature["status"]) => {
+    if (status === "in_progress") return t("roadmap.status.inProgress");
+    if (status === "completed") return t("roadmap.status.completed");
+    return t("roadmap.status.planned");
+  };
 
   if (isEmpty) {
     return (
@@ -68,14 +76,13 @@ export function RoadmapView({ projectId }: RoadmapViewProps) {
               <Map className="h-8 w-8 text-primary" />
             </div>
           </div>
-          <h2 className="mb-3 text-xl font-semibold">No Roadmap Yet</h2>
+          <h2 className="mb-3 text-xl font-semibold">{t("roadmap.empty.title")}</h2>
           <p className="mb-6 text-sm text-muted-foreground">
-            Generate an AI-powered roadmap based on your project's codebase,
-            architecture, and goals.
+            {t("roadmap.empty.description")}
           </p>
           <button className="flex items-center gap-2 mx-auto rounded-lg bg-primary px-6 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors">
             <Sparkles className="h-4 w-4" />
-            Generate Roadmap
+            {t("roadmap.empty.generate")}
           </button>
         </div>
       </div>
@@ -87,7 +94,7 @@ export function RoadmapView({ projectId }: RoadmapViewProps) {
       {/* Header */}
       <div className="flex items-center justify-between border-b border-border px-6 py-3">
         <div className="flex items-center gap-3">
-          <h1 className="text-lg font-semibold">Roadmap</h1>
+          <h1 className="text-lg font-semibold">{t("roadmap.title")}</h1>
           <div className="flex items-center rounded-lg border border-border bg-card/50">
             <button
               className={cn(
@@ -97,7 +104,7 @@ export function RoadmapView({ projectId }: RoadmapViewProps) {
               onClick={() => setActiveTab("kanban")}
             >
               <LayoutGrid className="h-3 w-3" />
-              Board
+              {t("roadmap.tabs.board")}
             </button>
             <button
               className={cn(
@@ -107,7 +114,7 @@ export function RoadmapView({ projectId }: RoadmapViewProps) {
               onClick={() => setActiveTab("timeline")}
             >
               <Calendar className="h-3 w-3" />
-              Timeline
+              {t("roadmap.tabs.timeline")}
             </button>
             <button
               className={cn(
@@ -117,18 +124,18 @@ export function RoadmapView({ projectId }: RoadmapViewProps) {
               onClick={() => setActiveTab("list")}
             >
               <List className="h-3 w-3" />
-              List
+              {t("roadmap.tabs.list")}
             </button>
           </div>
         </div>
         <div className="flex items-center gap-2">
           <button className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
             <RefreshCw className="h-3.5 w-3.5" />
-            Refresh
+            {t("roadmap.refresh")}
           </button>
           <button className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground hover:bg-primary/90 transition-colors">
             <Plus className="h-3.5 w-3.5" />
-            Add Feature
+            {t("roadmap.addFeature")}
           </button>
         </div>
       </div>
@@ -138,10 +145,10 @@ export function RoadmapView({ projectId }: RoadmapViewProps) {
         {activeTab === "kanban" && (
           <div className="space-y-8">
             {PLACEHOLDER_PHASES.map((phase) => (
-              <div key={phase.name}>
+              <div key={phase.nameKey}>
                 <h2 className="text-sm font-semibold text-muted-foreground mb-3 flex items-center gap-2">
                   <Target className="h-4 w-4" />
-                  {phase.name}
+                  {t(phase.nameKey)}
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                   {phase.features.map((feature) => (
@@ -160,7 +167,7 @@ export function RoadmapView({ projectId }: RoadmapViewProps) {
                             feature.status === "planned" && "bg-secondary text-muted-foreground"
                           )}
                         >
-                          {feature.status === "in_progress" ? "In Progress" : feature.status === "completed" ? "Completed" : "Planned"}
+                          {statusLabel(feature.status)}
                         </span>
                       </div>
                       <p className="mt-1.5 text-xs text-muted-foreground line-clamp-2">
@@ -192,7 +199,7 @@ export function RoadmapView({ projectId }: RoadmapViewProps) {
         {activeTab === "timeline" && (
           <div className="space-y-4">
             {PLACEHOLDER_PHASES.map((phase, idx) => (
-              <div key={phase.name} className="flex gap-4">
+              <div key={phase.nameKey} className="flex gap-4">
                 <div className="flex flex-col items-center">
                   <div className={cn(
                     "flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold",
@@ -207,7 +214,7 @@ export function RoadmapView({ projectId }: RoadmapViewProps) {
                   )}
                 </div>
                 <div className="flex-1 pb-6">
-                  <h3 className="text-sm font-semibold mb-2">{phase.name}</h3>
+                  <h3 className="text-sm font-semibold mb-2">{t(phase.nameKey)}</h3>
                   <div className="space-y-2">
                     {phase.features.map((feature) => (
                       <div
@@ -232,11 +239,11 @@ export function RoadmapView({ projectId }: RoadmapViewProps) {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border bg-card/50">
-                  <th className="px-4 py-2.5 text-left font-medium text-muted-foreground">Feature</th>
-                  <th className="px-4 py-2.5 text-left font-medium text-muted-foreground">Phase</th>
-                  <th className="px-4 py-2.5 text-left font-medium text-muted-foreground">Priority</th>
-                  <th className="px-4 py-2.5 text-left font-medium text-muted-foreground">Status</th>
-                  <th className="px-4 py-2.5 text-left font-medium text-muted-foreground">Effort</th>
+                  <th className="px-4 py-2.5 text-left font-medium text-muted-foreground">{t("roadmap.table.feature")}</th>
+                  <th className="px-4 py-2.5 text-left font-medium text-muted-foreground">{t("roadmap.table.phase")}</th>
+                  <th className="px-4 py-2.5 text-left font-medium text-muted-foreground">{t("roadmap.table.priority")}</th>
+                  <th className="px-4 py-2.5 text-left font-medium text-muted-foreground">{t("roadmap.table.status")}</th>
+                  <th className="px-4 py-2.5 text-left font-medium text-muted-foreground">{t("roadmap.table.effort")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -266,7 +273,7 @@ export function RoadmapView({ projectId }: RoadmapViewProps) {
                           feature.status === "in_progress" && "bg-yellow-500/10 text-yellow-600",
                           feature.status === "planned" && "bg-secondary text-muted-foreground"
                         )}>
-                          {feature.status === "in_progress" ? "In Progress" : feature.status === "completed" ? "Completed" : "Planned"}
+                          {statusLabel(feature.status)}
                         </span>
                       </td>
                       <td className="px-4 py-2.5 text-muted-foreground">{feature.effort}</td>
@@ -283,7 +290,7 @@ export function RoadmapView({ projectId }: RoadmapViewProps) {
       {selectedFeature && (
         <div className="fixed inset-y-0 right-0 z-50 w-96 border-l border-border bg-card shadow-xl">
           <div className="flex items-center justify-between border-b border-border p-4">
-            <h2 className="text-sm font-semibold">Feature Details</h2>
+            <h2 className="text-sm font-semibold">{t("roadmap.detail.title")}</h2>
             <button
               className="flex h-7 w-7 items-center justify-center rounded-md hover:bg-accent"
               onClick={() => setSelectedFeature(null)}
@@ -298,24 +305,24 @@ export function RoadmapView({ projectId }: RoadmapViewProps) {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="rounded-md border border-border p-3">
-                <p className="text-xs text-muted-foreground">Priority</p>
+                <p className="text-xs text-muted-foreground">{t("roadmap.detail.priority")}</p>
                 <p className="text-sm font-medium capitalize">{selectedFeature.priority}</p>
               </div>
               <div className="rounded-md border border-border p-3">
-                <p className="text-xs text-muted-foreground">Effort</p>
+                <p className="text-xs text-muted-foreground">{t("roadmap.detail.effort")}</p>
                 <p className="text-sm font-medium">{selectedFeature.effort}</p>
               </div>
               <div className="rounded-md border border-border p-3">
-                <p className="text-xs text-muted-foreground">Phase</p>
+                <p className="text-xs text-muted-foreground">{t("roadmap.detail.phase")}</p>
                 <p className="text-sm font-medium">{selectedFeature.phase}</p>
               </div>
               <div className="rounded-md border border-border p-3">
-                <p className="text-xs text-muted-foreground">Status</p>
+                <p className="text-xs text-muted-foreground">{t("roadmap.detail.status")}</p>
                 <p className="text-sm font-medium capitalize">{selectedFeature.status.replace("_", " ")}</p>
               </div>
             </div>
             <button className="w-full rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-primary/90 transition-colors">
-              Convert to Task
+              {t("roadmap.detail.convertToTask")}
             </button>
           </div>
         </div>

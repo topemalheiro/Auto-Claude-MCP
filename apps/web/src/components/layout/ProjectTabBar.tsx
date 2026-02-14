@@ -3,6 +3,7 @@
 import { X, Plus } from "lucide-react";
 import { cn } from "@auto-claude/ui";
 import { useProjectStore } from "@/stores/project-store";
+import { useTranslation } from "react-i18next";
 
 export function ProjectTabBar() {
   const projects = useProjectStore((s) => s.projects);
@@ -10,6 +11,7 @@ export function ProjectTabBar() {
   const activeProjectId = useProjectStore((s) => s.activeProjectId);
   const setActiveProject = useProjectStore((s) => s.setActiveProject);
   const closeProjectTab = useProjectStore((s) => s.closeProjectTab);
+  const { t } = useTranslation("layout");
 
   const projectTabs = openProjectIds
     .map((id) => projects.find((p) => p.id === id))
@@ -52,7 +54,7 @@ export function ProjectTabBar() {
       </div>
       <button
         className="flex h-full items-center px-3 text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
-        aria-label="Add project"
+        aria-label={t("projectTabBar.addProject")}
       >
         <Plus className="h-4 w-4" />
       </button>

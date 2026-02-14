@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   FileText,
   RefreshCw,
@@ -31,11 +32,18 @@ interface ChangelogEntry {
   isExpanded: boolean;
 }
 
-const CHANGE_TYPE_CONFIG = {
-  added: { label: "Added", color: "bg-green-500/10 text-green-600" },
-  changed: { label: "Changed", color: "bg-blue-500/10 text-blue-600" },
-  fixed: { label: "Fixed", color: "bg-orange-500/10 text-orange-600" },
-  removed: { label: "Removed", color: "bg-red-500/10 text-red-600" },
+const CHANGE_TYPE_COLORS = {
+  added: "bg-green-500/10 text-green-600",
+  changed: "bg-blue-500/10 text-blue-600",
+  fixed: "bg-orange-500/10 text-orange-600",
+  removed: "bg-red-500/10 text-red-600",
+};
+
+const CHANGE_TYPE_KEYS: Record<string, string> = {
+  added: "changelog.changeTypes.added",
+  changed: "changelog.changeTypes.changed",
+  fixed: "changelog.changeTypes.fixed",
+  removed: "changelog.changeTypes.removed",
 };
 
 const PLACEHOLDER_ENTRIES: ChangelogEntry[] = [
@@ -79,6 +87,7 @@ const PLACEHOLDER_ENTRIES: ChangelogEntry[] = [
 ];
 
 export function ChangelogView({ projectId }: ChangelogViewProps) {
+  const { t } = useTranslation("views");
   const [entries, setEntries] = useState(PLACEHOLDER_ENTRIES);
   const [isEmpty] = useState(false);
 
@@ -97,14 +106,13 @@ export function ChangelogView({ projectId }: ChangelogViewProps) {
               <FileText className="h-8 w-8 text-primary" />
             </div>
           </div>
-          <h2 className="mb-3 text-xl font-semibold">No Changelog</h2>
+          <h2 className="mb-3 text-xl font-semibold">{t("changelog.empty.title")}</h2>
           <p className="mb-6 text-sm text-muted-foreground">
-            Generate a changelog from your completed tasks and merged pull
-            requests.
+            {t("changelog.empty.description")}
           </p>
           <button className="flex items-center gap-2 mx-auto rounded-lg bg-primary px-6 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors">
             <Sparkles className="h-4 w-4" />
-            Generate Changelog
+            {t("changelog.empty.generate")}
           </button>
         </div>
       </div>
@@ -115,15 +123,15 @@ export function ChangelogView({ projectId }: ChangelogViewProps) {
     <div className="flex h-full flex-col overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-border px-6 py-3">
-        <h1 className="text-lg font-semibold">Changelog</h1>
+        <h1 className="text-lg font-semibold">{t("changelog.title")}</h1>
         <div className="flex items-center gap-2">
           <button className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
             <RefreshCw className="h-3.5 w-3.5" />
-            Refresh
+            {t("changelog.refresh")}
           </button>
           <button className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground hover:bg-primary/90 transition-colors">
             <Plus className="h-3.5 w-3.5" />
-            New Release
+            {t("changelog.newRelease")}
           </button>
         </div>
       </div>
@@ -164,16 +172,16 @@ export function ChangelogView({ projectId }: ChangelogViewProps) {
                 <div className="border-t border-border px-5 py-4">
                   <div className="space-y-2">
                     {entry.changes.map((change, idx) => {
-                      const config = CHANGE_TYPE_CONFIG[change.type];
+                      const color = CHANGE_TYPE_COLORS[change.type];
                       return (
                         <div key={idx} className="flex items-start gap-2">
                           <span
                             className={cn(
                               "shrink-0 mt-0.5 rounded-full px-2 py-0.5 text-[10px] font-semibold",
-                              config.color
+                              color
                             )}
                           >
-                            {config.label}
+                            {t(CHANGE_TYPE_KEYS[change.type])}
                           </span>
                           <p className="text-sm text-muted-foreground">
                             {change.description}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Sparkles,
   Send,
@@ -30,15 +31,16 @@ interface ChatSession {
   createdAt: Date;
 }
 
-const WELCOME_SUGGESTIONS = [
-  "What are the most complex parts of this codebase?",
-  "Find potential security vulnerabilities",
-  "Suggest performance optimizations",
-  "What tests are missing?",
-  "Analyze the architecture and suggest improvements",
-];
+const SUGGESTION_KEYS = [
+  "insights.suggestions.complexity",
+  "insights.suggestions.security",
+  "insights.suggestions.performance",
+  "insights.suggestions.tests",
+  "insights.suggestions.architecture",
+] as const;
 
 export function InsightsView({ projectId }: InsightsViewProps) {
+  const { t } = useTranslation("views");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -90,7 +92,7 @@ export function InsightsView({ projectId }: InsightsViewProps) {
       {showSidebar && (
         <div className="w-64 border-r border-border bg-card/50 flex flex-col">
           <div className="flex items-center justify-between border-b border-border px-4 py-3">
-            <h2 className="text-sm font-semibold">Chat History</h2>
+            <h2 className="text-sm font-semibold">{t("insights.chatHistory")}</h2>
             <button className="flex h-7 w-7 items-center justify-center rounded-md hover:bg-accent transition-colors">
               <Plus className="h-3.5 w-3.5" />
             </button>
@@ -124,7 +126,7 @@ export function InsightsView({ projectId }: InsightsViewProps) {
             )}
           </button>
           <Sparkles className="h-4 w-4 text-primary" />
-          <h1 className="text-sm font-semibold">AI Insights</h1>
+          <h1 className="text-sm font-semibold">{t("insights.title")}</h1>
         </div>
 
         {/* Messages */}
@@ -134,21 +136,23 @@ export function InsightsView({ projectId }: InsightsViewProps) {
               <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10">
                 <Sparkles className="h-8 w-8 text-primary" />
               </div>
-              <h2 className="text-xl font-semibold mb-2">AI Insights</h2>
+              <h2 className="text-xl font-semibold mb-2">{t("insights.welcomeTitle")}</h2>
               <p className="text-sm text-muted-foreground text-center mb-8">
-                Ask questions about your codebase. I can analyze code quality,
-                find bugs, suggest improvements, and more.
+                {t("insights.welcomeDescription")}
               </p>
               <div className="grid grid-cols-1 gap-2 w-full max-w-lg">
-                {WELCOME_SUGGESTIONS.map((suggestion) => (
-                  <button
-                    key={suggestion}
-                    className="text-left rounded-lg border border-border bg-card/50 px-4 py-3 text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-                    onClick={() => handleSuggestionClick(suggestion)}
-                  >
-                    {suggestion}
-                  </button>
-                ))}
+                {SUGGESTION_KEYS.map((key) => {
+                  const suggestion = t(key);
+                  return (
+                    <button
+                      key={key}
+                      className="text-left rounded-lg border border-border bg-card/50 px-4 py-3 text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                      onClick={() => handleSuggestionClick(suggestion)}
+                    >
+                      {suggestion}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           ) : (
@@ -167,7 +171,7 @@ export function InsightsView({ projectId }: InsightsViewProps) {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-xs text-muted-foreground mb-1">
-                      {message.role === "user" ? "You" : "AI Assistant"}
+                      {message.role === "user" ? t("insights.you") : t("insights.aiAssistant")}
                     </p>
                     <div className="text-sm leading-relaxed whitespace-pre-wrap">
                       {message.content}
@@ -197,7 +201,7 @@ export function InsightsView({ projectId }: InsightsViewProps) {
           <div className="max-w-3xl mx-auto flex gap-2">
             <textarea
               className="flex-1 resize-none rounded-lg border border-border bg-background px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-              placeholder="Ask about your codebase..."
+              placeholder={t("insights.placeholder")}
               rows={1}
               value={input}
               onChange={(e) => setInput(e.target.value)}

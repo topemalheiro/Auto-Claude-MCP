@@ -1,0 +1,72 @@
+{
+  "onboarding": {
+    "title": "Bienvenue sur Auto Claude",
+    "titleDescription": "Configurons votre espace en quelques étapes simples. Auto Claude utilise l'IA pour vous aider à gérer les tâches, réviser le code, générer des feuilles de route et accélérer votre flux de développement.",
+    "steps": {
+      "welcome": "Bienvenue",
+      "apiKey": "Clé API",
+      "project": "Projet",
+      "complete": "Terminé"
+    },
+    "apiConfiguration": {
+      "title": "Configuration API",
+      "description": "Configurez votre clé API Claude pour activer les fonctionnalités alimentées par l'IA.",
+      "authMethod": "Méthode d'authentification",
+      "claudeOAuth": "Claude OAuth",
+      "claudeOAuthDescription": "Connectez-vous avec votre compte Anthropic",
+      "apiKey": "Clé API",
+      "apiKeyDescription": "Entrez votre clé API manuellement"
+    },
+    "connectProject": {
+      "title": "Connecter un projet",
+      "description": "Dirigez Auto Claude vers un répertoire de projet pour commencer.",
+      "selectDirectory": "Sélectionner le répertoire du projet",
+      "selectDirectoryDescription": "Choisissez un dossier de projet local à analyser"
+    },
+    "complete": {
+      "title": "Vous êtes prêt !",
+      "description": "Auto Claude est prêt à vous aider à créer de meilleurs logiciels. Commencez par créer votre première tâche ou explorer la base de code de votre projet."
+    },
+    "actions": {
+      "skipSetup": "Passer la configuration",
+      "back": "Retour",
+      "continue": "Continuer",
+      "getStarted": "Commencer"
+    }
+  },
+  "sidebar": {
+    "brand": "Auto Claude",
+    "brandShort": "AC",
+    "sectionProject": "Projet",
+    "nav": {
+      "tasks": "Tâches",
+      "insights": "Analyses",
+      "roadmap": "Feuille de route",
+      "ideation": "Idéation",
+      "changelog": "Journal des modifications",
+      "context": "Contexte",
+      "githubIssues": "Tickets GitHub",
+      "githubPrs": "PRs GitHub",
+      "gitlabIssues": "Tickets GitLab",
+      "gitlabMrs": "MRs GitLab"
+    },
+    "actions": {
+      "settings": "Paramètres",
+      "newTask": "Nouvelle tâche"
+    },
+    "aria": {
+      "expandSidebar": "Développer la barre latérale",
+      "collapseSidebar": "Réduire la barre latérale",
+      "help": "Aide"
+    }
+  },
+  "welcome": {
+    "title": "Bienvenue sur Auto Claude",
+    "description": "Commencez par connecter un projet. Auto Claude vous aidera à gérer les tâches, générer des feuilles de route, réviser le code et plus encore.",
+    "connectProject": "Connecter un projet",
+    "subtext": "Dirigez Auto Claude vers un répertoire de projet local pour commencer."
+  },
+  "projectTabBar": {
+    "addProject": "Ajouter un projet"
+  }
+}

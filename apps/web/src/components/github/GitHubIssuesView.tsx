@@ -14,6 +14,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { cn } from "@auto-claude/ui";
+import { useTranslation } from "react-i18next";
 
 interface GitHubIssuesViewProps {
   projectId: string;
@@ -64,6 +65,7 @@ const PLACEHOLDER_ISSUES: GitHubIssue[] = [
 ];
 
 export function GitHubIssuesView({ projectId }: GitHubIssuesViewProps) {
+  const { t } = useTranslation("integrations");
   const [issues] = useState(PLACEHOLDER_ISSUES);
   const [selectedIssue, setSelectedIssue] = useState<GitHubIssue | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -78,14 +80,13 @@ export function GitHubIssuesView({ projectId }: GitHubIssuesViewProps) {
               <Github className="h-8 w-8 text-muted-foreground" />
             </div>
           </div>
-          <h2 className="mb-3 text-xl font-semibold">GitHub Not Connected</h2>
+          <h2 className="mb-3 text-xl font-semibold">{t("github.issues.notConnected")}</h2>
           <p className="mb-6 text-sm text-muted-foreground">
-            Connect your GitHub repository to sync issues and create tasks from
-            them.
+            {t("github.issues.notConnectedDescription")}
           </p>
           <button className="flex items-center gap-2 mx-auto rounded-lg bg-primary px-6 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors">
             <Settings className="h-4 w-4" />
-            Configure GitHub
+            {t("github.issues.configure")}
           </button>
         </div>
       </div>
@@ -100,7 +101,7 @@ export function GitHubIssuesView({ projectId }: GitHubIssuesViewProps) {
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <h1 className="text-sm font-semibold flex items-center gap-2">
             <Github className="h-4 w-4" />
-            GitHub Issues
+            {t("github.issues.title")}
           </h1>
           <button className="flex h-7 w-7 items-center justify-center rounded-md hover:bg-accent transition-colors">
             <RefreshCw className="h-3.5 w-3.5" />
@@ -113,7 +114,7 @@ export function GitHubIssuesView({ projectId }: GitHubIssuesViewProps) {
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
             <input
               className="w-full rounded-md border border-border bg-background pl-8 pr-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary/20"
-              placeholder="Search issues..."
+              placeholder={t("github.issues.search")}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -200,7 +201,7 @@ export function GitHubIssuesView({ projectId }: GitHubIssuesViewProps) {
               <div className="pt-4 border-t border-border">
                 <button className="flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-primary/90 transition-colors">
                   <ArrowRight className="h-3.5 w-3.5" />
-                  Create Task from Issue
+                  {t("github.issues.createTask")}
                 </button>
               </div>
             </div>
