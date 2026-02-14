@@ -67,10 +67,6 @@ Use this checklist to verify all features work after resolving the 33 merge conf
 - [x] Queue enforces capacity (no more than N concurrent tasks)
 - **Files:** `KanbanBoard.tsx`
 
-### Kanban Column Sizing
-- [ ] Column sizes persist across app restart
-- **Files:** `KanbanBoard.tsx`, `project-store.ts`
-
 ### State Machine Transitions
 - [x] Task lifecycle: backlog -> planning -> in_progress -> ai_review -> human_review
 - [x] No stuck transitions or missing state updates
