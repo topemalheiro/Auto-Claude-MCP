@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { arrayMove } from '@dnd-kit/sortable';
 import type { Task, TaskStatus, SubtaskStatus, ImplementationPlan, Subtask, TaskMetadata, ExecutionProgress, ExecutionPhase, ReviewReason, TaskDraft, ImageAttachment, TaskOrderState } from '../../shared/types';
 import { debugLog, debugWarn } from '../../shared/utils/debug-logger';
+import { extractSubtaskTitle } from '../../shared/utils/subtask-title';
 import { useProjectStore } from './project-store';
 
 /** Default max parallel tasks when no project setting is configured */
@@ -369,7 +370,7 @@ export const useTaskStore = create<TaskState>((set, get) => ({
                 : `subtask-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`);
               // Defensive fallback: validatePlanData() ensures description exists, but kept for safety
               const description = subtask.description || 'No description available';
-              const title = description; // Title and description are the same for subtasks
+              const title = subtask.title || extractSubtaskTitle(description);
               const status = (subtask.status as SubtaskStatus) || 'pending';
 
               return {
