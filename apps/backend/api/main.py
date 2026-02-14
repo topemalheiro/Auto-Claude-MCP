@@ -27,6 +27,7 @@ from .routes.settings import router as settings_router
 from .routes.tasks import router as tasks_router
 from .routes.terminal import router as terminal_router
 from .websocket.agent_ns import register_agent_namespace
+from .websocket.events_ns import register_events_namespace
 from .websocket.terminal_ns import get_terminal_service, register_terminal_namespace
 
 # Socket.IO async server for real-time communication
@@ -38,6 +39,7 @@ sio = socketio.AsyncServer(
 # Register Socket.IO namespaces
 register_terminal_namespace(sio)
 register_agent_namespace(sio)
+register_events_namespace(sio)
 
 
 @asynccontextmanager
