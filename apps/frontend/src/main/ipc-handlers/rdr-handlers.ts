@@ -297,6 +297,12 @@ function isLegitimateHumanReview(task: TaskInfo): boolean {
     return false;  // Flag for intervention - crashed/errored
   }
 
+  // Tasks stopped by user (reviewReason='stopped') without QA signoff are NOT legitimate
+  // They were interrupted mid-validation and need to complete QA
+  if (progress === 100 && task.reviewReason === 'stopped' && task.qaSignoff !== 'approved') {
+    return false;  // Flag for intervention — stopped before QA completed
+  }
+
   // Tasks at 100% with reviewReason and no exitReason = legitimate
   // These are QA-approved tasks waiting for user merge (even with stale planStatus='review')
   if (progress === 100) {

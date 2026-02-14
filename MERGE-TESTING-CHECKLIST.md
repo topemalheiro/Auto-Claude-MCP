@@ -26,12 +26,14 @@ Use this checklist to verify all features work after resolving the 33 merge conf
 - [x] Shutdown monitor spawns correctly (no terminal popup on Windows)
 - **Files:** `auto-shutdown-handlers.ts`, `index.ts`, `shutdown-monitor.ts`
 
-### MCP Server
+### MCP Server and tools
 - [x] Claude Code connects to Auto-Claude MCP server
 - [x] `list_tasks` returns correct task list
 - [x] `create_task` creates a task (appears on Kanban within 2-3s)
 - [x] `process_rdr_batch` restarts stuck tasks
 - [x] `recover_stuck_task` removes yellow outline and restarts
+- [ ] Auto-Continue working in batch or single task tool
+- [ ] Queue not moving when task regresses from Progress to Planning and sending RDR when RDR is ON
 - **Files:** `mcp-server/index.ts`, `project-store.ts`
 
 ### Task Crash Recovery
@@ -72,63 +74,9 @@ Use this checklist to verify all features work after resolving the 33 merge conf
 - [x] No stuck transitions or missing state updates
 - **Files:** `agent-events-handlers.ts`, `execution-handlers.ts`
 
-### Spell Check
-- [ ] Spell check works in text inputs
-- [ ] Language detection works
-- **Files:** `index.ts`
-
-### i18n / Language
-- [ ] All UI labels render (no missing translation keys)
-- [ ] Settings labels correct (logOrder, terminalFonts, autoShutdown, autoRefresh)
-- [ ] No `translation:missing` warnings in console
-- **Files:** `en/*.json`, `fr/*.json`
-
-### Terminal Fonts
-- [ ] Terminal font settings visible in Display Settings
-- [ ] Font changes apply to terminal view
-- **Files:** `DisplaySettings.tsx`, `settings.json`
-
-### GitLab CLI (glab)
-- [ ] If glab installed, it's detected in agent environment
-- **Files:** `agent-process.ts`
-
-### Screenshot Capture
-- [ ] Screenshot handler registered and functional
-- **Files:** `ipc-handlers/index.ts`
-
----
-
-## Medium -- Shared Infrastructure (both sides touch)
-
-### Project Store
-- [ ] Tasks don't duplicate on Kanban board
-- [x] Worktree tasks correctly deduplicated with main tasks
-- [ ] Atomic file writes (no corrupt JSON on crash)
-- **Files:** `project-store.ts`
-
-### Task Card UI
-- [x] Start/stop task from card
-- [ ] Archive/unarchive task
-- [x] Drag task between columns
-- [x] Task progress displays correctly
-- **Files:** `TaskCard.tsx`
-
-### Sidebar Navigation
-- [ ] All sidebar items render correctly
-- [ ] Navigation works for all sections
-- **Files:** `Sidebar.tsx`
-
 ### Worktree Operations
-- [x] Create worktree for a task
-- [x] Delete worktree
 - [ ] Review worktree changes
 - **Files:** `worktree-handlers.ts` (both task/ and terminal/)
-
-### Settings UI
-- [ ] All settings panels render
-- [ ] Settings save correctly
-- [ ] Display settings (fonts, themes) apply
-- **Files:** `DisplaySettings.tsx`, `settings.ts`
 
 ---
 
