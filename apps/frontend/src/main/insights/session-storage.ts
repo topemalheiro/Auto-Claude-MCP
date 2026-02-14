@@ -65,6 +65,74 @@ export class SessionStorage {
   }
 
   /**
+   * Archive a session
+   */
+  archiveSession(projectPath: string, sessionId: string): boolean {
+    const session = this.loadSessionById(projectPath, sessionId);
+    if (!session) return false;
+
+    try {
+      session.archivedAt = new Date();
+      this.saveSession(projectPath, session);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Unarchive a session
+   */
+  unarchiveSession(projectPath: string, sessionId: string): boolean {
+    const session = this.loadSessionById(projectPath, sessionId);
+    if (!session) return false;
+
+    try {
+      delete session.archivedAt;
+      this.saveSession(projectPath, session);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Delete multiple sessions
+   */
+  deleteSessions(projectPath: string, sessionIds: string[]): { deletedIds: string[]; failedIds: string[] } {
+    const deletedIds: string[] = [];
+    const failedIds: string[] = [];
+
+    for (const sessionId of sessionIds) {
+      if (this.deleteSession(projectPath, sessionId)) {
+        deletedIds.push(sessionId);
+      } else {
+        failedIds.push(sessionId);
+      }
+    }
+
+    return { deletedIds, failedIds };
+  }
+
+  /**
+   * Archive multiple sessions
+   */
+  archiveSessions(projectPath: string, sessionIds: string[]): { archivedIds: string[]; failedIds: string[] } {
+    const archivedIds: string[] = [];
+    const failedIds: string[] = [];
+
+    for (const sessionId of sessionIds) {
+      if (this.archiveSession(projectPath, sessionId)) {
+        archivedIds.push(sessionId);
+      } else {
+        failedIds.push(sessionId);
+      }
+    }
+
+    return { archivedIds, failedIds };
+  }
+
+  /**
    * Delete a session from disk
    */
   deleteSession(projectPath: string, sessionId: string): boolean {
@@ -82,7 +150,7 @@ export class SessionStorage {
   /**
    * List all sessions for a project
    */
-  listSessions(projectPath: string): InsightsSessionSummary[] {
+  listSessions(projectPath: string, includeArchived = false): InsightsSessionSummary[] {
     const sessionsDir = this.paths.getSessionsDir(projectPath);
     if (!existsSync(sessionsDir)) return [];
 
@@ -104,13 +172,20 @@ export class SessionStorage {
               : 'Untitled Conversation';
           }
 
+          // Skip archived sessions unless explicitly included
+          if (!includeArchived && session.archivedAt) {
+            continue;
+          }
+
           sessions.push({
             id: session.id,
             projectId: session.projectId,
             title: title || 'New Conversation',
             messageCount: session.messages.length,
+            modelConfig: session.modelConfig,
             createdAt: new Date(session.createdAt),
-            updatedAt: new Date(session.updatedAt)
+            updatedAt: new Date(session.updatedAt),
+            ...(session.archivedAt ? { archivedAt: new Date(session.archivedAt) } : {})
           });
         } catch {
           // Skip invalid session files
