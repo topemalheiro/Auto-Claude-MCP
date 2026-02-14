@@ -768,7 +768,12 @@ export class ProjectStore {
     };
 
     const storedStatus = statusMap[plan.status] || 'backlog';
-    const reviewReason = storedStatus === 'human_review' ? plan.reviewReason : undefined;
+    // Preserve reviewReason for human_review tasks AND stopped tasks at any status.
+    // 'stopped' is set when user clicks Stop — it should survive status transitions
+    // (e.g., task stopped during AI Review → goes to backlog, reviewReason must persist for RDR)
+    const reviewReason = (storedStatus === 'human_review' || plan.reviewReason === 'stopped')
+      ? plan.reviewReason
+      : undefined;
 
     return { status: storedStatus, reviewReason };
   }

@@ -242,7 +242,8 @@ function enrichTaskWithWorktreeData(task: TaskInfo, projectPath: string): TaskIn
         exitReason: worktreePlan.exitReason !== undefined ? worktreePlan.exitReason : task.exitReason,
         reviewReason: worktreePlan.reviewReason !== undefined ? worktreePlan.reviewReason : task.reviewReason,
         qaSignoff: worktreeQaSignoff || task.qaSignoff,
-        metadata: worktreePlan.metadata || task.metadata,
+        // Keep task.metadata (from task_metadata.json: stuckSince, rdrAttempts, forceRecovery)
+        // Don't overwrite with worktreePlan.metadata (plan's metadata: created_at, complexity)
       };
     }
 
@@ -334,7 +335,12 @@ function determineInterventionType(task: TaskInfo, hasWorktree?: boolean, rawPla
   const qaApprovedProgress = calculateTaskProgress(task);
   const isQaApproved = task.qaSignoff === 'approved' || task.reviewReason === 'completed' || worktreeInfo?.qaSignoff === 'approved';
   if (qaApprovedProgress === 100 && isQaApproved) {
-    if (task.status === 'human_review') {
+    // User explicitly stopped this task — don't skip even if QA approved
+    // The QA approval may be from BEFORE the stop; user wants it paused/reviewed
+    if (task.reviewReason === 'stopped') {
+      console.log(`[RDR] Task ${task.specId} QA-approved but user stopped it (reviewReason=stopped) — needs intervention`);
+      // Fall through to normal detection
+    } else if (task.status === 'human_review') {
       // Check worktree — if stuck at non-standard status (e.g. 'approved'), task needs board movement
       const worktreeTerminal = !worktreeInfo?.status ||
         worktreeInfo.status === 'human_review' || worktreeInfo.status === 'done' || worktreeInfo.status === 'pr_created';
@@ -348,10 +354,11 @@ function determineInterventionType(task: TaskInfo, hasWorktree?: boolean, rawPla
       // Worktree stuck at non-standard status — needs recovery to proper terminal board
       console.log(`[RDR] Task ${task.specId} QA-approved but worktree stuck at '${worktreeInfo?.status}' — needs recovery`);
       return 'incomplete';
+    } else {
+      // Task is QA-approved but stuck on wrong board (e.g. ai_review, start_requested)
+      // Don't return null — let it fall through to normal detection which will flag for recovery
+      console.log(`[RDR] Task ${task.specId} QA-approved at 100% but stuck at ${task.status} — needs recovery to human_review`);
     }
-    // Task is QA-approved but stuck on wrong board (e.g. ai_review, start_requested)
-    // Don't return null — let it fall through to normal detection which will flag for recovery
-    console.log(`[RDR] Task ${task.specId} QA-approved at 100% but stuck at ${task.status} — needs recovery to human_review`);
   }
 
   // TESTING: forceRecovery flag bypasses all recency and progress checks
@@ -376,6 +383,14 @@ function determineInterventionType(task: TaskInfo, hasWorktree?: boolean, rawPla
     // Prevents false positives for tasks actively running their planning phase
     if (isTaskAgentRunning(task.specId)) {
       console.log(`[RDR] Task ${task.specId} in ${task.status} - agent IS running - SKIPPING`);
+      return null;
+    }
+
+    // User explicitly stopped this task — don't flag for intervention
+    // When user clicks Stop during planning/early stages, task goes to backlog/pending.
+    // Respect the user's decision to pause this task.
+    if (task.reviewReason === 'stopped') {
+      console.log(`[RDR] Task ${task.specId} was stopped by user (reviewReason=stopped) — skipping`);
       return null;
     }
 
