@@ -118,6 +118,10 @@ export const prReviewMachine = createMachine(
             target: 'reviewing',
             actions: 'setReviewStart',
           },
+          START_FOLLOWUP_REVIEW: {
+            target: 'reviewing',
+            actions: 'setFollowupReviewStart',
+          },
           CLEAR_REVIEW: {
             target: 'idle',
             actions: 'clearContext',

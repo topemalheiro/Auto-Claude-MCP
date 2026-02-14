@@ -152,6 +152,20 @@ describe('prReviewMachine', () => {
       expect(snapshot.context.error).toBeNull();
       expect(snapshot.context.result).toEqual(mockResult);
     });
+
+    it('should allow starting a follow-up review from error state with previousResult preserved', () => {
+      const snapshot = runEvents([
+        { type: 'START_REVIEW', prNumber: 42, projectId: 'proj-1' },
+        { type: 'REVIEW_COMPLETE', result: mockResult },
+        { type: 'START_FOLLOWUP_REVIEW', prNumber: 42, projectId: 'proj-1', previousResult: mockResult },
+        { type: 'REVIEW_ERROR', error: 'Follow-up failed' },
+        { type: 'START_FOLLOWUP_REVIEW', prNumber: 42, projectId: 'proj-1', previousResult: mockResult },
+      ]);
+
+      expect(snapshot.value).toBe('reviewing');
+      expect(snapshot.context.previousResult).toEqual(mockResult);
+      expect(snapshot.context.isFollowup).toBe(true);
+    });
   });
 
   describe('clear review', () => {

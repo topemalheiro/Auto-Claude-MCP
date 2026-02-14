@@ -51,6 +51,8 @@ function sendAuthChangedToRenderer(oldUsername: string | null, newUsername: stri
   for (const win of windows) {
     win.webContents.send(IPC_CHANNELS.GITHUB_AUTH_CHANGED, payload);
   }
+  // Emit on ipcMain so main-process listeners (e.g., PRReviewStateManager) can react
+  ipcMain.emit(IPC_CHANNELS.GITHUB_AUTH_CHANGED, payload);
 }
 
 /**

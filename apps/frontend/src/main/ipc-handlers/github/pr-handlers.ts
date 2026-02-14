@@ -1661,6 +1661,11 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
   // Create the XState-based PR review state manager
   const prReviewStateManager = new PRReviewStateManager(getMainWindow);
 
+  // Clear all PR review actors when GitHub auth changes (account swap)
+  ipcMain.on(IPC_CHANNELS.GITHUB_AUTH_CHANGED, () => {
+    prReviewStateManager.handleAuthChange();
+  });
+
   // List open PRs - fetches up to 100 open PRs at once, returns hasNextPage and endCursor from API
   ipcMain.handle(
     IPC_CHANNELS.GITHUB_PR_LIST,

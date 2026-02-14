@@ -160,20 +160,35 @@ describe('PRReviewStateManager', () => {
         expect.any(Function),
         'github:pr:reviewStateChange',
         expect.any(String),
-        expect.any(String),
-        expect.anything()
+        expect.objectContaining({ state: expect.any(String) })
       );
     });
 
-    it('should include state value and context in payload', () => {
+    it('should emit PRReviewStatePayload with correct shape', () => {
       manager.handleStartReview(projectId, prNumber);
       // Find the call that emits 'reviewing' state
       const reviewingCall = mockSafeSendToRenderer.mock.calls.find(
-        (call: unknown[]) => call[3] === 'reviewing'
+        (call: unknown[]) => {
+          const payload = call[3] as Record<string, unknown> | undefined;
+          return payload && typeof payload === 'object' && payload.state === 'reviewing';
+        }
       );
       expect(reviewingCall).toBeDefined();
       expect(reviewingCall![2]).toBe(`${projectId}:${prNumber}`);
-      expect(reviewingCall![4]).toEqual(expect.objectContaining({ prNumber, projectId }));
+      const payload = reviewingCall![3] as Record<string, unknown>;
+      expect(payload).toEqual(expect.objectContaining({
+        state: 'reviewing',
+        prNumber,
+        projectId,
+        isReviewing: true,
+        startedAt: expect.any(String),
+        progress: null,
+        result: null,
+        previousResult: null,
+        error: null,
+        isExternalReview: false,
+        isFollowup: false,
+      }));
     });
 
     it('should use projectId:prNumber as key format', () => {
@@ -244,8 +259,8 @@ describe('PRReviewStateManager', () => {
       // Should emit idle/null state for each PR
       expect(mockSafeSendToRenderer).toHaveBeenCalledTimes(2);
       for (const call of mockSafeSendToRenderer.mock.calls) {
-        expect(call[3]).toBe('idle'); // stateValue
-        expect(call[4]).toBeNull(); // context
+        const payload = call[3] as Record<string, unknown>;
+        expect(payload).toEqual(expect.objectContaining({ state: 'idle' }));
       }
     });
 

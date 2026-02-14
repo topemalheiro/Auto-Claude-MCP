@@ -2,7 +2,7 @@ import { createActor } from 'xstate';
 import type { ActorRefFrom } from 'xstate';
 import type { BrowserWindow } from 'electron';
 import { prReviewMachine, type PRReviewEvent, type PRReviewContext } from '../shared/state-machines';
-import type { PRReviewProgress, PRReviewResult } from '../preload/api/modules/github-api';
+import type { PRReviewProgress, PRReviewResult, PRReviewStatePayload } from '../preload/api/modules/github-api';
 import { IPC_CHANNELS } from '../shared/constants';
 import { safeSendToRenderer } from './ipc-handlers/utils';
 
@@ -149,14 +149,27 @@ export class PRReviewStateManager {
     snapshot: ReturnType<PRReviewActor['getSnapshot']> | null
   ): void {
     const stateValue = snapshot ? String(snapshot.value) : 'idle';
-    const context = snapshot ? snapshot.context : null;
+    const ctx = snapshot?.context ?? null;
+
+    const payload: PRReviewStatePayload = {
+      state: stateValue,
+      prNumber: ctx?.prNumber ?? 0,
+      projectId: ctx?.projectId ?? '',
+      isReviewing: stateValue === 'reviewing' || stateValue === 'externalReview',
+      startedAt: ctx?.startedAt ?? null,
+      progress: ctx?.progress ?? null,
+      result: ctx?.result ?? null,
+      previousResult: ctx?.previousResult ?? null,
+      error: ctx?.error ?? null,
+      isExternalReview: ctx?.isExternalReview ?? false,
+      isFollowup: ctx?.isFollowup ?? false,
+    };
 
     safeSendToRenderer(
       this.getMainWindow,
       IPC_CHANNELS.GITHUB_PR_REVIEW_STATE_CHANGE,
       key,
-      stateValue,
-      context
+      payload
     );
   }
 }
