@@ -32,14 +32,16 @@ Use this checklist to verify all features work after resolving the 33 merge conf
 - [x] `create_task` creates a task (appears on Kanban within 2-3s)
 - [x] `process_rdr_batch` restarts stuck tasks
 - [x] `recover_stuck_task` removes yellow outline and restarts
-- [ ] Auto-Continue working in batch or single task tool
+- [ ] Auto-Continue working in batch or single task tool [x] Working for In Progress
 - [ ] Queue not moving when task regresses from Progress to Planning and sending RDR when RDR is ON
+- [?X] Regression of tasks RDR detection working
+- [ ] All incomplete tasks in HR and Regressed to backlog pinged in RDR - test with the method from previous entry
 - **Files:** `mcp-server/index.ts`, `project-store.ts`
 
 ### Task Crash Recovery
 - [x] Kill a task agent process manually
 - [x] Crash is detected (exit code != 0)
-- [ ] Auto-restart triggers if enabled
+- [???] Auto-restart triggers if enabled
 - [x] Crash info persisted to `implementation_plan.json`
 - **Files:** `agent-process.ts`, `agent-events-handlers.ts`
 
