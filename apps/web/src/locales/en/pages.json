@@ -1,0 +1,55 @@
+{
+  "home": {
+    "welcome": "Welcome, {{name}}",
+    "tier": "Tier: {{tier}}",
+    "selfHosted": {
+      "title": "Auto Claude",
+      "mode": "Self-hosted mode",
+      "unlockFeatures": "Unlock Cloud Features",
+      "featuresDescription": "Get automated PR reviews, cloud sync, team collaboration, and more with Auto Claude Cloud."
+    },
+    "landing": {
+      "title": "Auto Claude Cloud",
+      "subtitle": "Cloud-synced specs, personas, and team collaboration"
+    }
+  },
+  "login": {
+    "title": "Sign in to Auto Claude Cloud",
+    "selfHosted": {
+      "title": "Self-Hosted Mode",
+      "noLoginRequired": "No login required in self-hosted mode.",
+      "cloudPromo": "Want cloud sync, team collaboration, and automated PR reviews?",
+      "tryCloud": "Try Auto Claude Cloud"
+    }
+  },
+  "personas": {
+    "title": "AI Personas",
+    "description": "Upgrade to Pro to create custom AI personalities for your projects.",
+    "createButton": "New Persona",
+    "empty": "No personas yet. Create your first one!",
+    "cloudFeature": "Cloud-synced AI personas are available with Auto Claude Cloud."
+  },
+  "prQueue": {
+    "title": "PR Queue",
+    "description": "Upgrade to Team plan to sync PRs across your team.",
+    "empty": "No PRs in queue. Connect your GitHub repos!",
+    "cloudFeature": "Automated PR reviews and team PR queues are available with Auto Claude Cloud.",
+    "prNumber": "#{{number}}"
+  },
+  "teams": {
+    "title": "My Teams",
+    "singleTitle": "Teams",
+    "description": "Upgrade to Team plan to collaborate with your team.",
+    "createButton": "New Team",
+    "empty": "No teams yet. Create your first one!",
+    "cloudFeature": "Team collaboration is available with Auto Claude Cloud."
+  },
+  "specs": {
+    "title": "My Specs",
+    "createButton": "New Spec",
+    "empty": "No specs yet. Create your first one!"
+  },
+  "cloudUpgrade": {
+    "learnMore": "Learn about Auto Claude Cloud"
+  }
+}

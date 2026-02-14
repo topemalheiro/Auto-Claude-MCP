@@ -119,6 +119,7 @@ apps/frontend/node_modules
 # Build output
 dist/
 out/
+.next
 *.tsbuildinfo
 apps/frontend/python-runtime/
 

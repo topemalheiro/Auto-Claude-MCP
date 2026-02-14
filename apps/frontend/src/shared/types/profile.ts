@@ -6,7 +6,7 @@ import type { ClaudeUsageData, ClaudeRateLimitEvent } from './agent';
  * Users can configure custom Anthropic-compatible API endpoints with profiles.
  * Each profile contains name, base URL, API key, and optional model mappings.
  *
- * NOTE: These types are intentionally duplicated from libs/profile-service/src/types/profile.ts
+ * NOTE: These types are intentionally duplicated from packages/profile-service/src/types/profile.ts
  * because the frontend build (Electron + Vite) doesn't consume the workspace library types directly.
  * Keep these definitions in sync with the library types when making changes.
  */

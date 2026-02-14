@@ -1,0 +1,34 @@
+{
+  "appName": "Auto Claude Cloud",
+  "loading": "Loading...",
+  "loadingData": "Loading {{dataType}}...",
+  "buttons": {
+    "getStarted": "Get Started",
+    "learnMore": "Learn about Auto Claude Cloud",
+    "signIn": "Sign in with GitHub",
+    "signOut": "Sign Out",
+    "goToDashboard": "Go to Dashboard",
+    "create": "New {{itemType}}",
+    "manageSubscription": "Manage Subscription",
+    "upgrade": "Upgrade to {{tier}}",
+    "redirecting": "Redirecting..."
+  },
+  "navigation": {
+    "specs": "Specs",
+    "teams": "Teams",
+    "personas": "Personas",
+    "prQueue": "PR Queue",
+    "settings": "Settings"
+  },
+  "tiers": {
+    "free": "Free",
+    "pro": "Pro",
+    "team": "Team",
+    "enterprise": "Enterprise"
+  },
+  "errors": {
+    "checkoutFailed": "Failed to start checkout. Please try again.",
+    "portalFailed": "Failed to open billing portal. Please try again.",
+    "loginRequired": "Please log in to view settings."
+  }
+}

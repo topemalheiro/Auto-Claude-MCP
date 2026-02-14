@@ -13,7 +13,7 @@ on:
   pull_request:
     branches: [main, develop]
     paths:
-      - 'libs/**'
+      - 'packages/**'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/publish-packages.yml'
@@ -42,16 +42,16 @@ jobs:
           ignore-scripts: 'true'
 
       - name: Typecheck @auto-claude/types
-        run: npx tsc --project libs/types/tsconfig.json --noEmit
+        run: npx tsc --project packages/types/tsconfig.json --noEmit
 
       - name: Typecheck @auto-claude/ui
-        run: npx tsc --project libs/ui/tsconfig.json --noEmit
+        run: npx tsc --project packages/ui/tsconfig.json --noEmit
 
       - name: Build @auto-claude/types
-        run: npx tsc --project libs/types/tsconfig.build.json
+        run: npx tsc --project packages/types/tsconfig.build.json
 
       - name: Build @auto-claude/ui
-        run: npx tsc --project libs/ui/tsconfig.build.json
+        run: npx tsc --project packages/ui/tsconfig.build.json
 
       - name: Typecheck frontend
         working-directory: apps/frontend
@@ -79,16 +79,16 @@ jobs:
           ignore-scripts: 'true'
 
       - name: Build @auto-claude/types
-        run: npx tsc --project libs/types/tsconfig.build.json
+        run: npx tsc --project packages/types/tsconfig.build.json
 
       - name: Build @auto-claude/ui
-        run: npx tsc --project libs/ui/tsconfig.build.json
+        run: npx tsc --project packages/ui/tsconfig.build.json
 
       - name: Dry run publish @auto-claude/types
-        run: npm publish --workspace libs/types --dry-run
+        run: npm publish --workspace packages/types --dry-run
 
       - name: Dry run publish @auto-claude/ui
-        run: npm publish --workspace libs/ui --dry-run
+        run: npm publish --workspace packages/ui --dry-run
 
   # --------------------------------------------------------------------------
   # Publish - Push packages to npm (tagged releases only)
@@ -118,8 +118,8 @@ jobs:
       - name: Validate tag matches package versions
         run: |
           TAG_VERSION="${GITHUB_REF#refs/tags/v}"
-          TYPES_VERSION=$(node -p "require('./libs/types/package.json').version")
-          UI_VERSION=$(node -p "require('./libs/ui/package.json').version")
+          TYPES_VERSION=$(node -p "require('./packages/types/package.json').version")
+          UI_VERSION=$(node -p "require('./packages/ui/package.json').version")
           echo "Tag version: ${TAG_VERSION}"
           echo "types version: ${TYPES_VERSION}"
           echo "ui version: ${UI_VERSION}"
@@ -133,33 +133,33 @@ jobs:
           fi
 
       - name: Build @auto-claude/types
-        run: npx tsc --project libs/types/tsconfig.build.json
+        run: npx tsc --project packages/types/tsconfig.build.json
 
       - name: Build @auto-claude/ui
-        run: npx tsc --project libs/ui/tsconfig.build.json
+        run: npx tsc --project packages/ui/tsconfig.build.json
 
       - name: Publish @auto-claude/types
         run: |
-          PACKAGE_VERSION=$(node -p "require('./libs/types/package.json').version")
+          PACKAGE_VERSION=$(node -p "require('./packages/types/package.json').version")
           HTTP_CODE=$(npm view "@auto-claude/types@${PACKAGE_VERSION}" version --json 2>&1) && RC=$? || RC=$?
           if [ $RC -eq 0 ] && echo "$HTTP_CODE" | grep -q "$PACKAGE_VERSION"; then
             echo "::notice::@auto-claude/types@${PACKAGE_VERSION} already published, skipping"
           elif echo "$HTTP_CODE" | grep -qi "E404\|not found\|is not in this registry"; then
-            npm publish --workspace libs/types --access public --provenance
+            npm publish --workspace packages/types --access public --provenance
           else
             echo "::warning::Unexpected error checking @auto-claude/types@${PACKAGE_VERSION}: ${HTTP_CODE}"
-            npm publish --workspace libs/types --access public --provenance
+            npm publish --workspace packages/types --access public --provenance
           fi
 
       - name: Publish @auto-claude/ui
         run: |
-          PACKAGE_VERSION=$(node -p "require('./libs/ui/package.json').version")
+          PACKAGE_VERSION=$(node -p "require('./packages/ui/package.json').version")
           HTTP_CODE=$(npm view "@auto-claude/ui@${PACKAGE_VERSION}" version --json 2>&1) && RC=$? || RC=$?
           if [ $RC -eq 0 ] && echo "$HTTP_CODE" | grep -q "$PACKAGE_VERSION"; then
             echo "::notice::@auto-claude/ui@${PACKAGE_VERSION} already published, skipping"
           elif echo "$HTTP_CODE" | grep -qi "E404\|not found\|is not in this registry"; then
-            npm publish --workspace libs/ui --access public --provenance
+            npm publish --workspace packages/ui --access public --provenance
           else
             echo "::warning::Unexpected error checking @auto-claude/ui@${PACKAGE_VERSION}: ${HTTP_CODE}"
-            npm publish --workspace libs/ui --access public --provenance
+            npm publish --workspace packages/ui --access public --provenance
           fi

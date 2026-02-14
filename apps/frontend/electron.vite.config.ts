@@ -94,8 +94,8 @@ export default defineConfig({
         '@hooks': resolve(__dirname, 'src/renderer/shared/hooks'),
         '@lib': resolve(__dirname, 'src/renderer/shared/lib'),
         // Workspace packages — resolve to source for HMR support
-        '@auto-claude/types': resolve(__dirname, '../../libs/types/src'),
-        '@auto-claude/ui': resolve(__dirname, '../../libs/ui/src')
+        '@auto-claude/types': resolve(__dirname, '../../packages/types/src'),
+        '@auto-claude/ui': resolve(__dirname, '../../packages/ui/src')
       }
     },
     server: {

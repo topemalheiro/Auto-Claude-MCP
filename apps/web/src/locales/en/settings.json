@@ -1,0 +1,25 @@
+{
+  "title": "Settings",
+  "selfHosted": {
+    "mode": "Self-Hosted Mode",
+    "description": "Running in self-hosted mode. Configure your local Python backend via environment variables.",
+    "unlockFeatures": "Unlock Cloud Features",
+    "featuresDescription": "Get automated PR reviews, cloud sync, team collaboration, billing, and more."
+  },
+  "profile": {
+    "title": "Profile",
+    "name": "Name:",
+    "email": "Email:"
+  },
+  "subscription": {
+    "title": "Subscription",
+    "currentPlan": "Current Plan:",
+    "price": "${{price}}/mo",
+    "usage": {
+      "specs": "Specs: {{current}} / {{limit}}",
+      "personas": "Personas: {{current}} / {{limit}}",
+      "teamMembers": "Team Members: {{current}} / {{limit}}",
+      "unlimited": "Unlimited"
+    }
+  }
+}

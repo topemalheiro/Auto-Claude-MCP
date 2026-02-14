@@ -1,0 +1,34 @@
+{
+  "appName": "Auto Claude Cloud",
+  "loading": "Chargement...",
+  "loadingData": "Chargement de {{dataType}}...",
+  "buttons": {
+    "getStarted": "Commencer",
+    "learnMore": "En savoir plus sur Auto Claude Cloud",
+    "signIn": "Se connecter avec GitHub",
+    "signOut": "Se déconnecter",
+    "goToDashboard": "Aller au tableau de bord",
+    "create": "Nouveau {{itemType}}",
+    "manageSubscription": "Gérer l'abonnement",
+    "upgrade": "Mettre à niveau vers {{tier}}",
+    "redirecting": "Redirection..."
+  },
+  "navigation": {
+    "specs": "Spécifications",
+    "teams": "Équipes",
+    "personas": "Personas",
+    "prQueue": "File de PR",
+    "settings": "Paramètres"
+  },
+  "tiers": {
+    "free": "Gratuit",
+    "pro": "Pro",
+    "team": "Équipe",
+    "enterprise": "Entreprise"
+  },
+  "errors": {
+    "checkoutFailed": "Échec du démarrage du paiement. Veuillez réessayer.",
+    "portalFailed": "Échec de l'ouverture du portail de facturation. Veuillez réessayer.",
+    "loginRequired": "Veuillez vous connecter pour voir les paramètres."
+  }
+}

@@ -6,7 +6,7 @@
   "author": "Auto Claude Team",
   "workspaces": [
     "apps/*",
-    "libs/*"
+    "packages/*"
   ],
   "scripts": {
     "install:backend": "node scripts/install-backend.js",
@@ -16,10 +16,12 @@
     "dev": "cd apps/frontend && npm run dev",
     "dev:debug": "cd apps/frontend && npm run dev:debug",
     "dev:mcp": "cd apps/frontend && npm run dev:mcp",
-    "build:types": "npm run build -w libs/types",
-    "build:ui": "npm run build -w libs/ui",
-    "build:libs": "npm run build:types && npm run build:ui",
+    "build:types": "npm run build -w packages/types",
+    "build:ui": "npm run build -w packages/ui",
+    "build:packages": "npm run build:types && npm run build:ui",
     "build": "cd apps/frontend && npm run build",
+    "dev:web": "cd apps/web && next dev --port 3001",
+    "build:web": "cd apps/web && next build",
     "lint": "cd apps/frontend && npm run lint",
     "test": "cd apps/frontend && npm test",
     "test:backend": "node scripts/test-backend.js",

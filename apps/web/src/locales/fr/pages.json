@@ -1,0 +1,55 @@
+{
+  "home": {
+    "welcome": "Bienvenue, {{name}}",
+    "tier": "Niveau : {{tier}}",
+    "selfHosted": {
+      "title": "Auto Claude",
+      "mode": "Mode auto-hébergé",
+      "unlockFeatures": "Débloquer les fonctionnalités Cloud",
+      "featuresDescription": "Obtenez des revues de PR automatisées, la synchronisation cloud, la collaboration d'équipe et plus encore avec Auto Claude Cloud."
+    },
+    "landing": {
+      "title": "Auto Claude Cloud",
+      "subtitle": "Spécifications synchronisées, personas et collaboration d'équipe"
+    }
+  },
+  "login": {
+    "title": "Se connecter à Auto Claude Cloud",
+    "selfHosted": {
+      "title": "Mode auto-hébergé",
+      "noLoginRequired": "Aucune connexion requise en mode auto-hébergé.",
+      "cloudPromo": "Vous voulez la synchronisation cloud, la collaboration d'équipe et les revues de PR automatisées ?",
+      "tryCloud": "Essayer Auto Claude Cloud"
+    }
+  },
+  "personas": {
+    "title": "Personas IA",
+    "description": "Passez à Pro pour créer des personnalités IA personnalisées pour vos projets.",
+    "createButton": "Nouveau Persona",
+    "empty": "Aucun persona pour le moment. Créez-en un !",
+    "cloudFeature": "Les personas IA synchronisés sont disponibles avec Auto Claude Cloud."
+  },
+  "prQueue": {
+    "title": "File de PR",
+    "description": "Passez au plan Équipe pour synchroniser les PR dans votre équipe.",
+    "empty": "Aucune PR dans la file. Connectez vos dépôts GitHub !",
+    "cloudFeature": "Les revues de PR automatisées et les files de PR d'équipe sont disponibles avec Auto Claude Cloud.",
+    "prNumber": "#{{number}}"
+  },
+  "teams": {
+    "title": "Mes équipes",
+    "singleTitle": "Équipes",
+    "description": "Passez au plan Équipe pour collaborer avec votre équipe.",
+    "createButton": "Nouvelle équipe",
+    "empty": "Aucune équipe pour le moment. Créez-en une !",
+    "cloudFeature": "La collaboration d'équipe est disponible avec Auto Claude Cloud."
+  },
+  "specs": {
+    "title": "Mes spécifications",
+    "createButton": "Nouvelle spécification",
+    "empty": "Aucune spécification pour le moment. Créez-en une !"
+  },
+  "cloudUpgrade": {
+    "learnMore": "En savoir plus sur Auto Claude Cloud"
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "title": "Paramètres",
+  "selfHosted": {
+    "mode": "Mode auto-hébergé",
+    "description": "Fonctionne en mode auto-hébergé. Configurez votre backend Python local via les variables d'environnement.",
+    "unlockFeatures": "Débloquer les fonctionnalités Cloud",
+    "featuresDescription": "Obtenez des revues de PR automatisées, la synchronisation cloud, la collaboration d'équipe, la facturation et plus encore."
+  },
+  "profile": {
+    "title": "Profil",
+    "name": "Nom :",
+    "email": "Courriel :"
+  },
+  "subscription": {
+    "title": "Abonnement",
+    "currentPlan": "Plan actuel :",
+    "price": "{{price}} $/mois",
+    "usage": {
+      "specs": "Spécifications : {{current}} / {{limit}}",
+      "personas": "Personas : {{current}} / {{limit}}",
+      "teamMembers": "Membres de l'équipe : {{current}} / {{limit}}",
+      "unlimited": "Illimité"
+    }
+  }
+}
