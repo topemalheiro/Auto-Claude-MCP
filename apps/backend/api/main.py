@@ -12,8 +12,10 @@ import socketio
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from .routes.env import router as env_router
 from .routes.health import router as health_router
 from .routes.projects import router as projects_router
+from .routes.settings import router as settings_router
 from .routes.tasks import router as tasks_router
 
 # Socket.IO async server for real-time communication
@@ -50,6 +52,8 @@ app.add_middleware(
 app.include_router(health_router)
 app.include_router(projects_router)
 app.include_router(tasks_router)
+app.include_router(settings_router)
+app.include_router(env_router)
 
 # Mount Socket.IO as ASGI sub-application
 sio_asgi_app = socketio.ASGIApp(sio, other_asgi_app=app)
