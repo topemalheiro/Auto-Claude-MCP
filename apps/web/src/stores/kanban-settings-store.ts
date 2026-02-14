@@ -1,16 +1,6 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
-
-// Types matching Electron field names
-export type TaskStatusColumn =
-  | "planning"
-  | "spec_writing"
-  | "building"
-  | "qa_review"
-  | "qa_fixing"
-  | "done"
-  | "failed"
-  | "cancelled";
+import type { TaskStatus } from "@auto-claude/types";
 
 export interface KanbanColumnPreference {
   width: number;
@@ -18,9 +8,8 @@ export interface KanbanColumnPreference {
   isLocked: boolean;
 }
 
-export type KanbanColumnPreferences = Record<
-  TaskStatusColumn,
-  KanbanColumnPreference
+export type KanbanColumnPreferences = Partial<
+  Record<TaskStatus, KanbanColumnPreference>
 >;
 
 /** Default column width in pixels */
@@ -32,27 +21,25 @@ export const MAX_COLUMN_WIDTH = 600;
 /** Collapsed column width in pixels */
 export const COLLAPSED_COLUMN_WIDTH = 48;
 
-const TASK_STATUS_COLUMNS: TaskStatusColumn[] = [
-  "planning",
-  "spec_writing",
-  "building",
-  "qa_review",
-  "qa_fixing",
+const DISPLAY_COLUMNS: TaskStatus[] = [
+  "backlog",
+  "queue",
+  "in_progress",
+  "ai_review",
+  "human_review",
   "done",
-  "failed",
-  "cancelled",
 ];
 
 function createDefaultPreferences(): KanbanColumnPreferences {
-  const preferences: Partial<KanbanColumnPreferences> = {};
-  for (const column of TASK_STATUS_COLUMNS) {
+  const preferences: KanbanColumnPreferences = {};
+  for (const column of DISPLAY_COLUMNS) {
     preferences[column] = {
       width: DEFAULT_COLUMN_WIDTH,
       isCollapsed: false,
       isLocked: false,
     };
   }
-  return preferences as KanbanColumnPreferences;
+  return preferences;
 }
 
 function clampWidth(width: number): number {
@@ -64,13 +51,13 @@ interface KanbanSettingsState {
 
   // Actions
   initializePreferences: () => void;
-  setColumnWidth: (column: TaskStatusColumn, width: number) => void;
-  toggleColumnCollapsed: (column: TaskStatusColumn) => void;
-  setColumnCollapsed: (column: TaskStatusColumn, isCollapsed: boolean) => void;
-  toggleColumnLocked: (column: TaskStatusColumn) => void;
-  setColumnLocked: (column: TaskStatusColumn, isLocked: boolean) => void;
+  setColumnWidth: (column: TaskStatus, width: number) => void;
+  toggleColumnCollapsed: (column: TaskStatus) => void;
+  setColumnCollapsed: (column: TaskStatus, isCollapsed: boolean) => void;
+  toggleColumnLocked: (column: TaskStatus) => void;
+  setColumnLocked: (column: TaskStatus, isLocked: boolean) => void;
   resetPreferences: () => void;
-  getColumnPreferences: (column: TaskStatusColumn) => KanbanColumnPreference;
+  getColumnPreferences: (column: TaskStatus) => KanbanColumnPreference;
 }
 
 export const useKanbanSettingsStore = create<KanbanSettingsState>()(
@@ -88,12 +75,13 @@ export const useKanbanSettingsStore = create<KanbanSettingsState>()(
       setColumnWidth: (column, width) => {
         set((state) => {
           if (!state.columnPreferences) return state;
-          if (state.columnPreferences[column].isLocked) return state;
+          const pref = state.columnPreferences[column];
+          if (pref?.isLocked) return state;
           return {
             columnPreferences: {
               ...state.columnPreferences,
               [column]: {
-                ...state.columnPreferences[column],
+                ...(pref ?? { isCollapsed: false, isLocked: false }),
                 width: clampWidth(width),
               },
             },
@@ -104,12 +92,13 @@ export const useKanbanSettingsStore = create<KanbanSettingsState>()(
       toggleColumnCollapsed: (column) => {
         set((state) => {
           if (!state.columnPreferences) return state;
+          const pref = state.columnPreferences[column];
           return {
             columnPreferences: {
               ...state.columnPreferences,
               [column]: {
-                ...state.columnPreferences[column],
-                isCollapsed: !state.columnPreferences[column].isCollapsed,
+                ...(pref ?? { width: DEFAULT_COLUMN_WIDTH, isLocked: false }),
+                isCollapsed: !(pref?.isCollapsed ?? false),
               },
             },
           };
@@ -119,11 +108,12 @@ export const useKanbanSettingsStore = create<KanbanSettingsState>()(
       setColumnCollapsed: (column, isCollapsed) => {
         set((state) => {
           if (!state.columnPreferences) return state;
+          const pref = state.columnPreferences[column];
           return {
             columnPreferences: {
               ...state.columnPreferences,
               [column]: {
-                ...state.columnPreferences[column],
+                ...(pref ?? { width: DEFAULT_COLUMN_WIDTH, isLocked: false }),
                 isCollapsed,
               },
             },
@@ -134,12 +124,13 @@ export const useKanbanSettingsStore = create<KanbanSettingsState>()(
       toggleColumnLocked: (column) => {
         set((state) => {
           if (!state.columnPreferences) return state;
+          const pref = state.columnPreferences[column];
           return {
             columnPreferences: {
               ...state.columnPreferences,
               [column]: {
-                ...state.columnPreferences[column],
-                isLocked: !state.columnPreferences[column].isLocked,
+                ...(pref ?? { width: DEFAULT_COLUMN_WIDTH, isCollapsed: false }),
+                isLocked: !(pref?.isLocked ?? false),
               },
             },
           };
@@ -149,11 +140,12 @@ export const useKanbanSettingsStore = create<KanbanSettingsState>()(
       setColumnLocked: (column, isLocked) => {
         set((state) => {
           if (!state.columnPreferences) return state;
+          const pref = state.columnPreferences[column];
           return {
             columnPreferences: {
               ...state.columnPreferences,
               [column]: {
-                ...state.columnPreferences[column],
+                ...(pref ?? { width: DEFAULT_COLUMN_WIDTH, isCollapsed: false }),
                 isLocked,
               },
             },
@@ -167,14 +159,14 @@ export const useKanbanSettingsStore = create<KanbanSettingsState>()(
 
       getColumnPreferences: (column) => {
         const state = get();
-        if (!state.columnPreferences) {
+        if (!state.columnPreferences || !state.columnPreferences[column]) {
           return {
             width: DEFAULT_COLUMN_WIDTH,
             isCollapsed: false,
             isLocked: false,
           };
         }
-        return state.columnPreferences[column];
+        return state.columnPreferences[column]!;
       },
     }),
     {

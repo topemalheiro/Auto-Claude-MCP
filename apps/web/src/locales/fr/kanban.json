@@ -3,7 +3,11 @@
     "title": "Tâches",
     "refresh": "Actualiser",
     "newTask": "Nouvelle tâche",
-    "noTasks": "Aucune tâche"
+    "noTasks": "Aucune tâche",
+    "archived": "Archivé",
+    "showArchived": "Afficher les archivés",
+    "hideArchived": "Masquer les archivés",
+    "collapseColumn": "Réduire"
   },
   "columns": {
     "backlog": "Backlog",
@@ -27,6 +31,25 @@
       "infrastructure": "Infra",
       "testing": "Tests"
     },
+    "complexity": {
+      "trivial": "Trivial",
+      "small": "Petit",
+      "medium": "Moyen",
+      "large": "Grand",
+      "complex": "Complexe"
+    },
+    "priority": {
+      "urgent": "Urgent",
+      "high": "Haute",
+      "medium": "Moyenne",
+      "low": "Basse"
+    },
+    "impact": {
+      "low": "Impact faible",
+      "medium": "Impact moyen",
+      "high": "Impact élevé",
+      "critical": "Critique"
+    },
     "badges": {
       "prCreated": "PR créée",
       "error": "Erreur"
@@ -37,7 +60,18 @@
       "qa_rejected": "Rejeté par QA",
       "plan_review": "Revue du plan",
       "stopped": "Arrêté"
-    }
+    },
+    "stuck": "Bloqué"
+  },
+  "actions": {
+    "start": "Démarrer",
+    "stop": "Arrêter",
+    "recover": "Récupérer",
+    "archive": "Archiver",
+    "createPR": "Créer PR",
+    "moveToBacklog": "Déplacer au Backlog",
+    "moveToQueue": "Déplacer en file d'attente",
+    "markDone": "Marquer comme terminé"
   },
   "detail": {
     "description": "Description",

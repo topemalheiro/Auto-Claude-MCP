@@ -1,22 +1,38 @@
 "use client";
 
-import { useMemo, useState, useCallback } from "react";
+import { useMemo, useState, useCallback, useRef, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import {
+  DndContext,
+  DragOverlay,
+  closestCorners,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragStartEvent,
+  type DragEndEvent,
+  type DragOverEvent,
+} from "@dnd-kit/core";
+import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
+import {
   Plus,
-  Inbox,
   Loader2,
-  Eye,
-  CheckCircle2,
   RefreshCw,
-  GitPullRequest,
-  AlertCircle,
+  Archive,
 } from "lucide-react";
-import { cn } from "@auto-claude/ui";
+import { cn, Button, Tooltip, TooltipContent, TooltipTrigger } from "@auto-claude/ui";
 import type { Task, TaskStatus } from "@auto-claude/types";
-import { useTaskStore, loadTasks } from "@/stores/task-store";
+import { useTaskStore, loadTasks, updateTaskStatusAPI, startTask, stopTask } from "@/stores/task-store";
 import { useProjectStore } from "@/stores/project-store";
 import { useUIStore } from "@/stores/ui-store";
+import {
+  useKanbanSettingsStore,
+  DEFAULT_COLUMN_WIDTH,
+  MIN_COLUMN_WIDTH,
+  MAX_COLUMN_WIDTH,
+} from "@/stores/kanban-settings-store";
+import { KanbanColumn } from "./KanbanColumn";
 import { TaskCard } from "./TaskCard";
 import { TaskDetailModal } from "./TaskDetailModal";
 
@@ -29,52 +45,95 @@ const TASK_STATUS_COLUMNS: TaskStatus[] = [
   "done",
 ];
 
-const COLUMN_CONFIG: Record<
-  string,
-  { labelKey: string; icon: React.ElementType; color: string }
-> = {
-  backlog: { labelKey: "columns.backlog", icon: Inbox, color: "text-muted-foreground" },
-  queue: { labelKey: "columns.queue", icon: Loader2, color: "text-blue-500" },
-  in_progress: { labelKey: "columns.in_progress", icon: Loader2, color: "text-yellow-500" },
-  ai_review: { labelKey: "columns.ai_review", icon: Eye, color: "text-purple-500" },
-  human_review: { labelKey: "columns.human_review", icon: Eye, color: "text-orange-500" },
-  done: { labelKey: "columns.done", icon: CheckCircle2, color: "text-green-500" },
-  pr_created: { labelKey: "columns.pr_created", icon: GitPullRequest, color: "text-green-600" },
-  error: { labelKey: "columns.error", icon: AlertCircle, color: "text-red-500" },
+/**
+ * Get the visual column for a task status.
+ * pr_created → done, error → human_review
+ */
+function getVisualColumn(status: TaskStatus): TaskStatus {
+  if (status === "pr_created") return "done";
+  if (status === "error") return "human_review";
+  return status;
+}
+
+/** Valid drop transitions */
+const VALID_TRANSITIONS: Record<TaskStatus, TaskStatus[]> = {
+  backlog: ["queue"],
+  queue: ["in_progress", "backlog"],
+  in_progress: ["ai_review", "human_review", "error", "backlog"],
+  ai_review: ["in_progress", "done", "human_review", "error"],
+  human_review: ["in_progress", "done", "backlog"],
+  done: ["backlog"],
+  pr_created: ["done"],
+  error: ["in_progress", "human_review", "backlog"],
 };
 
 export function KanbanBoard() {
   const { t } = useTranslation("kanban");
   const tasks = useTaskStore((s) => s.tasks);
   const isLoading = useTaskStore((s) => s.isLoading);
+  const taskOrder = useTaskStore((s) => s.taskOrder);
+  const reorderTasksInColumn = useTaskStore((s) => s.reorderTasksInColumn);
+  const moveTaskToColumnTop = useTaskStore((s) => s.moveTaskToColumnTop);
+  const saveTaskOrder = useTaskStore((s) => s.saveTaskOrder);
   const activeProjectId = useProjectStore((s) => s.activeProjectId);
   const selectedProjectId = useProjectStore((s) => s.selectedProjectId);
   const setNewTaskDialogOpen = useUIStore((s) => s.setNewTaskDialogOpen);
+
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
+  const [activeId, setActiveId] = useState<string | null>(null);
+
+  // Resize state
+  const [resizingColumn, setResizingColumn] = useState<string | null>(null);
+  const resizeStartX = useRef(0);
+  const resizeStartWidth = useRef(DEFAULT_COLUMN_WIDTH);
 
   const currentProjectId = activeProjectId || selectedProjectId;
 
-  // Group tasks by status
+  // Kanban settings
+  const columnPreferences = useKanbanSettingsStore((s) => s.columnPreferences);
+  const setColumnWidth = useKanbanSettingsStore((s) => s.setColumnWidth);
+  const toggleColumnCollapsed = useKanbanSettingsStore((s) => s.toggleColumnCollapsed);
+  const initializePreferences = useKanbanSettingsStore((s) => s.initializePreferences);
+
+  useEffect(() => {
+    initializePreferences();
+  }, [initializePreferences]);
+
+  // DnD sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  // Group tasks by visual column
   const tasksByStatus = useMemo(() => {
     const grouped: Record<string, Task[]> = {};
     for (const status of TASK_STATUS_COLUMNS) {
       grouped[status] = [];
     }
     for (const task of tasks) {
-      // Map pr_created to done, error to human_review for display
-      const displayStatus =
-        task.status === "pr_created"
-          ? "done"
-          : task.status === "error"
-            ? "human_review"
-            : task.status;
+      if (!showArchived && task.metadata?.archivedAt) continue;
+      const displayStatus = getVisualColumn(task.status);
       if (grouped[displayStatus]) {
         grouped[displayStatus].push(task);
       }
     }
     return grouped;
-  }, [tasks]);
+  }, [tasks, showArchived]);
+
+  // Count archived tasks
+  const archivedCount = useMemo(
+    () => tasks.filter((t) => t.metadata?.archivedAt).length,
+    [tasks],
+  );
+
+  // Active drag task
+  const activeTask = useMemo(
+    () => (activeId ? tasks.find((t) => t.id === activeId) : null),
+    [activeId, tasks],
+  );
 
   const handleRefresh = useCallback(async () => {
     if (!currentProjectId) return;
@@ -85,6 +144,128 @@ export function KanbanBoard() {
       setIsRefreshing(false);
     }
   }, [currentProjectId]);
+
+  // Drag handlers
+  const handleDragStart = useCallback((event: DragStartEvent) => {
+    setActiveId(event.active.id as string);
+  }, []);
+
+  const handleDragOver = useCallback((_event: DragOverEvent) => {
+    // Could highlight target column - handled by isOver in KanbanColumn
+  }, []);
+
+  const handleDragEnd = useCallback(
+    (event: DragEndEvent) => {
+      setActiveId(null);
+      const { active, over } = event;
+      if (!over || !currentProjectId) return;
+
+      const activeTaskId = active.id as string;
+      const task = tasks.find((t) => t.id === activeTaskId);
+      if (!task) return;
+
+      const overData = over.data.current;
+      const overId = over.id as string;
+
+      // Determine target column
+      let targetColumn: TaskStatus | null = null;
+
+      if (overData?.type === "column") {
+        targetColumn = overData.status as TaskStatus;
+      } else if (overData?.type === "task") {
+        // Dropped on a task - find which column it's in
+        const overTask = tasks.find((t) => t.id === overId);
+        if (overTask) {
+          targetColumn = getVisualColumn(overTask.status);
+        }
+      } else {
+        // overId might be a column id directly
+        if (TASK_STATUS_COLUMNS.includes(overId as TaskStatus)) {
+          targetColumn = overId as TaskStatus;
+        }
+      }
+
+      if (!targetColumn) return;
+
+      const sourceColumn = getVisualColumn(task.status);
+
+      if (sourceColumn === targetColumn) {
+        // Reorder within column
+        if (overData?.type === "task" && overId !== activeTaskId) {
+          reorderTasksInColumn(targetColumn, activeTaskId, overId);
+          saveTaskOrder(currentProjectId);
+        }
+      } else {
+        // Move to different column - validate transition
+        if (VALID_TRANSITIONS[task.status]?.includes(targetColumn)) {
+          moveTaskToColumnTop(activeTaskId, targetColumn, sourceColumn);
+          saveTaskOrder(currentProjectId);
+          updateTaskStatusAPI(currentProjectId, activeTaskId, targetColumn);
+        }
+      }
+    },
+    [tasks, currentProjectId, reorderTasksInColumn, moveTaskToColumnTop, saveTaskOrder],
+  );
+
+  // Status change handler
+  const handleStatusChange = useCallback(
+    (taskId: string, newStatus: TaskStatus) => {
+      if (!currentProjectId) return;
+      updateTaskStatusAPI(currentProjectId, taskId, newStatus);
+    },
+    [currentProjectId],
+  );
+
+  const handleStartTask = useCallback(
+    (taskId: string) => {
+      if (!currentProjectId) return;
+      startTask(currentProjectId, taskId);
+    },
+    [currentProjectId],
+  );
+
+  const handleStopTask = useCallback(
+    (taskId: string) => {
+      if (!currentProjectId) return;
+      stopTask(currentProjectId, taskId);
+    },
+    [currentProjectId],
+  );
+
+  // Column resize handlers
+  const handleResizeStart = useCallback(
+    (column: string) => (startX: number) => {
+      setResizingColumn(column);
+      resizeStartX.current = startX;
+      const pref = columnPreferences?.[column as keyof typeof columnPreferences];
+      resizeStartWidth.current = pref?.width ?? DEFAULT_COLUMN_WIDTH;
+    },
+    [columnPreferences],
+  );
+
+  useEffect(() => {
+    if (!resizingColumn) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const delta = e.clientX - resizeStartX.current;
+      const newWidth = Math.max(
+        MIN_COLUMN_WIDTH,
+        Math.min(MAX_COLUMN_WIDTH, resizeStartWidth.current + delta),
+      );
+      setColumnWidth(resizingColumn as any, newWidth);
+    };
+
+    const handleMouseUp = () => {
+      setResizingColumn(null);
+    };
+
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [resizingColumn, setColumnWidth]);
 
   if (isLoading && tasks.length === 0) {
     return (
@@ -100,6 +281,27 @@ export function KanbanBoard() {
       <div className="flex items-center justify-between border-b border-border px-6 py-3">
         <h1 className="text-lg font-semibold">{t("board.title")}</h1>
         <div className="flex items-center gap-2">
+          {archivedCount > 0 && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  className={cn(
+                    "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-colors",
+                    showArchived && "bg-accent text-foreground",
+                  )}
+                  onClick={() => setShowArchived(!showArchived)}
+                >
+                  <Archive className="h-3.5 w-3.5" />
+                  {t("board.archived", "Archived")} ({archivedCount})
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {showArchived
+                  ? t("board.hideArchived", "Hide archived")
+                  : t("board.showArchived", "Show archived")}
+              </TooltipContent>
+            </Tooltip>
+          )}
           <button
             className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
             onClick={handleRefresh}
@@ -120,47 +322,51 @@ export function KanbanBoard() {
         </div>
       </div>
 
-      {/* Columns */}
-      <div className="flex flex-1 overflow-x-auto p-4 gap-4">
-        {TASK_STATUS_COLUMNS.map((status) => {
-          const config = COLUMN_CONFIG[status];
-          const columnTasks = tasksByStatus[status] || [];
-          const Icon = config.icon;
+      {/* Columns with DnD */}
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCorners}
+        onDragStart={handleDragStart}
+        onDragOver={handleDragOver}
+        onDragEnd={handleDragEnd}
+      >
+        <div className="flex flex-1 overflow-x-auto p-4 gap-4">
+          {TASK_STATUS_COLUMNS.map((status) => {
+            const columnTasks = tasksByStatus[status] || [];
+            const pref = columnPreferences?.[status as keyof typeof columnPreferences];
 
-          return (
-            <div
-              key={status}
-              className="flex min-w-[280px] max-w-[320px] flex-1 flex-col rounded-lg bg-card/50 border border-border"
-            >
-              {/* Column header */}
-              <div className="flex items-center gap-2 px-3 py-2.5 border-b border-border">
-                <Icon className={cn("h-4 w-4", config.color)} />
-                <span className="text-sm font-medium">{t(config.labelKey)}</span>
-                <span className="ml-auto rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground">
-                  {columnTasks.length}
-                </span>
-              </div>
+            return (
+              <KanbanColumn
+                key={status}
+                status={status}
+                tasks={columnTasks}
+                onTaskClick={setSelectedTask}
+                onStatusChange={handleStatusChange}
+                isOver={false}
+                columnWidth={pref?.width ?? DEFAULT_COLUMN_WIDTH}
+                isCollapsed={pref?.isCollapsed ?? false}
+                onToggleCollapsed={() => toggleColumnCollapsed(status as any)}
+                showArchived={showArchived}
+                archivedCount={status === "done" ? archivedCount : 0}
+                onToggleArchived={() => setShowArchived(!showArchived)}
+                onResizeStart={handleResizeStart(status)}
+              />
+            );
+          })}
+        </div>
 
-              {/* Tasks */}
-              <div className="flex-1 overflow-y-auto p-2 space-y-2">
-                {columnTasks.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-                    <p className="text-xs">{t("board.noTasks")}</p>
-                  </div>
-                ) : (
-                  columnTasks.map((task) => (
-                    <TaskCard
-                      key={task.id}
-                      task={task}
-                      onClick={() => setSelectedTask(task)}
-                    />
-                  ))
-                )}
-              </div>
+        {/* Drag overlay */}
+        <DragOverlay>
+          {activeTask ? (
+            <div className="w-[280px] opacity-90 rotate-2">
+              <TaskCard
+                task={activeTask}
+                onClick={() => {}}
+              />
             </div>
-          );
-        })}
-      </div>
+          ) : null}
+        </DragOverlay>
+      </DndContext>
 
       {/* Task Detail Modal */}
       {selectedTask && (

@@ -3,7 +3,11 @@
     "title": "Tasks",
     "refresh": "Refresh",
     "newTask": "New Task",
-    "noTasks": "No tasks"
+    "noTasks": "No tasks",
+    "archived": "Archived",
+    "showArchived": "Show archived",
+    "hideArchived": "Hide archived",
+    "collapseColumn": "Collapse"
   },
   "columns": {
     "backlog": "Backlog",
@@ -27,6 +31,25 @@
       "infrastructure": "Infra",
       "testing": "Testing"
     },
+    "complexity": {
+      "trivial": "Trivial",
+      "small": "Small",
+      "medium": "Medium",
+      "large": "Large",
+      "complex": "Complex"
+    },
+    "priority": {
+      "urgent": "Urgent",
+      "high": "High",
+      "medium": "Medium",
+      "low": "Low"
+    },
+    "impact": {
+      "low": "Low Impact",
+      "medium": "Med Impact",
+      "high": "High Impact",
+      "critical": "Critical"
+    },
     "badges": {
       "prCreated": "PR Created",
       "error": "Error"
@@ -37,7 +60,18 @@
       "qa_rejected": "QA Rejected",
       "plan_review": "Plan Review",
       "stopped": "Stopped"
-    }
+    },
+    "stuck": "Stuck"
+  },
+  "actions": {
+    "start": "Start",
+    "stop": "Stop",
+    "recover": "Recover",
+    "archive": "Archive",
+    "createPR": "Create PR",
+    "moveToBacklog": "Move to Backlog",
+    "moveToQueue": "Move to Queue",
+    "markDone": "Mark as Done"
   },
   "detail": {
     "description": "Description",
