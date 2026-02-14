@@ -225,6 +225,7 @@ const browserMockAPI: ElectronAPI = {
     onPRReviewProgress: () => () => {},
     onPRReviewComplete: () => () => {},
     onPRReviewError: () => () => {},
+    onPRReviewStateChange: () => () => {},
     onPRLogsUpdated: () => () => {},
     batchAutoFix: () => {},
     getBatches: async () => [],

@@ -19,17 +19,20 @@ function runEvents(events: PRReviewEvent[]) {
 }
 
 const mockResult = {
+  prNumber: 42,
+  repo: 'test/repo',
+  success: true,
+  findings: [],
   summary: 'Test review',
-  rating: 'approve' as const,
-  comments: [],
-  filesReviewed: 3,
-  issuesFound: 0,
+  overallStatus: 'approve' as const,
+  reviewedAt: new Date().toISOString(),
 };
 
 const mockProgress = {
   phase: 'analyzing' as const,
+  prNumber: 42,
+  progress: 50,
   message: 'Analyzing files...',
-  percentage: 50,
 };
 
 describe('prReviewMachine', () => {

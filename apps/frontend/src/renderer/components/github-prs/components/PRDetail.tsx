@@ -420,16 +420,8 @@ export function PRDetail({
     const pollForCompletion = async () => {
       // Timeout: stop polling after 30 minutes to avoid indefinite polling
       if (Date.now() - pollStart > MAX_POLL_DURATION_MS) {
-        usePRReviewStore.getState().setPRReviewResult(projectId, {
-          prNumber: pr.number,
-          repo: '',
-          success: false,
-          findings: [],
-          summary: '',
-          overallStatus: 'comment',
-          reviewedAt: new Date().toISOString(),
-          error: 'External review polling timed out after 30 minutes',
-        });
+        // XState now handles external review state - timeout is managed by the state machine
+        console.warn('[PRDetail] External review polling timed out after 30 minutes');
         return;
       }
 
@@ -440,7 +432,8 @@ export function PRDetail({
           // Otherwise this is a stale result from a previous review still on disk
           // (in-progress results are intentionally NOT saved to disk).
           if (startedAt && result.reviewedAt && new Date(result.reviewedAt) > new Date(startedAt)) {
-            usePRReviewStore.getState().setPRReviewResult(projectId, result);
+            // XState now handles review completion via IPC events - no need to manually set result
+            console.log('[PRDetail] External review completed, result handled by XState');
           }
         }
       } catch {
