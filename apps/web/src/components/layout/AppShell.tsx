@@ -20,12 +20,15 @@ import { GitHubPRsView } from "@/components/github/GitHubPRsView";
 import { GitLabIssuesView } from "@/components/gitlab/GitLabIssuesView";
 import { GitLabMRsView } from "@/components/gitlab/GitLabMRsView";
 import { SettingsView } from "@/components/settings/SettingsView";
+import { OnboardingWizard } from "@/components/onboarding/OnboardingWizard";
 import { WelcomeScreen } from "./WelcomeScreen";
 
 export function AppShell() {
   const activeView = useUIStore((s) => s.activeView);
   const isNewTaskDialogOpen = useUIStore((s) => s.isNewTaskDialogOpen);
   const setNewTaskDialogOpen = useUIStore((s) => s.setNewTaskDialogOpen);
+  const isOnboardingOpen = useUIStore((s) => s.isOnboardingOpen);
+  const setOnboardingOpen = useUIStore((s) => s.setOnboardingOpen);
   const activeProjectId = useProjectStore((s) => s.activeProjectId);
   const selectedProjectId = useProjectStore((s) => s.selectedProjectId);
   const projects = useProjectStore((s) => s.projects);
@@ -162,6 +165,12 @@ export function AppShell() {
           projectId={currentProjectId}
         />
       )}
+
+      {/* Onboarding Wizard */}
+      <OnboardingWizard
+        open={isOnboardingOpen}
+        onClose={() => setOnboardingOpen(false)}
+      />
     </div>
   );
 }

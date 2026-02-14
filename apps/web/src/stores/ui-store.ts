@@ -23,12 +23,14 @@ interface UIState {
   selectedTask: Task | null;
   isNewTaskDialogOpen: boolean;
   isSettingsDialogOpen: boolean;
+  isOnboardingOpen: boolean;
 
   // Actions
   setActiveView: (view: SidebarView) => void;
   setSelectedTask: (task: Task | null) => void;
   setNewTaskDialogOpen: (open: boolean) => void;
   setSettingsDialogOpen: (open: boolean) => void;
+  setOnboardingOpen: (open: boolean) => void;
 }
 
 export const useUIStore = create<UIState>((set) => ({
@@ -36,9 +38,11 @@ export const useUIStore = create<UIState>((set) => ({
   selectedTask: null,
   isNewTaskDialogOpen: false,
   isSettingsDialogOpen: false,
+  isOnboardingOpen: false,
 
   setActiveView: (view) => set({ activeView: view }),
   setSelectedTask: (task) => set({ selectedTask: task }),
   setNewTaskDialogOpen: (open) => set({ isNewTaskDialogOpen: open }),
   setSettingsDialogOpen: (open) => set({ isSettingsDialogOpen: open }),
+  setOnboardingOpen: (open) => set({ isOnboardingOpen: open }),
 }));

@@ -1,0 +1,10 @@
+node_modules
+.next
+.git
+.env*
+*.md
+tests
+scripts
+guides
+apps/frontend
+apps/backend
