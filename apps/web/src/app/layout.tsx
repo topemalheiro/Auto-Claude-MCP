@@ -4,6 +4,8 @@ import { I18nProvider } from "@/providers/I18nProvider";
 import { CLOUD_MODE } from "@/lib/cloud-mode";
 import "./globals.css";
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "Auto Claude",
   description: "AI-powered software development platform",
