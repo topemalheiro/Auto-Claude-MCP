@@ -2516,20 +2516,20 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
             <Button
               variant="ghost"
               size="sm"
-              className="gap-2 text-muted-foreground hover:text-foreground"
-              onClick={handleBulkToggleRdr}
-            >
-              {allSelectedRdrDisabled ? <Shield className="h-4 w-4" /> : <ShieldOff className="h-4 w-4" />}
-              {allSelectedRdrDisabled ? 'Enable RDR' : 'Disable RDR'}
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
               className="gap-2 text-destructive hover:text-destructive hover:bg-destructive/10"
               onClick={handleOpenDeleteConfirm}
             >
               <Trash2 className="h-4 w-4" />
               {t('kanban.deleteSelected')}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="gap-2 text-muted-foreground hover:text-foreground"
+              onClick={handleBulkToggleRdr}
+            >
+              {allSelectedRdrDisabled ? <Shield className="h-4 w-4" /> : <ShieldOff className="h-4 w-4" />}
+              {allSelectedRdrDisabled ? 'Enable RDR' : 'Disable RDR'}
             </Button>
             <Button
               variant="ghost"

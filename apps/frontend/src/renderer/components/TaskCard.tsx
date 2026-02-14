@@ -157,6 +157,12 @@ export const TaskCard = memo(function TaskCard({
   const [isStuck, setIsStuck] = useState(false);
   const [isRecovering, setIsRecovering] = useState(false);
   const [rdrDisabled, setRdrDisabled] = useState(task.metadata?.rdrDisabled ?? false);
+
+  // Sync rdrDisabled when task prop changes (e.g. after bulk toggle + refresh)
+  useEffect(() => {
+    setRdrDisabled(task.metadata?.rdrDisabled ?? false);
+  }, [task.metadata?.rdrDisabled]);
+
   const stuckCheckRef = useRef<{ timeout: NodeJS.Timeout | null; interval: NodeJS.Timeout | null }>({
     timeout: null,
     interval: null
