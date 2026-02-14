@@ -40,6 +40,7 @@ import { readAndClearSignalFile } from '../ipc-handlers/rdr-handlers.js';
 import { existsSync, readFileSync, unlinkSync } from 'fs';
 import { join } from 'path';
 import { homedir, tmpdir } from 'os';
+import { spawnSync } from 'child_process';
 import type {
   TaskOptions,
   TaskCategory,
@@ -1951,9 +1952,19 @@ server.tool(
             try {
               const pid = parseInt(readFileSync(pidPath, 'utf-8').trim(), 10);
               if (pid > 0) {
-                process.kill(pid);
-                agentKilled = true;
-                console.warn(`[MCP] Killed agent process PID ${pid} for ${taskId} (forceRecovery — direct cross-process kill)`);
+                if (process.platform === 'win32') {
+                  // Windows: taskkill /f /t kills process tree (bare process.kill doesn't work)
+                  const result = spawnSync('taskkill', ['/f', '/t', '/pid', pid.toString()], {
+                    stdio: 'ignore',
+                    timeout: 5000
+                  });
+                  agentKilled = result.status === 0;
+                } else {
+                  // Unix: SIGKILL for guaranteed termination
+                  process.kill(pid, 'SIGKILL');
+                  agentKilled = true;
+                }
+                console.warn(`[MCP] Killed agent process PID ${pid} for ${taskId} (forceRecovery — cross-process kill, success=${agentKilled})`);
               }
             } catch (err) {
               console.warn(`[MCP] Could not kill agent PID for ${taskId}: ${err}`);
