@@ -10,6 +10,8 @@ import { isWindows as checkIsWindows, isLinux as checkIsLinux } from '../../lib/
 import { debounce } from '../../lib/debounce';
 import { DEFAULT_TERMINAL_THEME } from '../../lib/terminal-theme';
 import { debugLog, debugError } from '../../../shared/utils/debug-logger';
+import { webglContextManager } from '../../lib/webgl-context-manager';
+import { useSettingsStore } from '../../stores/settings-store';
 
 interface UseXtermOptions {
   terminalId: string;
@@ -116,6 +118,14 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
     xterm.loadAddon(serializeAddon);
 
     xterm.open(terminalRef.current);
+
+    // WebGL acceleration: register terminal and acquire context based on user setting
+    // Must happen AFTER xterm.open() — xterm.js requires the terminal to be mounted first
+    const gpuAcceleration = useSettingsStore.getState().settings.gpuAcceleration ?? 'auto';
+    webglContextManager.register(terminalId, xterm);
+    if (gpuAcceleration !== 'off') {
+      webglContextManager.acquire(terminalId);
+    }
 
     // Platform detection for copy/paste shortcuts
     // Use existing os-detection module instead of custom implementation
@@ -551,6 +561,9 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
 
     // Serialize buffer before disposing to preserve ANSI formatting
     serializeBuffer();
+
+    // Release WebGL context before disposing addons and xterm
+    webglContextManager.unregister(terminalId);
 
     // Dispose addons explicitly before disposing xterm
     // While xterm.dispose() handles loaded addons, explicit disposal ensures

@@ -66,9 +66,33 @@ vi.mock('@xterm/addon-serialize', () => ({
 vi.mock('../../../../lib/terminal-buffer-manager', () => ({
   terminalBufferManager: {
     get: vi.fn(() => ''),
+    getAndClear: vi.fn(() => ''),
     set: vi.fn(),
     clear: vi.fn()
   }
+}));
+
+// Mock WebGL context manager
+const mockWebglRegister = vi.fn();
+const mockWebglAcquire = vi.fn();
+const mockWebglUnregister = vi.fn();
+vi.mock('../../../lib/webgl-context-manager', () => ({
+  webglContextManager: {
+    register: (...args: unknown[]) => mockWebglRegister(...args),
+    acquire: (...args: unknown[]) => mockWebglAcquire(...args),
+    unregister: (...args: unknown[]) => mockWebglUnregister(...args),
+  }
+}));
+
+// Mock settings store (for gpuAcceleration setting)
+const mockSettingsStoreState = {
+  settings: { gpuAcceleration: 'auto' as string | undefined }
+};
+vi.mock('../../../stores/settings-store', () => ({
+  useSettingsStore: Object.assign(vi.fn(), {
+    getState: () => mockSettingsStoreState,
+    subscribe: vi.fn(() => vi.fn()),
+  })
 }));
 
 // Mock navigator.platform for platform detection
@@ -835,5 +859,165 @@ describe('useXterm keyboard handlers', () => {
       // Clipboard should not be called for keyup events
       expect(mockClipboard.writeText).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe('useXterm WebGL context management', () => {
+  // Mock requestAnimationFrame for jsdom environment
+  const originalRequestAnimationFrame = global.requestAnimationFrame;
+  const originalCancelAnimationFrame = global.cancelAnimationFrame;
+
+  beforeAll(() => {
+    global.requestAnimationFrame = vi.fn((cb: FrameRequestCallback) => setTimeout(cb, 0) as unknown as number);
+    global.cancelAnimationFrame = vi.fn((id: number) => clearTimeout(id));
+  });
+
+  afterAll(() => {
+    global.requestAnimationFrame = originalRequestAnimationFrame;
+    global.cancelAnimationFrame = originalCancelAnimationFrame;
+  });
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.clearAllMocks();
+
+    // Reset gpuAcceleration to default
+    mockSettingsStoreState.settings.gpuAcceleration = 'auto';
+
+    // Mock ResizeObserver
+    global.ResizeObserver = vi.fn().mockImplementation(function() {
+      return { observe: vi.fn(), unobserve: vi.fn(), disconnect: vi.fn() };
+    });
+
+    // Mock window.electronAPI
+    (window as unknown as { electronAPI: unknown }).electronAPI = {
+      sendTerminalInput: vi.fn(),
+      openExternal: vi.fn(),
+    };
+  });
+
+  afterEach(() => {
+    vi.clearAllTimers();
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  /**
+   * Helper to render useXterm and wait for initialization
+   */
+  async function renderUseXterm(terminalId = 'test-webgl-terminal') {
+    // Set up XTerm mock with dispose tracking
+    const mockDispose = vi.fn();
+    (XTerm as unknown as Mock).mockImplementation(function() {
+      return {
+        open: vi.fn(),
+        loadAddon: vi.fn(),
+        attachCustomKeyEventHandler: vi.fn(),
+        hasSelection: vi.fn(() => false),
+        getSelection: vi.fn(() => ''),
+        paste: vi.fn(),
+        input: vi.fn(),
+        onData: vi.fn(),
+        onResize: vi.fn(),
+        dispose: mockDispose,
+        write: vi.fn(),
+        cols: 80,
+        rows: 24,
+        options: {
+          cursorBlink: true,
+          cursorStyle: 'block',
+          fontSize: 14,
+          fontFamily: 'monospace',
+          fontWeight: 'normal',
+          lineHeight: 1,
+          letterSpacing: 0,
+          theme: { cursorAccent: '#000000' },
+          scrollback: 1000
+        },
+        refresh: vi.fn()
+      };
+    });
+
+    const { FitAddon } = await import('@xterm/addon-fit');
+    (FitAddon as unknown as Mock).mockImplementation(function() {
+      return { fit: vi.fn(), dispose: vi.fn() };
+    });
+
+    const { WebLinksAddon } = await import('@xterm/addon-web-links');
+    (WebLinksAddon as unknown as Mock).mockImplementation(function() {
+      return {};
+    });
+
+    const { SerializeAddon } = await import('@xterm/addon-serialize');
+    (SerializeAddon as unknown as Mock).mockImplementation(function() {
+      return { serialize: vi.fn(() => ''), dispose: vi.fn() };
+    });
+
+    let disposeHook: (() => void) | null = null;
+
+    const TestWrapper = () => {
+      const result = useXterm({ terminalId });
+      // Expose dispose via ref so tests can call it
+      disposeHook = result.dispose;
+      return React.createElement('div', { ref: result.terminalRef });
+    };
+
+    await act(async () => {
+      render(React.createElement(TestWrapper));
+    });
+
+    return { disposeHook: () => disposeHook?.() };
+  }
+
+  it('should register and acquire WebGL context when gpuAcceleration is "auto"', async () => {
+    mockSettingsStoreState.settings.gpuAcceleration = 'auto';
+
+    await renderUseXterm('terminal-auto');
+
+    expect(mockWebglRegister).toHaveBeenCalledWith('terminal-auto', expect.anything());
+    expect(mockWebglAcquire).toHaveBeenCalledWith('terminal-auto');
+  });
+
+  it('should register and acquire WebGL context when gpuAcceleration is "on"', async () => {
+    mockSettingsStoreState.settings.gpuAcceleration = 'on';
+
+    await renderUseXterm('terminal-on');
+
+    expect(mockWebglRegister).toHaveBeenCalledWith('terminal-on', expect.anything());
+    expect(mockWebglAcquire).toHaveBeenCalledWith('terminal-on');
+  });
+
+  it('should register but NOT acquire WebGL context when gpuAcceleration is "off"', async () => {
+    mockSettingsStoreState.settings.gpuAcceleration = 'off';
+
+    await renderUseXterm('terminal-off');
+
+    expect(mockWebglRegister).toHaveBeenCalledWith('terminal-off', expect.anything());
+    expect(mockWebglAcquire).not.toHaveBeenCalled();
+  });
+
+  it('should unregister WebGL context on terminal disposal', async () => {
+    mockSettingsStoreState.settings.gpuAcceleration = 'auto';
+
+    const { disposeHook } = await renderUseXterm('terminal-dispose');
+
+    expect(mockWebglRegister).toHaveBeenCalledWith('terminal-dispose', expect.anything());
+
+    // Dispose the terminal
+    act(() => {
+      disposeHook();
+    });
+
+    expect(mockWebglUnregister).toHaveBeenCalledWith('terminal-dispose');
+  });
+
+  it('should fallback to "auto" when gpuAcceleration is undefined (upgrading users)', async () => {
+    mockSettingsStoreState.settings.gpuAcceleration = undefined;
+
+    await renderUseXterm('terminal-undefined');
+
+    // When undefined, the ?? 'auto' fallback means acquire should be called
+    expect(mockWebglRegister).toHaveBeenCalledWith('terminal-undefined', expect.anything());
+    expect(mockWebglAcquire).toHaveBeenCalledWith('terminal-undefined');
   });
 });

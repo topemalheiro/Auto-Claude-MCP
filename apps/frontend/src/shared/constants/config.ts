@@ -67,7 +67,9 @@ export const DEFAULT_APP_SETTINGS = {
   // Anonymous error reporting (Sentry) - enabled by default to help improve the app
   sentryEnabled: true,
   // Auto-name Claude terminals based on initial message (enabled by default)
-  autoNameClaudeTerminals: true
+  autoNameClaudeTerminals: true,
+  // GPU acceleration for terminal rendering (auto = WebGL when supported)
+  gpuAcceleration: 'auto' as const
 };
 
 // ============================================
