@@ -31,10 +31,15 @@ import {
   newSession,
   switchSession,
   deleteSession,
+  deleteSessions,
   renameSession,
+  archiveSession,
+  archiveSessions,
+  unarchiveSession,
   updateModelConfig,
   createTaskFromSuggestion,
-  setupInsightsListeners
+  setupInsightsListeners,
+  loadInsightsSessions
 } from '../stores/insights-store';
 import { loadTasks } from '../stores/task-store';
 import { ChatHistorySidebar } from './ChatHistorySidebar';
@@ -105,6 +110,7 @@ export function Insights({ projectId }: InsightsProps) {
   const [creatingTask, setCreatingTask] = useState<Set<string>>(new Set());
   const [taskCreated, setTaskCreated] = useState<Set<string>>(new Set());
   const [showSidebar, setShowSidebar] = useState(true);
+  const [showArchived, setShowArchived] = useState(false);
   const [isUserAtBottom, setIsUserAtBottom] = useState(true);
   const [viewportEl, setViewportEl] = useState<HTMLElement | null>(null);
 
@@ -142,6 +148,11 @@ export function Insights({ projectId }: InsightsProps) {
     const cleanup = setupInsightsListeners();
     return cleanup;
   }, [projectId]);
+
+  // Reload sessions when showArchived changes
+  useEffect(() => {
+    loadInsightsSessions(projectId, showArchived);
+  }, [projectId, showArchived]);
 
   // Smart auto-scroll: only scroll if user is already at bottom
   // This allows users to scroll up to read previous messages without being
@@ -199,6 +210,26 @@ export function Insights({ projectId }: InsightsProps) {
     return await renameSession(projectId, sessionId, newTitle);
   };
 
+  const handleArchiveSession = (sessionId: string) => {
+    archiveSession(projectId, sessionId);
+  };
+
+  const handleUnarchiveSession = (sessionId: string) => {
+    unarchiveSession(projectId, sessionId);
+  };
+
+  const handleDeleteSessions = (sessionIds: string[]) => {
+    deleteSessions(projectId, sessionIds);
+  };
+
+  const handleArchiveSessions = (sessionIds: string[]) => {
+    archiveSessions(projectId, sessionIds);
+  };
+
+  const handleToggleShowArchived = () => {
+    setShowArchived(prev => !prev);
+  };
+
   const handleCreateTask = async (
     messageId: string,
     taskIndex: number,
@@ -250,6 +281,12 @@ export function Insights({ projectId }: InsightsProps) {
           onSelectSession={handleSelectSession}
           onDeleteSession={handleDeleteSession}
           onRenameSession={handleRenameSession}
+          onArchiveSession={handleArchiveSession}
+          onUnarchiveSession={handleUnarchiveSession}
+          onDeleteSessions={handleDeleteSessions}
+          onArchiveSessions={handleArchiveSessions}
+          showArchived={showArchived}
+          onToggleShowArchived={handleToggleShowArchived}
         />
       )}
 
