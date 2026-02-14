@@ -448,12 +448,20 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
             {t(TASK_STATUS_LABELS[status])}
           </h2>
           {status === 'in_progress' && maxParallelTasks ? (
-            <span className={cn(
-              "column-count-badge",
-              tasks.length >= maxParallelTasks && "bg-warning/20 text-warning border-warning/30"
-            )}>
-              {tasks.length}/{maxParallelTasks}
-            </span>
+            <div className="flex flex-col items-end gap-0.5">
+              <span className={cn(
+                "column-count-badge",
+                tasks.length >= maxParallelTasks && "bg-warning/20 text-warning border-warning/30",
+                queueBlocked && "bg-destructive/20 text-destructive border-destructive/30"
+              )}>
+                {tasks.length}/{maxParallelTasks}
+              </span>
+              {queueBlocked && (
+                <span className="text-[10px] text-destructive leading-tight">
+                  ⚠️ Queue paused: {queueBlockReason}
+                </span>
+              )}
+            </div>
           ) : (
             <span className="column-count-badge">
               {tasks.length}
@@ -709,6 +717,10 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     isProcessing: false,
     error: undefined
   });
+
+  // Queue blocking state (RDR-driven)
+  const [queueBlocked, setQueueBlocked] = useState(false);
+  const [queueBlockReason, setQueueBlockReason] = useState<string | null>(null);
 
   // Calculate archived count for Done column button
   const archivedCount = useMemo(() =>
@@ -1113,6 +1125,12 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
    * Promotes multiple tasks if needed (e.g., after bulk queue)
    */
   const processQueue = useCallback(async () => {
+    // Check if queue is blocked by RDR (regression/failure detection)
+    if (queueBlocked) {
+      debugLog('[Queue] Queue is BLOCKED, skipping processing:', queueBlockReason);
+      return;
+    }
+
     // Prevent concurrent executions to avoid race conditions
     if (isProcessingQueueRef.current) {
       debugLog('[Queue] Already processing queue, skipping duplicate call');
@@ -1255,14 +1273,52 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     } finally {
       isProcessingQueueRef.current = false;
     }
-  }, [maxParallelTasks, projectId, onRefresh]);
+  }, [queueBlocked, queueBlockReason, maxParallelTasks, projectId, onRefresh]);
 
   // Register task status change listener for queue auto-promotion
   // This ensures processQueue() is called whenever a task leaves in_progress
+  // AND implements queue blocking when RDR detects regressions/failures
   useEffect(() => {
     const unregister = useTaskStore.getState().registerTaskStatusChangeListener(
       (taskId, oldStatus, newStatus) => {
-        // When a task leaves in_progress (e.g., goes to human_review), process the queue
+        // Get RDR setting
+        const projectState = useProjectStore.getState().getActiveProject();
+        const rdrEnabled = projectState?.settings?.rdrEnabled ?? false;
+
+        // Queue blocking logic (only when RDR is ON)
+        if (rdrEnabled) {
+          const task = useTaskStore.getState().tasks.find(t => t.id === taskId);
+
+          // REGRESSION: Task regressed from in_progress to planning
+          if (oldStatus === 'in_progress' && newStatus === 'planning') {
+            debugLog(`[Queue] BLOCKED - Task ${taskId} regressed to planning`);
+            setQueueBlocked(true);
+            setQueueBlockReason('Task regressed to planning');
+            return; // Don't process queue
+          }
+
+          // FAILURE: Task failed from in_progress to human_review (not user-stopped)
+          if (oldStatus === 'in_progress' && newStatus === 'human_review') {
+            if (task?.reviewReason !== 'stopped') {
+              debugLog(`[Queue] BLOCKED - Task ${taskId} failed during execution`);
+              setQueueBlocked(true);
+              setQueueBlockReason('Task failed during execution');
+              return; // Don't process queue
+            }
+          }
+
+          // FAILURE: Task failed from ai_review to human_review (not user-stopped)
+          if (oldStatus === 'ai_review' && newStatus === 'human_review') {
+            if (task?.reviewReason !== 'stopped') {
+              debugLog(`[Queue] BLOCKED - Task ${taskId} failed QA review`);
+              setQueueBlocked(true);
+              setQueueBlockReason('Task failed QA review');
+              return; // Don't process queue
+            }
+          }
+        }
+
+        // Normal queue processing (when task leaves in_progress)
         if (oldStatus === 'in_progress' && newStatus !== 'in_progress') {
           debugLog(`[Queue] Task ${taskId} left in_progress, processing queue to fill slot`);
           processQueue();
@@ -1273,6 +1329,21 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     // Cleanup: unregister listener when component unmounts
     return unregister;
   }, [processQueue]);
+
+  /**
+   * Manually unblock the queue
+   * Called when user manually drags a task to in_progress (shows they want to override)
+   * or when the problematic task is fixed/moved
+   */
+  const unblockQueue = useCallback(() => {
+    if (queueBlocked) {
+      debugLog('[Queue] Manually unblocking queue');
+      setQueueBlocked(false);
+      setQueueBlockReason(null);
+      // Trigger queue processing to fill newly available slots
+      processQueue();
+    }
+  }, [queueBlocked, processQueue]);
 
   // Auto-promote queued tasks when max parallel capacity increases
   useEffect(() => {
@@ -1467,7 +1538,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     }
   }, [tasks, taskOrder, projectId, setTaskOrder, saveTaskOrder]);
 
-  const handleDragEnd = async (event: DragEndEvent) => {
+  const handleDragEnd = useCallback(async (event: DragEndEvent) => {
     const { active, over } = event;
     setActiveTask(null);
     setOverColumnId(null);
@@ -1556,7 +1627,13 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     // handles worktree cleanup dialogs, and calls processQueue() when a task
     // leaves in_progress.
     await handleStatusChange(activeTaskId, newStatus, task);
-  };
+
+    // If user manually drags a task to in_progress, unblock the queue
+    // This shows user wants to override the blocking and continue
+    if (newStatus === 'in_progress') {
+      unblockQueue();
+    }
+  }, [tasks, projectId, showArchived, toggleShowArchived, taskOrder, setTaskOrder, reorderTasksInColumn, moveTaskToColumnTop, saveTaskOrder, handleStatusChange, unblockQueue]);
 
   // Get project store for auto-resume and RDR toggles (per-project settings)
   const currentProject = useProjectStore((state) => state.getSelectedProject());
