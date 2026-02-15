@@ -5,7 +5,10 @@
  * derived from the roadmap machine definitions. Used by roadmap-store
  * and roadmap hooks to avoid duplicate constants.
  */
+import type { StateValueFrom } from 'xstate';
 import type { RoadmapGenerationStatus, RoadmapFeatureStatus } from '../types/roadmap';
+import { roadmapGenerationMachine } from './roadmap-generation-machine';
+import { roadmapFeatureMachine } from './roadmap-feature-machine';
 
 /**
  * All XState generation state names.
@@ -19,6 +22,9 @@ export const GENERATION_STATE_NAMES = [
 
 export type GenerationStateName = typeof GENERATION_STATE_NAMES[number];
 
+// Compile-time assertion: ensure GENERATION_STATE_NAMES stays in sync with roadmapGenerationMachine
+const _genCheck: readonly StateValueFrom<typeof roadmapGenerationMachine>[] = GENERATION_STATE_NAMES;
+
 /**
  * All XState feature state names.
  *
@@ -30,6 +36,9 @@ export const FEATURE_STATE_NAMES = [
 ] as const;
 
 export type FeatureStateName = typeof FEATURE_STATE_NAMES[number];
+
+// Compile-time assertion: ensure FEATURE_STATE_NAMES stays in sync with roadmapFeatureMachine
+const _featCheck: readonly StateValueFrom<typeof roadmapFeatureMachine>[] = FEATURE_STATE_NAMES;
 
 /**
  * Generation states where the machine has settled — the generation is

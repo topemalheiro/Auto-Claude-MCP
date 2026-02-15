@@ -17,7 +17,7 @@ import {
   mapFeatureStateToStatus,
   type RoadmapGenerationEvent,
   type RoadmapFeatureEvent
-} from '../../shared/state-machines';
+} from '@shared/state-machines';
 
 // ---------------------------------------------------------------------------
 // Module-level XState actor singletons
@@ -176,9 +176,7 @@ function deriveGenerationStatus(actor: Actor<typeof roadmapGenerationMachine>): 
     message: ctx.message ?? '',
     error: ctx.error,
     startedAt: ctx.startedAt ? new Date(ctx.startedAt) : undefined,
-    lastActivityAt: phase !== 'idle' && phase !== 'complete' && phase !== 'error'
-      ? new Date()
-      : undefined
+    lastActivityAt: ctx.lastActivityAt ? new Date(ctx.lastActivityAt) : undefined
   };
 }
 
@@ -191,8 +189,20 @@ export const useRoadmapStore = create<RoadmapState>((set) => ({
 
   // Actions
   setRoadmap: (roadmap) => {
-    featureActors.forEach((actor) => actor.stop());
-    featureActors.clear();
+    // Prune stale actors: stop and remove actors for features not in the new roadmap
+    if (roadmap) {
+      const newFeatureIds = new Set(roadmap.features.map((f) => f.id));
+      for (const [featureId, actor] of featureActors.entries()) {
+        if (!newFeatureIds.has(featureId)) {
+          actor.stop();
+          featureActors.delete(featureId);
+        }
+      }
+    } else {
+      // No roadmap → cleanup all actors
+      featureActors.forEach((actor) => actor.stop());
+      featureActors.clear();
+    }
     return set({ roadmap });
   },
 
@@ -545,24 +555,28 @@ async function reconcileLinkedFeatures(projectId: string, roadmap: Roadmap): Pro
   let hasChanges = false;
 
   for (const feature of featuresNeedingReconciliation) {
-    const task = taskMap.get(feature.linkedSpecId!);
+    // Safe: linkedSpecId is guaranteed to exist by the filter on line 531
+    const linkedSpecId = feature.linkedSpecId;
+    if (!linkedSpecId) continue;
+
+    const task = taskMap.get(linkedSpecId);
 
     if (!task) {
       // Task no longer exists → mark as done with deleted outcome
       if (feature.status !== 'done' || feature.taskOutcome !== 'deleted') {
-        store.markFeatureDoneBySpecId(feature.linkedSpecId!, 'deleted');
+        store.markFeatureDoneBySpecId(linkedSpecId, 'deleted');
         hasChanges = true;
       }
     } else if (task.status === 'done' || task.status === 'pr_created') {
       // Task is completed → mark feature as done
       if (feature.status !== 'done' || !feature.taskOutcome) {
-        store.markFeatureDoneBySpecId(feature.linkedSpecId!, 'completed');
+        store.markFeatureDoneBySpecId(linkedSpecId, 'completed');
         hasChanges = true;
       }
     } else if (task.metadata?.archivedAt) {
       // Task is archived → mark feature as done with archived outcome
       if (feature.status !== 'done' || feature.taskOutcome !== 'archived') {
-        store.markFeatureDoneBySpecId(feature.linkedSpecId!, 'archived');
+        store.markFeatureDoneBySpecId(linkedSpecId, 'archived');
         hasChanges = true;
       }
     }

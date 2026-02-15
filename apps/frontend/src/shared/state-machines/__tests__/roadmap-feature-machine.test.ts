@@ -283,7 +283,7 @@ describe('roadmapFeatureMachine', () => {
       expect(snapshot.value).toBe('in_progress');
     });
 
-    it('should ignore MARK_DONE when already in done', () => {
+    it('should remain in done on MARK_DONE self-transition', () => {
       const snapshot = runEvents([{ type: 'MARK_DONE' }, { type: 'MARK_DONE' }]);
       expect(snapshot.value).toBe('done');
     });

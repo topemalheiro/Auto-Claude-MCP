@@ -6,6 +6,7 @@ export interface RoadmapGenerationContext {
   error?: string;
   startedAt?: number;
   completedAt?: number;
+  lastActivityAt?: number;
 }
 
 export type RoadmapGenerationEvent =
@@ -32,6 +33,7 @@ export const roadmapGenerationMachine = createMachine(
       error: undefined,
       startedAt: undefined,
       completedAt: undefined,
+      lastActivityAt: undefined,
     },
     states: {
       idle: {
@@ -83,21 +85,24 @@ export const roadmapGenerationMachine = createMachine(
         error: () => undefined,
         startedAt: () => Date.now(),
         completedAt: () => undefined,
+        lastActivityAt: () => Date.now(),
       }),
       updateProgress: assign({
         progress: ({ event }) =>
           event.type === 'PROGRESS_UPDATE' ? Math.min(100, Math.max(0, event.progress)) : 0,
         message: ({ event }) =>
           event.type === 'PROGRESS_UPDATE' ? event.message : undefined,
+        lastActivityAt: () => Date.now(),
       }),
       setCompleted: assign({
         progress: () => 100,
         completedAt: () => Date.now(),
+        lastActivityAt: () => Date.now(),
       }),
       setError: assign({
         error: ({ event }) =>
           event.type === 'GENERATION_ERROR' ? event.error : undefined,
-        progress: () => 0,
+        lastActivityAt: () => Date.now(),
       }),
       resetContext: assign({
         progress: () => 0,
@@ -105,6 +110,7 @@ export const roadmapGenerationMachine = createMachine(
         error: () => undefined,
         startedAt: () => undefined,
         completedAt: () => undefined,
+        lastActivityAt: () => undefined,
       }),
     },
   }

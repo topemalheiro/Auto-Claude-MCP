@@ -168,6 +168,17 @@ describe('roadmapGenerationMachine', () => {
       expect(snapshot.value).toBe('error');
       expect(snapshot.context.error).toBe('Generation failed');
     });
+
+    it('should preserve progress when transitioning to error', () => {
+      const snapshot = runEvents([
+        { type: 'START_GENERATION' },
+        { type: 'PROGRESS_UPDATE', progress: 60, message: 'Processing...' },
+        { type: 'GENERATION_ERROR', error: 'Something went wrong' },
+      ]);
+      expect(snapshot.value).toBe('error');
+      expect(snapshot.context.progress).toBe(60);
+      expect(snapshot.context.error).toBe('Something went wrong');
+    });
   });
 
   describe('stop flow: STOP from analyzing/discovering/generating → idle', () => {
@@ -393,7 +404,11 @@ describe('roadmapGenerationMachine', () => {
       actor.send({ type: 'START_GENERATION' });
 
       const secondStartedAt = actor.getSnapshot().context.startedAt;
-      expect(secondStartedAt).toBeGreaterThan(firstStartedAt!);
+      expect(firstStartedAt).toBeDefined();
+      expect(secondStartedAt).toBeDefined();
+      if (firstStartedAt && secondStartedAt) {
+        expect(secondStartedAt).toBeGreaterThan(firstStartedAt);
+      }
       actor.stop();
     });
   });
