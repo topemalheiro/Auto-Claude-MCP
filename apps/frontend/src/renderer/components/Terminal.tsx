@@ -382,10 +382,13 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(function Termi
         pendingWorktreeConfigRef.current = null;
       }
       // Auto-resume: enqueue non-active terminals for staggered resume
-      if (!isActive && !hasAttemptedAutoResumeRef.current) {
+      // Read current active state from store to avoid stale closure value
+      const currentActiveId = useTerminalStore.getState().activeTerminalId;
+      const isCurrentlyActive = currentActiveId === id;
+
+      if (!isCurrentlyActive) {
         const currentTerminal = useTerminalStore.getState().terminals.find(t => t.id === id);
         if (currentTerminal?.pendingClaudeResume) {
-          hasAttemptedAutoResumeRef.current = true;
           enqueueAutoResume(id);
         }
       }
