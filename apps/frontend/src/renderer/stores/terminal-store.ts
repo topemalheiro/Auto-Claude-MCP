@@ -4,7 +4,7 @@ import type { ActorRefFrom } from 'xstate';
 import { v4 as uuid } from 'uuid';
 import { arrayMove } from '@dnd-kit/sortable';
 import type { TerminalSession, TerminalWorktreeConfig } from '../../shared/types';
-import { terminalMachine, type TerminalEvent } from '../../shared/state-machines';
+import { terminalMachine, type TerminalEvent } from '@shared/state-machines';
 import { terminalBufferManager } from '../lib/terminal-buffer-manager';
 import { debugLog, debugError } from '../../shared/utils/debug-logger';
 
@@ -462,10 +462,16 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
 
   setPendingClaudeResume: (id: string, pending: boolean) => {
     // Send RESUME_REQUESTED or RESUME_COMPLETE to XState machine
+    let shouldUpdateZustand = true;
+
     if (pending) {
       const terminal = get().terminals.find(t => t.id === id);
       if (terminal?.claudeSessionId) {
         sendTerminalMachineEvent(id, { type: 'RESUME_REQUESTED', claudeSessionId: terminal.claudeSessionId });
+      } else {
+        // No claudeSessionId - can't send RESUME_REQUESTED, so don't set pendingClaudeResume
+        // to avoid XState/Zustand divergence (UI would show pending but machine wouldn't know)
+        shouldUpdateZustand = false;
       }
     } else {
       // Resume cleared - either completed or cancelled
@@ -477,11 +483,14 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
       }
     }
 
-    set((state) => ({
-      terminals: state.terminals.map((t) =>
-        t.id === id ? { ...t, pendingClaudeResume: pending } : t
-      ),
-    }));
+    // Only update Zustand state if XState was notified (prevents state divergence)
+    if (shouldUpdateZustand) {
+      set((state) => ({
+        terminals: state.terminals.map((t) =>
+          t.id === id ? { ...t, pendingClaudeResume: pending } : t
+        ),
+      }));
+    }
   },
 
   setClaudeNamedOnce: (id: string, named: boolean) => {

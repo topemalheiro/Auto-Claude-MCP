@@ -103,6 +103,12 @@ export class TerminalManager {
    * Destroy a terminal process
    */
   async destroy(id: string): Promise<TerminalOperationResult> {
+    // Clean up migrated session flags if this terminal has a pending migrated session
+    const terminal = this.terminals.get(id);
+    if (terminal?.claudeSessionId) {
+      this.migratedSessionFlags.delete(terminal.claudeSessionId);
+    }
+
     return TerminalLifecycle.destroyTerminal(
       id,
       this.terminals,
