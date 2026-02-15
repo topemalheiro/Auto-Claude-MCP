@@ -53,6 +53,7 @@ IMPLEMENTATION_PLAN_SCHEMA = {
     "subtask_schema": {
         "required_fields": ["id", "description", "status"],
         "optional_fields": [
+            "title",
             "service",
             "all_services",
             "files_to_modify",

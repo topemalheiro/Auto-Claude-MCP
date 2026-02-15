@@ -73,18 +73,22 @@ export function TaskSubtasks({ task }: TaskSubtasksProps) {
                     </span>
                   </div>
                   {subtask.description && subtask.description !== subtask.title && (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <p className="mt-1 text-xs text-muted-foreground line-clamp-2 cursor-default break-words">
-                          {subtask.description}
-                        </p>
-                      </TooltipTrigger>
-                      {subtask.description.length > 80 && (
+                    subtask.description.length > 80 ? (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <p className="mt-1 text-xs text-muted-foreground line-clamp-2 cursor-default break-words">
+                            {subtask.description}
+                          </p>
+                        </TooltipTrigger>
                         <TooltipContent side="bottom" className="max-w-sm">
                           <p className="text-xs">{subtask.description}</p>
                         </TooltipContent>
-                      )}
-                    </Tooltip>
+                      </Tooltip>
+                    ) : (
+                      <p className="mt-1 text-xs text-muted-foreground line-clamp-2 break-words">
+                        {subtask.description}
+                      </p>
+                    )
                   )}
                   {subtask.files && subtask.files.length > 0 && (
                     <div className="mt-2 flex flex-wrap gap-1">
