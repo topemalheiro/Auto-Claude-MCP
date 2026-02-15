@@ -1,5 +1,6 @@
 import { spawn, ChildProcess } from 'child_process';
-import { existsSync, writeFileSync, unlinkSync } from 'fs';
+import { existsSync, unlinkSync } from 'fs';
+import { writeFile } from 'fs/promises';
 import { randomBytes } from 'crypto';
 import path from 'path';
 import os from 'os';
@@ -15,6 +16,16 @@ import type {
 import { MODEL_ID_MAP } from '../../shared/constants';
 import { InsightsConfig } from './config';
 import { detectRateLimit, createSDKRateLimitInfo } from '../rate-limit-detector';
+
+// Safe extension map for image MIME types — prevents path traversal via crafted mimeType
+// SVG excluded: contains active script content and is unsupported by Claude Vision API
+const SAFE_EXT_MAP: Record<string, string> = {
+  'image/png': 'png',
+  'image/jpeg': 'jpg',
+  'image/jpg': 'jpg',
+  'image/gif': 'gif',
+  'image/webp': 'webp'
+};
 
 /**
  * Message processor result
@@ -93,12 +104,12 @@ export class InsightsExecutor extends EventEmitter {
     // Write conversation history to temp file to avoid Windows command-line length limit
     const historyFile = path.join(
       os.tmpdir(),
-      `insights-history-${projectId}-${Date.now()}.json`
+      `insights-history-${projectId}-${Date.now()}-${randomBytes(8).toString('hex')}.json`
     );
 
     let historyFileCreated = false;
     try {
-      writeFileSync(historyFile, JSON.stringify(conversationHistory), 'utf-8');
+      await writeFile(historyFile, JSON.stringify(conversationHistory), 'utf-8');
       historyFileCreated = true;
     } catch (err) {
       console.error('[Insights] Failed to write history file:', err);
@@ -108,16 +119,6 @@ export class InsightsExecutor extends EventEmitter {
     // Write image files and manifest if images are provided
     const imagesTempFiles: string[] = [];
     let imagesManifestFile: string | undefined;
-
-    // Safe extension map for image MIME types — prevents path traversal via crafted mimeType
-    // SVG excluded: contains active script content and is unsupported by Claude Vision API
-    const SAFE_EXT_MAP: Record<string, string> = {
-      'image/png': 'png',
-      'image/jpeg': 'jpg',
-      'image/jpg': 'jpg',
-      'image/gif': 'gif',
-      'image/webp': 'webp'
-    };
 
     if (images && images.length > 0) {
       try {
@@ -139,17 +140,20 @@ export class InsightsExecutor extends EventEmitter {
             os.tmpdir(),
             `insights-image-${projectId}-${timestamp}-${i}-${randomBytes(8).toString('hex')}.${ext}`
           );
-          writeFileSync(imagePath, Buffer.from(image.data, 'base64'));
+          await writeFile(imagePath, Buffer.from(image.data, 'base64'));
           imagesTempFiles.push(imagePath);
           manifest.push({ path: imagePath, mimeType: image.mimeType });
         }
 
-        imagesManifestFile = path.join(
-          os.tmpdir(),
-          `insights-images-manifest-${projectId}-${timestamp}-${randomBytes(8).toString('hex')}.json`
-        );
-        writeFileSync(imagesManifestFile, JSON.stringify(manifest), 'utf-8');
-        imagesTempFiles.push(imagesManifestFile);
+        // Only write manifest file if we actually wrote any images
+        if (manifest.length > 0) {
+          imagesManifestFile = path.join(
+            os.tmpdir(),
+            `insights-images-manifest-${projectId}-${timestamp}-${randomBytes(8).toString('hex')}.json`
+          );
+          await writeFile(imagesManifestFile, JSON.stringify(manifest), 'utf-8');
+          imagesTempFiles.push(imagesManifestFile);
+        }
       } catch (err) {
         // Clean up any already-written image files
         for (const tmpFile of imagesTempFiles) {

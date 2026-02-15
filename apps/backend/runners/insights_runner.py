@@ -129,7 +129,7 @@ def load_images_from_manifest(manifest_path: str) -> list[dict]:
     Returns a list of dicts with 'media_type' and 'data' (base64-encoded) fields.
     """
     images = []
-    tmp_dir = Path(tempfile.gettempdir())
+    tmp_dir = Path(tempfile.gettempdir()).resolve()
 
     try:
         with open(manifest_path, encoding="utf-8") as f:
