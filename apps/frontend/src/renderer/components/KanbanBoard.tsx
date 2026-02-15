@@ -696,6 +696,11 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   // Queue processing lock to prevent race conditions
   const isProcessingQueueRef = useRef(false);
 
+  // Synchronous queue blocking flag (useRef = immediate, no stale closure)
+  // useState is async (takes effect next render), so processQueue can read stale false.
+  // useRef is synchronous — setting .current = true blocks immediately.
+  const queueBlockedRef = useRef(false);
+
   // Selection state for bulk actions (Human Review column)
   const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(new Set());
 
@@ -1131,8 +1136,9 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
    */
   const processQueue = useCallback(async () => {
     // Check if queue is blocked by RDR (regression/failure detection)
-    if (queueBlocked) {
-      debugLog('[Queue] Queue is BLOCKED, skipping processing:', queueBlockReason);
+    // Uses ref (synchronous) instead of state (async) to prevent race conditions
+    if (queueBlockedRef.current) {
+      debugLog('[Queue] Queue is BLOCKED (ref), skipping processing:', queueBlockReason);
       return;
     }
 
@@ -1232,6 +1238,12 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
         // Mark task as processed BEFORE attempting promotion to prevent duplicates
         processedTaskIds.add(nextTask.id);
 
+        // Re-check blocking ref before each promotion (another failure may have set it mid-loop)
+        if (queueBlockedRef.current) {
+          debugLog('[Queue] Queue blocked mid-processing, stopping promotion');
+          break;
+        }
+
         debugLog(`[Queue] Promoting task ${nextTask.id} (${promotedInThisCall + 1}/${maxParallelTasks})`);
         const result = await persistTaskStatus(nextTask.id, 'in_progress');
 
@@ -1278,7 +1290,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     } finally {
       isProcessingQueueRef.current = false;
     }
-  }, [queueBlocked, queueBlockReason, maxParallelTasks, projectId, onRefresh]);
+  }, [maxParallelTasks, projectId, onRefresh]);
 
   // Register task status change listener for queue auto-promotion
   // This ensures processQueue() is called whenever a task leaves in_progress
@@ -1297,7 +1309,8 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
           // REGRESSION: Task regressed from in_progress to planning
           if (oldStatus === 'in_progress' && newStatus === 'planning') {
             debugLog(`[Queue] BLOCKED - Task ${taskId} regressed to planning`);
-            setQueueBlocked(true);
+            queueBlockedRef.current = true;  // Synchronous — takes effect immediately
+            setQueueBlocked(true);           // Async — for UI rendering
             setQueueBlockReason('Task regressed to planning');
             return; // Don't process queue
           }
@@ -1306,7 +1319,8 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
           if (oldStatus === 'in_progress' && newStatus === 'human_review') {
             if (task?.reviewReason !== 'stopped') {
               debugLog(`[Queue] BLOCKED - Task ${taskId} failed during execution`);
-              setQueueBlocked(true);
+              queueBlockedRef.current = true;  // Synchronous — takes effect immediately
+              setQueueBlocked(true);           // Async — for UI rendering
               setQueueBlockReason('Task failed during execution');
               return; // Don't process queue
             }
@@ -1316,7 +1330,8 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
           if (oldStatus === 'ai_review' && newStatus === 'human_review') {
             if (task?.reviewReason !== 'stopped') {
               debugLog(`[Queue] BLOCKED - Task ${taskId} failed QA review`);
-              setQueueBlocked(true);
+              queueBlockedRef.current = true;  // Synchronous — takes effect immediately
+              setQueueBlocked(true);           // Async — for UI rendering
               setQueueBlockReason('Task failed QA review');
               return; // Don't process queue
             }
@@ -1341,8 +1356,9 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
    * or when the problematic task is fixed/moved
    */
   const unblockQueue = useCallback(() => {
-    if (queueBlocked) {
+    if (queueBlockedRef.current || queueBlocked) {
       debugLog('[Queue] Manually unblocking queue');
+      queueBlockedRef.current = false;  // Clear ref synchronously
       setQueueBlocked(false);
       setQueueBlockReason(null);
       // Trigger queue processing to fill newly available slots
@@ -1354,6 +1370,18 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   useEffect(() => {
     processQueue();
   }, [maxParallelTasks, processQueue]);
+
+  // Clear queue blocking when RDR is toggled off
+  useEffect(() => {
+    const project = useProjectStore.getState().getActiveProject();
+    const isRdrEnabled = project?.settings?.rdrEnabled ?? false;
+    if (!isRdrEnabled && queueBlockedRef.current) {
+      debugLog('[Queue] RDR disabled, clearing queue block');
+      queueBlockedRef.current = false;
+      setQueueBlocked(false);
+      setQueueBlockReason(null);
+    }
+  }, [currentProject?.settings?.rdrEnabled]);
 
   // Get task order actions from store
   const reorderTasksInColumn = useTaskStore((state) => state.reorderTasksInColumn);
