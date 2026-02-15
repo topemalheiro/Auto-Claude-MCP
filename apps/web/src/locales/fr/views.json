@@ -120,5 +120,37 @@
       "fixed": "Corrigé",
       "removed": "Supprimé"
     }
+  },
+  "worktrees": {
+    "title": "Worktrees",
+    "refresh": "Actualiser",
+    "retry": "Réessayer",
+    "empty": {
+      "title": "Aucun Worktree",
+      "description": "Les worktrees sont créés automatiquement lors de la construction des tâches."
+    },
+    "actions": {
+      "diff": "Diff",
+      "merge": "Fusionner",
+      "createPR": "Créer PR",
+      "discard": "Supprimer",
+      "confirmDelete": "Confirmer"
+    },
+    "create": {
+      "button": "Nouveau Worktree",
+      "title": "Créer un Worktree",
+      "description": "Créer un nouveau worktree isolé pour le développement.",
+      "specName": "Nom du spec",
+      "baseBranch": "Branche de base (optionnel)",
+      "cancel": "Annuler",
+      "submit": "Créer"
+    }
+  },
+  "agentTools": {
+    "title": "Aperçu MCP",
+    "refresh": "Actualiser",
+    "mcpServers": "Serveurs MCP",
+    "tools": "outils",
+    "availableTools": "Outils disponibles"
   }
 }

@@ -22,6 +22,8 @@ import { GitHubPRsView } from "@/components/github/GitHubPRsView";
 import { GitLabIssuesView } from "@/components/gitlab/GitLabIssuesView";
 import { GitLabMRsView } from "@/components/gitlab/GitLabMRsView";
 import { SettingsView } from "@/components/settings/SettingsView";
+import { WorktreesView } from "@/components/worktrees/WorktreesView";
+import { AgentToolsView } from "@/components/agent-tools/AgentToolsView";
 import { OnboardingWizard } from "@/components/onboarding/OnboardingWizard";
 import { WelcomeScreen } from "./WelcomeScreen";
 import type { SidebarView } from "@/stores/ui-store";
@@ -192,17 +194,9 @@ export function AppShell() {
       case "gitlab-merge-requests":
         return <GitLabMRsView projectId={currentProjectId!} />;
       case "worktrees":
-        return (
-          <div className="flex h-full items-center justify-center text-muted-foreground">
-            Worktrees (coming soon)
-          </div>
-        );
+        return <WorktreesView projectId={currentProjectId!} />;
       case "agent-tools":
-        return (
-          <div className="flex h-full items-center justify-center text-muted-foreground">
-            Agent Tools (coming soon)
-          </div>
-        );
+        return <AgentToolsView projectId={currentProjectId!} />;
       default:
         return <KanbanBoard />;
     }

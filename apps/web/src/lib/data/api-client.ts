@@ -134,6 +134,28 @@ export interface HealthResponse {
   status: string;
 }
 
+export interface WorktreeListResponse {
+  worktrees: Array<{
+    specName: string;
+    path: string;
+    branch: string;
+    baseBranch: string;
+    commitCount?: number;
+    filesChanged?: number;
+    additions?: number;
+    deletions?: number;
+    isOrphaned?: boolean;
+  }>;
+}
+
+export interface McpStatusResponse {
+  servers: Array<{
+    name: string;
+    status: "connected" | "disconnected" | "error";
+    toolCount?: number;
+  }>;
+}
+
 // ============================================
 // Request option types
 // ============================================
@@ -783,6 +805,78 @@ class ApiClient {
       `/api/projects/${projectId}/gitlab/merge-requests/${mrNumber}/review`,
       { method: "POST" },
       opts?.timeoutMs ?? 60000,
+      opts?.signal,
+    );
+  }
+
+  // ============================================
+  // Worktrees
+  // ============================================
+
+  async listWorktrees(
+    projectId: string,
+    opts?: RequestOptions,
+  ): Promise<WorktreeListResponse> {
+    return this.request<WorktreeListResponse>(
+      `/api/projects/${projectId}/worktrees`,
+      {},
+      opts?.timeoutMs,
+      opts?.signal,
+    );
+  }
+
+  async mergeWorktree(
+    projectId: string,
+    specName: string,
+    opts?: RequestOptions,
+  ): Promise<ApiResponse> {
+    return this.request<ApiResponse>(
+      `/api/projects/${projectId}/worktrees/${specName}/merge`,
+      { method: "POST" },
+      opts?.timeoutMs ?? 60000,
+      opts?.signal,
+    );
+  }
+
+  async discardWorktree(
+    projectId: string,
+    specName: string,
+    opts?: RequestOptions,
+  ): Promise<ApiResponse> {
+    return this.request<ApiResponse>(
+      `/api/projects/${projectId}/worktrees/${specName}`,
+      { method: "DELETE" },
+      opts?.timeoutMs ?? 30000,
+      opts?.signal,
+    );
+  }
+
+  async createWorktree(
+    projectId: string,
+    specName: string,
+    baseBranch?: string,
+    opts?: RequestOptions,
+  ): Promise<ApiResponse> {
+    return this.request<ApiResponse>(
+      `/api/projects/${projectId}/worktrees`,
+      { method: "POST", body: JSON.stringify({ specName, baseBranch }) },
+      opts?.timeoutMs ?? 30000,
+      opts?.signal,
+    );
+  }
+
+  // ============================================
+  // MCP / Agent Tools
+  // ============================================
+
+  async getMcpStatus(
+    projectId: string,
+    opts?: RequestOptions,
+  ): Promise<McpStatusResponse> {
+    return this.request<McpStatusResponse>(
+      `/api/projects/${projectId}/mcp/status`,
+      {},
+      opts?.timeoutMs,
       opts?.signal,
     );
   }
