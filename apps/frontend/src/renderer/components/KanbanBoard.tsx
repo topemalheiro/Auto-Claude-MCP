@@ -109,6 +109,9 @@ interface DroppableColumnProps {
   onToggleLocked?: () => void;
   // Whether the global RDR toggle is enabled (per-project setting)
   rdrEnabled?: boolean;
+  // Queue blocking props (RDR-driven)
+  queueBlocked?: boolean;
+  queueBlockReason?: string | null;
 }
 
 /**
@@ -168,6 +171,8 @@ function droppableColumnPropsAreEqual(
   if (prevProps.isLocked !== nextProps.isLocked) return false;
   if (prevProps.onToggleLocked !== nextProps.onToggleLocked) return false;
   if (prevProps.rdrEnabled !== nextProps.rdrEnabled) return false;
+  if (prevProps.queueBlocked !== nextProps.queueBlocked) return false;
+  if (prevProps.queueBlockReason !== nextProps.queueBlockReason) return false;
 
   // Compare selection props
   const prevSelected = prevProps.selectedTaskIds;
@@ -2559,6 +2564,8 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
               isLocked={columnPreferences?.[status]?.isLocked}
               onToggleLocked={() => handleToggleColumnLocked(status)}
               rdrEnabled={rdrEnabled}
+              queueBlocked={status === 'in_progress' ? queueBlocked : undefined}
+              queueBlockReason={status === 'in_progress' ? queueBlockReason : undefined}
             />
           ))}
         </div>
