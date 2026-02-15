@@ -107,23 +107,19 @@ export function useTerminalProfileChange(): void {
         // Store the session ID for tracking
         store.setClaudeSessionId(newTerminal.id, sessionId);
 
-        try {
-          // Auto-resume the Claude session with --continue
-          // YOLO mode (dangerouslySkipPermissions) is preserved server-side by the
-          // main process during migration (storeMigratedSessionFlag), so resumeClaudeAsync
-          // will restore it automatically when migratedSession is true
-          await window.electronAPI.resumeClaudeInTerminal(
-            newTerminal.id,
-            sessionId,
-            { migratedSession: true }
-          );
-          debugLog('[useTerminalProfileChange] Resume completed for terminal:', newTerminal.id);
-        } catch (error) {
-          // If auto-resume fails, set pendingClaudeResume flag
-          // so the user can manually resume when they view the terminal
-          debugError('[useTerminalProfileChange] Resume failed, marking as pending:', error);
-          store.setPendingClaudeResume(newTerminal.id, true);
-        }
+        // Auto-resume the Claude session with --continue
+        // YOLO mode (dangerouslySkipPermissions) is preserved server-side by the
+        // main process during migration (storeMigratedSessionFlag), so resumeClaudeAsync
+        // will restore it automatically when migratedSession is true
+        // Note: resumeClaudeInTerminal uses fire-and-forget IPC (ipcRenderer.send),
+        // so errors in the main process cannot be caught here. The main process will
+        // emit onTerminalPendingResume if the resume fails, triggering deferred resume.
+        window.electronAPI.resumeClaudeInTerminal(
+          newTerminal.id,
+          sessionId,
+          { migratedSession: true }
+        );
+        debugLog('[useTerminalProfileChange] Resume initiated for terminal:', newTerminal.id);
       }
 
     } finally {

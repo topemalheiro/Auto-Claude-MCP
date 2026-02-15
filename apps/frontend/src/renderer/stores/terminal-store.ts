@@ -399,7 +399,9 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
       if (String(actor.getSnapshot().value) === 'idle') {
         sendTerminalMachineEvent(id, { type: 'SHELL_READY' });
       }
-      sendTerminalMachineEvent(id, { type: 'CLAUDE_ACTIVE' });
+      // Include current claudeSessionId to prevent XState action from overwriting it
+      const terminal = get().terminals.find(t => t.id === id);
+      sendTerminalMachineEvent(id, { type: 'CLAUDE_ACTIVE', claudeSessionId: terminal?.claudeSessionId });
     } else {
       sendTerminalMachineEvent(id, { type: 'CLAUDE_EXITED' });
     }
@@ -469,7 +471,9 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
       // Resume cleared - either completed or cancelled
       const actor = terminalActors.get(id);
       if (actor && String(actor.getSnapshot().value) === 'pending_resume') {
-        sendTerminalMachineEvent(id, { type: 'RESUME_COMPLETE' });
+        // Include claudeSessionId to prevent XState action from overwriting it to undefined
+        const terminal = get().terminals.find(t => t.id === id);
+        sendTerminalMachineEvent(id, { type: 'RESUME_COMPLETE', claudeSessionId: terminal?.claudeSessionId });
       }
     }
 
