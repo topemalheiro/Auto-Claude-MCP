@@ -1,0 +1,78 @@
+{
+  "steps": {
+    "welcome": "Bienvenue",
+    "authChoice": "Auth",
+    "apiKey": "Clé API",
+    "project": "Projet",
+    "complete": "Terminé"
+  },
+  "welcome": {
+    "title": "Bienvenue sur Auto Claude",
+    "subtitle": "Configurons votre environnement en quelques étapes. Auto Claude utilise l'IA pour gérer vos tâches, réviser le code, générer des feuilles de route et accélérer votre flux de développement.",
+    "getStarted": "Commencer",
+    "skip": "Passer la configuration",
+    "features": {
+      "aiPowered": {
+        "title": "Développement par IA",
+        "description": "Des agents autonomes planifient, construisent et valident votre code de bout en bout."
+      },
+      "specDriven": {
+        "title": "Flux basé sur les spécifications",
+        "description": "L'IA crée des spécifications détaillées et des plans d'implémentation à partir de vos descriptions."
+      },
+      "memory": {
+        "title": "Mémoire intelligente",
+        "description": "Les connaissances sont conservées entre les sessions pour une amélioration continue."
+      },
+      "parallel": {
+        "title": "Exécution parallèle",
+        "description": "Exécutez plusieurs agents IA simultanément pour un développement plus rapide."
+      }
+    }
+  },
+  "authChoice": {
+    "title": "Méthode d'authentification",
+    "description": "Choisissez comment vous souhaitez vous authentifier avec Claude.",
+    "oauth": {
+      "title": "Claude OAuth",
+      "description": "Connectez-vous avec votre compte Anthropic pour une authentification transparente."
+    },
+    "apiKey": {
+      "title": "Clé API",
+      "description": "Entrez votre clé API Anthropic manuellement."
+    }
+  },
+  "apiKey": {
+    "title": "Configuration de la clé API",
+    "description": "Entrez votre clé API Anthropic pour activer les fonctionnalités IA.",
+    "label": "Clé API",
+    "placeholder": "sk-ant-...",
+    "validate": "Valider la clé",
+    "validating": "Validation...",
+    "validationSuccess": "La clé API est valide !",
+    "validationFailed": "Clé API invalide. Veuillez vérifier et réessayer.",
+    "securityNote": "Votre clé API est stockée en toute sécurité dans votre navigateur et envoyée uniquement au backend Auto Claude."
+  },
+  "projectSetup": {
+    "title": "Connecter un projet",
+    "description": "Dirigez Auto Claude vers un répertoire de projet pour commencer.",
+    "pathLabel": "Chemin du projet",
+    "pathPlaceholder": "/chemin/vers/votre/projet",
+    "orDragDrop": "ou glisser-déposer",
+    "dropZone": {
+      "title": "Déposez un dossier de projet",
+      "description": "Glissez un dossier ici pour le définir comme répertoire de projet."
+    }
+  },
+  "completion": {
+    "title": "Tout est prêt !",
+    "description": "Auto Claude est prêt à vous aider à créer de meilleurs logiciels. Commencez par créer votre première tâche ou explorez le code de votre projet.",
+    "getStarted": "Commencer",
+    "openSettings": "Ouvrir les paramètres"
+  },
+  "actions": {
+    "back": "Retour",
+    "continue": "Continuer",
+    "skipForNow": "Passer pour l'instant"
+  }
+}

@@ -1,0 +1,78 @@
+{
+  "steps": {
+    "welcome": "Welcome",
+    "authChoice": "Auth",
+    "apiKey": "API Key",
+    "project": "Project",
+    "complete": "Complete"
+  },
+  "welcome": {
+    "title": "Welcome to Auto Claude",
+    "subtitle": "Let's get you set up in a few simple steps. Auto Claude uses AI to help you manage tasks, review code, generate roadmaps, and accelerate your development workflow.",
+    "getStarted": "Get Started",
+    "skip": "Skip Setup",
+    "features": {
+      "aiPowered": {
+        "title": "AI-Powered Development",
+        "description": "Autonomous agents plan, build, and validate your code end-to-end."
+      },
+      "specDriven": {
+        "title": "Spec-Driven Workflow",
+        "description": "AI creates detailed specs and implementation plans from your descriptions."
+      },
+      "memory": {
+        "title": "Intelligent Memory",
+        "description": "Insights are retained across sessions for continuous improvement."
+      },
+      "parallel": {
+        "title": "Parallel Execution",
+        "description": "Run multiple AI agents simultaneously for faster development."
+      }
+    }
+  },
+  "authChoice": {
+    "title": "Authentication Method",
+    "description": "Choose how you'd like to authenticate with Claude.",
+    "oauth": {
+      "title": "Claude OAuth",
+      "description": "Sign in with your Anthropic account for seamless authentication."
+    },
+    "apiKey": {
+      "title": "API Key",
+      "description": "Enter your Anthropic API key manually."
+    }
+  },
+  "apiKey": {
+    "title": "API Key Setup",
+    "description": "Enter your Anthropic API key to enable AI features.",
+    "label": "API Key",
+    "placeholder": "sk-ant-...",
+    "validate": "Validate Key",
+    "validating": "Validating...",
+    "validationSuccess": "API key is valid!",
+    "validationFailed": "Invalid API key. Please check and try again.",
+    "securityNote": "Your API key is stored securely in your browser and sent only to the Auto Claude backend."
+  },
+  "projectSetup": {
+    "title": "Connect a Project",
+    "description": "Point Auto Claude at a project directory to get started.",
+    "pathLabel": "Project Path",
+    "pathPlaceholder": "/path/to/your/project",
+    "orDragDrop": "or drag and drop",
+    "dropZone": {
+      "title": "Drop a Project Folder",
+      "description": "Drag a folder here to set it as your project directory."
+    }
+  },
+  "completion": {
+    "title": "You're All Set!",
+    "description": "Auto Claude is ready to help you build better software. Start by creating your first task or exploring your project's codebase.",
+    "getStarted": "Get Started",
+    "openSettings": "Open Settings"
+  },
+  "actions": {
+    "back": "Back",
+    "continue": "Continue",
+    "skipForNow": "Skip for now"
+  }
+}

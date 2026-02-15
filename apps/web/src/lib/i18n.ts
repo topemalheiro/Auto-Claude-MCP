@@ -12,6 +12,7 @@ import enKanban from "../locales/en/kanban.json";
 import enViews from "../locales/en/views.json";
 import enIntegrations from "../locales/en/integrations.json";
 import enLayout from "../locales/en/layout.json";
+import enOnboarding from "../locales/en/onboarding.json";
 
 // Import French translation resources
 import frCommon from "../locales/fr/common.json";
@@ -23,6 +24,7 @@ import frKanban from "../locales/fr/kanban.json";
 import frViews from "../locales/fr/views.json";
 import frIntegrations from "../locales/fr/integrations.json";
 import frLayout from "../locales/fr/layout.json";
+import frOnboarding from "../locales/fr/onboarding.json";
 
 export const defaultNS = "common";
 
@@ -37,6 +39,7 @@ export const resources = {
     views: enViews,
     integrations: enIntegrations,
     layout: enLayout,
+    onboarding: enOnboarding,
   },
   fr: {
     common: frCommon,
@@ -48,6 +51,7 @@ export const resources = {
     views: frViews,
     integrations: frIntegrations,
     layout: frLayout,
+    onboarding: frOnboarding,
   },
 } as const;
 
@@ -68,6 +72,7 @@ i18n
       "views",
       "integrations",
       "layout",
+      "onboarding",
     ],
     interpolation: {
       escapeValue: false, // React already escapes values

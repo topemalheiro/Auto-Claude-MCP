@@ -67,7 +67,16 @@
     "title": "Welcome to Auto Claude",
     "description": "Get started by connecting a project. Auto Claude will help you manage tasks, generate roadmaps, review code, and more.",
     "connectProject": "Connect a Project",
-    "subtext": "Point Auto Claude at a local project directory to get started."
+    "newProject": "New Project",
+    "recentProjects": "Recent Projects",
+    "noProjects": "No Projects Yet",
+    "subtext": "Point Auto Claude at a local project directory to get started.",
+    "time": {
+      "justNow": "Just now",
+      "minutesAgo": "{{count}}m ago",
+      "hoursAgo": "{{count}}h ago",
+      "daysAgo": "{{count}}d ago"
+    }
   },
   "projectTabBar": {
     "addProject": "Add project"
