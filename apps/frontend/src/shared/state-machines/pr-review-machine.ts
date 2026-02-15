@@ -182,6 +182,7 @@ export const prReviewMachine = createMachine(
       }),
       setExternalReview: assign({
         isExternalReview: () => true,
+        progress: () => null,
       }),
       clearContext: assign(() => ({ ...initialContext })),
     },

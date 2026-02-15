@@ -191,6 +191,29 @@ describe('prReviewMachine', () => {
       expect(snapshot.value).toBe('idle');
       expect(snapshot.context.error).toBeNull();
     });
+
+    it('should clear from reviewing to idle', () => {
+      const snapshot = runEvents([
+        { type: 'START_REVIEW', prNumber: 42, projectId: 'proj-1' },
+        { type: 'CLEAR_REVIEW' },
+      ]);
+
+      expect(snapshot.value).toBe('idle');
+      expect(snapshot.context.prNumber).toBeNull();
+      expect(snapshot.context.projectId).toBeNull();
+    });
+
+    it('should clear from externalReview to idle', () => {
+      const snapshot = runEvents([
+        { type: 'START_REVIEW', prNumber: 42, projectId: 'proj-1' },
+        { type: 'DETECT_EXTERNAL_REVIEW' },
+        { type: 'CLEAR_REVIEW' },
+      ]);
+
+      expect(snapshot.value).toBe('idle');
+      expect(snapshot.context.prNumber).toBeNull();
+      expect(snapshot.context.isExternalReview).toBe(false);
+    });
   });
 
   describe('reject START_REVIEW when already reviewing', () => {

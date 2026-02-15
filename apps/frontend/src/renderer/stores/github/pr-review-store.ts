@@ -52,7 +52,6 @@ interface PRReviewStoreState {
   /** Load a review result from disk into the store (not triggered by XState) */
   setLoadedReviewResult: (projectId: string, result: PRReviewResult, options?: { preserveNewCommitsCheck?: boolean }) => void;
   setNewCommitsCheck: (projectId: string, prNumber: number, check: NewCommitsCheck) => void;
-  clearPRReview: (projectId: string, prNumber: number) => void;
   /** Update PR status from polling (CI checks, reviews, mergeability) */
   setPRStatus: (projectId: string, prNumber: number, status: {
     checksStatus: ChecksStatus;
@@ -191,11 +190,6 @@ export const usePRReviewStore = create<PRReviewStoreState>((set, get) => ({
     };
   }),
 
-  clearPRReview: (projectId: string, prNumber: number) => set((state) => {
-    const key = `${projectId}:${prNumber}`;
-    const { [key]: _, ...rest } = state.prReviews;
-    return { prReviews: rest };
-  }),
 
   setPRStatus: (projectId: string, prNumber: number, status: {
     checksStatus: ChecksStatus;

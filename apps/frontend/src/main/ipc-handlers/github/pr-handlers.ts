@@ -2901,9 +2901,15 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
 
           const reviewKey = getReviewKey(projectId, prNumber);
 
-          // Check if already running — before notifying state manager to avoid stuck reviewing state
+          // Check if already running — notify renderer so it can display ongoing logs
           if (runningReviews.has(reviewKey)) {
-            debugLog("Follow-up review already running", { reviewKey });
+            debugLog("Follow-up review already running, notifying renderer", { reviewKey });
+            sendProgress({
+              phase: "analyzing",
+              prNumber,
+              progress: 50,
+              message: "Follow-up review is already in progress. Reconnecting to ongoing review...",
+            });
             return;
           }
 

@@ -80,9 +80,12 @@ export class PRReviewStateManager {
     const key = this.getKey(projectId, prNumber);
     const actor = this.actors.get(key);
     if (actor) {
+      // Capture snapshot before clearing so the emitted payload has real context
+      const snapshot = actor.getSnapshot();
       actor.send({ type: 'CLEAR_REVIEW' } satisfies PRReviewEvent);
       actor.stop();
       this.actors.delete(key);
+      this.emitClearedState(key, snapshot?.context ?? null);
     }
     this.lastStateByPR.delete(key);
   }
