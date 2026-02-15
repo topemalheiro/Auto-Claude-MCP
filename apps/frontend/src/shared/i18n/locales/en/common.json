@@ -609,7 +609,9 @@
     "archiveFeatureConfirmDescription": "This will remove \"{{title}}\" from your roadmap.",
     "goToTask": "Go to Task",
     "convertToTask": "Convert to Auto-Build Task",
-    "build": "Build"
+    "build": "Build",
+    "task": "Task",
+    "viewTask": "View Task"
   },
   "roadmapGeneration": {
     "progress": "Progress",

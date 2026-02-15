@@ -609,7 +609,9 @@
     "archiveFeatureConfirmDescription": "Cela supprimera \"{{title}}\" de votre feuille de route.",
     "goToTask": "Aller à la tâche",
     "convertToTask": "Convertir en tâche Auto-Build",
-    "build": "Construire"
+    "build": "Construire",
+    "task": "Tâche",
+    "viewTask": "Voir la tâche"
   },
   "roadmapGeneration": {
     "progress": "Progression",

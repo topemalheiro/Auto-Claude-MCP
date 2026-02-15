@@ -143,7 +143,7 @@ export function SortableFeatureCard({
                 }}
               >
                 <ExternalLink className="h-3 w-3 mr-1" />
-                Task
+                {t('roadmap.task')}
               </Button>
             ) : (
               feature.status !== 'done' &&
@@ -158,7 +158,7 @@ export function SortableFeatureCard({
                   }}
                 >
                   <Play className="h-3 w-3 mr-1" />
-                  Build
+                  {t('roadmap.build')}
                 </Button>
               )
             )}
@@ -168,6 +168,7 @@ export function SortableFeatureCard({
                 size="sm"
                 className="h-7 px-2"
                 title={t('roadmap.archiveFeature')}
+                aria-label={t('accessibility.archiveFeatureAriaLabel')}
                 onClick={(e) => {
                   e.stopPropagation();
                   onArchive(feature.id);

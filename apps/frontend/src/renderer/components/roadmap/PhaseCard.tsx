@@ -104,6 +104,7 @@ export function PhaseCard({
                 size="sm"
                 className="h-6 px-2"
                 title={t('roadmap.archiveFeature')}
+                aria-label={t('accessibility.archiveFeatureAriaLabel')}
                 onClick={(e) => {
                   e.stopPropagation();
                   onArchive(feature.id);
@@ -154,7 +155,7 @@ export function PhaseCard({
                   }}
                 >
                   <ExternalLink className="h-3 w-3 mr-1" />
-                  View Task
+                  {t('roadmap.viewTask')}
                 </Button>
               ) : (
                 <Button
@@ -167,7 +168,7 @@ export function PhaseCard({
                   }}
                 >
                   <Play className="h-3 w-3 mr-1" />
-                  Build
+                  {t('roadmap.build')}
                 </Button>
               )}
             </div>
