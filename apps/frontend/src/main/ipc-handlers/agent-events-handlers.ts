@@ -7,7 +7,7 @@ import type {
   AuthFailureInfo,
   ImplementationPlan,
 } from "../../shared/types";
-import { XSTATE_SETTLED_STATES, XSTATE_TO_PHASE, mapStateToLegacy } from "../../shared/state-machines";
+import { XSTATE_SETTLED_STATES, XSTATE_ACTIVE_STATES, XSTATE_TO_PHASE, mapStateToLegacy } from "../../shared/state-machines";
 import { AgentManager } from "../agent";
 import type { ProcessType, ExecutionProgressData } from "../agent";
 import { titleGenerator } from "../title-generator";
@@ -105,17 +105,32 @@ export function registerAgenteventsHandlers(
     // We check XState's current state directly to avoid stale cache issues from projectStore.
     setTimeout(() => {
       const currentState = taskStateManager.getCurrentState(taskId);
-      // Active states that should transition on process exit: planning, coding, qa_review, qa_fixing
-      const activeStates = ['planning', 'coding', 'qa_review', 'qa_fixing'];
 
-      if (currentState && activeStates.includes(currentState)) {
+      if (currentState && XSTATE_ACTIVE_STATES.has(currentState)) {
         const { task: checkTask, project: checkProject } = findTaskAndProject(taskId, projectId);
         if (checkTask && checkProject) {
+          // Determine hasPlan by checking if a valid implementation_plan.json exists
+          // This matches the pattern from TASK_STOP handler (execution-handlers.ts lines 299-310)
+          let hasPlan = false;
+          try {
+            const planPath = getPlanPath(checkProject, checkTask);
+            const planContent = readFileSync(planPath, 'utf-8');
+            if (planContent) {
+              const plan = JSON.parse(planContent);
+              // A plan exists if it has phases with subtasks (totalCount > 0)
+              const phases = plan.phases as Array<{ subtasks?: Array<unknown> }> | undefined;
+              const totalCount = phases?.flatMap(p => p.subtasks || []).length || 0;
+              hasPlan = totalCount > 0;
+            }
+          } catch {
+            hasPlan = false;
+          }
+
           console.warn(
             `[agent-events-handlers] Task ${taskId} still in XState ${currentState} ` +
-            `${STUCK_TASK_FALLBACK_TIMEOUT_MS}ms after exit, forcing USER_STOPPED`
+            `${STUCK_TASK_FALLBACK_TIMEOUT_MS}ms after exit, forcing USER_STOPPED (hasPlan: ${hasPlan})`
           );
-          taskStateManager.handleUiEvent(taskId, { type: 'USER_STOPPED', hasPlan: true }, checkTask, checkProject);
+          taskStateManager.handleUiEvent(taskId, { type: 'USER_STOPPED', hasPlan }, checkTask, checkProject);
         }
       }
     }, STUCK_TASK_FALLBACK_TIMEOUT_MS);
