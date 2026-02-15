@@ -120,7 +120,10 @@ export function clearAutoResumeQueue(): void {
     clearTimeout(autoResumeTimer);
     autoResumeTimer = null;
   }
-  autoResumeProcessing = false;
+  // Don't reset autoResumeProcessing here - the generation counter is sufficient
+  // to abort stale processing runs. Resetting the flag here creates a race condition
+  // where clearAutoResumeQueue() could allow a new processAutoResumeQueue() to start
+  // before the aborted one has fully exited.
   autoResumeGeneration++; // Increment generation to abort any in-flight processing
   debugLog('[AutoResume] Queue cleared');
 }
@@ -562,8 +565,13 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
       for (let i = 0; i < pendingTerminals.length; i++) {
         const terminal = pendingTerminals[i];
 
-        debugLog(`[TerminalStore] Activating deferred Claude resume for terminal: ${terminal.id}`);
-        resumeTerminalClaudeSession(terminal.id);
+        try {
+          debugLog(`[TerminalStore] Activating deferred Claude resume for terminal: ${terminal.id}`);
+          resumeTerminalClaudeSession(terminal.id);
+        } catch (error) {
+          // Log error and continue processing remaining terminals
+          debugError(`[TerminalStore] Error resuming terminal ${terminal.id}:`, error);
+        }
 
         // Wait before processing next terminal (staggered delay)
         if (i < pendingTerminals.length - 1) {
@@ -692,3 +700,7 @@ export async function restoreTerminalSessions(projectPath: string): Promise<void
     restoringProjects.delete(projectPath);
   }
 }
+
+// NOTE: HMR cleanup for auto-resume queue state would be beneficial during development
+// to clear timers on hot reload, but requires augmenting ImportMeta types in vite-env.d.ts.
+// The generation counter provides sufficient protection against stale processing runs.
