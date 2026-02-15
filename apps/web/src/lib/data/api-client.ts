@@ -299,6 +299,33 @@ class ApiClient {
     );
   }
 
+  async updateTask(
+    projectId: string,
+    taskId: string,
+    data: Record<string, unknown>,
+    opts?: RequestOptions,
+  ): Promise<TaskResponse> {
+    return this.request<TaskResponse>(
+      `/api/projects/${projectId}/tasks/${taskId}`,
+      { method: "PUT", body: JSON.stringify(data) },
+      opts?.timeoutMs,
+      opts?.signal,
+    );
+  }
+
+  async createPR(
+    projectId: string,
+    taskId: string,
+    opts?: RequestOptions,
+  ): Promise<ApiResponse<{ url: string }>> {
+    return this.request<ApiResponse<{ url: string }>>(
+      `/api/projects/${projectId}/tasks/${taskId}/pr`,
+      { method: "POST" },
+      opts?.timeoutMs,
+      opts?.signal,
+    );
+  }
+
   async deleteTask(
     projectId: string,
     taskId: string,
