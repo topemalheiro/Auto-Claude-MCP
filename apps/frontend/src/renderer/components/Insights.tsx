@@ -49,7 +49,8 @@ import {
   TASK_CATEGORY_LABELS,
   TASK_CATEGORY_COLORS,
   TASK_COMPLEXITY_LABELS,
-  TASK_COMPLEXITY_COLORS
+  TASK_COMPLEXITY_COLORS,
+  MAX_IMAGE_SIZE
 } from '../../shared/constants';
 
 // createSafeLink - factory function that creates a SafeLink component with i18n support
@@ -212,18 +213,27 @@ export function Insights({ projectId }: InsightsProps) {
 
   const handleScreenshotCapture = useCallback(async (imageData: string) => {
     // imageData is base64 PNG from ScreenshotCapture
+    const approximateSize = Math.ceil(imageData.length * 0.75); // approximate base64 size
+
+    // Validate size - match the validation used for regular image uploads
+    if (approximateSize > MAX_IMAGE_SIZE) {
+      setImageError(`Screenshot is too large (${Math.round(approximateSize / 1024 / 1024)}MB). Maximum size is ${Math.round(MAX_IMAGE_SIZE / 1024 / 1024)}MB. Consider capturing a smaller area.`);
+      return;
+    }
+
     const dataUrl = `data:image/png;base64,${imageData}`;
     const thumbnail = await createThumbnail(dataUrl);
     const newImage: ImageAttachment = {
       id: generateImageId(),
       filename: `screenshot-${Date.now()}.png`,
       mimeType: 'image/png',
-      size: Math.ceil(imageData.length * 0.75), // approximate base64 size
+      size: approximateSize,
       data: imageData,
       thumbnail
     };
     setPendingImages([...pendingImages, newImage]);
-  }, [pendingImages, setPendingImages]);
+    setImageError(null);
+  }, [pendingImages, setPendingImages, setImageError]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
