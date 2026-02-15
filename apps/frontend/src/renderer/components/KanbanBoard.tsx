@@ -1340,6 +1340,15 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
 
         // Normal queue processing (when task leaves in_progress)
         if (oldStatus === 'in_progress' && newStatus !== 'in_progress') {
+          // When RDR is enabled, don't promote queue tasks for stopped transitions
+          // RDR will restart killed agents, so the slot will be re-filled — promoting would over-fill capacity
+          if (rdrEnabled && newStatus === 'human_review') {
+            const stoppedTask = useTaskStore.getState().tasks.find(t => t.id === taskId);
+            if (stoppedTask?.reviewReason === 'stopped') {
+              debugLog(`[Queue] RDR enabled, task ${taskId} stopped — skipping queue promotion (RDR will handle)`);
+              return;
+            }
+          }
           debugLog(`[Queue] Task ${taskId} left in_progress, processing queue to fill slot`);
           processQueue();
         }
