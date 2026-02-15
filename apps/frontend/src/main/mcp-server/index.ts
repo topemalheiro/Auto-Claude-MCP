@@ -1949,6 +1949,178 @@ server.tool(
 );
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Defer Task (Priority 6C) — Move broken task to Queue with RDR disabled
+// ─────────────────────────────────────────────────────────────────────────────
+
+server.tool(
+  'defer_task',
+  'Move a broken/stuck task to Queue board with RDR disabled (Priority 6C). Task is parked for later — other work continues. User can manually restart it when ready.',
+  {
+    projectId: z.string().describe('The project ID (UUID)'),
+    projectPath: z.string().optional().describe('Fallback filesystem path if projectId UUID not found'),
+    taskId: z.string().describe('The task/spec ID to defer'),
+    reason: z.string().optional().describe('Why this task is being deferred (logged for context)')
+  },
+  withMonitoring('defer_task', async ({ projectId, projectPath, taskId, reason }) => {
+    const { existsSync, writeFileSync, readFileSync } = await import('fs');
+    const path = await import('path');
+
+    const resolved = resolveProjectPath(projectId, projectPath);
+    if ('error' in resolved) {
+      return {
+        content: [{
+          type: 'text' as const,
+          text: JSON.stringify({ success: false, error: resolved.error })
+        }]
+      };
+    }
+
+    const resolvedProjectPath = resolved.projectPath;
+    const specDir = path.join(resolvedProjectPath, '.auto-claude', 'specs', taskId);
+    const planPath = path.join(specDir, 'implementation_plan.json');
+
+    if (!existsSync(planPath)) {
+      return {
+        content: [{
+          type: 'text' as const,
+          text: JSON.stringify({ success: false, error: 'Task plan file not found: ' + planPath })
+        }]
+      };
+    }
+
+    try {
+      // 1. Update implementation_plan.json — set status to queue
+      const plan = JSON.parse(readFileSync(planPath, 'utf-8'));
+      const previousStatus = plan.status;
+
+      plan.status = 'queue';
+      plan.planStatus = 'queued';
+      plan.xstateState = 'backlog';
+      plan.updated_at = new Date().toISOString();
+      // Clear error/review state
+      delete plan.exitReason;
+      delete plan.reviewReason;
+      delete plan.rdr_batch_type;
+      delete plan.rdr_priority;
+      delete plan.rdr_iteration;
+      // Record defer context
+      plan.deferred_at = new Date().toISOString();
+      plan.deferred_reason = reason || 'Priority 6C: Deferred to queue for later';
+      plan.deferred_from_status = previousStatus;
+
+      writeFileSync(planPath, JSON.stringify(plan, null, 2));
+
+      // 2. Update task_metadata.json — disable RDR for this task
+      const metaPath = path.join(specDir, 'task_metadata.json');
+      let metadata: Record<string, unknown> = {};
+      if (existsSync(metaPath)) {
+        try {
+          metadata = JSON.parse(readFileSync(metaPath, 'utf-8'));
+        } catch { /* start fresh */ }
+      }
+      metadata = {
+        ...metadata,
+        rdrDisabled: true,
+        deferredAt: new Date().toISOString(),
+        deferredReason: reason || 'Priority 6C: Deferred to queue for later'
+      };
+      writeFileSync(metaPath, JSON.stringify(metadata, null, 2));
+
+      // 3. Update worktree plan if it exists
+      const worktreePlanPath = path.join(
+        resolvedProjectPath, '.auto-claude', 'worktrees', 'tasks', taskId,
+        '.auto-claude', 'specs', taskId, 'implementation_plan.json'
+      );
+      if (existsSync(worktreePlanPath)) {
+        try {
+          const wt = JSON.parse(readFileSync(worktreePlanPath, 'utf-8'));
+          wt.status = 'queue';
+          wt.planStatus = 'queued';
+          wt.xstateState = 'backlog';
+          wt.updated_at = new Date().toISOString();
+          delete wt.exitReason;
+          delete wt.reviewReason;
+          wt.deferred_at = plan.deferred_at;
+          wt.deferred_reason = plan.deferred_reason;
+          wt.deferred_from_status = previousStatus;
+          writeFileSync(worktreePlanPath, JSON.stringify(wt, null, 2));
+        } catch { /* worktree update is best-effort */ }
+      }
+
+      // 4. Update worktree task_metadata.json if it exists
+      const worktreeMetaPath = path.join(
+        resolvedProjectPath, '.auto-claude', 'worktrees', 'tasks', taskId,
+        '.auto-claude', 'specs', taskId, 'task_metadata.json'
+      );
+      if (existsSync(worktreeMetaPath)) {
+        try {
+          let wtMeta: Record<string, unknown> = {};
+          wtMeta = JSON.parse(readFileSync(worktreeMetaPath, 'utf-8'));
+          wtMeta = {
+            ...wtMeta,
+            rdrDisabled: true,
+            deferredAt: new Date().toISOString(),
+            deferredReason: reason || 'Priority 6C: Deferred to queue for later'
+          };
+          writeFileSync(worktreeMetaPath, JSON.stringify(wtMeta, null, 2));
+        } catch { /* best-effort */ }
+      }
+
+      // 5. Kill agent if running (cross-process kill via PID file)
+      let agentKilled = false;
+      const pidPath = path.join(tmpdir(), 'auto-claude-pids', `${taskId}.pid`);
+      if (existsSync(pidPath)) {
+        try {
+          const pid = parseInt(readFileSync(pidPath, 'utf-8').trim(), 10);
+          if (pid > 0) {
+            if (process.platform === 'win32') {
+              const result = spawnSync('taskkill', ['/f', '/t', '/pid', pid.toString()], {
+                stdio: 'ignore',
+                timeout: 5000
+              });
+              agentKilled = result.status === 0;
+            } else {
+              process.kill(pid, 'SIGKILL');
+              agentKilled = true;
+            }
+            console.warn(`[MCP] defer_task: Killed agent PID ${pid} for ${taskId}`);
+          }
+        } catch (err) {
+          console.warn(`[MCP] defer_task: Could not kill agent for ${taskId}: ${err}`);
+        }
+      }
+
+      return {
+        content: [{
+          type: 'text' as const,
+          text: JSON.stringify({
+            success: true,
+            taskId,
+            action: 'deferred_to_queue',
+            previousStatus,
+            rdrDisabled: true,
+            agentKilled,
+            reason: reason || 'Priority 6C: Deferred to queue for later',
+            message: `Task ${taskId} moved from ${previousStatus} to Queue board with RDR disabled.${agentKilled ? ' Agent process killed.' : ''} Task will not be auto-recovered — user must manually restart when ready.`
+          }, null, 2)
+        }]
+      };
+    } catch (error) {
+      return {
+        content: [{
+          type: 'text' as const,
+          text: JSON.stringify({
+            success: false,
+            taskId,
+            error: error instanceof Error ? error.message : String(error)
+          })
+        }]
+      };
+    }
+  })
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Crash Notification Polling
 // ─────────────────────────────────────────────────────────────────────────────
 

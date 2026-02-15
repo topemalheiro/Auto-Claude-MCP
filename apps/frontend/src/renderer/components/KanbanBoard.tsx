@@ -1372,16 +1372,17 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   }, [maxParallelTasks, processQueue]);
 
   // Clear queue blocking when RDR is toggled off
+  const rdrEnabledForBlockClear = useProjectStore(
+    (state) => state.getSelectedProject()?.settings?.rdrEnabled ?? false
+  );
   useEffect(() => {
-    const project = useProjectStore.getState().getActiveProject();
-    const isRdrEnabled = project?.settings?.rdrEnabled ?? false;
-    if (!isRdrEnabled && queueBlockedRef.current) {
+    if (!rdrEnabledForBlockClear && queueBlockedRef.current) {
       debugLog('[Queue] RDR disabled, clearing queue block');
       queueBlockedRef.current = false;
       setQueueBlocked(false);
       setQueueBlockReason(null);
     }
-  }, [currentProject?.settings?.rdrEnabled]);
+  }, [rdrEnabledForBlockClear]);
 
   // Get task order actions from store
   const reorderTasksInColumn = useTaskStore((state) => state.reorderTasksInColumn);

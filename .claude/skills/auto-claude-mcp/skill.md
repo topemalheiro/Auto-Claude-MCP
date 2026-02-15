@@ -185,7 +185,10 @@ ELSE IF mcp_iteration ≥ 4
   → Priority 5: Manual Debug (read logs, find patterns, fix root cause)
 
 ELSE IF mcp_iteration ≥ 5 AND issue is in Auto-Claude source code
-  → Priority 6: Delete & Recreate / Build & Restart
+  → Priority 6A/6B: Delete & Recreate / Build & Restart
+
+ELSE IF mcp_iteration ≥ 3 AND task is not urgent
+  → Priority 6C: Defer to Queue (defer_task — park it, deal with it later)
 
 ELSE
   → Priority 1: Auto-CONTINUE (default — force retry)
@@ -204,6 +207,8 @@ ELSE
 **get_task_error_details(projectId, taskId)** → Get error logs, exitReason, subtask status
 
 **get_task_logs(projectId, taskId, phase?, lastN?)** → Get phase logs (planning/coding/validation)
+
+**defer_task(projectId, taskId, reason?)** → Move broken task to Queue with RDR disabled (P6C — deal with it later)
 
 ## Custom Phase Configuration
 
@@ -672,10 +677,16 @@ Priority 6 has two options depending on where the problem is:
 3. Calls `trigger_auto_restart` with `reason: "manual"` and optional `buildCommand`
 4. Auto-Claude builds and restarts, tasks resume
 
-**When:** `mcp_iteration` ≥ 5, all priorities 1-5 exhausted. See `auto-claude-rdr` skill for full details.
+**6C. Defer to Queue** (task is broken but not urgent):
+1. Call `defer_task` MCP tool with taskId and reason
+2. Task moves to Queue board with RDR disabled
+3. Agent killed if running, task data preserved
+4. User manually restarts when ready
+
+**When:** `mcp_iteration` ≥ 3+ (6C) or ≥ 5 (6A/6B), priorities 1-5 exhausted. See `auto-claude-rdr` skill for full details.
 
 **Key Points:**
-- This is for fixing **Auto-Claude's source code**, not user projects
-- Requires both global and per-project permissions enabled
-- Only use when the issue is in Auto-Claude itself (not task-level issues)
+- **6A**: Task is fundamentally wrong — delete and recreate
+- **6B**: Auto-Claude itself has a bug — fix source code and restart
+- **6C**: Task keeps failing but isn't urgent — park it, deal with it later
 - See auto-claude-rdr skill for full RDR priority system documentation

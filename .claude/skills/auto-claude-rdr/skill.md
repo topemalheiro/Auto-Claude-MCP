@@ -131,6 +131,43 @@ mcp__auto-claude-manager__recover_stuck_task({
 - MCP server runs as stdio process, can't access Electron IPC, but CAN write to plan files
 - File watcher picks up changes and handles routing automatically
 
+### defer_task(projectId, taskId, reason?)
+
+**Priority 6C: Defer broken task to Queue board with RDR disabled.**
+
+Parks a task that keeps failing so other work continues. Non-destructive — task data preserved.
+
+**Parameters:**
+
+- `projectId`: The project UUID
+- `taskId`: The task/spec ID to defer
+- `reason`: (optional) Why it's being deferred (logged for context)
+
+**What it does:**
+
+1. Sets task status to `queue` (moves to Queue/Planning board)
+2. Disables RDR for this task (`rdrDisabled: true`)
+3. Kills running agent process if any
+4. Records `deferred_at`, `deferred_reason`, `deferred_from_status` for context
+5. Updates both main AND worktree plans + metadata
+
+**Usage:**
+
+```typescript
+mcp__auto-claude-manager__defer_task({
+  projectId: "b95d0809-2027-491f-af8d-ea04961e4ec0",
+  taskId: "073-broken-task",
+  reason: "Keeps failing with same import error — will fix after other tasks"
+})
+```
+
+**When to use:**
+
+- Task keeps failing after 3+ RDR attempts and isn't urgent
+- Want to unblock queue and focus on other tasks
+- Task needs manual investigation but not right now
+- Prefer to batch-fix broken tasks later
+
 ## Auto-Escalation Priority System (6 Levels)
 
 **Priority 1: Auto-CONTINUE** (95% of cases)
@@ -184,7 +221,7 @@ For persistent errors needing deep investigation:
   - Manual file edits if needed
 - **Note:** This is NOT about pressing Recover button — that's Priority 2
 
-**Priority 6 (LAST RESORT)** - Delete & Recreate Task OR Build & Restart Auto-Claude
+**Priority 6 (LAST RESORT)** - Delete & Recreate, Build & Restart, or Defer to Queue
 
 When all other priorities have failed (`mcp_iteration` ≥ 5), choose based on where the problem is:
 
@@ -266,6 +303,43 @@ if (!globalEnabled || !projectEnabled) {
 - Task needs specific fix guidance (use Priority 2)
 - Auto-Claude is working correctly (use Priority 2-4 for task-level fixes)
 
+**6C. Defer to Queue** (task is broken but not urgent — deal with it later)
+
+For tasks that keep failing but don't need immediate attention. Parks the task in the Queue board with RDR disabled so other work continues unblocked.
+
+- **When:** Task keeps failing, you want to focus on other tasks first, come back to it later
+- **Use:** `defer_task` MCP tool
+- **Actions:**
+  1. Sets task status to `queue` (moves to Queue/Planning board)
+  2. Disables RDR for this task (`rdrDisabled: true` in task_metadata.json)
+  3. Kills running agent if any
+  4. Records defer reason and previous status for context
+- **Result:** Task is parked in Queue. RDR ignores it. User can manually restart when ready.
+- **Note:** Non-destructive — task data is preserved. Unlike 6A, nothing is deleted. Unlike 6B, Auto-Claude isn't restarted. The task just waits.
+
+**MCP Tool:**
+
+```json
+{
+  "tool": "defer_task",
+  "parameters": {
+    "projectId": "uuid",
+    "taskId": "073-broken-task",
+    "reason": "Keeps failing with same import error — will investigate after other tasks complete"
+  }
+}
+```
+
+**When to prefer 6C over 6A/6B:**
+
+| Scenario | Use |
+|----------|-----|
+| Task is fundamentally wrong (bad requirements) | 6A — Delete & recreate |
+| Bug in Auto-Claude itself | 6B — Build & restart |
+| Task just won't cooperate but isn't urgent | **6C — Defer to queue** |
+| Want to batch-fix broken tasks later | **6C — Defer to queue** |
+| Blocking other tasks from running (queue system) | **6C — Defer to queue** |
+
 ### Simple Command-Based Restart Workflow
 
 The restart mechanism uses simple shell commands. No special MCP tools required - Claude Code can execute these directly via Bash.
@@ -328,7 +402,10 @@ ELSE IF mcp_iteration ≥ 4
   → Priority 5: Manual Debug (read logs, find patterns, fix root cause)
 
 ELSE IF mcp_iteration ≥ 5 AND issue is in Auto-Claude source code
-  → Priority 6: Delete & Recreate / Build & Restart
+  → Priority 6A/6B: Delete & Recreate / Build & Restart
+
+ELSE IF mcp_iteration ≥ 3 AND task is not urgent
+  → Priority 6C: Defer to Queue (defer_task — park it, deal with it later)
 
 ELSE
   → Priority 1: Auto-CONTINUE (default — force retry)
