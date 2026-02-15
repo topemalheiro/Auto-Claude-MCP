@@ -75,7 +75,8 @@ export class SessionStorage {
       session.archivedAt = new Date();
       this.saveSession(projectPath, session);
       return true;
-    } catch {
+    } catch (error) {
+      console.error(`[SessionStorage] Failed to archive session ${sessionId}:`, error);
       return false;
     }
   }
@@ -91,7 +92,8 @@ export class SessionStorage {
       delete session.archivedAt;
       this.saveSession(projectPath, session);
       return true;
-    } catch {
+    } catch (error) {
+      console.error(`[SessionStorage] Failed to unarchive session ${sessionId}:`, error);
       return false;
     }
   }

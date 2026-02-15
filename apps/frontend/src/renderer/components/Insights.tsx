@@ -149,8 +149,13 @@ export function Insights({ projectId }: InsightsProps) {
     return cleanup;
   }, [projectId]);
 
-  // Reload sessions when showArchived changes
+  // Reload sessions when showArchived changes (skip first run to avoid duplicate load)
+  const isFirstRun = useRef(true);
   useEffect(() => {
+    if (isFirstRun.current) {
+      isFirstRun.current = false;
+      return;
+    }
     loadInsightsSessions(projectId, showArchived);
   }, [projectId, showArchived]);
 
@@ -221,13 +226,23 @@ export function Insights({ projectId }: InsightsProps) {
   };
 
   const handleDeleteSessions = async (sessionIds: string[]) => {
-    await deleteSessions(projectId, sessionIds);
+    const result = await deleteSessions(projectId, sessionIds);
     await loadInsightsSessions(projectId, showArchived);
+
+    // Log partial failures for debugging
+    if (result.failedIds && result.failedIds.length > 0) {
+      console.warn(`Failed to delete ${result.failedIds.length} session(s):`, result.failedIds);
+    }
   };
 
   const handleArchiveSessions = async (sessionIds: string[]) => {
-    await archiveSessions(projectId, sessionIds);
+    const result = await archiveSessions(projectId, sessionIds);
     await loadInsightsSessions(projectId, showArchived);
+
+    // Log partial failures for debugging
+    if (result.failedIds && result.failedIds.length > 0) {
+      console.warn(`Failed to archive ${result.failedIds.length} session(s):`, result.failedIds);
+    }
   };
 
   const handleToggleShowArchived = () => {

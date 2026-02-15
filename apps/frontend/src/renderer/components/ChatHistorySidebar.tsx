@@ -86,7 +86,8 @@ export function ChatHistorySidebar({
     });
   }, []);
 
-  // Clear selection when showArchived toggles
+  // Clear selection when showArchived toggles - prevents selecting archived sessions when filter changes
+  // biome-ignore lint/correctness/useExhaustiveDependencies: showArchived is intentionally a dependency to reset selection on filter change
   useEffect(() => {
     setSelectedIds(new Set());
   }, [showArchived]);
@@ -144,8 +145,6 @@ export function ChatHistorySidebar({
         setBulkDeleteOpen(false);
       } catch (error) {
         console.error('Failed to delete sessions:', error);
-        // Re-throw to allow parent components to handle
-        throw error;
       }
     }
   };
@@ -157,8 +156,6 @@ export function ChatHistorySidebar({
         setSelectedIds(new Set());
       } catch (error) {
         console.error('Failed to archive sessions:', error);
-        // Re-throw to allow parent components to handle
-        throw error;
       }
     }
   };
@@ -304,8 +301,8 @@ export function ChatHistorySidebar({
                     onCancelEdit={handleCancelEdit}
                     onEditTitleChange={setEditTitle}
                     onDelete={() => setDeleteSessionId(session.id)}
-                    onArchive={onArchiveSession ? async () => await onArchiveSession(session.id) : undefined}
-                    onUnarchive={onUnarchiveSession ? async () => await onUnarchiveSession(session.id) : undefined}
+                    onArchive={onArchiveSession ? () => onArchiveSession(session.id).catch((e) => console.error('Archive failed:', e)) : undefined}
+                    onUnarchive={onUnarchiveSession ? () => onUnarchiveSession(session.id).catch((e) => console.error('Unarchive failed:', e)) : undefined}
                     isArchived={!!session.archivedAt}
                     isSelectionMode={isSelectionMode}
                     isSelected={selectedIds.has(session.id)}
@@ -476,23 +473,25 @@ function SessionItem({
 
   return (
     <div
+      role="button"
+      tabIndex={0}
       className={cn(
         'group relative cursor-pointer px-2 py-2 transition-colors hover:bg-muted',
         isActive && 'bg-primary/10 hover:bg-primary/15',
         isArchived && 'opacity-50'
       )}
       onClick={isSelectionMode ? undefined : onSelect}
+      onKeyDown={(e) => {
+        if (!isSelectionMode && (e.key === 'Enter' || e.key === ' ')) {
+          e.preventDefault();
+          onSelect();
+        }
+      }}
     >
       {/* Content with reserved space for the menu button */}
       <div className="flex items-center gap-1.5 pr-7">
         {isSelectionMode ? (
-          <div
-            onClick={(e) => {
-              e.stopPropagation();
-              onToggleSelect();
-            }}
-            className="shrink-0"
-          >
+          <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
             <Checkbox
               checked={isSelected}
               onCheckedChange={() => onToggleSelect()}

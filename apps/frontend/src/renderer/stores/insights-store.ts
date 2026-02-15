@@ -316,7 +316,6 @@ export async function renameSession(projectId: string, sessionId: string, newTit
 export async function deleteSessions(projectId: string, sessionIds: string[]): Promise<{ success: boolean; failedIds?: string[] }> {
   const result = await window.electronAPI.deleteInsightsSessions(projectId, sessionIds);
   if (result.success) {
-    await loadInsightsSession(projectId);
     return { success: true };
   }
   return { success: false, failedIds: result.data?.failedIds };
@@ -324,17 +323,12 @@ export async function deleteSessions(projectId: string, sessionIds: string[]): P
 
 export async function archiveSession(projectId: string, sessionId: string): Promise<boolean> {
   const result = await window.electronAPI.archiveInsightsSession(projectId, sessionId);
-  if (result.success) {
-    await loadInsightsSession(projectId);
-    return true;
-  }
-  return false;
+  return result.success;
 }
 
 export async function archiveSessions(projectId: string, sessionIds: string[]): Promise<{ success: boolean; failedIds?: string[] }> {
   const result = await window.electronAPI.archiveInsightsSessions(projectId, sessionIds);
   if (result.success) {
-    await loadInsightsSession(projectId);
     return { success: true };
   }
   return { success: false, failedIds: result.data?.failedIds };
@@ -342,11 +336,7 @@ export async function archiveSessions(projectId: string, sessionIds: string[]): 
 
 export async function unarchiveSession(projectId: string, sessionId: string): Promise<boolean> {
   const result = await window.electronAPI.unarchiveInsightsSession(projectId, sessionId);
-  if (result.success) {
-    await loadInsightsSession(projectId);
-    return true;
-  }
-  return false;
+  return result.success;
 }
 
 export async function updateModelConfig(projectId: string, sessionId: string, modelConfig: InsightsModelConfig): Promise<boolean> {
