@@ -1324,12 +1324,12 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
         if (rdrEnabled) {
           const task = useTaskStore.getState().tasks.find(t => t.id === taskId);
 
-          // REGRESSION: Task regressed from in_progress to planning
-          if (oldStatus === 'in_progress' && newStatus === 'planning') {
-            debugLog(`[Queue] BLOCKED - Task ${taskId} regressed to planning`);
+          // REGRESSION: Task regressed from in_progress to backlog (Planning board)
+          if (oldStatus === 'in_progress' && newStatus === 'backlog') {
+            debugLog(`[Queue] BLOCKED - Task ${taskId} regressed to backlog (Planning board)`);
             queueBlockedRef.current = true;  // Synchronous — takes effect immediately
             setQueueBlocked(true);           // Async — for UI rendering
-            setQueueBlockReason('Task regressed to planning');
+            setQueueBlockReason('Task regressed to Planning board');
             return; // Don't process queue
           }
 
