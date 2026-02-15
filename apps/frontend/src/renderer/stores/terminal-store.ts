@@ -120,11 +120,11 @@ export function clearAutoResumeQueue(): void {
     clearTimeout(autoResumeTimer);
     autoResumeTimer = null;
   }
-  // Don't reset autoResumeProcessing here - the generation counter is sufficient
-  // to abort stale processing runs. Resetting the flag here creates a race condition
-  // where clearAutoResumeQueue() could allow a new processAutoResumeQueue() to start
-  // before the aborted one has fully exited.
-  autoResumeGeneration++; // Increment generation to abort any in-flight processing
+  // Increment generation first to abort any in-flight processing
+  autoResumeGeneration++;
+  // Reset processing flag so new enqueue attempts can start a fresh processor
+  // Safe to do after generation bump because stale runs check generation on each iteration
+  autoResumeProcessing = false;
   debugLog('[AutoResume] Queue cleared');
 }
 
@@ -143,41 +143,49 @@ async function processAutoResumeQueue(): Promise<void> {
   const generation = autoResumeGeneration; // Capture generation to detect cancellation
   debugLog(`[AutoResume] Processing queue (generation ${generation}), ${autoResumeQueue.length} terminals`);
 
-  while (autoResumeQueue.length > 0) {
-    // Check if this processing run has been cancelled
-    if (generation !== autoResumeGeneration) {
-      debugLog(`[AutoResume] Generation mismatch (${generation} !== ${autoResumeGeneration}) — aborting stale processing`);
-      return; // Don't reset autoResumeProcessing — the new run owns it
-    }
-
-    const terminalId = autoResumeQueue.shift()!;
-
-    // Check if terminal still needs resume
-    const terminal = useTerminalStore.getState().terminals.find(t => t.id === terminalId);
-    if (!terminal?.pendingClaudeResume) {
-      debugLog(`[AutoResume] Skipping ${terminalId} — no longer pending`);
-      continue;
-    }
-
-    debugLog(`[AutoResume] Resuming terminal: ${terminalId}`);
-    resumeTerminalClaudeSession(terminalId);
-
-    // Stagger delay between resumes
-    if (autoResumeQueue.length > 0) {
-      await new Promise(resolve => setTimeout(resolve, AUTO_RESUME_STAGGER_MS));
-      // Re-check generation after await (may have been cancelled during stagger delay)
+  try {
+    while (autoResumeQueue.length > 0) {
+      // Check if this processing run has been cancelled
       if (generation !== autoResumeGeneration) {
-        debugLog(`[AutoResume] Generation mismatch after stagger — aborting stale processing`);
+        debugLog(`[AutoResume] Generation mismatch (${generation} !== ${autoResumeGeneration}) — aborting stale processing`);
         return;
       }
+
+      const terminalId = autoResumeQueue.shift()!;
+
+      // Check if terminal still needs resume
+      const terminal = useTerminalStore.getState().terminals.find(t => t.id === terminalId);
+      if (!terminal?.pendingClaudeResume) {
+        debugLog(`[AutoResume] Skipping ${terminalId} — no longer pending`);
+        continue;
+      }
+
+      try {
+        debugLog(`[AutoResume] Resuming terminal: ${terminalId}`);
+        resumeTerminalClaudeSession(terminalId);
+      } catch (error) {
+        // Log error and continue processing remaining terminals
+        debugError(`[AutoResume] Error resuming terminal ${terminalId}:`, error);
+      }
+
+      // Stagger delay between resumes
+      if (autoResumeQueue.length > 0) {
+        await new Promise(resolve => setTimeout(resolve, AUTO_RESUME_STAGGER_MS));
+        // Re-check generation after await (may have been cancelled during stagger delay)
+        if (generation !== autoResumeGeneration) {
+          debugLog(`[AutoResume] Generation mismatch after stagger — aborting stale processing`);
+          return;
+        }
+      }
+    }
+
+    debugLog('[AutoResume] Queue processing complete');
+  } finally {
+    // Only reset processing flag if this is still the current generation
+    if (generation === autoResumeGeneration) {
+      autoResumeProcessing = false;
     }
   }
-
-  // Only reset processing flag if this is still the current generation
-  if (generation === autoResumeGeneration) {
-    autoResumeProcessing = false;
-  }
-  debugLog('[AutoResume] Queue processing complete');
 }
 
 export type TerminalStatus = 'idle' | 'running' | 'claude-active' | 'exited';
@@ -564,6 +572,13 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
       // Iterate through terminals with staggered delays
       for (let i = 0; i < pendingTerminals.length; i++) {
         const terminal = pendingTerminals[i];
+
+        // Re-check terminal still needs resume (may have changed during stagger delay)
+        const currentTerminal = get().terminals.find(t => t.id === terminal.id);
+        if (!currentTerminal?.pendingClaudeResume) {
+          debugLog(`[TerminalStore] Skipping ${terminal.id} — no longer pending`);
+          continue;
+        }
 
         try {
           debugLog(`[TerminalStore] Activating deferred Claude resume for terminal: ${terminal.id}`);
