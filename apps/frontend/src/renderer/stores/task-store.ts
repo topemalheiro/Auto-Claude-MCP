@@ -309,7 +309,7 @@ export const useTaskStore = create<TaskState>((set, get) => ({
             // When starting a task and no phase is set yet, default to planning
             // This prevents the "no active phase" UI state during startup race condition
             executionProgress = { phase: 'planning' as ExecutionPhase, phaseProgress: 0, overallProgress: 0 };
-          } else if (status === 'human_review' || status === 'error' || status === 'done' || status === 'pr_created') {
+          } else if (['human_review', 'error', 'done', 'pr_created'].includes(status)) {
             // Reset execution progress when task reaches terminal states
             // This prevents stuck tasks from showing stale progress indicators
             executionProgress = { phase: 'idle' as ExecutionPhase, phaseProgress: 0, overallProgress: 0 };

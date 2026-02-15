@@ -13,7 +13,7 @@ import type { ProcessType, ExecutionProgressData } from "../agent";
 import { titleGenerator } from "../title-generator";
 import { fileWatcher } from "../file-watcher";
 import { notificationService } from "../notification-service";
-import { persistPlanLastEventSync, getPlanPath, persistPlanPhaseSync, persistPlanStatusAndReasonSync } from "./task/plan-file-utils";
+import { persistPlanLastEventSync, getPlanPath, persistPlanPhaseSync, persistPlanStatusAndReasonSync, hasPlanWithSubtasks } from "./task/plan-file-utils";
 import { findTaskWorktree } from "../worktree-paths";
 import { findTaskAndProject } from "./task/shared";
 import { safeSendToRenderer } from "./utils";
@@ -103,28 +103,14 @@ export function registerAgenteventsHandlers(
     // force it to human_review after a short delay. This prevents tasks from getting stuck
     // when the process exits without XState properly handling it.
     // We check XState's current state directly to avoid stale cache issues from projectStore.
-    setTimeout(() => {
+    setTimeout(async () => {
       const currentState = taskStateManager.getCurrentState(taskId);
 
       if (currentState && XSTATE_ACTIVE_STATES.has(currentState)) {
         const { task: checkTask, project: checkProject } = findTaskAndProject(taskId, projectId);
         if (checkTask && checkProject) {
-          // Determine hasPlan by checking if a valid implementation_plan.json exists
-          // This matches the pattern from TASK_STOP handler (execution-handlers.ts lines 299-310)
-          let hasPlan = false;
-          try {
-            const planPath = getPlanPath(checkProject, checkTask);
-            const planContent = readFileSync(planPath, 'utf-8');
-            if (planContent) {
-              const plan = JSON.parse(planContent);
-              // A plan exists if it has phases with subtasks (totalCount > 0)
-              const phases = plan.phases as Array<{ subtasks?: Array<unknown> }> | undefined;
-              const totalCount = phases?.flatMap(p => p.subtasks || []).length || 0;
-              hasPlan = totalCount > 0;
-            }
-          } catch {
-            hasPlan = false;
-          }
+          // Use shared utility to determine if a valid implementation plan exists
+          const hasPlan = hasPlanWithSubtasks(checkProject, checkTask);
 
           console.warn(
             `[agent-events-handlers] Task ${taskId} still in XState ${currentState} ` +
@@ -265,13 +251,20 @@ export function registerAgenteventsHandlers(
     }
 
     // Skip sending execution-progress to renderer when XState has settled,
-    // UNLESS this is a final phase update (complete/failed).
-    // Final phase updates must still propagate to renderer even after XState settles,
-    // otherwise the UI never receives the final progress state.
+    // UNLESS this is a final phase update (complete/failed) AND the task is still in_progress.
+    // This prevents UI flicker where a failed phase arrives after the status has already changed to human_review.
     const isFinalPhaseUpdate = progress.phase === 'complete' || progress.phase === 'failed';
-    if (xstateInTerminalState && !isFinalPhaseUpdate) {
-      console.debug(`[agent-events-handlers] Skipping execution-progress to renderer for ${taskId}: XState in '${currentXState}', ignoring phase '${progress.phase}'`);
-      return;
+    if (xstateInTerminalState) {
+      if (!isFinalPhaseUpdate) {
+        console.debug(`[agent-events-handlers] Skipping execution-progress to renderer for ${taskId}: XState in '${currentXState}', ignoring phase '${progress.phase}'`);
+        return;
+      }
+      // For final phase updates, only send if task is still in_progress to prevent flicker
+      const { task } = findTaskAndProject(taskId, taskProjectId);
+      if (task && task.status !== 'in_progress') {
+        console.debug(`[agent-events-handlers] Skipping final phase '${progress.phase}' for ${taskId}: task status is '${task.status}', not 'in_progress'`);
+        return;
+      }
     }
     safeSendToRenderer(
       getMainWindow,
