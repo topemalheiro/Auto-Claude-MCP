@@ -35,6 +35,10 @@ export type FeatureStateName = typeof FEATURE_STATE_NAMES[number];
  * Generation states where the machine has settled — the generation is
  * complete or has errored. Stale progress events should NOT overwrite
  * these states, as XState is the source of truth.
+ *
+ * NOTE: Exported for future consumer use (e.g., UI components that need to
+ * check if generation is settled before allowing user actions). Currently
+ * unused but intentionally retained as public API for roadmap state checking.
  */
 export const GENERATION_SETTLED_STATES: ReadonlySet<string> = new Set<GenerationStateName>([
   'complete', 'error'
@@ -43,6 +47,10 @@ export const GENERATION_SETTLED_STATES: ReadonlySet<string> = new Set<Generation
 /**
  * Feature states where the machine has settled — the feature is done.
  * Stale task lifecycle events should NOT overwrite this state.
+ *
+ * NOTE: Exported for future consumer use (e.g., UI components that need to
+ * check if feature is settled before allowing drag-and-drop or status changes).
+ * Currently unused but intentionally retained as public API for feature state checking.
  */
 export const FEATURE_SETTLED_STATES: ReadonlySet<string> = new Set<FeatureStateName>([
   'done'

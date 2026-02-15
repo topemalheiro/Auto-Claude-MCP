@@ -86,7 +86,7 @@ export const roadmapGenerationMachine = createMachine(
       }),
       updateProgress: assign({
         progress: ({ event }) =>
-          event.type === 'PROGRESS_UPDATE' ? event.progress : 0,
+          event.type === 'PROGRESS_UPDATE' ? Math.min(100, Math.max(0, event.progress)) : 0,
         message: ({ event }) =>
           event.type === 'PROGRESS_UPDATE' ? event.message : undefined,
       }),
@@ -97,6 +97,7 @@ export const roadmapGenerationMachine = createMachine(
       setError: assign({
         error: ({ event }) =>
           event.type === 'GENERATION_ERROR' ? event.error : undefined,
+        progress: () => 0,
       }),
       resetContext: assign({
         progress: () => 0,

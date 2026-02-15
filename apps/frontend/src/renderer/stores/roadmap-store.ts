@@ -204,18 +204,40 @@ export const useRoadmapStore = create<RoadmapState>((set) => ({
     // Map the incoming status phase to an XState event
     let event: RoadmapGenerationEvent | null = null;
     switch (status.phase) {
-      case 'analyzing':
-        // If idle, start generation; otherwise it's a progress update
-        if (String(actor.getSnapshot().value) === 'idle') {
+      case 'analyzing': {
+        const currentState = String(actor.getSnapshot().value);
+        if (currentState === 'idle') {
+          event = { type: 'START_GENERATION' };
+        } else if (currentState === 'complete' || currentState === 'error') {
+          actor.send({ type: 'RESET' });
           event = { type: 'START_GENERATION' };
         }
         break;
-      case 'discovering':
+      }
+      case 'discovering': {
+        const cs = String(actor.getSnapshot().value);
+        if (cs === 'idle') {
+          actor.send({ type: 'START_GENERATION' });
+        } else if (cs === 'complete' || cs === 'error') {
+          actor.send({ type: 'RESET' });
+          actor.send({ type: 'START_GENERATION' });
+        }
         event = { type: 'DISCOVERY_STARTED' };
         break;
-      case 'generating':
+      }
+      case 'generating': {
+        const cs = String(actor.getSnapshot().value);
+        if (cs === 'idle') {
+          actor.send({ type: 'START_GENERATION' });
+          actor.send({ type: 'DISCOVERY_STARTED' });
+        } else if (cs === 'complete' || cs === 'error') {
+          actor.send({ type: 'RESET' });
+          actor.send({ type: 'START_GENERATION' });
+          actor.send({ type: 'DISCOVERY_STARTED' });
+        }
         event = { type: 'GENERATION_STARTED' };
         break;
+      }
       case 'complete':
         event = { type: 'GENERATION_COMPLETE' };
         break;
@@ -253,6 +275,10 @@ export const useRoadmapStore = create<RoadmapState>((set) => ({
   setCurrentProjectId: (projectId) => set({ currentProjectId: projectId }),
 
   updateFeatureStatus: (featureId, status) => {
+    // NOTE: getState() is called outside set() because XState actors are external
+    // side effects that cannot run inside Zustand's synchronous updater. The feature
+    // lookup and actor state restoration use this snapshot, with the actual state
+    // write deferred to the set() call below. This is intentional architecture.
     const state = useRoadmapStore.getState();
     if (!state.roadmap) return;
 
