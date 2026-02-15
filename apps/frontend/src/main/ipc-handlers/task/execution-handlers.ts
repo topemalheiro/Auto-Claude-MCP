@@ -615,6 +615,17 @@ export function registerTaskExecutionHandlers(
       const planPath = getPlanPath(project, task);
 
       try {
+        // Kill agent FIRST when moving AWAY from 'in_progress'
+        // This prevents the running agent from overwriting the plan file after we update it
+        if (status !== 'in_progress') {
+          const isRunning = agentManager.isRunning(taskId);
+          console.log(`[TASK_UPDATE_STATUS] Target status: ${status}, agent running: ${isRunning}, taskId: ${taskId}`);
+          if (isRunning) {
+            console.warn(`[TASK_UPDATE_STATUS] Killing agent for task ${taskId} BEFORE status persist (moving to ${status})`);
+            agentManager.killTask(taskId);
+          }
+        }
+
         const handledByMachine = taskStateManager.handleManualStatusChange(taskId, status, task, project);
         if (!handledByMachine) {
           // Use shared utility for thread-safe plan file updates (legacy/manual override)
@@ -625,17 +636,6 @@ export function registerTaskExecutionHandlers(
             await createPlanIfNotExists(planPath, task, status);
             // Invalidate cache after creating new plan
             projectStore.invalidateTasksCache(project.id);
-          }
-        }
-
-        // Auto-stop task when status changes AWAY from 'in_progress'
-        // This handles the case where user drags a running task to Planning/Human Review/Done/etc.
-        if (status !== 'in_progress') {
-          const isRunning = agentManager.isRunning(taskId);
-          console.log(`[TASK_UPDATE_STATUS] Target status: ${status}, agent running: ${isRunning}, taskId: ${taskId}`);
-          if (isRunning) {
-            console.warn(`[TASK_UPDATE_STATUS] Killing agent for task ${taskId} (moving to ${status})`);
-            agentManager.killTask(taskId);
           }
         }
 

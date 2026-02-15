@@ -1158,19 +1158,19 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       let consecutiveFailures = 0;
       const MAX_CONSECUTIVE_FAILURES = 10; // Safety limit to prevent infinite loop
 
-      // Track promotions in this call to enforce max parallel tasks limit
+      // Track promotions in this call for logging/summary only
       let promotedInThisCall = 0;
 
       // Log initial state
-      const initialTasks = useTaskStore.getState().tasks;
-      const initialInProgress = initialTasks.filter((t) => t.status === 'in_progress' && !t.metadata?.archivedAt);
-      const initialQueued = initialTasks.filter((t) => t.status === 'queue' && !t.metadata?.archivedAt);
+      const startTasks = useTaskStore.getState().tasks;
+      const startInProgress = startTasks.filter((t) => t.status === 'in_progress' && !t.metadata?.archivedAt);
+      const startQueued = startTasks.filter((t) => t.status === 'queue' && !t.metadata?.archivedAt);
       debugLog(`[Queue] === PROCESS QUEUE START ===`, {
         maxParallelTasks,
-        initialInProgressCount: initialInProgress.length,
-        initialInProgressIds: initialInProgress.map(t => t.id),
-        initialQueuedCount: initialQueued.length,
-        initialQueuedIds: initialQueued.map(t => t.id),
+        inProgressCount: startInProgress.length,
+        inProgressIds: startInProgress.map(t => t.id),
+        queuedCount: startQueued.length,
+        queuedIds: startQueued.map(t => t.id),
         projectId
       });
 
@@ -1178,38 +1178,31 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       let iteration = 0;
       while (true) {
         iteration++;
-        // Calculate total in-progress count: tasks that were already in progress + tasks promoted in this call
-        const totalInProgressCount = initialInProgress.length + promotedInThisCall;
 
-        debugLog(`[Queue] --- Iteration ${iteration} ---`, {
-          initialInProgressCount: initialInProgress.length,
-          promotedInThisCall,
-          totalInProgressCount,
-          capacityCheck: totalInProgressCount >= maxParallelTasks,
-          processedCount: processedTaskIds.size
-        });
-
-        // Stop if no capacity (initial in-progress + promoted in this call)
-        if (totalInProgressCount >= maxParallelTasks) {
-          debugLog(`[Queue] Capacity reached (${totalInProgressCount}/${maxParallelTasks}), stopping queue processing`);
-          break;
-        }
-
-        // Get CURRENT state from store to find queued tasks
-        const latestTasks = useTaskStore.getState().tasks;
-        const latestInProgress = latestTasks.filter((t) => t.status === 'in_progress' && !t.metadata?.archivedAt);
-        const queuedTasks = latestTasks.filter((t) =>
+        // Fresh read of actual in-progress count every iteration
+        // This catches concurrent changes (file watcher restarts, RDR recoveries)
+        // that would make a stale snapshot incorrect
+        const currentTasks = useTaskStore.getState().tasks;
+        const currentInProgress = currentTasks.filter((t) => t.status === 'in_progress' && !t.metadata?.archivedAt);
+        const queuedTasks = currentTasks.filter((t) =>
           t.status === 'queue' && !t.metadata?.archivedAt && !processedTaskIds.has(t.id)
         );
 
-        debugLog(`[Queue] Current store state:`, {
-          totalTasks: latestTasks.length,
-          inProgressCount: latestInProgress.length,
-          inProgressIds: latestInProgress.map(t => t.id),
+        debugLog(`[Queue] --- Iteration ${iteration} ---`, {
+          liveInProgressCount: currentInProgress.length,
+          liveInProgressIds: currentInProgress.map(t => t.id),
+          promotedInThisCall,
+          capacityCheck: currentInProgress.length >= maxParallelTasks,
           queuedCount: queuedTasks.length,
           queuedIds: queuedTasks.map(t => t.id),
-          processedIds: Array.from(processedTaskIds)
+          processedCount: processedTaskIds.size
         });
+
+        // Stop if no capacity (live count — includes tasks promoted by this call AND concurrent restarts)
+        if (currentInProgress.length >= maxParallelTasks) {
+          debugLog(`[Queue] Capacity reached (live: ${currentInProgress.length}/${maxParallelTasks}), stopping queue processing`);
+          break;
+        }
 
         // Stop if no queued tasks or too many consecutive failures
         if (queuedTasks.length === 0) {
