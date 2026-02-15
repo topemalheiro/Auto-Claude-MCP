@@ -323,10 +323,10 @@ export const useTaskStore = create<TaskState>((set, get) => ({
       };
     });
 
-    // Notify listeners after state update (schedule after current tick)
-    queueMicrotask(() => {
-      notifyTaskStatusChange(taskId, oldStatus, status);
-    });
+    // Notify listeners synchronously after state update
+    // CRITICAL: Must be synchronous so queue-blocking ref is set
+    // before React re-renders and fires processQueue via useEffect
+    notifyTaskStatusChange(taskId, oldStatus, status);
   },
 
   updateTaskFromPlan: (taskId, plan) =>

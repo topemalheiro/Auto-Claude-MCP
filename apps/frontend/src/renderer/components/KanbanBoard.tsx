@@ -1142,6 +1142,31 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       return;
     }
 
+    // RDR timing guard: Check live store data for failed tasks
+    // This catches edge cases where the blocking ref hasn't been set yet
+    // but the store already reflects the failure (synchronous Zustand update)
+    const rdrProject = useProjectStore.getState().getActiveProject();
+    const rdrActive = rdrProject?.settings?.rdrEnabled ?? false;
+    if (rdrActive) {
+      const allTasks = useTaskStore.getState().tasks;
+      const activeFailures = allTasks.filter(t =>
+        t.status === 'human_review' &&
+        t.reviewReason &&
+        t.reviewReason !== 'stopped' &&
+        t.reviewReason !== 'completed' &&
+        !t.metadata?.archivedAt
+      );
+      if (activeFailures.length > 0 && !queueBlockedRef.current) {
+        debugLog('[Queue] RDR timing guard: failed tasks detected, setting block', {
+          failedIds: activeFailures.map(t => t.id)
+        });
+        queueBlockedRef.current = true;
+        setQueueBlocked(true);
+        setQueueBlockReason('Task(s) failed during execution');
+        return;
+      }
+    }
+
     // Prevent concurrent executions to avoid race conditions
     if (isProcessingQueueRef.current) {
       debugLog('[Queue] Already processing queue, skipping duplicate call');

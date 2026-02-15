@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Download, RefreshCw, AlertCircle } from 'lucide-react';
 import { debugLog } from '../shared/utils/debug-logger';
@@ -595,7 +595,7 @@ export function App() {
     setSelectedTask(task);
   };
 
-  const handleRefreshTasks = async () => {
+  const handleRefreshTasks = useCallback(async () => {
     const currentProjectId = activeProjectId || selectedProjectId;
     if (!currentProjectId) return;
     setIsRefreshingTasks(true);
@@ -606,7 +606,7 @@ export function App() {
     } finally {
       setIsRefreshingTasks(false);
     }
-  };
+  }, [activeProjectId, selectedProjectId]);
 
   // Listen for auto-refresh triggers from file watcher
   useEffect(() => {
