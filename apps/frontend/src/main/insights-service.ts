@@ -160,12 +160,19 @@ export class InsightsService extends EventEmitter {
 
     // Build conversation history for context
     // Add notation when images are present so the AI has context
-    const conversationHistory = session.messages.map(m => {
+    // For historical messages (all but the last), use past tense to avoid confusion
+    const conversationHistory = session.messages.map((m, index) => {
       const imageCount = m.images?.length ?? 0;
-      const imageNotation = imageCount > 0 ? `\n[User attached ${imageCount} image(s)]` : '';
+      const isLastMessage = index === session.messages.length - 1;
+      let imageNotation = '';
+      if (imageCount > 0 && m.role === 'user') {
+        imageNotation = isLastMessage
+          ? `\n[User attached ${imageCount} image(s)]`
+          : `\n[User previously attached ${imageCount} image(s) - not visible in this context]`;
+      }
       return {
         role: m.role,
-        content: m.role === 'user' && imageNotation ? m.content + imageNotation : m.content
+        content: imageNotation ? m.content + imageNotation : m.content
       };
     });
 

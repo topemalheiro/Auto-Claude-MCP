@@ -325,30 +325,15 @@ Current question: {message}"""
                     image_count=len(images),
                 )
 
-                # SDK query() accepts str | AsyncIterable[dict] — use AsyncIterable
-                # to pass multi-modal content blocks in the user message
-                async def image_query_stream():
-                    yield {
-                        "type": "user",
-                        "message": {"role": "user", "content": content_blocks},
-                        "parent_tool_use_id": None,
-                        "session_id": "",
-                    }
-
-                try:
-                    await client.query(image_query_stream())
-                except (TypeError, ValueError) as e:
-                    debug(
-                        "insights_runner",
-                        "SDK does not support content blocks via AsyncIterable, falling back to text-only",
-                        error=str(e),
-                    )
-                    image_note = f"\n\n[Note: The user attached {len(images)} image(s) but multi-modal input is not supported in this SDK version. Please describe the image content instead.]"
-                    print(
-                        "Warning: Image attachments could not be sent to the model and were skipped. The model was notified.",
-                        file=sys.stderr,
-                    )
-                    await client.query(full_prompt + image_note)
+                # The SDK's query() method only accepts strings, not content blocks.
+                # We need to send a text-only query and warn the user that images are not supported.
+                # TODO: When the SDK adds support for multi-modal content blocks, update this.
+                image_note = f"\n\n[Note: The user attached {len(images)} image(s), but the current SDK version does not support multi-modal input. Please ask the user to describe the image content instead.]"
+                print(
+                    "Warning: Image attachments cannot be sent to the model in SDK mode. Sending text-only query.",
+                    file=sys.stderr,
+                )
+                await client.query(full_prompt + image_note)
             else:
                 # Send the query as plain text
                 await client.query(full_prompt)

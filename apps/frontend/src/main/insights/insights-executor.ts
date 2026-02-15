@@ -109,7 +109,7 @@ export class InsightsExecutor extends EventEmitter {
 
     let historyFileCreated = false;
     try {
-      await writeFile(historyFile, JSON.stringify(conversationHistory), 'utf-8');
+      await writeFile(historyFile, JSON.stringify(conversationHistory), { encoding: 'utf-8', mode: 0o600 });
       historyFileCreated = true;
     } catch (err) {
       console.error('[Insights] Failed to write history file:', err);
@@ -140,7 +140,7 @@ export class InsightsExecutor extends EventEmitter {
             os.tmpdir(),
             `insights-image-${projectId}-${timestamp}-${i}-${randomBytes(8).toString('hex')}.${ext}`
           );
-          await writeFile(imagePath, Buffer.from(image.data, 'base64'));
+          await writeFile(imagePath, Buffer.from(image.data, 'base64'), { mode: 0o600 });
           imagesTempFiles.push(imagePath);
           manifest.push({ path: imagePath, mimeType: image.mimeType });
         }
@@ -151,8 +151,8 @@ export class InsightsExecutor extends EventEmitter {
             os.tmpdir(),
             `insights-images-manifest-${projectId}-${timestamp}-${randomBytes(8).toString('hex')}.json`
           );
-          await writeFile(imagesManifestFile, JSON.stringify(manifest), 'utf-8');
-          imagesTempFiles.push(imagesManifestFile);
+          imagesTempFiles.push(imagesManifestFile); // Push before writeFile for cleanup on failure
+          await writeFile(imagesManifestFile, JSON.stringify(manifest), { encoding: 'utf-8', mode: 0o600 });
         }
       } catch (err) {
         // Clean up any already-written image files

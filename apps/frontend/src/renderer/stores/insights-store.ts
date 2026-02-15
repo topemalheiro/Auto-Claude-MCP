@@ -245,13 +245,17 @@ export function sendMessage(projectId: string, message: string, modelConfig?: In
   const store = useInsightsStore.getState();
   const session = store.session;
 
-  // Add user message to session
+  // Add user message to session (strip data to keep memory usage low)
+  const displayImages = images?.map(img => ({
+    ...img,
+    data: undefined // Strip base64 data, keep thumbnails for display
+  }));
   const userMessage: InsightsChatMessage = {
     id: `msg-${Date.now()}`,
     role: 'user',
     content: message,
     timestamp: new Date(),
-    ...(images && images.length > 0 ? { images } : {})
+    ...(displayImages && displayImages.length > 0 ? { images: displayImages } : {})
   };
   store.addMessage(userMessage);
 
