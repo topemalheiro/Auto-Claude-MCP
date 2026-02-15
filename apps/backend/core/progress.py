@@ -454,8 +454,11 @@ def get_next_subtask(spec_dir: Path) -> dict | None:
                 str(phase_id_raw) if phase_id_raw is not None else f"unknown:{i}"
             )
             subtasks = phase.get("subtasks", phase.get("chunks", []))
+            # Stuck subtasks count as "resolved" for phase dependency purposes.
+            # This prevents one stuck subtask from blocking all downstream phases.
             phase_complete[phase_id_key] = all(
-                s.get("status") == "completed" for s in subtasks
+                s.get("status") == "completed" or s.get("id") in stuck_subtask_ids
+                for s in subtasks
             )
 
         # Find next available subtask
