@@ -192,6 +192,7 @@ export function Insights({ projectId }: InsightsProps) {
   }, []);
 
   // Reset task creation state when switching sessions
+  // biome-ignore lint/correctness/useExhaustiveDependencies: session?.id is intentionally used as a trigger
   useEffect(() => {
     setTaskCreated(new Set());
     setCreatingTask(new Set());
@@ -752,6 +753,7 @@ function ToolUsageHistory({ tools }: ToolUsageHistoryProps) {
   return (
     <div className="mt-2">
       <button
+        type="button"
         onClick={() => setExpanded(!expanded)}
         className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
       >
