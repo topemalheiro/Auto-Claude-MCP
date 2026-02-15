@@ -1,35 +1,26 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Sparkles,
-  Send,
-  User,
-  Bot,
   Plus,
   PanelLeft,
   PanelLeftClose,
   MessageSquare,
+  Loader2,
+  AlertCircle,
 } from "lucide-react";
 import { cn } from "@auto-claude/ui";
-
-interface InsightsViewProps {
-  projectId: string;
-}
-
-interface ChatMessage {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-  timestamp: Date;
-}
-
-interface ChatSession {
-  id: string;
-  title: string;
-  createdAt: Date;
-}
+import {
+  useInsightsStore,
+  type InsightsSessionSummary,
+} from "@/stores/insights-store";
+import { apiClient } from "@/lib/data/api-client";
+import { ChatMessage, StreamingMessage, ThinkingIndicator } from "./ChatMessage";
+import { ChatInput } from "./ChatInput";
+import { ChatHistorySidebar } from "./ChatHistorySidebar";
+import { ModelSelector, type ModelConfig } from "./ModelSelector";
 
 const SUGGESTION_KEYS = [
   "insights.suggestions.complexity",
@@ -39,104 +30,219 @@ const SUGGESTION_KEYS = [
   "insights.suggestions.architecture",
 ] as const;
 
+interface InsightsViewProps {
+  projectId: string;
+}
+
 export function InsightsView({ projectId }: InsightsViewProps) {
   const { t } = useTranslation("views");
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [input, setInput] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [showSidebar, setShowSidebar] = useState(true);
-  const [sessions] = useState<ChatSession[]>([
-    { id: "1", title: "Architecture Review", createdAt: new Date() },
-    { id: "2", title: "Security Audit", createdAt: new Date() },
-  ]);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  const session = useInsightsStore((s) => s.session);
+  const sessions = useInsightsStore((s) => s.sessions);
+  const status = useInsightsStore((s) => s.status);
+  const streamingContent = useInsightsStore((s) => s.streamingContent);
+  const currentTool = useInsightsStore((s) => s.currentTool);
+  const isLoadingSessions = useInsightsStore((s) => s.isLoadingSessions);
+
+  const [inputValue, setInputValue] = useState("");
+  const [showSidebar, setShowSidebar] = useState(true);
+  const [modelConfig, setModelConfig] = useState<ModelConfig>({
+    profileId: "balanced",
+    model: "sonnet",
+    thinkingLevel: "medium",
+  });
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [isUserAtBottom, setIsUserAtBottom] = useState(true);
+  const abortRef = useRef<AbortController | null>(null);
+
+  const SCROLL_BOTTOM_THRESHOLD = 100;
+
+  const checkIfAtBottom = useCallback((el: HTMLElement) => {
+    const { scrollTop, scrollHeight, clientHeight } = el;
+    return scrollHeight - scrollTop - clientHeight <= SCROLL_BOTTOM_THRESHOLD;
+  }, []);
+
+  // Track scroll position
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    const el = scrollRef.current;
+    if (!el) return;
+    const onScroll = () => setIsUserAtBottom(checkIfAtBottom(el));
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
+  }, [checkIfAtBottom]);
+
+  // Auto-scroll when at bottom
+  useEffect(() => {
+    if (isUserAtBottom && scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [isUserAtBottom, streamingContent, session?.messages?.length]);
+
+  const isLoading =
+    status.phase === "thinking" || status.phase === "responding";
+  const messages = session?.messages ?? [];
 
   const handleSend = async () => {
-    if (!input.trim() || isLoading) return;
+    const message = inputValue.trim();
+    if (!message || isLoading) return;
 
-    const userMessage: ChatMessage = {
-      id: Date.now().toString(),
+    setInputValue("");
+    setIsUserAtBottom(true);
+
+    const store = useInsightsStore.getState();
+
+    // Add user message
+    store.addMessage({
+      id: `msg-${Date.now()}`,
       role: "user",
-      content: input.trim(),
+      content: message,
       timestamp: new Date(),
-    };
+    });
 
-    setMessages((prev) => [...prev, userMessage]);
-    setInput("");
-    setIsLoading(true);
+    store.setStatus({ phase: "thinking", message: "" });
+    store.clearStreamingContent();
 
-    // Simulate AI response
-    setTimeout(() => {
-      const aiMessage: ChatMessage = {
-        id: (Date.now() + 1).toString(),
-        role: "assistant",
-        content: `I've analyzed your query about "${userMessage.content}". This is a placeholder response -- in the full implementation, this will be powered by Claude analyzing your project's codebase and providing detailed insights.`,
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, aiMessage]);
-      setIsLoading(false);
-    }, 1500);
+    // Start streaming
+    abortRef.current = new AbortController();
+    try {
+      for await (const event of apiClient.streamInsights(
+        projectId,
+        message,
+        abortRef.current.signal,
+      )) {
+        const s = useInsightsStore.getState();
+        if (event.type === "chunk" && event.content) {
+          if (s.status.phase === "thinking") {
+            s.setStatus({ phase: "responding", message: "" });
+          }
+          s.appendStreamingContent(event.content);
+        } else if (event.type === "done") {
+          s.finalizeStreamingMessage();
+          s.setStatus({ phase: "idle", message: "" });
+        } else if (event.type === "error") {
+          s.setStatus({
+            phase: "error",
+            message: event.error ?? "An error occurred",
+          });
+        }
+      }
+    } catch (err) {
+      if ((err as Error).name !== "AbortError") {
+        store.setStatus({
+          phase: "error",
+          message: (err as Error).message || "Failed to get response",
+        });
+      }
+    } finally {
+      abortRef.current = null;
+    }
+  };
+
+  const handleNewSession = async () => {
+    const store = useInsightsStore.getState();
+    store.clearSession();
+  };
+
+  const handleSelectSession = async (sessionId: string) => {
+    // In a full implementation, this would load the session from the API
+    if (sessionId !== session?.id) {
+      const store = useInsightsStore.getState();
+      store.clearSession();
+    }
+  };
+
+  const handleDeleteSession = async (sessionId: string): Promise<boolean> => {
+    const store = useInsightsStore.getState();
+    store.setSessions(
+      store.sessions.filter((s: InsightsSessionSummary) => s.id !== sessionId),
+    );
+    if (session?.id === sessionId) {
+      store.clearSession();
+    }
+    return true;
+  };
+
+  const handleRenameSession = async (
+    sessionId: string,
+    newTitle: string,
+  ): Promise<boolean> => {
+    const store = useInsightsStore.getState();
+    store.setSessions(
+      store.sessions.map((s: InsightsSessionSummary) =>
+        s.id === sessionId ? { ...s, title: newTitle } : s,
+      ),
+    );
+    return true;
   };
 
   const handleSuggestionClick = (suggestion: string) => {
-    setInput(suggestion);
+    setInputValue(suggestion);
   };
 
   return (
     <div className="flex h-full overflow-hidden">
       {/* Chat History Sidebar */}
       {showSidebar && (
-        <div className="w-64 border-r border-border bg-card/50 flex flex-col">
-          <div className="flex items-center justify-between border-b border-border px-4 py-3">
-            <h2 className="text-sm font-semibold">{t("insights.chatHistory")}</h2>
-            <button className="flex h-7 w-7 items-center justify-center rounded-md hover:bg-accent transition-colors">
-              <Plus className="h-3.5 w-3.5" />
-            </button>
-          </div>
-          <div className="flex-1 overflow-y-auto p-2">
-            {sessions.map((session) => (
-              <button
-                key={session.id}
-                className="w-full flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-accent transition-colors text-left"
-              >
-                <MessageSquare className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                <span className="truncate">{session.title}</span>
-              </button>
-            ))}
-          </div>
-        </div>
+        <ChatHistorySidebar
+          sessions={sessions}
+          currentSessionId={session?.id ?? null}
+          isLoading={isLoadingSessions}
+          onNewSession={handleNewSession}
+          onSelectSession={handleSelectSession}
+          onDeleteSession={handleDeleteSession}
+          onRenameSession={handleRenameSession}
+        />
       )}
 
       {/* Main Chat Area */}
       <div className="flex flex-1 flex-col">
         {/* Header */}
-        <div className="flex items-center gap-2 border-b border-border px-4 py-3">
-          <button
-            className="flex h-7 w-7 items-center justify-center rounded-md hover:bg-accent transition-colors"
-            onClick={() => setShowSidebar(!showSidebar)}
-          >
-            {showSidebar ? (
-              <PanelLeftClose className="h-4 w-4" />
-            ) : (
-              <PanelLeft className="h-4 w-4" />
-            )}
-          </button>
-          <Sparkles className="h-4 w-4 text-primary" />
-          <h1 className="text-sm font-semibold">{t("insights.title")}</h1>
+        <div className="flex items-center justify-between border-b border-border px-4 py-3">
+          <div className="flex items-center gap-2">
+            <button
+              className="flex h-7 w-7 items-center justify-center rounded-md hover:bg-accent transition-colors"
+              onClick={() => setShowSidebar(!showSidebar)}
+            >
+              {showSidebar ? (
+                <PanelLeftClose className="h-4 w-4" />
+              ) : (
+                <PanelLeft className="h-4 w-4" />
+              )}
+            </button>
+            <Sparkles className="h-4 w-4 text-primary" />
+            <h1 className="text-sm font-semibold">
+              {t("insights.title")}
+            </h1>
+          </div>
+          <div className="flex items-center gap-2">
+            <ModelSelector
+              currentConfig={modelConfig}
+              onConfigChange={setModelConfig}
+              disabled={isLoading}
+            />
+            <button
+              className="flex h-8 items-center gap-1.5 rounded-md border border-border px-3 text-sm hover:bg-accent transition-colors"
+              onClick={handleNewSession}
+            >
+              <Plus className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">{t("insights.newChat")}</span>
+            </button>
+          </div>
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-6">
-          {messages.length === 0 ? (
+        <div
+          ref={scrollRef}
+          className="flex-1 overflow-y-auto p-6"
+        >
+          {messages.length === 0 && !streamingContent ? (
             <div className="flex flex-col items-center justify-center h-full max-w-2xl mx-auto">
               <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10">
                 <Sparkles className="h-8 w-8 text-primary" />
               </div>
-              <h2 className="text-xl font-semibold mb-2">{t("insights.welcomeTitle")}</h2>
+              <h2 className="text-xl font-semibold mb-2">
+                {t("insights.welcomeTitle")}
+              </h2>
               <p className="text-sm text-muted-foreground text-center mb-8">
                 {t("insights.welcomeDescription")}
               </p>
@@ -158,74 +264,40 @@ export function InsightsView({ projectId }: InsightsViewProps) {
           ) : (
             <div className="max-w-3xl mx-auto space-y-6">
               {messages.map((message) => (
-                <div key={message.id} className="flex gap-3">
-                  <div className={cn(
-                    "flex h-8 w-8 items-center justify-center rounded-full shrink-0",
-                    message.role === "user" ? "bg-secondary" : "bg-primary/10"
-                  )}>
-                    {message.role === "user" ? (
-                      <User className="h-4 w-4" />
-                    ) : (
-                      <Bot className="h-4 w-4 text-primary" />
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs text-muted-foreground mb-1">
-                      {message.role === "user" ? t("insights.you") : t("insights.aiAssistant")}
-                    </p>
-                    <div className="text-sm leading-relaxed whitespace-pre-wrap">
-                      {message.content}
-                    </div>
-                  </div>
-                </div>
+                <ChatMessage key={message.id} message={message} />
               ))}
-              {isLoading && (
-                <div className="flex gap-3">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 shrink-0">
-                    <Bot className="h-4 w-4 text-primary animate-pulse" />
-                  </div>
-                  <div className="flex items-center gap-1 pt-2">
-                    <div className="h-1.5 w-1.5 rounded-full bg-muted-foreground animate-bounce [animation-delay:0ms]" />
-                    <div className="h-1.5 w-1.5 rounded-full bg-muted-foreground animate-bounce [animation-delay:150ms]" />
-                    <div className="h-1.5 w-1.5 rounded-full bg-muted-foreground animate-bounce [animation-delay:300ms]" />
-                  </div>
+
+              {/* Streaming message */}
+              {(streamingContent || currentTool) && (
+                <StreamingMessage
+                  content={streamingContent}
+                  currentTool={currentTool}
+                />
+              )}
+
+              {/* Thinking indicator */}
+              {status.phase === "thinking" &&
+                !streamingContent &&
+                !currentTool && <ThinkingIndicator />}
+
+              {/* Error message */}
+              {status.phase === "error" && status.message && (
+                <div className="flex items-center gap-2 rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+                  <AlertCircle className="h-4 w-4 shrink-0" />
+                  {status.message}
                 </div>
               )}
-              <div ref={messagesEndRef} />
             </div>
           )}
         </div>
 
         {/* Input */}
-        <div className="border-t border-border p-4">
-          <div className="max-w-3xl mx-auto flex gap-2">
-            <textarea
-              className="flex-1 resize-none rounded-lg border border-border bg-background px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-              placeholder={t("insights.placeholder")}
-              rows={1}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSend();
-                }
-              }}
-            />
-            <button
-              className={cn(
-                "flex h-10 w-10 items-center justify-center rounded-lg transition-colors",
-                input.trim() && !isLoading
-                  ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                  : "bg-secondary text-muted-foreground"
-              )}
-              onClick={handleSend}
-              disabled={!input.trim() || isLoading}
-            >
-              <Send className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
+        <ChatInput
+          value={inputValue}
+          onChange={setInputValue}
+          onSend={handleSend}
+          isLoading={isLoading}
+        />
       </div>
     </div>
   );
