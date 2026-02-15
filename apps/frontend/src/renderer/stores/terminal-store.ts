@@ -121,6 +121,15 @@ export function clearAutoResumeQueue(): void {
   debugLog('[AutoResume] Queue cleared');
 }
 
+/**
+ * Shared helper to resume a terminal's Claude session with consistent behavior.
+ * Clears the pending flag and triggers IPC activation.
+ */
+function resumeTerminalClaudeSession(terminalId: string): void {
+  useTerminalStore.getState().setPendingClaudeResume(terminalId, false);
+  window.electronAPI.activateDeferredClaudeResume(terminalId);
+}
+
 async function processAutoResumeQueue(): Promise<void> {
   if (autoResumeProcessing) return;
   autoResumeProcessing = true;
@@ -137,8 +146,7 @@ async function processAutoResumeQueue(): Promise<void> {
     }
 
     debugLog(`[AutoResume] Resuming terminal: ${terminalId}`);
-    useTerminalStore.getState().setPendingClaudeResume(terminalId, false);
-    window.electronAPI.activateDeferredClaudeResume(terminalId);
+    resumeTerminalClaudeSession(terminalId);
 
     // Stagger delay between resumes
     if (autoResumeQueue.length > 0) {
@@ -508,6 +516,9 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
   },
 
   resumeAllPendingClaude: async () => {
+    // Clear auto-resume queue to prevent redundant processing
+    clearAutoResumeQueue();
+
     const state = get();
 
     // Filter terminals with pending Claude resume
@@ -518,21 +529,18 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
       return;
     }
 
-    debugLog(`[TerminalStore] Resuming ${pendingTerminals.length} pending Claude sessions with 500ms stagger`);
+    debugLog(`[TerminalStore] Resuming ${pendingTerminals.length} pending Claude sessions with ${AUTO_RESUME_STAGGER_MS}ms stagger`);
 
     // Iterate through terminals with staggered delays
     for (let i = 0; i < pendingTerminals.length; i++) {
       const terminal = pendingTerminals[i];
-      // Clear the pending flag BEFORE IPC call to prevent race condition
-      // with auto-resume effect in Terminal.tsx (which checks this flag on a 100ms timeout)
-      get().setPendingClaudeResume(terminal.id, false);
 
       debugLog(`[TerminalStore] Activating deferred Claude resume for terminal: ${terminal.id}`);
-      window.electronAPI.activateDeferredClaudeResume(terminal.id);
+      resumeTerminalClaudeSession(terminal.id);
 
-      // Wait 500ms before processing next terminal (staggered delay)
+      // Wait before processing next terminal (staggered delay)
       if (i < pendingTerminals.length - 1) {
-        await new Promise(resolve => setTimeout(resolve, 500));
+        await new Promise(resolve => setTimeout(resolve, AUTO_RESUME_STAGGER_MS));
       }
     }
 
