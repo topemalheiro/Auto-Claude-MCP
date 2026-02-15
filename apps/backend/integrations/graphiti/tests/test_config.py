@@ -1077,6 +1077,25 @@ class TestModuleLevelFunctions:
         assert len(status["errors"]) > 0
         assert "VOYAGE_API_KEY" in status["errors"][0]
 
+    def test_get_graphiti_status_no_graph_backend(self, clean_env):
+        """Test get_graphiti_status when graphiti_core exists but no graph DB backend.
+
+        This tests the error path in config.py lines 645-650 where graphiti_core
+        imports successfully but neither real_ladybug nor kuzu is available.
+        """
+        os.environ["GRAPHITI_ENABLED"] = "true"
+
+        # Mock graphiti_core as present, but ensure real_ladybug and kuzu are absent
+        with patch.dict(
+            "sys.modules",
+            {"graphiti_core": MagicMock(), "real_ladybug": None, "kuzu": None},
+        ):
+            status = get_graphiti_status()
+
+        assert status["enabled"] is True
+        assert status["available"] is False
+        assert "real_ladybug or kuzu" in status["reason"]
+
     @pytest.mark.slow
     def test_get_graphiti_status_with_graphiti_installed(self, clean_env):
         """Test get_graphiti_status when Graphiti packages are installed.
