@@ -670,6 +670,9 @@ def setup_worktree_dependencies(
                             performed = _apply_recreate_strategy(
                                 project_dir, worktree_path, config
                             )
+                            # Update strategy name to reflect fallback
+                            if performed:
+                                strategy_name = "recreate"
             elif config.strategy == DependencyStrategy.RECREATE:
                 performed = _apply_recreate_strategy(project_dir, worktree_path, config)
             elif config.strategy == DependencyStrategy.COPY:
@@ -796,7 +799,14 @@ def _apply_recreate_strategy(
     venv_path = worktree_path / config.source_rel_path
     marker_path = venv_path / VENV_SETUP_COMPLETE_MARKER
 
-    if venv_path.exists():
+    # Check for broken symlinks that exists() would miss
+    if venv_path.is_symlink() and not venv_path.exists():
+        debug(MODULE, f"Removing broken symlink at {config.source_rel_path}")
+        try:
+            venv_path.unlink()
+        except OSError:
+            pass  # Best-effort removal
+    elif venv_path.exists():
         if marker_path.exists():
             debug(
                 MODULE,
@@ -839,6 +849,15 @@ def _apply_recreate_strategy(
     except subprocess.TimeoutExpired:
         print_status(
             f"Warning: venv creation timed out for {config.source_rel_path}",
+            "warning",
+        )
+        if venv_path.exists():
+            shutil.rmtree(venv_path, ignore_errors=True)
+        return False
+    except OSError as e:
+        debug_warning(MODULE, f"venv creation failed: {e}")
+        print_status(
+            f"Warning: Could not create venv at {config.source_rel_path}",
             "warning",
         )
         if venv_path.exists():
@@ -915,8 +934,10 @@ def _apply_recreate_strategy(
     # Write completion marker so future runs know this venv is complete
     try:
         marker_path.touch()
-    except OSError:
-        pass  # Non-fatal — venv is still usable without the marker
+    except OSError as e:
+        debug_warning(
+            MODULE, f"Failed to write completion marker at {marker_path}: {e}"
+        )
 
     debug(MODULE, f"Recreated venv at {config.source_rel_path}")
     return True

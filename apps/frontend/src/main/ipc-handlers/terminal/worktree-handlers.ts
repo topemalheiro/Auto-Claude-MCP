@@ -58,6 +58,19 @@ function isTimeoutError(error: unknown): boolean {
 }
 
 /**
+ * Check if a path is a symlink or Windows junction (including broken ones).
+ * Uses lstatSync to detect the link itself, not what it points to.
+ */
+function isSymlinkOrJunction(targetPath: string): boolean {
+  try {
+    const stats = lstatSync(targetPath);
+    return stats.isSymbolicLink();
+  } catch {
+    return false; // Path doesn't exist at all
+  }
+}
+
+/**
  * Fix repositories that are incorrectly marked with core.bare=true.
  * This can happen when git worktree operations incorrectly set bare=true
  * on a working repository that has source files.
@@ -366,21 +379,25 @@ async function setupWorktreeDependencies(projectPath: string, worktreePath: stri
         case 'symlink':
           performed = applySymlinkStrategy(projectPath, worktreePath, config);
           // For venvs, verify the symlink is usable — fall back to recreate if not
-          if (performed && (config.depType === 'venv' || config.depType === '.venv')) {
+          // Run health check whenever a venv exists (not just on fresh creation)
+          if (config.depType === 'venv' || config.depType === '.venv') {
             const venvPath = path.join(worktreePath, config.sourceRelPath);
-            const pythonBin = isWindows()
-              ? path.join(venvPath, 'Scripts', 'python.exe')
-              : path.join(venvPath, 'bin', 'python');
-            try {
-              await execFileAsync(pythonBin, ['-c', 'import sys; print(sys.prefix)'], {
-                timeout: 10000,
-              });
-              debugLog('[TerminalWorktree] Symlinked venv health check passed:', config.sourceRelPath);
-            } catch {
-              debugLog('[TerminalWorktree] Symlinked venv health check failed, falling back to recreate:', config.sourceRelPath);
-              // Remove the broken symlink and recreate
-              try { rmSync(path.join(worktreePath, config.sourceRelPath), { recursive: true, force: true }); } catch { /* best-effort */ }
-              performed = await applyRecreateStrategy(projectPath, worktreePath, config);
+            // Check if venv path exists (as symlink or otherwise)
+            if (existsSync(venvPath) || isSymlinkOrJunction(venvPath)) {
+              const pythonBin = isWindows()
+                ? path.join(venvPath, 'Scripts', 'python.exe')
+                : path.join(venvPath, 'bin', 'python');
+              try {
+                await execFileAsync(pythonBin, ['-c', 'import sys; print(sys.prefix)'], {
+                  timeout: 10000,
+                });
+                debugLog('[TerminalWorktree] Symlinked venv health check passed:', config.sourceRelPath);
+              } catch {
+                debugLog('[TerminalWorktree] Symlinked venv health check failed, falling back to recreate:', config.sourceRelPath);
+                // Remove the broken symlink and recreate
+                try { rmSync(path.join(worktreePath, config.sourceRelPath), { recursive: true, force: true }); } catch { /* best-effort */ }
+                performed = await applyRecreateStrategy(projectPath, worktreePath, config);
+              }
             }
           }
           break;
@@ -466,7 +483,11 @@ async function applyRecreateStrategy(projectPath: string, worktreePath: string, 
   const venvPath = path.join(worktreePath, config.sourceRelPath);
   const markerPath = path.join(venvPath, VENV_SETUP_COMPLETE_MARKER);
 
-  if (existsSync(venvPath)) {
+  // Check for broken symlinks that existsSync would miss
+  if (isSymlinkOrJunction(venvPath) && !existsSync(venvPath)) {
+    debugLog('[TerminalWorktree] Removing broken symlink at', config.sourceRelPath);
+    try { rmSync(venvPath, { recursive: true, force: true }); } catch { /* best-effort */ }
+  } else if (existsSync(venvPath)) {
     if (existsSync(markerPath)) {
       debugLog('[TerminalWorktree] Skipping recreate', config.sourceRelPath, '- already complete (marker present)');
       return false;
@@ -561,7 +582,11 @@ async function applyRecreateStrategy(projectPath: string, worktreePath: string, 
   }
 
   // Write completion marker so future runs know this venv is complete
-  try { writeFileSync(markerPath, ''); } catch { /* non-fatal */ }
+  try {
+    writeFileSync(markerPath, '');
+  } catch (error) {
+    debugLog('[TerminalWorktree] Failed to write completion marker at', markerPath, ':', error);
+  }
 
   debugLog('[TerminalWorktree] Recreated venv at', config.sourceRelPath);
   return true;
