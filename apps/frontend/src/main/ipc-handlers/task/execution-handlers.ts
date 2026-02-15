@@ -161,74 +161,14 @@ export function registerTaskExecutionHandlers(
 
       console.warn('[TASK_START] Found task:', task.specId, 'status:', task.status, 'reviewReason:', task.reviewReason, 'subtasks:', task.subtasks.length);
 
-      // Immediately mark as started so the UI moves the card to In Progress.
-      // Use XState actor state as source of truth (if actor exists), with task data as fallback.
-      // - plan_review: User approved the plan, send PLAN_APPROVED to transition to coding
-      // - human_review/error: User resuming, send USER_RESUMED
-      // - backlog/other: Fresh start, send PLANNING_STARTED
-      const currentXState = taskStateManager.getCurrentState(taskId);
-      console.warn('[TASK_START] Current XState:', currentXState, '| Task status:', task.status, task.reviewReason);
-
-      if (currentXState === 'plan_review') {
-        // XState says plan_review - send PLAN_APPROVED
-        console.warn('[TASK_START] XState: plan_review -> coding via PLAN_APPROVED');
-        taskStateManager.handleUiEvent(taskId, { type: 'PLAN_APPROVED' }, task, project);
-      } else if (currentXState === 'error' && task.subtasks.length === 0) {
-        // FIX (#1562): Task crashed during planning (no subtasks yet).
-        // Send PLANNING_STARTED to go back to planning state, not coding.
-        console.warn('[TASK_START] XState: error with 0 subtasks -> planning via PLANNING_STARTED');
-        taskStateManager.handleUiEvent(taskId, { type: 'PLANNING_STARTED' }, task, project);
-      } else if (currentXState === 'human_review' || currentXState === 'error') {
-        // XState says human_review or error - send USER_RESUMED
-        console.warn('[TASK_START] XState:', currentXState, '-> coding via USER_RESUMED');
-        taskStateManager.handleUiEvent(taskId, { type: 'USER_RESUMED' }, task, project);
-      } else if (currentXState) {
-        // XState actor exists but in another state (coding, planning, etc.)
-        // This shouldn't happen normally, but handle gracefully
-        console.warn('[TASK_START] XState in unexpected state:', currentXState, '- sending PLANNING_STARTED');
-        taskStateManager.handleUiEvent(taskId, { type: 'PLANNING_STARTED' }, task, project);
-      } else if (task.status === 'human_review' && task.reviewReason === 'plan_review') {
-        // No XState actor - fallback to task data (e.g., after app restart)
-        console.warn('[TASK_START] No XState actor, task data: plan_review -> coding via PLAN_APPROVED');
-        taskStateManager.handleUiEvent(taskId, { type: 'PLAN_APPROVED' }, task, project);
-      } else if (task.status === 'error' && task.subtasks.length === 0) {
-        // FIX (#1562): No XState actor, task crashed during planning (no subtasks).
-        // Send PLANNING_STARTED to restart planning instead of going to coding.
-        console.warn('[TASK_START] No XState actor, error with 0 subtasks -> planning via PLANNING_STARTED');
-        taskStateManager.handleUiEvent(taskId, { type: 'PLANNING_STARTED' }, task, project);
-      } else if (task.status === 'human_review' || task.status === 'error') {
-        // No XState actor - fallback to task data for resuming
-        console.warn('[TASK_START] No XState actor, task data:', task.status, '-> coding via USER_RESUMED');
-        taskStateManager.handleUiEvent(taskId, { type: 'USER_RESUMED' }, task, project);
-      } else {
-        // Fresh start - PLANNING_STARTED transitions from backlog to planning
-        console.warn('[TASK_START] Fresh start via PLANNING_STARTED');
-        taskStateManager.handleUiEvent(taskId, { type: 'PLANNING_STARTED' }, task, project);
-      }
-
-      // Reset any stuck subtasks before starting execution
-      // This handles recovery from previous rate limits or crashes
-      const planPath = getPlanPath(project, task);
-      const resetResult = await resetStuckSubtasks(planPath, project.id);
-      if (resetResult.success && resetResult.resetCount > 0) {
-        console.warn(`[TASK_START] Reset ${resetResult.resetCount} stuck subtask(s) before starting`);
-      }
-
-      // Start file watcher for this task
+      // Check if implementation_plan.json has valid subtasks BEFORE XState handling.
+      // This is more reliable than task.subtasks.length which may not be loaded yet.
       const specsBaseDir = getSpecsDir(project.autoBuildPath);
       const specDir = path.join(
         project.path,
         specsBaseDir,
         task.specId
       );
-      fileWatcher.watch(taskId, specDir);
-
-      // Check if spec.md exists (indicates spec creation was already done or in progress)
-      const specFilePath = path.join(specDir, AUTO_BUILD_PATHS.SPEC_FILE);
-      const hasSpec = existsSync(specFilePath);
-
-      // Check if implementation_plan.json has valid subtasks
-      // This is more reliable than task.subtasks.length which may not be loaded yet
       const planFilePath = path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
       let planHasSubtasks = false;
       if (existsSync(planFilePath)) {
@@ -248,6 +188,66 @@ export function registerTaskExecutionHandlers(
           // Invalid/corrupt plan file - treat as no subtasks
         }
       }
+
+      // Immediately mark as started so the UI moves the card to In Progress.
+      // Use XState actor state as source of truth (if actor exists), with task data as fallback.
+      // - plan_review: User approved the plan, send PLAN_APPROVED to transition to coding
+      // - human_review/error: User resuming, send USER_RESUMED
+      // - backlog/other: Fresh start, send PLANNING_STARTED
+      const currentXState = taskStateManager.getCurrentState(taskId);
+      console.warn('[TASK_START] Current XState:', currentXState, '| Task status:', task.status, task.reviewReason);
+
+      if (currentXState === 'plan_review') {
+        // XState says plan_review - send PLAN_APPROVED
+        console.warn('[TASK_START] XState: plan_review -> coding via PLAN_APPROVED');
+        taskStateManager.handleUiEvent(taskId, { type: 'PLAN_APPROVED' }, task, project);
+      } else if (currentXState === 'error' && !planHasSubtasks) {
+        // FIX (#1562): Task crashed during planning (no subtasks yet).
+        // Uses planHasSubtasks from implementation_plan.json (more reliable than task.subtasks.length).
+        console.warn('[TASK_START] XState: error with no plan subtasks -> planning via PLANNING_STARTED');
+        taskStateManager.handleUiEvent(taskId, { type: 'PLANNING_STARTED' }, task, project);
+      } else if (currentXState === 'human_review' || currentXState === 'error') {
+        // XState says human_review or error - send USER_RESUMED
+        console.warn('[TASK_START] XState:', currentXState, '-> coding via USER_RESUMED');
+        taskStateManager.handleUiEvent(taskId, { type: 'USER_RESUMED' }, task, project);
+      } else if (currentXState) {
+        // XState actor exists but in another state (coding, planning, etc.)
+        // This shouldn't happen normally, but handle gracefully
+        console.warn('[TASK_START] XState in unexpected state:', currentXState, '- sending PLANNING_STARTED');
+        taskStateManager.handleUiEvent(taskId, { type: 'PLANNING_STARTED' }, task, project);
+      } else if (task.status === 'human_review' && task.reviewReason === 'plan_review') {
+        // No XState actor - fallback to task data (e.g., after app restart)
+        console.warn('[TASK_START] No XState actor, task data: plan_review -> coding via PLAN_APPROVED');
+        taskStateManager.handleUiEvent(taskId, { type: 'PLAN_APPROVED' }, task, project);
+      } else if (task.status === 'error' && !planHasSubtasks) {
+        // FIX (#1562): No XState actor, task crashed during planning (no subtasks).
+        // Uses planHasSubtasks from implementation_plan.json (more reliable than task.subtasks.length).
+        console.warn('[TASK_START] No XState actor, error with no plan subtasks -> planning via PLANNING_STARTED');
+        taskStateManager.handleUiEvent(taskId, { type: 'PLANNING_STARTED' }, task, project);
+      } else if (task.status === 'human_review' || task.status === 'error') {
+        // No XState actor - fallback to task data for resuming
+        console.warn('[TASK_START] No XState actor, task data:', task.status, '-> coding via USER_RESUMED');
+        taskStateManager.handleUiEvent(taskId, { type: 'USER_RESUMED' }, task, project);
+      } else {
+        // Fresh start - PLANNING_STARTED transitions from backlog to planning
+        console.warn('[TASK_START] Fresh start via PLANNING_STARTED');
+        taskStateManager.handleUiEvent(taskId, { type: 'PLANNING_STARTED' }, task, project);
+      }
+
+      // Reset any stuck subtasks before starting execution
+      // This handles recovery from previous rate limits or crashes
+      const planPath = getPlanPath(project, task);
+      const resetResult = await resetStuckSubtasks(planPath, project.id);
+      if (resetResult.success && resetResult.resetCount > 0) {
+        console.warn(`[TASK_START] Reset ${resetResult.resetCount} stuck subtask(s) before starting`);
+      }
+
+      // Start file watcher for this task (specsBaseDir and specDir already computed above)
+      fileWatcher.watch(taskId, specDir);
+
+      // Check if spec.md exists (indicates spec creation was already done or in progress)
+      const specFilePath = path.join(specDir, AUTO_BUILD_PATHS.SPEC_FILE);
+      const hasSpec = existsSync(specFilePath);
 
       // Check if this task needs spec creation first (no spec file = not yet created)
       // OR if it has a spec but no implementation plan subtasks (spec created, needs planning/building)

@@ -258,7 +258,7 @@ class SpecOrchestrator:
                     message=f"Spec creation crashed: {e}",
                 )
             except Exception:
-                pass
+                pass  # Best effort - don't mask the original error when logging fails
             raise
 
     async def _run_phases(
@@ -354,21 +354,10 @@ class SpecOrchestrator:
 
         # Rename spec folder with better name from requirements
         # IMPORTANT: Update self.spec_dir after rename so subsequent phases use the correct path
-        old_spec_dir = self.spec_dir
-        rename_spec_dir_from_requirements(self.spec_dir)
-        if not self.spec_dir.exists() and old_spec_dir.name.endswith("-pending"):
-            # Directory was renamed - find the new path
-            parent = old_spec_dir.parent
-            prefix = old_spec_dir.name[:4]  # e.g., "001-"
-            for candidate in parent.iterdir():
-                if (
-                    candidate.name.startswith(prefix)
-                    and candidate.is_dir()
-                    and "pending" not in candidate.name
-                ):
-                    self.spec_dir = candidate
-                    self.validator = SpecValidator(self.spec_dir)
-                    break
+        new_spec_dir = rename_spec_dir_from_requirements(self.spec_dir)
+        if new_spec_dir != self.spec_dir:
+            self.spec_dir = new_spec_dir
+            self.validator = SpecValidator(self.spec_dir)
 
         # Update task description from requirements
         req = requirements.load_requirements(self.spec_dir)
@@ -774,17 +763,7 @@ class SpecOrchestrator:
         Returns:
             True if successful or not needed, False on error
         """
-        result = rename_spec_dir_from_requirements(self.spec_dir)
-        # Update self.spec_dir if it was renamed
-        if result and self.spec_dir.name.endswith("-pending"):
-            # Find the renamed directory
-            parent = self.spec_dir.parent
-            prefix = self.spec_dir.name[:4]  # e.g., "001-"
-            for candidate in parent.iterdir():
-                if (
-                    candidate.name.startswith(prefix)
-                    and "pending" not in candidate.name
-                ):
-                    self.spec_dir = candidate
-                    break
-        return result
+        new_spec_dir = rename_spec_dir_from_requirements(self.spec_dir)
+        if new_spec_dir != self.spec_dir:
+            self.spec_dir = new_spec_dir
+        return new_spec_dir.exists()
