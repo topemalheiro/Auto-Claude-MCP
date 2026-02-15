@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { createActor } from 'xstate';
-import { terminalMachine, type TerminalEvent } from '../terminal-machine';
+import { terminalMachine, type TerminalEvent, type TerminalContext } from '../terminal-machine';
 
 /**
  * Helper to run a sequence of events and get the final snapshot.
@@ -9,7 +9,7 @@ import { terminalMachine, type TerminalEvent } from '../terminal-machine';
 function runEvents(
   events: TerminalEvent[],
   initialState?: string,
-  initialContext?: Record<string, unknown>
+  initialContext?: Partial<TerminalContext>
 ) {
   const actor = initialState
     ? createActor(terminalMachine, {
@@ -434,6 +434,18 @@ describe('terminalMachine', () => {
       ]);
       expect(snapshot.context.claudeSessionId).toBeUndefined();
       expect(snapshot.context.isBusy).toBe(false);
+    });
+
+    it('should set error on CLAUDE_EXITED with error from claude_active', () => {
+      const snapshot = runEvents([
+        { type: 'SHELL_READY' },
+        { type: 'CLAUDE_START', profileId: 'profile-1' },
+        { type: 'CLAUDE_ACTIVE', claudeSessionId: 'session-1' },
+        { type: 'CLAUDE_EXITED', error: 'crash while active' },
+      ]);
+      expect(snapshot.value).toBe('shell_ready');
+      expect(snapshot.context.error).toBe('crash while active');
+      expect(snapshot.context.claudeSessionId).toBeUndefined();
     });
 
     it('should clear error on SHELL_READY from exited', () => {

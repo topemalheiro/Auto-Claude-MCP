@@ -80,7 +80,7 @@ export const terminalMachine = createMachine(
         on: {
           CLAUDE_ACTIVE: { actions: 'setClaudeSessionId' },
           CLAUDE_BUSY: { actions: 'setBusy' },
-          CLAUDE_EXITED: { target: 'shell_ready', actions: 'clearSession' },
+          CLAUDE_EXITED: { target: 'shell_ready', actions: ['setError', 'clearSession'] },
           SWAP_INITIATED: {
             target: 'swapping',
             guard: 'hasActiveSession',
