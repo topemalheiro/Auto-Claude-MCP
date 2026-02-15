@@ -632,41 +632,44 @@ def setup_worktree_dependencies(
             if config.strategy == DependencyStrategy.SYMLINK:
                 performed = _apply_symlink_strategy(project_dir, worktree_path, config)
                 # For venvs, verify the symlink is usable — fall back to recreate
-                if performed and config.dep_type in ("venv", ".venv"):
+                # Run health check whenever a venv symlink exists (not just on creation)
+                if config.dep_type in ("venv", ".venv"):
                     venv_path = worktree_path / config.source_rel_path
-                    if is_windows():
-                        python_bin = str(venv_path / "Scripts" / "python.exe")
-                    else:
-                        python_bin = str(venv_path / "bin" / "python")
-                    try:
-                        subprocess.run(
-                            [python_bin, "-c", "import sys; print(sys.prefix)"],
-                            capture_output=True,
-                            text=True,
-                            timeout=10,
-                            check=True,
-                        )
-                        debug(
-                            MODULE,
-                            f"Symlinked venv health check passed: {config.source_rel_path}",
-                        )
-                    except (subprocess.SubprocessError, OSError):
-                        debug_warning(
-                            MODULE,
-                            f"Symlinked venv health check failed, falling back to recreate: {config.source_rel_path}",
-                        )
-                        # Remove the broken symlink and recreate
-                        symlink_path = worktree_path / config.source_rel_path
+                    # Check if venv exists (symlinked or otherwise)
+                    if venv_path.exists() or venv_path.is_symlink():
+                        if is_windows():
+                            python_bin = str(venv_path / "Scripts" / "python.exe")
+                        else:
+                            python_bin = str(venv_path / "bin" / "python")
                         try:
-                            if symlink_path.is_symlink():
-                                symlink_path.unlink()
-                            elif symlink_path.exists():
-                                shutil.rmtree(symlink_path, ignore_errors=True)
-                        except OSError:
-                            pass  # Best-effort removal; recreate strategy handles existing paths
-                        performed = _apply_recreate_strategy(
-                            project_dir, worktree_path, config
-                        )
+                            subprocess.run(
+                                [python_bin, "-c", "import sys; print(sys.prefix)"],
+                                capture_output=True,
+                                text=True,
+                                timeout=10,
+                                check=True,
+                            )
+                            debug(
+                                MODULE,
+                                f"Symlinked venv health check passed: {config.source_rel_path}",
+                            )
+                        except (subprocess.SubprocessError, OSError):
+                            debug_warning(
+                                MODULE,
+                                f"Symlinked venv health check failed, falling back to recreate: {config.source_rel_path}",
+                            )
+                            # Remove the broken symlink and recreate
+                            symlink_path = worktree_path / config.source_rel_path
+                            try:
+                                if symlink_path.is_symlink():
+                                    symlink_path.unlink()
+                                elif symlink_path.exists():
+                                    shutil.rmtree(symlink_path, ignore_errors=True)
+                            except OSError:
+                                pass  # Best-effort removal; recreate strategy handles existing paths
+                            performed = _apply_recreate_strategy(
+                                project_dir, worktree_path, config
+                            )
             elif config.strategy == DependencyStrategy.RECREATE:
                 performed = _apply_recreate_strategy(project_dir, worktree_path, config)
             elif config.strategy == DependencyStrategy.COPY:
@@ -773,11 +776,11 @@ def _popen_with_cleanup(
         debug_warning(MODULE, f"{label} timed out, terminating process")
         proc.terminate()
         try:
-            proc.wait(timeout=10)
+            proc.communicate(timeout=10)
         except subprocess.TimeoutExpired:
             debug_warning(MODULE, f"{label} did not terminate, killing process")
             proc.kill()
-            proc.wait(timeout=5)
+            proc.communicate(timeout=5)
         raise
 
 
