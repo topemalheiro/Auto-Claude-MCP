@@ -45,10 +45,10 @@ interface ChatHistorySidebarProps {
   onSelectSession: (sessionId: string) => void;
   onDeleteSession: (sessionId: string) => Promise<boolean>;
   onRenameSession: (sessionId: string, newTitle: string) => Promise<boolean>;
-  onArchiveSession?: (sessionId: string) => void;
-  onUnarchiveSession?: (sessionId: string) => void;
-  onDeleteSessions?: (sessionIds: string[]) => void;
-  onArchiveSessions?: (sessionIds: string[]) => void;
+  onArchiveSession?: (sessionId: string) => Promise<void>;
+  onUnarchiveSession?: (sessionId: string) => Promise<void>;
+  onDeleteSessions?: (sessionIds: string[]) => Promise<void>;
+  onArchiveSessions?: (sessionIds: string[]) => Promise<void>;
   showArchived?: boolean;
   onToggleShowArchived?: () => void;
 }
@@ -136,18 +136,30 @@ export function ChatHistorySidebar({
     }
   };
 
-  const handleBulkDelete = () => {
+  const handleBulkDelete = async () => {
     if (selectedIds.size > 0 && onDeleteSessions) {
-      onDeleteSessions(Array.from(selectedIds));
-      setSelectedIds(new Set());
-      setBulkDeleteOpen(false);
+      try {
+        await onDeleteSessions(Array.from(selectedIds));
+        setSelectedIds(new Set());
+        setBulkDeleteOpen(false);
+      } catch (error) {
+        console.error('Failed to delete sessions:', error);
+        // Re-throw to allow parent components to handle
+        throw error;
+      }
     }
   };
 
-  const handleBulkArchive = () => {
+  const handleBulkArchive = async () => {
     if (selectedIds.size > 0 && onArchiveSessions) {
-      onArchiveSessions(Array.from(selectedIds));
-      setSelectedIds(new Set());
+      try {
+        await onArchiveSessions(Array.from(selectedIds));
+        setSelectedIds(new Set());
+      } catch (error) {
+        console.error('Failed to archive sessions:', error);
+        // Re-throw to allow parent components to handle
+        throw error;
+      }
     }
   };
 
@@ -292,8 +304,8 @@ export function ChatHistorySidebar({
                     onCancelEdit={handleCancelEdit}
                     onEditTitleChange={setEditTitle}
                     onDelete={() => setDeleteSessionId(session.id)}
-                    onArchive={onArchiveSession ? () => onArchiveSession(session.id) : undefined}
-                    onUnarchive={onUnarchiveSession ? () => onUnarchiveSession(session.id) : undefined}
+                    onArchive={onArchiveSession ? async () => await onArchiveSession(session.id) : undefined}
+                    onUnarchive={onUnarchiveSession ? async () => await onUnarchiveSession(session.id) : undefined}
                     isArchived={!!session.archivedAt}
                     isSelectionMode={isSelectionMode}
                     isSelected={selectedIds.has(session.id)}
@@ -394,8 +406,8 @@ interface SessionItemProps {
   onCancelEdit: () => void;
   onEditTitleChange: (title: string) => void;
   onDelete: () => void;
-  onArchive?: () => void;
-  onUnarchive?: () => void;
+  onArchive?: () => Promise<void>;
+  onUnarchive?: () => Promise<void>;
   isArchived: boolean;
   isSelectionMode: boolean;
   isSelected: boolean;
