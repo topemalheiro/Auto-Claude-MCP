@@ -18,6 +18,10 @@ import { EventEmitter } from 'events';
 import * as path from 'path';
 import * as fs from 'fs';
 
+// Must match the "name" field in package.json so watchdog writes to the same
+// directory that Electron's app.getPath('userData') resolves to.
+const APP_DATA_DIR_NAME = 'auto-claude-ui';
+
 interface CrashInfo {
   timestamp: number;
   exitCode: number | null;
@@ -49,7 +53,7 @@ export class AutoClaudeWatchdog extends EventEmitter {
     const appDataPath = process.env.APPDATA ||
                         (process.platform === 'darwin' ? path.join(process.env.HOME!, 'Library', 'Application Support') :
                          path.join(process.env.HOME!, '.config'));
-    const settingsDir = path.join(appDataPath, 'auto-claude');
+    const settingsDir = path.join(appDataPath, APP_DATA_DIR_NAME);
     this.settingsPath = path.join(settingsDir, 'settings.json');
 
     // Load crash recovery settings
@@ -289,7 +293,7 @@ export class AutoClaudeWatchdog extends EventEmitter {
       const appDataPath = process.env.APPDATA ||
                           (process.platform === 'darwin' ? path.join(process.env.HOME!, 'Library', 'Application Support') :
                            path.join(process.env.HOME!, '.config'));
-      const flagDir = path.join(appDataPath, 'auto-claude');
+      const flagDir = path.join(appDataPath, APP_DATA_DIR_NAME);
       const flagPath = path.join(flagDir, 'crash-flag.json');
 
       // Ensure directory exists
@@ -318,7 +322,7 @@ export class AutoClaudeWatchdog extends EventEmitter {
                           (process.platform === 'darwin' ? path.join(process.env.HOME!, 'Library', 'Application Support') :
                            path.join(process.env.HOME!, '.config'));
 
-      const notificationDir = path.join(appDataPath, 'auto-claude');
+      const notificationDir = path.join(appDataPath, APP_DATA_DIR_NAME);
       const notificationPath = path.join(notificationDir, 'crash-notification.json');
 
       // Ensure directory exists
@@ -355,7 +359,7 @@ export class AutoClaudeWatchdog extends EventEmitter {
                           (process.platform === 'darwin' ? path.join(process.env.HOME!, 'Library', 'Application Support') :
                            path.join(process.env.HOME!, '.config'));
 
-      const notificationDir = path.join(appDataPath, 'auto-claude');
+      const notificationDir = path.join(appDataPath, APP_DATA_DIR_NAME);
       const notificationPath = path.join(notificationDir, 'crash-notification.json');
 
       // Ensure directory exists

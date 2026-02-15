@@ -317,6 +317,23 @@ for task in 073-qwik 077-shadow-component-libs 081-ats-major; do
 done
 ```
 
+### Crash Recovery & Watchdog
+
+The watchdog (`src/main/watchdog/auto-claude-watchdog.ts`) runs as an external Node.js process that monitors Electron for crashes. Key paths:
+
+- **App data directory**: `%APPDATA%/auto-claude-ui/` (derived from package.json `name: "auto-claude-ui"`)
+- **Crash flag**: `%APPDATA%/auto-claude-ui/crash-flag.json` (written by watchdog, read by Electron on restart)
+- **Crash notification**: `%APPDATA%/auto-claude-ui/crash-notification.json` (for Claude Code MCP polling)
+- **Settings**: `%APPDATA%/auto-claude-ui/settings.json` (watchdog reads `crashRecovery` section)
+- **Startup crash log**: `%APPDATA%/auto-claude-ui/startup-crash.log` (written by Electron on fatal startup error)
+
+**CRITICAL**: The watchdog directory constant `APP_DATA_DIR_NAME` MUST match `package.json` `name` field. A mismatch causes crash flags to be written to the wrong path and never read.
+
+**Startup error visibility**: The `app.whenReady()` handler in `index.ts` is wrapped in a try-catch that:
+1. Logs `[FATAL] Startup crash:` to console (visible in watchdog terminal)
+2. Writes stack trace to `startup-crash.log`
+3. Calls `app.exit(1)` to trigger watchdog restart
+
 ### RDR Troubleshooting
 
 **RDR not sending messages:**

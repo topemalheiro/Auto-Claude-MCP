@@ -400,6 +400,18 @@ if (isWindows()) {
 
 // Initialize the application
 app.whenReady().then(() => {
+  try {
+  // Clean up stale crash flags from old watchdog path (auto-claude vs auto-claude-ui mismatch)
+  if (isWindows() && process.env.APPDATA) {
+    const staleCrashFlag = join(process.env.APPDATA, 'auto-claude', 'crash-flag.json');
+    if (existsSync(staleCrashFlag)) {
+      try {
+        rmSync(staleCrashFlag);
+        console.log('[main] Cleaned up stale crash flag from old watchdog path');
+      } catch { /* ignore cleanup errors */ }
+    }
+  }
+
   // Set app user model id for Windows
   electronApp.setAppUserModelId('com.autoclaude.ui');
 
@@ -649,6 +661,23 @@ app.whenReady().then(() => {
       createWindow();
     }
   });
+
+  } catch (error) {
+    // Make startup crashes visible in the watchdog terminal
+    console.error('[FATAL] Startup crash:', error);
+    try {
+      const crashLogPath = join(app.getPath('userData'), 'startup-crash.log');
+      writeFileSync(
+        crashLogPath,
+        `${new Date().toISOString()}\n${error}\n${error instanceof Error ? error.stack : ''}`
+      );
+      console.error('[FATAL] Crash details written to:', crashLogPath);
+    } catch { /* ignore log write errors */ }
+    app.exit(1);
+  }
+}).catch((error) => {
+  console.error('[FATAL] app.whenReady() rejected:', error);
+  process.exit(1);
 });
 
 // Quit when all windows are closed (except on macOS)
