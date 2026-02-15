@@ -36,7 +36,8 @@ import {
   resolveProjectPath
 } from './utils.js';
 import { projectStore } from '../project-store.js';
-import { readAndClearSignalFile } from '../ipc-handlers/rdr-handlers.js';
+import { readAndClearSignalFile, categorizeTasks } from '../ipc-handlers/rdr-handlers.js';
+import type { TaskInfo } from '../ipc-handlers/rdr-handlers.js';
 import { existsSync, readFileSync, unlinkSync } from 'fs';
 import { join } from 'path';
 import { homedir, tmpdir } from 'os';
@@ -1222,122 +1223,56 @@ server.tool(
       };
     }
 
-    const tasks = tasksResult.data.tasks || [];
-    const humanReviewTasks = tasks.filter((t: { status: string }) => t.status === 'human_review');
+    const rawTasks = tasksResult.data.tasks || [];
 
-    // Categorize into batches
-    const batches: Array<{
-      type: string;
-      taskIds: string[];
-      tasks: Array<{
-        taskId: string;
-        title: string;
-        description: string;
-        reviewReason: string;
-        progress: { completed: number; total: number; percentage: number };
-      }>;
-    }> = [];
+    // Map raw tasks to TaskInfo format (same as RDR messaging system uses)
+    const taskInfos: TaskInfo[] = rawTasks.map((task: any) => ({
+      specId: task.specId,
+      title: task.title,
+      status: task.status,
+      reviewReason: task.reviewReason,
+      description: task.description,
+      subtasks: task.subtasks,
+      phases: task.phases,
+      exitReason: task.exitReason,
+      planStatus: task.planStatus,
+      qaSignoff: task.qaSignoff,
+      rdrDisabled: task.metadata?.rdrDisabled,
+      metadata: task.metadata
+    }));
 
-    // Batch 1: JSON Errors
-    const jsonErrors = humanReviewTasks.filter((t: { description?: string }) =>
-      t.description?.startsWith('__JSON_ERROR__:')
-    );
-    if (jsonErrors.length > 0) {
-      batches.push({
-        type: 'json_error',
-        taskIds: jsonErrors.map((t: { specId: string }) => t.specId),
-        tasks: jsonErrors.map((t: { specId: string; title: string; description?: string; reviewReason?: string; subtasks?: Array<{ status: string }> }) => ({
-          taskId: t.specId,
-          title: t.title,
-          description: t.description?.substring(0, 200) || '',
-          reviewReason: t.reviewReason || 'errors',
-          progress: {
-            completed: t.subtasks?.filter((s: { status: string }) => s.status === 'completed').length || 0,
-            total: t.subtasks?.length || 0,
-            percentage: t.subtasks?.length ? Math.round((t.subtasks.filter((s: { status: string }) => s.status === 'completed').length / t.subtasks.length) * 100) : 0
-          }
-        }))
-      });
-    }
+    // Use the SAME categorization logic as RDR messaging system
+    // This ensures get_rdr_batches returns identical results to RDR notifications
+    const rdrBatches = categorizeTasks(taskInfos, !('error' in resolved) ? resolved.projectPath : undefined);
 
-    // Batch 2: Incomplete Tasks (subtasks not all completed, NOT an error)
-    const incomplete = humanReviewTasks.filter((t: { reviewReason?: string; description?: string; subtasks?: Array<{ status: string }> }) =>
-      t.reviewReason !== 'errors' &&
-      !t.description?.startsWith('__JSON_ERROR__:') &&
-      t.subtasks &&
-      t.subtasks.length > 0 &&
-      t.subtasks.some((s: { status: string }) => s.status !== 'completed')
-    );
-    if (incomplete.length > 0) {
-      batches.push({
-        type: 'incomplete',
-        taskIds: incomplete.map((t: { specId: string }) => t.specId),
-        tasks: incomplete.map((t: { specId: string; title: string; description?: string; reviewReason?: string; subtasks?: Array<{ status: string }> }) => ({
-          taskId: t.specId,
-          title: t.title,
-          description: t.description?.substring(0, 200) || '',
-          reviewReason: t.reviewReason || 'incomplete',
-          progress: {
-            completed: t.subtasks?.filter((s: { status: string }) => s.status === 'completed').length || 0,
-            total: t.subtasks?.length || 0,
-            percentage: t.subtasks?.length ? Math.round((t.subtasks.filter((s: { status: string }) => s.status === 'completed').length / t.subtasks.length) * 100) : 0
-          }
-        }))
-      });
-    }
+    // Format batches for MCP response
+    const batches = rdrBatches.map(batch => ({
+      type: batch.type,
+      taskIds: batch.taskIds,
+      tasks: batch.tasks.map(t => ({
+        taskId: t.specId,
+        title: t.title || '',
+        description: t.description?.substring(0, 200) || '',
+        reviewReason: t.reviewReason || batch.type,
+        status: t.status,
+        progress: {
+          completed: t.subtasks?.filter(s => s.status === 'completed').length || 0,
+          total: t.subtasks?.length || 0,
+          percentage: t.subtasks?.length
+            ? Math.round((t.subtasks.filter(s => s.status === 'completed').length / t.subtasks.length) * 100)
+            : 0
+        }
+      }))
+    }));
 
-    // Batch 3: QA Rejected
-    const qaRejected = humanReviewTasks.filter((t: { reviewReason?: string; description?: string }) =>
-      t.reviewReason === 'qa_rejected' &&
-      !t.description?.startsWith('__JSON_ERROR__:')
-    );
-    if (qaRejected.length > 0) {
-      batches.push({
-        type: 'qa_rejected',
-        taskIds: qaRejected.map((t: { specId: string }) => t.specId),
-        tasks: qaRejected.map((t: { specId: string; title: string; description?: string; reviewReason?: string; subtasks?: Array<{ status: string }> }) => ({
-          taskId: t.specId,
-          title: t.title,
-          description: t.description?.substring(0, 200) || '',
-          reviewReason: t.reviewReason || 'qa_rejected',
-          progress: {
-            completed: t.subtasks?.filter((s: { status: string }) => s.status === 'completed').length || 0,
-            total: t.subtasks?.length || 0,
-            percentage: t.subtasks?.length ? Math.round((t.subtasks.filter((s: { status: string }) => s.status === 'completed').length / t.subtasks.length) * 100) : 0
-          }
-        }))
-      });
-    }
-
-    // Batch 4: Other Errors (not JSON)
-    const errors = humanReviewTasks.filter((t: { reviewReason?: string; description?: string }) =>
-      t.reviewReason === 'errors' &&
-      !t.description?.startsWith('__JSON_ERROR__:')
-    );
-    if (errors.length > 0) {
-      batches.push({
-        type: 'errors',
-        taskIds: errors.map((t: { specId: string }) => t.specId),
-        tasks: errors.map((t: { specId: string; title: string; description?: string; reviewReason?: string; subtasks?: Array<{ status: string }> }) => ({
-          taskId: t.specId,
-          title: t.title,
-          description: t.description?.substring(0, 200) || '',
-          reviewReason: t.reviewReason || 'errors',
-          progress: {
-            completed: t.subtasks?.filter((s: { status: string }) => s.status === 'completed').length || 0,
-            total: t.subtasks?.length || 0,
-            percentage: t.subtasks?.length ? Math.round((t.subtasks.filter((s: { status: string }) => s.status === 'completed').length / t.subtasks.length) * 100) : 0
-          }
-        }))
-      });
-    }
+    const totalTasksNeedingIntervention = batches.reduce((sum, b) => sum + b.taskIds.length, 0);
 
     return {
       content: [{
         type: 'text' as const,
         text: JSON.stringify({
           success: true,
-          totalTasksInHumanReview: humanReviewTasks.length,
+          totalTasksNeedingIntervention,
           batchCount: batches.length,
           batches,
           signal: signalData ? {

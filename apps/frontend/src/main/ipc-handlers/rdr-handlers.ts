@@ -127,7 +127,7 @@ interface RdrProcessResult {
   error?: string;
 }
 
-interface TaskInfo {
+export interface TaskInfo {
   specId: string;
   title?: string;
   status: string;
@@ -144,7 +144,7 @@ interface TaskInfo {
   metadata?: { stuckSince?: string; forceRecovery?: boolean; rdrAttempts?: number; rdrLastAttempt?: string };  // Task recovery metadata
 }
 
-interface RdrBatch {
+export interface RdrBatch {
   type: 'json_error' | 'incomplete' | 'qa_rejected' | 'errors';
   taskIds: string[];
   tasks: TaskInfo[];
@@ -378,7 +378,7 @@ function determineInterventionType(task: TaskInfo, hasWorktree?: boolean, rawPla
   // This means the agent crashed or was interrupted and the task regressed
   // STUCK START: Task has start_requested in raw plan but ProjectStore mapped it to backlog
   // This means the file watcher never picked it up and the agent never started
-  if (task.status === 'backlog' || task.status === 'pending' || task.status === 'plan_review') {
+  if (task.status === 'backlog' || task.status === 'pending' || task.status === 'plan_review' || task.status === 'queue') {
     // STUCK TASK: If task has metadata.stuckSince, it's in recovery mode - ALWAYS flag it
     // (applies to all three statuses, not just plan_review)
     if (task.metadata?.stuckSince) {
@@ -826,7 +826,7 @@ function incrementRdrAttempts(projectPath: string, taskIds: string[]): void {
 /**
  * Categorize tasks into batches by problem type
  */
-function categorizeTasks(tasks: TaskInfo[], projectPath?: string): RdrBatch[] {
+export function categorizeTasks(tasks: TaskInfo[], projectPath?: string): RdrBatch[] {
   const batches: RdrBatch[] = [];
 
   // Filter out tasks with RDR disabled
@@ -2211,7 +2211,7 @@ export function registerRdrHandlers(agentManager?: AgentManager): void {
         }
 
         // SAFETY: Statuses that must NEVER be changed by auto-recovery
-        const NEVER_RECOVER = new Set(['done', 'pr_created', 'backlog', 'pending']);
+        const NEVER_RECOVER = new Set(['done', 'pr_created', 'backlog', 'pending', 'queue']);
 
         const recovered: string[] = [];
         const skipped: string[] = [];
