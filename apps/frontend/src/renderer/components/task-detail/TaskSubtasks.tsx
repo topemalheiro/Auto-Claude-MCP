@@ -76,9 +76,12 @@ export function TaskSubtasks({ task }: TaskSubtasksProps) {
                     subtask.description.length > 80 ? (
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <p className="mt-1 text-xs text-muted-foreground line-clamp-2 cursor-default break-words">
+                          <button
+                            type="button"
+                            className="mt-1 text-xs text-muted-foreground line-clamp-2 text-left break-words w-full cursor-default focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 rounded"
+                          >
                             {subtask.description}
-                          </p>
+                          </button>
                         </TooltipTrigger>
                         <TooltipContent side="bottom" className="max-w-sm">
                           <p className="text-xs">{subtask.description}</p>
