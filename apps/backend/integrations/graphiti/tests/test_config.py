@@ -15,7 +15,7 @@ Tests cover:
 import json
 import os
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from integrations.graphiti.config import (
@@ -1063,7 +1063,12 @@ class TestModuleLevelFunctions:
         os.environ["GRAPHITI_ENABLED"] = "true"
         os.environ["GRAPHITI_EMBEDDER_PROVIDER"] = "voyage"
 
-        status = get_graphiti_status()
+        # Mock imports to ensure test is independent of environment
+        with patch.dict(
+            "sys.modules",
+            {"graphiti_core": MagicMock(), "real_ladybug": MagicMock()},
+        ):
+            status = get_graphiti_status()
 
         assert status["enabled"] is True
         # With LadybugDB/kuzu installed, available should be True

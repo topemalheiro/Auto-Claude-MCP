@@ -640,7 +640,14 @@ def get_graphiti_status() -> dict:
         try:
             import real_ladybug  # noqa: F401
         except ImportError:
-            import kuzu  # noqa: F401
+            try:
+                import kuzu  # noqa: F401
+            except ImportError:
+                status["available"] = False
+                status["reason"] = (
+                    "Graph database backend not installed (need real_ladybug or kuzu)"
+                )
+                return status
         status["available"] = True
     except ImportError as e:
         status["available"] = False
