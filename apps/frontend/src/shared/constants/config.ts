@@ -125,7 +125,7 @@ export const DEFAULT_RDR_MECHANISMS = [
   {
     id: 'windows-claude-code-vscode',
     name: 'Windows Claude Code for VS Code',
-    template: 'powershell.exe -ExecutionPolicy Bypass -File "{{scriptPath}}"',
+    template: '', // Empty = use platform default (full 60-line PowerShell script from window-manager.ts)
     isDefault: true
   }
 ];
