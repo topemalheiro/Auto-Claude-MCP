@@ -14,6 +14,21 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
+# Module-level singleton
+_instance: MemoryService | None = None
+
+
+def get_memory_service(project_dir: Path) -> MemoryService:
+    """Return a lazily-created singleton MemoryService.
+
+    Preserves the cached Graphiti connection across tool calls.
+    If project_dir changes, a new instance is created.
+    """
+    global _instance
+    if _instance is None or _instance.project_dir != project_dir:
+        _instance = MemoryService(project_dir)
+    return _instance
+
 
 def _is_graphiti_enabled() -> bool:
     """Check if Graphiti memory is enabled via environment variable."""
@@ -83,7 +98,7 @@ class MemoryService:
             if memory is None:
                 return {"error": "Could not initialize Graphiti memory"}
 
-            results = await memory._search.get_relevant_context(
+            results = await memory.get_relevant_context(
                 query=query,
                 num_results=limit,
             )
@@ -132,7 +147,7 @@ class MemoryService:
                 return {"error": "Could not initialize Graphiti memory"}
 
             # Use a broad search to get recent entries
-            results = await memory._search.get_relevant_context(
+            results = await memory.get_relevant_context(
                 query="recent project activity and insights",
                 num_results=limit,
             )

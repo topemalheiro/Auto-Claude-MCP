@@ -10,11 +10,7 @@ from __future__ import annotations
 
 from mcp_server.config import get_project_dir
 from mcp_server.server import mcp
-from mcp_server.services.memory_service import MemoryService
-
-
-def _get_service() -> MemoryService:
-    return MemoryService(get_project_dir())
+from mcp_server.services.memory_service import get_memory_service
 
 
 @mcp.tool()
@@ -33,7 +29,7 @@ async def memory_search(query: str, limit: int = 10) -> dict:
     Returns:
         List of relevant memory entries with content and relevance scores
     """
-    service = _get_service()
+    service = get_memory_service(get_project_dir())
     return await service.search(query, limit)
 
 
@@ -53,7 +49,7 @@ async def memory_add_episode(content: str, source: str = "mcp") -> dict:
     Returns:
         Confirmation of successful storage
     """
-    service = _get_service()
+    service = get_memory_service(get_project_dir())
     return await service.add_episode(content, source)
 
 
@@ -71,5 +67,5 @@ async def memory_get_recent(limit: int = 10) -> dict:
     Returns:
         List of recent memory entries
     """
-    service = _get_service()
+    service = get_memory_service(get_project_dir())
     return await service.get_recent(limit)

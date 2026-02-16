@@ -40,9 +40,9 @@ async def build_start(
 
     async def _run() -> None:
         try:
-            from mcp_server.services.execution_service import ExecutionService
+            from mcp_server.services.execution_service import get_execution_service
 
-            service = ExecutionService(get_project_dir())
+            service = get_execution_service(get_project_dir())
 
             tracker.update(
                 op.id,
@@ -115,9 +115,9 @@ def build_stop(spec_id: str) -> dict:
     Returns:
         Whether the build was successfully stopped
     """
-    from mcp_server.services.execution_service import ExecutionService
+    from mcp_server.services.execution_service import get_execution_service
 
-    service = ExecutionService(get_project_dir())
+    service = get_execution_service(get_project_dir())
     return service.stop_build(spec_id)
 
 
@@ -134,9 +134,9 @@ def build_get_progress(spec_id: str) -> dict:
     Returns:
         Build progress including subtask completion and QA status
     """
-    from mcp_server.services.execution_service import ExecutionService
+    from mcp_server.services.execution_service import get_execution_service
 
-    service = ExecutionService(get_project_dir())
+    service = get_execution_service(get_project_dir())
     return service.get_progress(spec_id)
 
 
@@ -153,7 +153,7 @@ def build_get_logs(spec_id: str, tail: int = 50) -> dict:
     Returns:
         Recent log lines from the build
     """
-    from mcp_server.services.execution_service import ExecutionService
+    from mcp_server.services.execution_service import get_execution_service
 
-    service = ExecutionService(get_project_dir())
+    service = get_execution_service(get_project_dir())
     return service.get_logs(spec_id, tail=tail)

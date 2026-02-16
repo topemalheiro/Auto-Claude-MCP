@@ -19,6 +19,21 @@ logger = logging.getLogger(__name__)
 # Matches core/task_event.py
 TASK_EVENT_PREFIX = "__TASK_EVENT__:"
 
+# Module-level singleton
+_instance: ExecutionService | None = None
+
+
+def get_execution_service(project_dir: Path) -> ExecutionService:
+    """Return a lazily-created singleton ExecutionService.
+
+    If project_dir changes (e.g. user switches projects), a new instance
+    is created so in-memory state matches the active project.
+    """
+    global _instance
+    if _instance is None or _instance.project_dir != project_dir:
+        _instance = ExecutionService(project_dir)
+    return _instance
+
 
 class ExecutionService:
     """Manages build execution as a subprocess of run.py."""
