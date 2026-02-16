@@ -681,11 +681,6 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   const setColumnWidth = useKanbanSettingsStore((state) => state.setColumnWidth);
   const toggleColumnLocked = useKanbanSettingsStore((state) => state.toggleColumnLocked);
 
-  // Stable wrapper for loadKanbanPreferences to prevent unnecessary useEffect re-runs
-  const loadPrefsStable = useCallback((id: string) => {
-    loadKanbanPreferences(id);
-  }, [loadKanbanPreferences]);
-
   // Column resize state
   const [resizingColumn, setResizingColumn] = useState<typeof TASK_STATUS_COLUMNS[number] | null>(null);
   const resizeStartX = useRef<number>(0);
@@ -1459,9 +1454,9 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   // Load kanban column preferences on mount and when project changes
   useEffect(() => {
     if (projectId) {
-      loadPrefsStable(projectId);
+      loadKanbanPreferences(projectId);
     }
-  }, [projectId, loadPrefsStable]);
+  }, [projectId, loadKanbanPreferences]);
 
   // Create a callback to toggle collapsed state and save to storage
   const handleToggleColumnCollapsed = useCallback((status: typeof TASK_STATUS_COLUMNS[number]) => {

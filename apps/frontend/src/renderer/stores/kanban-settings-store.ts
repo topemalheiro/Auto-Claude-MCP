@@ -181,12 +181,6 @@ function clampWidth(width: number): number {
  * when the user switches projects during the debounce window.
  */
 function saveKanbanPreferencesToMain(projectId: string): void {
-  // VALIDATE: Don't save if project has changed
-  if (currentLoadingProjectId && currentLoadingProjectId !== projectId) {
-    console.warn('[KanbanSettings] Skipping save for stale project:', projectId);
-    return;
-  }
-
   // Capture preferences at call time to avoid saving wrong project's data
   const preferencesToSave = useKanbanSettingsStore.getState().columnPreferences;
   if (!preferencesToSave) return;
@@ -198,12 +192,6 @@ function saveKanbanPreferencesToMain(projectId: string): void {
 
   // Debounce saves to avoid excessive IPC calls
   saveKanbanPrefsTimeout = setTimeout(async () => {
-    // Double-check project hasn't changed during debounce window
-    if (currentLoadingProjectId && currentLoadingProjectId !== projectId) {
-      console.warn('[KanbanSettings] Skipping delayed save for stale project:', projectId);
-      return;
-    }
-
     try {
       await window.electronAPI.saveKanbanPreferences(projectId, preferencesToSave);
     } catch (err) {
@@ -315,9 +303,6 @@ export const useKanbanSettingsStore = create<KanbanSettingsState>((set, get) => 
   },
 
   loadPreferences: (projectId) => {
-    // FORCE RESET STATE FIRST - prevents bleed-through
-    get().resetState();
-
     // Track current project to detect stale IPC results
     currentLoadingProjectId = projectId;
 
@@ -328,11 +313,9 @@ export const useKanbanSettingsStore = create<KanbanSettingsState>((set, get) => 
 
       if (stored) {
         const parsed = JSON.parse(stored);
-        // VALIDATE: Only apply if this is still the current project
-        if (currentLoadingProjectId === projectId && validatePreferences(parsed)) {
+        if (validatePreferences(parsed)) {
           set({ columnPreferences: parsed });
         } else {
-          // Stale or invalid - use defaults
           set({ columnPreferences: createDefaultPreferences() });
         }
       } else {
@@ -405,21 +388,6 @@ export const useKanbanSettingsStore = create<KanbanSettingsState>((set, get) => 
     } catch {
       // Reset failed, non-critical
     }
-  },
-
-  // Force clear all state when switching projects (prevents bleed-through)
-  resetState: () => {
-    // Clear any pending save timers
-    if (saveKanbanPrefsTimeout) {
-      clearTimeout(saveKanbanPrefsTimeout);
-      saveKanbanPrefsTimeout = null;
-    }
-
-    // Reset to default preferences (temporary until new project loads)
-    set({ columnPreferences: createDefaultPreferences() });
-
-    // Clear loading project tracking
-    currentLoadingProjectId = null;
   },
 
   getColumnPreferences: (column) => {
