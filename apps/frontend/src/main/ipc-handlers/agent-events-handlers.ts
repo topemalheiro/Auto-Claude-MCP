@@ -23,6 +23,9 @@ import { taskStateManager } from "../task-state-manager";
 // Timeout for fallback safety net to check if task is still stuck after process exit
 const STUCK_TASK_FALLBACK_TIMEOUT_MS = 500;
 
+// Map to store active fallback timers so they can be cancelled on task restart
+const fallbackTimers = new Map<string, NodeJS.Timeout>();
+
 /**
  * Register all agent-events-related IPC handlers
  */
@@ -103,7 +106,8 @@ export function registerAgenteventsHandlers(
     // force it to human_review after a short delay. This prevents tasks from getting stuck
     // when the process exits without XState properly handling it.
     // We check XState's current state directly to avoid stale cache issues from projectStore.
-    setTimeout(async () => {
+    // Store timer reference so it can be cancelled if task restarts within the window.
+    const timer = setTimeout(() => {
       const currentState = taskStateManager.getCurrentState(taskId);
 
       if (currentState && XSTATE_ACTIVE_STATES.has(currentState)) {
@@ -119,7 +123,12 @@ export function registerAgenteventsHandlers(
           taskStateManager.handleUiEvent(taskId, { type: 'USER_STOPPED', hasPlan }, checkTask, checkProject);
         }
       }
+      // Clean up timer reference after it fires
+      fallbackTimers.delete(taskId);
     }, STUCK_TASK_FALLBACK_TIMEOUT_MS);
+
+    // Store timer reference for potential cancellation
+    fallbackTimers.set(taskId, timer);
 
     // Send final plan state to renderer BEFORE unwatching
     // This ensures the renderer has the final subtask data (fixes 0/0 subtask bug)
@@ -319,4 +328,18 @@ export function registerAgenteventsHandlers(
     const { project } = findTaskAndProject(taskId);
     safeSendToRenderer(getMainWindow, IPC_CHANNELS.TASK_ERROR, taskId, error, project?.id);
   });
+}
+
+/**
+ * Cancel any pending fallback timer for a task.
+ * Should be called when a task is restarted to prevent the stale timer
+ * from incorrectly stopping the new process.
+ */
+export function cancelFallbackTimer(taskId: string): void {
+  const timer = fallbackTimers.get(taskId);
+  if (timer) {
+    clearTimeout(timer);
+    fallbackTimers.delete(taskId);
+    console.debug(`[agent-events-handlers] Cancelled fallback timer for task ${taskId}`);
+  }
 }

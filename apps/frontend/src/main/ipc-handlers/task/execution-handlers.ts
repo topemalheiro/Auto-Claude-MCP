@@ -15,12 +15,14 @@ import {
   getPlanPath,
   persistPlanStatus,
   createPlanIfNotExists,
-  resetStuckSubtasks
+  resetStuckSubtasks,
+  hasPlanWithSubtasks
 } from './plan-file-utils';
 import { writeFileAtomicSync } from '../../utils/atomic-file';
 import { findTaskWorktree } from '../../worktree-paths';
 import { projectStore } from '../../project-store';
 import { getIsolatedGitEnv, detectWorktreeBranch } from '../../utils/git-isolation';
+import { cancelFallbackTimer } from '../agent-events-handlers';
 
 /**
  * Safe file read that handles missing files without TOCTOU issues.
@@ -95,6 +97,11 @@ export function registerTaskExecutionHandlers(
     IPC_CHANNELS.TASK_START,
     async (_, taskId: string, _options?: TaskStartOptions) => {
       console.warn('[TASK_START] Received request for taskId:', taskId);
+
+      // Cancel any pending fallback timer from previous process exit
+      // This prevents the stale timer from incorrectly stopping the newly restarted task
+      cancelFallbackTimer(taskId);
+
       const mainWindow = getMainWindow();
       if (!mainWindow) {
         console.warn('[TASK_START] No main window found');
@@ -296,18 +303,8 @@ export function registerTaskExecutionHandlers(
 
     if (!task || !project) return;
 
-    let hasPlan = false;
-    try {
-      const planPath = getPlanPath(project, task);
-      const planContent = safeReadFileSync(planPath);
-      if (planContent) {
-        const plan = JSON.parse(planContent);
-        const { totalCount } = checkSubtasksCompletion(plan);
-        hasPlan = totalCount > 0;
-      }
-    } catch {
-      hasPlan = false;
-    }
+    // Use shared utility to determine if a valid implementation plan exists
+    const hasPlan = hasPlanWithSubtasks(project, task);
 
     taskStateManager.handleUiEvent(
       taskId,
