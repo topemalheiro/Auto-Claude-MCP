@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Code, Terminal, RefreshCw, Loader2, Check, FolderOpen, AlertTriangle } from 'lucide-react';
 import { Label } from '../ui/label';
 import { Input } from '../ui/input';
+import { Textarea } from '../ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Button } from '../ui/button';
 import { Switch } from '../ui/switch';
@@ -476,6 +477,104 @@ export function DevToolsSettings({ settings, onSettingsChange }: DevToolsSetting
                   })
                 }
               />
+            </div>
+          </div>
+
+          {/* Master LLM RDR Prompt Sending Mechanism */}
+          <div className="space-y-3 ml-4">
+            <div className="space-y-2 w-full">
+              <Label htmlFor="rdr-prompt-mechanism" className="text-sm font-medium">
+                {t('devtools.rdrPromptSendingMechanism.label', 'Master LLM RDR Prompt Sending Mechanism')}
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                {t('devtools.rdrPromptSendingMechanism.description', 'Customize how Auto-Claude sends RDR prompts to your Master LLM. Use template variables: {{message}} (escaped message text), {{messagePath}} (temp file path), {{identifier}} (window PID/title). Leave empty for platform defaults.')}
+              </p>
+
+              <Textarea
+                id="rdr-prompt-mechanism"
+                className="w-full font-mono text-xs"
+                rows={4}
+                value={settings.rdrPromptSendingMechanism || ''}
+                onChange={(e) =>
+                  onSettingsChange({
+                    ...settings,
+                    rdrPromptSendingMechanism: e.target.value
+                  })
+                }
+                placeholder={t('devtools.rdrPromptSendingMechanism.placeholder', 'e.g., ccli --message "$(cat \'{{messagePath}}\')"')}
+              />
+
+              {/* Template validation warning */}
+              {(() => {
+                const template = settings.rdrPromptSendingMechanism?.trim();
+                if (template && !template.includes('{{message}}') && !template.includes('{{messagePath}}')) {
+                  return (
+                    <div className="flex items-start gap-2 p-2 border border-amber-500/50 bg-amber-500/10 rounded-md">
+                      <AlertTriangle className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" />
+                      <p className="text-xs text-amber-600 dark:text-amber-400">
+                        Template must include either {'{{message}}'} or {'{{messagePath}}'} to send the RDR notification
+                      </p>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
+
+              {/* Preset buttons */}
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    onSettingsChange({
+                      ...settings,
+                      rdrPromptSendingMechanism: 'powershell.exe -ExecutionPolicy Bypass -File "{{scriptPath}}"'
+                    })
+                  }
+                >
+                  Windows PowerShell
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    onSettingsChange({
+                      ...settings,
+                      rdrPromptSendingMechanism: 'ccli --message "$(cat \'{{messagePath}}\')"'
+                    })
+                  }
+                >
+                  macOS/Linux ccli
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    onSettingsChange({
+                      ...settings,
+                      rdrPromptSendingMechanism: 'cursor --goto "{{messagePath}}"'
+                    })
+                  }
+                >
+                  Cursor
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    onSettingsChange({
+                      ...settings,
+                      rdrPromptSendingMechanism: 'code --goto "{{messagePath}}"'
+                    })
+                  }
+                >
+                  VS Code
+                </Button>
+              </div>
             </div>
           </div>
 

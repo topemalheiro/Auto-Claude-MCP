@@ -303,6 +303,11 @@
       "label": "Désactiver automatiquement RDR lors de l'arrêt",
       "description": "Lorsque vous arrêtez/déplacez une tâche qui arrive en Révision Humaine, désactive automatiquement le RDR pour cette tâche afin qu'elle ne soit pas récupérée automatiquement. Désactivez cette option si vous souhaitez que les tâches arrêtées soient toujours détectées par MCP pour une récupération ultérieure. Recommandé de garder ACTIVÉ."
     },
+    "rdrPromptSendingMechanism": {
+      "label": "Mécanisme d'envoi de prompts RDR au LLM maître",
+      "description": "Personnalisez comment Auto-Claude envoie les prompts RDR à votre LLM maître. Variables de modèle : {{message}} (texte échappé), {{messagePath}} (chemin fichier temp), {{identifier}} (PID/titre fenêtre). Laissez vide pour les défauts de plateforme.",
+      "placeholder": "ex: ccli --message \"$(cat '{{messagePath}}')\""
+    },
     "autoRestartOnFailure": {
       "label": "Redémarrage automatique par LLM Manager",
       "description": "Autoriser LLM Manager à déclencher des redémarrages d'Auto-Claude lorsqu'une intervention est nécessaire, détectée via AC MCP. Permet un fonctionnement non supervisé."

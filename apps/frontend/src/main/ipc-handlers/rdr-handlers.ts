@@ -15,12 +15,13 @@ import * as path from 'path';
 import * as os from 'os';
 import { ipcMain, BrowserWindow } from 'electron';
 import { IPC_CHANNELS } from '../../shared/constants/ipc';
-import type { IPCResult } from '../../shared/types';
+import type { IPCResult, AppSettings } from '../../shared/types';
 import { JSON_ERROR_PREFIX } from '../../shared/constants/task';
 import { projectStore } from '../project-store';
 import { isElectron } from '../electron-compat';
 import { outputMonitor } from '../claude-code/output-monitor';
 import type { AgentManager } from '../agent/agent-manager';
+import { readSettingsFile } from '../settings-utils';
 
 /**
  * Reset rdrAttempts for all tasks across all projects.
@@ -1876,8 +1877,19 @@ export function registerRdrHandlers(agentManager?: AgentManager): void {
       console.log(`[RDR]    Message length: ${message.length} characters`);
 
       try {
-        const { sendMessageToWindow } = await import('../platform/windows/window-manager');
-        const result = await sendMessageToWindow(identifier, message);
+        // Read custom template from settings
+        const settings = (readSettingsFile() || {}) as Partial<AppSettings>;
+        const customTemplate = settings.rdrPromptSendingMechanism;
+
+        if (customTemplate) {
+          console.log('[RDR] 🔧 Using custom RDR prompt sending mechanism');
+        } else {
+          console.log('[RDR] 🔧 Using platform default RDR prompt sending mechanism');
+        }
+
+        // Use platform-agnostic sender with custom template support
+        const { sendRdrMessage } = await import('../platform/rdr-message-sender');
+        const result = await sendRdrMessage(identifier, message, customTemplate);
 
         if (result.success) {
           console.log('[RDR] ✅ Message sent successfully');
