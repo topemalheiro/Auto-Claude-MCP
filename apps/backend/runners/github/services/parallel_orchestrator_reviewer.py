@@ -1289,12 +1289,33 @@ The SDK will run invoked agents in parallel automatically.
                 f"{len(filtered_findings)} filtered"
             )
 
-            # No confidence routing - validation is binary via finding-validator
-            unique_findings = validated_findings
-            logger.info(f"[PRReview] Final findings: {len(unique_findings)} validated")
+            # Separate active findings (drive verdict) from dismissed (shown in UI only)
+            active_findings = [
+                f
+                for f in validated_findings
+                if f.validation_status != "dismissed_false_positive"
+            ]
+            dismissed_findings = [
+                f
+                for f in validated_findings
+                if f.validation_status == "dismissed_false_positive"
+            ]
 
+            safe_print(
+                f"[ParallelOrchestrator] Final: {len(active_findings)} active, "
+                f"{len(dismissed_findings)} disputed by validator",
+                flush=True,
+            )
             logger.info(
-                f"[ParallelOrchestrator] Review complete: {len(unique_findings)} findings"
+                f"[PRReview] Final findings: {len(active_findings)} active, "
+                f"{len(dismissed_findings)} disputed"
+            )
+
+            # All findings (active + dismissed) go in the result for UI display
+            unique_findings = validated_findings
+            logger.info(
+                f"[ParallelOrchestrator] Review complete: {len(unique_findings)} findings "
+                f"({len(active_findings)} active, {len(dismissed_findings)} disputed)"
             )
 
             # Fetch CI status for verdict consideration
@@ -1304,9 +1325,9 @@ The SDK will run invoked agents in parallel automatically.
                 f"{ci_status.get('failing', 0)} failing, {ci_status.get('pending', 0)} pending"
             )
 
-            # Generate verdict (includes merge conflict check, branch-behind check, and CI status)
+            # Generate verdict from ACTIVE findings only (dismissed don't affect verdict)
             verdict, verdict_reasoning, blockers = self._generate_verdict(
-                unique_findings,
+                active_findings,
                 has_merge_conflicts=context.has_merge_conflicts,
                 merge_state_status=context.merge_state_status,
                 ci_status=ci_status,
@@ -1937,12 +1958,38 @@ For EACH finding above:
                 validated_findings.append(finding)
 
             elif validation.validation_status == "dismissed_false_positive":
-                # Dismiss - do not include
-                dismissed_count += 1
-                logger.info(
-                    f"[PRReview] Dismissed {finding.id} as false positive: "
-                    f"{validation.explanation[:100]}"
-                )
+                # Protect cross-validated findings from dismissal —
+                # if multiple specialists independently found the same issue,
+                # a single validator should not override that consensus
+                if finding.cross_validated:
+                    finding.validation_status = "confirmed_valid"
+                    finding.validation_evidence = validation.code_evidence
+                    finding.validation_explanation = (
+                        f"[Auto-kept: cross-validated by {len(finding.source_agents)} agents] "
+                        f"{validation.explanation}"
+                    )
+                    validated_findings.append(finding)
+                    safe_print(
+                        f"[FindingValidator] Kept cross-validated finding '{finding.title}' "
+                        f"despite dismissal (agents={finding.source_agents})",
+                        flush=True,
+                    )
+                else:
+                    # Keep finding but mark as dismissed (user can see it in UI)
+                    finding.validation_status = "dismissed_false_positive"
+                    finding.validation_evidence = validation.code_evidence
+                    finding.validation_explanation = validation.explanation
+                    validated_findings.append(finding)
+                    dismissed_count += 1
+                    safe_print(
+                        f"[FindingValidator] Disputed '{finding.title}': "
+                        f"{validation.explanation} (file={finding.file}:{finding.line})",
+                        flush=True,
+                    )
+                    logger.info(
+                        f"[PRReview] Disputed {finding.id}: "
+                        f"{validation.explanation[:200]}"
+                    )
 
             elif validation.validation_status == "needs_human_review":
                 # Keep but flag
