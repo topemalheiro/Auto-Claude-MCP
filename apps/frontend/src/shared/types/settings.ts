@@ -301,6 +301,10 @@ export interface AppSettings {
   // RDR (Recover Debug Resend) - Auto-recover stuck/errored tasks
   // When enabled, automatically recovers stuck tasks, analyzes errors, and submits fix requests
   rdrEnabled?: boolean;
+  // Auto-disable per-task RDR when user stops a task
+  // When enabled, stopping a task automatically sets metadata.rdrDisabled=true so RDR won't auto-recover it
+  // Turn off if you want stopped tasks to still be detected by MCP for later recovery
+  autoDisableRdrOnStop?: boolean;
   // Auto-shutdown when all tasks across ALL projects reach Human Review
   // Global setting that monitors task progress across all projects simultaneously
   autoShutdownEnabled?: boolean;

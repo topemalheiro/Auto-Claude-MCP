@@ -111,8 +111,8 @@ export const DEFAULT_PROJECT_SETTINGS = {
   graphitiMcpUrl: 'http://localhost:8000/mcp/',
   // Include CLAUDE.md instructions in agent context (enabled by default)
   useClaudeMd: true,
-  // LLM Manager control - allow Claude Code to trigger builds/restarts (enabled by default)
-  llmManagerEnabled: true
+  // LLM Manager control - allow Claude Code to trigger builds/restarts (disabled by default, experimental)
+  llmManagerEnabled: false
 };
 
 // ============================================

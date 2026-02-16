@@ -35,6 +35,7 @@ import { cn } from '../lib/utils';
 import { persistTaskStatus, forceCompleteTask, archiveTasks, deleteTasks, useTaskStore, isQueueAtCapacity, DEFAULT_MAX_PARALLEL_TASKS, startTask, isIncompleteHumanReview } from '../stores/task-store';
 import { updateProjectSettings, useProjectStore } from '../stores/project-store';
 import { useKanbanSettingsStore, DEFAULT_COLUMN_WIDTH, MIN_COLUMN_WIDTH, MAX_COLUMN_WIDTH, COLLAPSED_COLUMN_WIDTH_REM, MIN_COLUMN_WIDTH_REM, MAX_COLUMN_WIDTH_REM, BASE_FONT_SIZE, pxToRem } from '../stores/kanban-settings-store';
+import { useSettingsStore } from '../stores/settings-store';
 import { useToast } from '../hooks/use-toast';
 import { WorktreeCleanupDialog } from './WorktreeCleanupDialog';
 import { BulkPRDialog } from './BulkPRDialog';
@@ -1049,6 +1050,19 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
         });
       }
     }
+    // Auto-disable per-task RDR when user manually moves a task to human_review
+    // (e.g., drag from in_progress or ai_review). Same logic as TASK_STOP for human_review.
+    if (result.success && newStatus === 'human_review' && oldStatus !== 'human_review') {
+      const appSettings = useSettingsStore.getState().settings;
+      const autoDisableRdr = appSettings.autoDisableRdrOnStop ?? true;
+      if (autoDisableRdr) {
+        const toggleResult = await window.electronAPI.toggleTaskRdr(taskId, true);
+        if (toggleResult.success) {
+          console.log(`[KanbanBoard] Auto-disabled RDR for task ${taskId} moved to human_review`);
+        }
+      }
+    }
+
     // Note: queue auto-promotion when a task leaves in_progress is handled by the
     // useEffect task status change listener (registerTaskStatusChangeListener), so
     // no explicit processQueue() call is needed here.

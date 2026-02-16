@@ -20,6 +20,7 @@ import {
 import { writeFileAtomicSync } from '../../utils/atomic-file';
 import { findTaskWorktree } from '../../worktree-paths';
 import { projectStore } from '../../project-store';
+import { readSettingsFile } from '../../settings-utils';
 import { getIsolatedGitEnv, detectWorktreeBranch } from '../../utils/git-isolation';
 import { normalizePathForGit } from '../../platform';
 import { cleanupWorktree } from '../../utils/worktree-cleanup';
@@ -323,6 +324,19 @@ export function registerTaskExecutionHandlers(
       task,
       project
     );
+
+    // Auto-disable per-task RDR when user stops a task that goes to human_review (if setting enabled)
+    // Tasks going to backlog (no plan) don't need RDR disabled — RDR naturally skips backlog tasks
+    if (hasPlan) {
+      const appSettings = (readSettingsFile() || {}) as Partial<import('../../../shared/types').AppSettings>;
+      const autoDisableRdr = appSettings.autoDisableRdrOnStop ?? true;
+      if (autoDisableRdr) {
+        const result = projectStore.toggleTaskRdr(taskId, true);
+        if (result) {
+          console.log(`[TASK_STOP] Auto-disabled RDR for stopped task ${taskId} (going to human_review)`);
+        }
+      }
+    }
   });
 
   /**

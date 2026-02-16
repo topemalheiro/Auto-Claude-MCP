@@ -455,6 +455,30 @@ export function DevToolsSettings({ settings, onSettingsChange }: DevToolsSetting
             </p>
           </div>
 
+          {/* Auto-disable RDR on User Stop */}
+          <div className="space-y-3 ml-4">
+            <div className="flex items-center justify-between max-w-md">
+              <div className="space-y-0.5">
+                <Label htmlFor="auto-disable-rdr-on-stop" className="text-sm font-medium">
+                  {t('devtools.autoDisableRdrOnStop.label', 'Auto-disable RDR on User Stop')}
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  {t('devtools.autoDisableRdrOnStop.description', 'When you stop a task, automatically disable RDR for that task so it won\'t be auto-recovered. Turn this off if you want stopped tasks to still be detected by MCP for later recovery (e.g., task taking too long and you want it picked up later).')}
+                </p>
+              </div>
+              <Switch
+                id="auto-disable-rdr-on-stop"
+                checked={settings.autoDisableRdrOnStop ?? true}
+                onCheckedChange={(checked) =>
+                  onSettingsChange({
+                    ...settings,
+                    autoDisableRdrOnStop: checked
+                  })
+                }
+              />
+            </div>
+          </div>
+
           {/* Auto-Restart on Crash or If Required */}
           <div className="space-y-3 ml-4">
             <div className="flex items-center justify-between max-w-md">

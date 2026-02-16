@@ -47,11 +47,19 @@ export function GeneralSettings({
 
   return (
     <>
-      {/* Auto-Build Integration */}
+      {/* Auto-Claude MCP Section */}
       <section className="space-y-4">
         <div>
-          <h3 className="text-sm font-semibold text-foreground">LLM Manager Build & Restart</h3>
+          <h3 className="text-sm font-semibold text-foreground">Auto-Claude MCP</h3>
           <p className="text-xs text-muted-foreground mt-1">
+            LLM Manager integration for autonomous builds and restarts
+          </p>
+        </div>
+
+        {/* LLM Manager Build & Restart */}
+        <div className="space-y-3 ml-4">
+          <h4 className="text-sm font-medium text-foreground">LLM Manager Build & Restart</h4>
+          <p className="text-xs text-muted-foreground">
             Allow LLM Manager to change Auto-Claude code, build and restart if needed by this project
           </p>
         </div>
@@ -120,7 +128,7 @@ export function GeneralSettings({
                 </p>
               </div>
               <Switch
-                checked={settings.llmManagerEnabled ?? true}
+                checked={settings.llmManagerEnabled ?? false}
                 onCheckedChange={(checked) =>
                   setSettings({ ...settings, llmManagerEnabled: checked })
                 }

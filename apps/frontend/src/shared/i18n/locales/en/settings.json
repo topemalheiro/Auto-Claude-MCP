@@ -299,6 +299,10 @@
       "label": "Build Command",
       "description": "Command to build Auto-Claude before restart"
     },
+    "autoDisableRdrOnStop": {
+      "label": "Auto-disable RDR on User Stop",
+      "description": "When you stop a task, automatically disable RDR for that task so it won't be auto-recovered. Turn this off if you want stopped tasks to still be detected by MCP for later recovery (e.g., task taking too long and you want it picked up later)."
+    },
     "autoRestartOnFailure": {
       "label": "LLM Manager Auto-Restart",
       "description": "Allow LLM Manager to trigger Auto-Claude restarts when intervention is needed, detected through AC MCP. Enables unattended operation."

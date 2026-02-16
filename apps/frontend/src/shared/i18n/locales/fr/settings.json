@@ -299,6 +299,10 @@
       "label": "Commande de build",
       "description": "Commande pour compiler Auto-Claude avant redémarrage"
     },
+    "autoDisableRdrOnStop": {
+      "label": "Désactiver automatiquement RDR lors de l'arrêt",
+      "description": "Lorsque vous arrêtez une tâche, désactive automatiquement le RDR pour cette tâche afin qu'elle ne soit pas récupérée automatiquement. Désactivez cette option si vous souhaitez que les tâches arrêtées soient toujours détectées par MCP pour une récupération ultérieure."
+    },
     "autoRestartOnFailure": {
       "label": "Redémarrage automatique par LLM Manager",
       "description": "Autoriser LLM Manager à déclencher des redémarrages d'Auto-Claude lorsqu'une intervention est nécessaire, détectée via AC MCP. Permet un fonctionnement non supervisé."
