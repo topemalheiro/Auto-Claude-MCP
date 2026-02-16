@@ -1877,19 +1877,24 @@ export function registerRdrHandlers(agentManager?: AgentManager): void {
       console.log(`[RDR]    Message length: ${message.length} characters`);
 
       try {
-        // Read custom template from settings
+        // Read active mechanism from settings
         const settings = (readSettingsFile() || {}) as Partial<AppSettings>;
-        const customTemplate = settings.rdrPromptSendingMechanism;
+        const { DEFAULT_RDR_MECHANISMS } = await import('../../shared/constants/config');
 
-        if (customTemplate) {
-          console.log('[RDR] 🔧 Using custom RDR prompt sending mechanism');
+        const mechanisms = settings.rdrMechanisms || DEFAULT_RDR_MECHANISMS;
+        const activeMechanismId = settings.activeMechanismId || mechanisms[0]?.id;
+        const activeMechanism = mechanisms.find(m => m.id === activeMechanismId) || mechanisms[0];
+
+        if (activeMechanism) {
+          console.log(`[RDR] 🔧 Using mechanism: "${activeMechanism.name}"`);
+          console.log(`[RDR]    Template: ${activeMechanism.template}`);
         } else {
-          console.log('[RDR] 🔧 Using platform default RDR prompt sending mechanism');
+          console.error('[RDR] ⚠️ No RDR mechanism found, using default');
         }
 
-        // Use platform-agnostic sender with custom template support
+        // Use platform-agnostic sender with active mechanism's template
         const { sendRdrMessage } = await import('../platform/rdr-message-sender');
-        const result = await sendRdrMessage(identifier, message, customTemplate);
+        const result = await sendRdrMessage(identifier, message, activeMechanism?.template);
 
         if (result.success) {
           console.log('[RDR] ✅ Message sent successfully');

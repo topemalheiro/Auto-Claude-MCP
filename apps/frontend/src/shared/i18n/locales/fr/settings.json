@@ -303,10 +303,14 @@
       "label": "Désactiver automatiquement RDR lors de l'arrêt",
       "description": "Lorsque vous arrêtez/déplacez une tâche qui arrive en Révision Humaine, désactive automatiquement le RDR pour cette tâche afin qu'elle ne soit pas récupérée automatiquement. Désactivez cette option si vous souhaitez que les tâches arrêtées soient toujours détectées par MCP pour une récupération ultérieure. Recommandé de garder ACTIVÉ."
     },
-    "rdrPromptSendingMechanism": {
+    "rdrMechanisms": {
       "label": "Mécanisme d'envoi de prompts RDR au LLM maître",
-      "description": "Personnalisez comment Auto-Claude envoie les prompts RDR à votre LLM maître. Variables de modèle : {{message}} (texte échappé), {{messagePath}} (chemin fichier temp), {{identifier}} (PID/titre fenêtre). Laissez vide pour les défauts de plateforme.",
-      "placeholder": "ex: ccli --message \"$(cat '{{messagePath}}')\""
+      "description": "Gérez les mécanismes d'envoi RDR nommés. Variables de modèle : {{message}} (texte échappé), {{messagePath}} (chemin fichier temp), {{identifier}} (PID/titre fenêtre), {{scriptPath}} (chemin fichier script).",
+      "templatePlaceholder": "ex: ccli --message \"$(cat '{{messagePath}}')\"",
+      "createDialogTitle": "Créer un nouveau mécanisme",
+      "renameDialogTitle": "Renommer le mécanisme",
+      "nameLabel": "Nom du mécanisme",
+      "namePlaceholder": "ex: Windows Claude Code pour VS Code"
     },
     "autoRestartOnFailure": {
       "label": "Redémarrage automatique par LLM Manager",

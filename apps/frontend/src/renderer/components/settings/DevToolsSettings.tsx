@@ -1,14 +1,16 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Code, Terminal, RefreshCw, Loader2, Check, FolderOpen, AlertTriangle } from 'lucide-react';
+import { Code, Terminal, RefreshCw, Loader2, Check, FolderOpen, AlertTriangle, Plus, Edit, Trash2 } from 'lucide-react';
 import { Label } from '../ui/label';
 import { Input } from '../ui/input';
 import { Textarea } from '../ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Button } from '../ui/button';
 import { Switch } from '../ui/switch';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../ui/dialog';
 import { SettingsSection } from './SettingsSection';
 import type { AppSettings, SupportedIDE, SupportedTerminal } from '../../../shared/types';
+import { DEFAULT_RDR_MECHANISMS } from '../../../shared/constants/config';
 
 interface DevToolsSettingsProps {
   settings: AppSettings;
@@ -84,6 +86,11 @@ export function DevToolsSettings({ settings, onSettingsChange }: DevToolsSetting
   const [isDetecting, setIsDetecting] = useState(false);
   const [detectError, setDetectError] = useState<string | null>(null);
 
+  // RDR mechanism management state
+  const [showCreateMechanismDialog, setShowCreateMechanismDialog] = useState(false);
+  const [showRenameMechanismDialog, setShowRenameMechanismDialog] = useState(false);
+  const [mechanismName, setMechanismName] = useState('');
+
   // Detect installed tools on mount
   const detectTools = useCallback(async () => {
     setIsDetecting(true);
@@ -112,6 +119,71 @@ export function DevToolsSettings({ settings, onSettingsChange }: DevToolsSetting
   useEffect(() => {
     detectTools();
   }, [detectTools]);
+
+  // RDR Mechanism Management Handlers
+  const mechanisms = settings.rdrMechanisms || DEFAULT_RDR_MECHANISMS;
+  const activeMechanismId = settings.activeMechanismId || mechanisms[0]?.id;
+  const selectedMechanism = mechanisms.find(m => m.id === activeMechanismId);
+
+  const handleCreateMechanism = () => {
+    const newMechanism = {
+      id: crypto.randomUUID(),
+      name: mechanismName.trim() || 'New Mechanism',
+      template: '',
+      isDefault: false
+    };
+
+    const updatedMechanisms = [...mechanisms, newMechanism];
+
+    onSettingsChange({
+      ...settings,
+      rdrMechanisms: updatedMechanisms,
+      activeMechanismId: newMechanism.id
+    });
+
+    setShowCreateMechanismDialog(false);
+    setMechanismName('');
+  };
+
+  const handleRenameMechanism = () => {
+    if (!selectedMechanism || selectedMechanism.isDefault) return;
+
+    const updatedMechanisms = mechanisms.map(m =>
+      m.id === activeMechanismId ? { ...m, name: mechanismName.trim() } : m
+    );
+
+    onSettingsChange({
+      ...settings,
+      rdrMechanisms: updatedMechanisms
+    });
+
+    setShowRenameMechanismDialog(false);
+    setMechanismName('');
+  };
+
+  const handleDeleteMechanism = () => {
+    if (!selectedMechanism || selectedMechanism.isDefault) return;
+
+    const updatedMechanisms = mechanisms.filter(m => m.id !== activeMechanismId);
+    const newActiveId = updatedMechanisms[0]?.id;
+
+    onSettingsChange({
+      ...settings,
+      rdrMechanisms: updatedMechanisms,
+      activeMechanismId: newActiveId
+    });
+  };
+
+  const handleUpdateTemplate = (template: string) => {
+    const updatedMechanisms = mechanisms.map(m =>
+      m.id === activeMechanismId ? { ...m, template } : m
+    );
+
+    onSettingsChange({
+      ...settings,
+      rdrMechanisms: updatedMechanisms
+    });
+  };
 
   const handleIDEChange = (ide: SupportedIDE) => {
     onSettingsChange({
@@ -480,33 +552,95 @@ export function DevToolsSettings({ settings, onSettingsChange }: DevToolsSetting
             </div>
           </div>
 
-          {/* Master LLM RDR Prompt Sending Mechanism */}
-          <div className="space-y-3 ml-4">
-            <div className="space-y-2 w-full">
-              <Label htmlFor="rdr-prompt-mechanism" className="text-sm font-medium">
-                {t('devtools.rdrPromptSendingMechanism.label', 'Master LLM RDR Prompt Sending Mechanism')}
+          {/* Master LLM RDR Prompt Sending Mechanism - Profile System */}
+          <div className="space-y-3 ml-4 w-full">
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">
+                {t('devtools.rdrMechanisms.label', 'Master LLM RDR Prompt Sending Mechanism')}
               </Label>
               <p className="text-xs text-muted-foreground">
-                {t('devtools.rdrPromptSendingMechanism.description', 'Customize how Auto-Claude sends RDR prompts to your Master LLM. Use template variables: {{message}} (escaped message text), {{messagePath}} (temp file path), {{identifier}} (window PID/title). Leave empty for platform defaults.')}
+                {t('devtools.rdrMechanisms.description', 'Manage named RDR sending mechanisms. Use template variables: {{message}} (escaped text), {{messagePath}} (temp file path), {{identifier}} (window PID/title), {{scriptPath}} (script file path).')}
               </p>
 
+              {/* Mechanism selector + action buttons */}
+              <div className="flex items-center gap-2 w-full">
+                <Select
+                  value={activeMechanismId}
+                  onValueChange={(id) =>
+                    onSettingsChange({
+                      ...settings,
+                      activeMechanismId: id
+                    })
+                  }
+                >
+                  <SelectTrigger className="flex-1">
+                    <SelectValue placeholder="Select mechanism" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {mechanisms.map(m => (
+                      <SelectItem key={m.id} value={m.id}>
+                        {m.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                {/* Create button */}
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setMechanismName('');
+                    setShowCreateMechanismDialog(true);
+                  }}
+                  title="Create new mechanism"
+                >
+                  <Plus className="w-4 h-4" />
+                </Button>
+
+                {/* Rename button */}
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    if (selectedMechanism && !selectedMechanism.isDefault) {
+                      setMechanismName(selectedMechanism.name);
+                      setShowRenameMechanismDialog(true);
+                    }
+                  }}
+                  disabled={!selectedMechanism || selectedMechanism.isDefault}
+                  title="Rename mechanism"
+                >
+                  <Edit className="w-4 h-4" />
+                </Button>
+
+                {/* Delete button */}
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={handleDeleteMechanism}
+                  disabled={!selectedMechanism || selectedMechanism.isDefault}
+                  title="Delete mechanism"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              </div>
+
+              {/* Template editor - full width and resizable */}
               <Textarea
-                id="rdr-prompt-mechanism"
-                className="w-full font-mono text-xs"
-                rows={4}
-                value={settings.rdrPromptSendingMechanism || ''}
-                onChange={(e) =>
-                  onSettingsChange({
-                    ...settings,
-                    rdrPromptSendingMechanism: e.target.value
-                  })
-                }
-                placeholder={t('devtools.rdrPromptSendingMechanism.placeholder', 'e.g., ccli --message "$(cat \'{{messagePath}}\')"')}
+                className="w-full resize-y font-mono text-xs"
+                rows={6}
+                value={selectedMechanism?.template || ''}
+                onChange={(e) => handleUpdateTemplate(e.target.value)}
+                placeholder={t('devtools.rdrMechanisms.templatePlaceholder', 'e.g., ccli --message "$(cat \'{{messagePath}}\')"')}
               />
 
               {/* Template validation warning */}
               {(() => {
-                const template = settings.rdrPromptSendingMechanism?.trim();
+                const template = selectedMechanism?.template?.trim();
                 if (template && !template.includes('{{message}}') && !template.includes('{{messagePath}}')) {
                   return (
                     <div className="flex items-start gap-2 p-2 border border-amber-500/50 bg-amber-500/10 rounded-md">
@@ -519,63 +653,59 @@ export function DevToolsSettings({ settings, onSettingsChange }: DevToolsSetting
                 }
                 return null;
               })()}
-
-              {/* Preset buttons */}
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() =>
-                    onSettingsChange({
-                      ...settings,
-                      rdrPromptSendingMechanism: 'powershell.exe -ExecutionPolicy Bypass -File "{{scriptPath}}"'
-                    })
-                  }
-                >
-                  Windows PowerShell
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() =>
-                    onSettingsChange({
-                      ...settings,
-                      rdrPromptSendingMechanism: 'ccli --message "$(cat \'{{messagePath}}\')"'
-                    })
-                  }
-                >
-                  macOS/Linux ccli
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() =>
-                    onSettingsChange({
-                      ...settings,
-                      rdrPromptSendingMechanism: 'cursor --goto "{{messagePath}}"'
-                    })
-                  }
-                >
-                  Cursor
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() =>
-                    onSettingsChange({
-                      ...settings,
-                      rdrPromptSendingMechanism: 'code --goto "{{messagePath}}"'
-                    })
-                  }
-                >
-                  VS Code
-                </Button>
-              </div>
             </div>
+
+            {/* Create Mechanism Dialog */}
+            <Dialog open={showCreateMechanismDialog} onOpenChange={setShowCreateMechanismDialog}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>{t('devtools.rdrMechanisms.createDialogTitle', 'Create New Mechanism')}</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="mechanism-name">{t('devtools.rdrMechanisms.nameLabel', 'Mechanism Name')}</Label>
+                    <Input
+                      id="mechanism-name"
+                      value={mechanismName}
+                      onChange={(e) => setMechanismName(e.target.value)}
+                      placeholder={t('devtools.rdrMechanisms.namePlaceholder', 'e.g., Windows Claude Code for VS Code')}
+                    />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setShowCreateMechanismDialog(false)}>
+                    Cancel
+                  </Button>
+                  <Button onClick={handleCreateMechanism}>Create</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
+            {/* Rename Mechanism Dialog */}
+            <Dialog open={showRenameMechanismDialog} onOpenChange={setShowRenameMechanismDialog}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>{t('devtools.rdrMechanisms.renameDialogTitle', 'Rename Mechanism')}</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="rename-mechanism-name">{t('devtools.rdrMechanisms.nameLabel', 'Mechanism Name')}</Label>
+                    <Input
+                      id="rename-mechanism-name"
+                      value={mechanismName}
+                      onChange={(e) => setMechanismName(e.target.value)}
+                      placeholder={t('devtools.rdrMechanisms.namePlaceholder', 'e.g., Windows Claude Code for VS Code')}
+                    />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setShowRenameMechanismDialog(false)}>
+                    Cancel
+                  </Button>
+                  <Button onClick={handleRenameMechanism}>Rename</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </div>
 
           {/* Auto-Restart on Crash or If Required */}

@@ -303,10 +303,14 @@
       "label": "Auto-disable RDR on User Stop",
       "description": "When you stop/drag a task that lands on Human Review, automatically disable RDR for that task so it won't be auto-recovered. Turn this off if you want stopped tasks to still be detected by MCP for later recovery (e.g., task taking too long and you want it picked up later). Recommended to keep ON."
     },
-    "rdrPromptSendingMechanism": {
+    "rdrMechanisms": {
       "label": "Master LLM RDR Prompt Sending Mechanism",
-      "description": "Customize how Auto-Claude sends RDR prompts to your Master LLM. Use template variables: {{message}} (escaped message text), {{messagePath}} (temp file path), {{identifier}} (window PID/title). Leave empty for platform defaults.",
-      "placeholder": "e.g., ccli --message \"$(cat '{{messagePath}}')\""
+      "description": "Manage named RDR sending mechanisms. Use template variables: {{message}} (escaped text), {{messagePath}} (temp file path), {{identifier}} (window PID/title), {{scriptPath}} (script file path).",
+      "templatePlaceholder": "e.g., ccli --message \"$(cat '{{messagePath}}')\"",
+      "createDialogTitle": "Create New Mechanism",
+      "renameDialogTitle": "Rename Mechanism",
+      "nameLabel": "Mechanism Name",
+      "namePlaceholder": "e.g., Windows Claude Code for VS Code"
     },
     "autoRestartOnFailure": {
       "label": "LLM Manager Auto-Restart",

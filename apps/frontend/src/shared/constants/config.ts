@@ -116,6 +116,21 @@ export const DEFAULT_PROJECT_SETTINGS = {
 };
 
 // ============================================
+// Default RDR Mechanisms
+// ============================================
+
+// Default RDR sending mechanisms (profiles)
+// Users can create additional mechanisms in settings
+export const DEFAULT_RDR_MECHANISMS = [
+  {
+    id: 'windows-claude-code-vscode',
+    name: 'Windows Claude Code for VS Code',
+    template: 'powershell.exe -ExecutionPolicy Bypass -File "{{scriptPath}}"',
+    isDefault: true
+  }
+];
+
+// ============================================
 // Auto Build File Paths
 // ============================================
 

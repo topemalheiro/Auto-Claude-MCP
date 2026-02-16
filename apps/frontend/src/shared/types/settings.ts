@@ -305,10 +305,17 @@ export interface AppSettings {
   // When enabled, stopping a task automatically sets metadata.rdrDisabled=true so RDR won't auto-recover it
   // Turn off if you want stopped tasks to still be detected by MCP for later recovery
   autoDisableRdrOnStop?: boolean;
-  // Custom command template for sending RDR prompts to Master LLM
+  // Array of named RDR sending mechanisms (profiles)
+  // Each mechanism has a name, template, and unique ID
   // Template variables: {{message}}, {{messagePath}}, {{identifier}}, {{scriptPath}}
-  // Leave empty to use platform-specific default (PowerShell on Windows, ccli on Unix)
-  rdrPromptSendingMechanism?: string;
+  rdrMechanisms?: Array<{
+    id: string;          // UUID for stable identification
+    name: string;        // User-friendly name (e.g., "Windows Claude Code for VS Code")
+    template: string;    // Command template with {{variables}}
+    isDefault: boolean;  // System-provided default (cannot be deleted)
+  }>;
+  // ID of currently active RDR mechanism
+  activeMechanismId?: string;
   // Auto-shutdown when all tasks across ALL projects reach Human Review
   // Global setting that monitors task progress across all projects simultaneously
   autoShutdownEnabled?: boolean;
