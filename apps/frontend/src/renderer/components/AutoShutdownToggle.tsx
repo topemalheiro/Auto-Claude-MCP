@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Power, PowerOff, Loader2 } from 'lucide-react';
+import { Button } from './ui/button';
 import { Switch } from './ui/switch';
 import {
   Tooltip,
@@ -19,12 +20,16 @@ interface AutoShutdownStatus {
   countdown?: number;
 }
 
+interface AutoShutdownToggleProps {
+  isCollapsed?: boolean;
+}
+
 /**
  * Global Auto-Shutdown Toggle
  * Monitors ALL projects simultaneously and triggers shutdown when
  * ALL tasks across ALL projects reach Human Review.
  */
-export function AutoShutdownToggle() {
+export function AutoShutdownToggle({ isCollapsed = false }: AutoShutdownToggleProps) {
   const { t } = useTranslation(['common', 'settings']);
   const projects = useProjectStore((state) => state.projects);
   const settings = useSettingsStore((state) => state.settings);
@@ -100,22 +105,62 @@ export function AutoShutdownToggle() {
   };
 
   const getStatusIcon = () => {
+    // Shutdown pending: red/destructive with pulse
     if (status.shutdownPending) {
       return <PowerOff className="h-4 w-4 text-destructive animate-pulse" />;
     }
+
+    // Monitoring: use accent color (theme-specific) with spin animation
     if (status.monitoring) {
-      return <Loader2 className="h-4 w-4 text-primary animate-spin" />;
+      return <Loader2 className="h-4 w-4 text-accent animate-spin" />;
     }
+
+    // Enabled: use accent color (yellow for default theme, matches theme)
+    if (status.enabled) {
+      return <Power className="h-4 w-4 text-accent" />;
+    }
+
+    // Disabled: gray/muted
     return <Power className="h-4 w-4 text-muted-foreground" />;
   };
 
+  // Collapsed state: icon-only button
+  if (isCollapsed) {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => handleToggle(!status.enabled)}
+            disabled={status.shutdownPending}
+            className={cn(
+              "transition-colors",
+              status.shutdownPending && "opacity-50 cursor-not-allowed"
+            )}
+            aria-label={t('settings:autoShutdown.toggle')}
+          >
+            {getStatusIcon()}
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="right" className="max-w-xs">
+          <div className="space-y-1">
+            <p className="font-medium">{t('settings:autoShutdown.title')}</p>
+            <p className="text-xs text-muted-foreground">{getStatusText()}</p>
+          </div>
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
+
+  // Expanded state: full card (keep existing implementation)
   return (
     <div className={cn(
       "rounded-lg border p-3 transition-colors",
       status.shutdownPending
         ? "border-destructive/50 bg-destructive/10"
         : status.monitoring
-        ? "border-primary/50 bg-primary/10"
+        ? "border-accent/50 bg-accent/10"
         : "border-border bg-card"
     )}>
       <div className="flex items-center justify-between gap-2">
@@ -132,7 +177,7 @@ export function AutoShutdownToggle() {
                   status.shutdownPending
                     ? "text-destructive font-medium"
                     : status.monitoring
-                    ? "text-primary"
+                    ? "text-accent"
                     : "text-muted-foreground"
                 )}>
                   {getStatusText()}

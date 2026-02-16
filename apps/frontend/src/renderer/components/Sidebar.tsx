@@ -422,7 +422,7 @@ export function Sidebar({
           {!isCollapsed && <ClaudeCodeStatusBadge />}
 
           {/* Auto Shutdown Toggle */}
-          <AutoShutdownToggle />
+          <AutoShutdownToggle isCollapsed={isCollapsed} />
 
           {/* Settings and Help row */}
           <div className={cn(
