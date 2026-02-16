@@ -8,7 +8,7 @@ Use this checklist to verify all features work after resolving the 33 merge conf
 - [x?] RDR priority escalation works (P1 -> P3 after 3 attempts)
 - [x] Auto-Recover — recover a single or batches of tasks
 - [x] Auto-Continue working in batch or single task tool [x] Working for In Progress
-- [x] Queue not moving when task regresses from Progress to Planning and [x?] sending RDR when RDR is ON - needs to be tested. [ ] Might need to have tasks that get user stopped into HR get RDR single task toggle offed
+- [x] Queue not moving when task regresses from Progress to Planning and [x?] sending RDR when RDR is ON - needs to be tested. [x] Might need to have tasks that get user stopped into HR get RDR single task toggle offed
 - [x?] Regression of tasks RDR detection working
 - [x] All incomplete tasks in HR and Regressed to backlog pinged in RDR - test with the method from previous entry
 - [...?] Auto-Resume on Rate Limit Reset
