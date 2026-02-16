@@ -11,7 +11,7 @@ Use this checklist to verify all features work after resolving the 33 merge conf
 - [ ] Queue not moving when task regresses from Progress to Planning and sending RDR when RDR is ON - needs to be tested. Todo: Might need to have tasks that stop into HR get RDR task toggle offed and/or MCP LLM throws it in Queue"
 - [x?] Regression of tasks RDR detection working
 - [x] All incomplete tasks in HR and Regressed to backlog pinged in RDR - test with the method from previous entry
-- [ ] Auto-Resume on Rate Limit Reset
+- [...?] Auto-Resume on Rate Limit Reset
 
 ## Build & Launch
 
