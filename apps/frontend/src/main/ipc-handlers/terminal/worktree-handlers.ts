@@ -8,7 +8,7 @@ import type {
   OtherWorktreeInfo,
 } from '../../../shared/types';
 import path from 'path';
-import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync, rmSync, symlinkSync, lstatSync, copyFileSync, cpSync, statSync } from 'fs';
+import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync, rmSync, symlinkSync, lstatSync, copyFileSync, cpSync, statSync, readlinkSync } from 'fs';
 import { execFileSync, execFile } from 'child_process';
 import { promisify } from 'util';
 import { minimatch } from 'minimatch';
@@ -59,14 +59,16 @@ function isTimeoutError(error: unknown): boolean {
 
 /**
  * Check if a path is a symlink or Windows junction (including broken ones).
- * Uses lstatSync to detect the link itself, not what it points to.
+ * Uses readlinkSync which works for both symlinks and junctions on all platforms.
  */
 function isSymlinkOrJunction(targetPath: string): boolean {
   try {
-    const stats = lstatSync(targetPath);
-    return stats.isSymbolicLink();
+    // readlinkSync throws if the path is not a symlink/junction
+    // It works for both symlinks and junctions on Windows and Unix
+    readlinkSync(targetPath);
+    return true;
   } catch {
-    return false; // Path doesn't exist at all
+    return false; // Path doesn't exist or is not a symlink/junction
   }
 }
 

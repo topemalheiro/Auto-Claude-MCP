@@ -659,12 +659,11 @@ def setup_worktree_dependencies(
                                 f"Symlinked venv health check failed, falling back to recreate: {config.source_rel_path}",
                             )
                             # Remove the broken symlink and recreate
-                            symlink_path = worktree_path / config.source_rel_path
                             try:
-                                if symlink_path.is_symlink():
-                                    symlink_path.unlink()
-                                elif symlink_path.exists():
-                                    shutil.rmtree(symlink_path, ignore_errors=True)
+                                if venv_path.is_symlink():
+                                    venv_path.unlink()
+                                elif venv_path.exists():
+                                    shutil.rmtree(venv_path, ignore_errors=True)
                             except OSError:
                                 pass  # Best-effort removal; recreate strategy handles existing paths
                             performed = _apply_recreate_strategy(
@@ -673,6 +672,8 @@ def setup_worktree_dependencies(
                             # Update strategy name to reflect fallback
                             if performed:
                                 strategy_name = "recreate"
+                                # Ensure the key exists for the fallback strategy
+                                results.setdefault(strategy_name, [])
             elif config.strategy == DependencyStrategy.RECREATE:
                 performed = _apply_recreate_strategy(project_dir, worktree_path, config)
             elif config.strategy == DependencyStrategy.COPY:
@@ -783,8 +784,22 @@ def _popen_with_cleanup(
         except subprocess.TimeoutExpired:
             debug_warning(MODULE, f"{label} did not terminate, killing process")
             proc.kill()
-            proc.communicate(timeout=5)
+            try:
+                proc.communicate(timeout=5)
+            except subprocess.TimeoutExpired:
+                # Final cleanup attempt if kill() also hangs
+                debug_warning(MODULE, f"{label} could not be stopped even after kill()")
         raise
+    finally:
+        # Ensure pipes are closed and process is reaped to avoid zombie processes
+        if proc.stdout:
+            proc.stdout.close()
+        if proc.stderr:
+            proc.stderr.close()
+        try:
+            proc.wait(timeout=0.1)
+        except subprocess.TimeoutExpired:
+            pass  # Process still running, already logged warning above
 
 
 def _apply_recreate_strategy(
