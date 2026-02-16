@@ -4,6 +4,7 @@ import { Badge } from '../ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
 import { cn, calculateProgress } from '../../lib/utils';
 import type { Task } from '../../../shared/types';
+import { SUBTASK_TITLE_MAX_LENGTH } from '../../../shared/utils/subtask-title';
 
 interface TaskSubtasksProps {
   task: Task;
@@ -73,7 +74,7 @@ export function TaskSubtasks({ task }: TaskSubtasksProps) {
                     </span>
                   </div>
                   {subtask.description && subtask.description !== subtask.title && (
-                    subtask.description.length > 80 ? (
+                    subtask.description.length > SUBTASK_TITLE_MAX_LENGTH ? (
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <button
