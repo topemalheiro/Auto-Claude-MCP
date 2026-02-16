@@ -509,7 +509,7 @@ def create_client(
     # The version check spawns a subprocess with different params than the main connect() call,
     # and silently catches errors — but it can interfere with the main process on Windows.
     if is_windows():
-        # Validated against claude-agent-sdk v1.x — becomes a no-op if SDK removes this env var
+        # Validated against claude-agent-sdk v0.1.33 — becomes a no-op if SDK removes this env var
         sdk_env["CLAUDE_AGENT_SDK_SKIP_VERSION_CHECK"] = "1"
 
     # Get the config dir for profile-specific credential lookup
@@ -896,9 +896,16 @@ def create_client(
     env_cli_path = os.environ.get("CLAUDE_CLI_PATH")
     if env_cli_path and validate_cli_path(env_cli_path):
         options_kwargs["cli_path"] = env_cli_path
-        logger.info(f"Using CLAUDE_CLI_PATH override: {env_cli_path}, exists={os.path.exists(env_cli_path)}")
+        logger.info(
+            f"Using CLAUDE_CLI_PATH override: {env_cli_path}, "
+            f"exists={os.path.exists(env_cli_path)}"
+        )
     else:
-        logger.info(f"CLAUDE_CLI_PATH not set or invalid (value={env_cli_path!r}), SDK will auto-discover bundled CLI")
+        logger.info(
+            "CLAUDE_CLI_PATH not set or invalid (value=%r), "
+            "SDK will auto-discover bundled CLI",
+            env_cli_path,
+        )
 
     # Diagnostic: log critical Windows env vars needed for subprocess spawning
     if is_windows():
