@@ -1348,12 +1348,18 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
         const projectState = useProjectStore.getState().getActiveProject();
         const rdrEnabled = projectState?.settings?.rdrEnabled ?? false;
 
-        // Track held slots: ANY departure from in_progress holds a slot when RDR is on
+        // Track held slots: Departures from in_progress hold a slot when RDR is on
+        // EXCEPT user-stopped tasks (reviewReason='stopped') — those have RDR auto-disabled
         // This covers: → human_review (errors), → backlog (no plan), → ai_review, etc.
         // The held slot reserves the in_progress capacity for RDR to restart the task.
-        if (rdrEnabled && oldStatus === 'in_progress' && newStatus !== 'in_progress') {
+        const task = tasks.find(t => t.id === taskId);
+        const isUserStopped = task?.reviewReason === 'stopped';
+
+        if (rdrEnabled && oldStatus === 'in_progress' && newStatus !== 'in_progress' && !isUserStopped) {
           heldSlotIdsRef.current = new Set([...heldSlotIdsRef.current, taskId]);
           debugLog(`[Queue] Task ${taskId} left in_progress (→ ${newStatus}), holding slot (${heldSlotIdsRef.current.size} held)`);
+        } else if (isUserStopped) {
+          debugLog(`[Queue] Task ${taskId} stopped by user, NOT holding slot (RDR auto-disabled)`);
         }
 
         // Release held slot when task returns to in_progress (now counted in live slots)
