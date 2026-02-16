@@ -260,8 +260,8 @@ describe('roadmapFeatureMachine', () => {
     });
   });
 
-  describe('same-status transition is no-op', () => {
-    it('should ignore MOVE_TO_REVIEW when already in under_review', () => {
+  describe('redundant status transitions', () => {
+    it('should ignore MOVE_TO_REVIEW when already in under_review (no-op)', () => {
       const actor = createActor(roadmapFeatureMachine);
       actor.start();
       // MOVE_TO_REVIEW is not defined on under_review, so it's ignored
@@ -270,12 +270,12 @@ describe('roadmapFeatureMachine', () => {
       actor.stop();
     });
 
-    it('should ignore PLAN when already in planned', () => {
+    it('should ignore PLAN when already in planned (no-op)', () => {
       const snapshot = runEvents([{ type: 'PLAN' }, { type: 'PLAN' }]);
       expect(snapshot.value).toBe('planned');
     });
 
-    it('should ignore START_PROGRESS when already in in_progress', () => {
+    it('should ignore START_PROGRESS when already in in_progress (no-op)', () => {
       const snapshot = runEvents([
         { type: 'START_PROGRESS' },
         { type: 'START_PROGRESS' }
@@ -283,7 +283,7 @@ describe('roadmapFeatureMachine', () => {
       expect(snapshot.value).toBe('in_progress');
     });
 
-    it('should remain in done on MARK_DONE self-transition', () => {
+    it('should handle MARK_DONE in done state (self-transition)', () => {
       const snapshot = runEvents([{ type: 'MARK_DONE' }, { type: 'MARK_DONE' }]);
       expect(snapshot.value).toBe('done');
     });

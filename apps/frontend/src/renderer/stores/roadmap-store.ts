@@ -240,6 +240,8 @@ export const useRoadmapStore = create<RoadmapState>((set) => ({
         if (cs === 'idle') {
           actor.send({ type: 'START_GENERATION' });
           actor.send({ type: 'DISCOVERY_STARTED' });
+        } else if (cs === 'analyzing') {
+          actor.send({ type: 'DISCOVERY_STARTED' });
         } else if (cs === 'complete' || cs === 'error') {
           actor.send({ type: 'RESET' });
           actor.send({ type: 'START_GENERATION' });
@@ -248,9 +250,27 @@ export const useRoadmapStore = create<RoadmapState>((set) => ({
         event = { type: 'GENERATION_STARTED' };
         break;
       }
-      case 'complete':
+      case 'complete': {
+        const cs = String(actor.getSnapshot().value);
+        // Catch-up logic: advance actor to 'generating' state before sending GENERATION_COMPLETE
+        if (cs === 'idle') {
+          actor.send({ type: 'START_GENERATION' });
+          actor.send({ type: 'DISCOVERY_STARTED' });
+          actor.send({ type: 'GENERATION_STARTED' });
+        } else if (cs === 'analyzing') {
+          actor.send({ type: 'DISCOVERY_STARTED' });
+          actor.send({ type: 'GENERATION_STARTED' });
+        } else if (cs === 'discovering') {
+          actor.send({ type: 'GENERATION_STARTED' });
+        } else if (cs === 'error') {
+          actor.send({ type: 'RESET' });
+          actor.send({ type: 'START_GENERATION' });
+          actor.send({ type: 'DISCOVERY_STARTED' });
+          actor.send({ type: 'GENERATION_STARTED' });
+        }
         event = { type: 'GENERATION_COMPLETE' };
         break;
+      }
       case 'error':
         event = { type: 'GENERATION_ERROR', error: status.error ?? 'Unknown error' };
         break;
@@ -402,11 +422,14 @@ export const useRoadmapStore = create<RoadmapState>((set) => ({
     const derivedStatus = mapFeatureStateToStatus(String(snapshot.value));
     const ctx = snapshot.context;
 
+    // Skip store write if XState silently ignored the event (no linkedSpecId in context)
+    if (!ctx.linkedSpecId) return;
+
     set((s) => {
       if (!s.roadmap) return s;
       const updatedFeatures = s.roadmap.features.map((f) =>
         f.id === featureId
-          ? { ...f, linkedSpecId: ctx.linkedSpecId ?? specId, status: derivedStatus }
+          ? { ...f, linkedSpecId: ctx.linkedSpecId, status: derivedStatus }
           : f
       );
       return {
@@ -787,4 +810,11 @@ export function getFeatureStats(roadmap: Roadmap | null): {
     byStatus,
     byComplexity
   };
+}
+
+// HMR cleanup: reset actors on hot module replacement
+if (import.meta.hot) {
+  import.meta.hot.dispose(() => {
+    resetActors();
+  });
 }

@@ -84,8 +84,11 @@ describe('Roadmap Store', () => {
     });
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     vi.clearAllMocks();
+    // Reset XState actors to prevent test pollution
+    const { resetActors } = await import('../stores/roadmap-store');
+    resetActors();
   });
 
   describe('setRoadmap', () => {
