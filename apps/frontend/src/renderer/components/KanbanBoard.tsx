@@ -2025,8 +2025,8 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       return;
     }
 
-    // Use process ID for stable matching (title changes when user switches editor tabs)
-    const processId = selectedWindow.processId;
+    // Use window handle for stable matching (title changes when user switches editor tabs)
+    const handle = selectedWindow.handle;
 
     // Check if Claude Code is busy - SKIP on first check after enable and on idle events
     if (rdrSkipBusyCheckRef.current) {
@@ -2079,8 +2079,8 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       // Mark message as in-flight
       setRdrMessageInFlight(true);
 
-      // Send to VS Code window using process ID (stable regardless of active editor tab)
-      const sendResult = await window.electronAPI.sendRdrToWindow(processId, message);
+      // Send to VS Code window using window handle (stable regardless of active editor tab)
+      const sendResult = await window.electronAPI.sendRdrToWindow(handle, message);
 
       if (sendResult.success) {
         console.log('[RDR] Auto-send successful');
@@ -2292,8 +2292,8 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
         return;
       }
 
-      // Use process ID for stable matching (title changes when user switches editor tabs)
-      const processId = selectedWindow.processId;
+      // Use window handle for stable matching (title changes when user switches editor tabs)
+      const handle = selectedWindow.handle;
 
       // Send directly to VS Code window with detailed message
       toast({
@@ -2313,7 +2313,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
           message = 'Check RDR batches and fix errored tasks';
         }
 
-        const result = await window.electronAPI.sendRdrToWindow(processId, message);
+        const result = await window.electronAPI.sendRdrToWindow(handle, message);
 
         if (result.success) {
           toast({

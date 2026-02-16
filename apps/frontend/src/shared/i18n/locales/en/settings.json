@@ -304,7 +304,7 @@
       "description": "When you stop/drag a task that lands on Human Review, automatically disable RDR for that task so it won't be auto-recovered. Turn this off if you want stopped tasks to still be detected by MCP for later recovery (e.g., task taking too long and you want it picked up later). Recommended to keep ON."
     },
     "rdrMechanisms": {
-      "label": "Master LLM RDR Prompt Sending Mechanism",
+      "label": "MCP Master LLM RDR Prompt Sending Mechanism",
       "description": "Manage named RDR sending mechanisms. Use template variables: {{message}} (escaped text), {{messagePath}} (temp file path), {{identifier}} (window PID/title), {{scriptPath}} (script file path).",
       "templatePlaceholder": "e.g., ccli --message \"$(cat '{{messagePath}}')\"",
       "createDialogTitle": "Create New Mechanism",

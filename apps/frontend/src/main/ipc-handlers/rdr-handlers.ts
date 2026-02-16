@@ -1872,7 +1872,7 @@ export function registerRdrHandlers(agentManager?: AgentManager): void {
   ipcMain.handle(
     IPC_CHANNELS.SEND_RDR_TO_WINDOW,
     async (event, identifier: number | string, message: string): Promise<IPCResult<{ success: boolean; error?: string }>> => {
-      const matchType = typeof identifier === 'number' ? 'PID' : 'title';
+      const matchType = typeof identifier === 'number' ? 'handle' : 'title';
       console.log(`[RDR] 📤 Preparing to send message to window by ${matchType}: "${identifier}"`);
       console.log(`[RDR]    Message length: ${message.length} characters`);
 
