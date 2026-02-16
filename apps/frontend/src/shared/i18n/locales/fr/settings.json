@@ -301,7 +301,7 @@
     },
     "autoDisableRdrOnStop": {
       "label": "Désactiver automatiquement RDR lors de l'arrêt",
-      "description": "Lorsque vous arrêtez une tâche, désactive automatiquement le RDR pour cette tâche afin qu'elle ne soit pas récupérée automatiquement. Désactivez cette option si vous souhaitez que les tâches arrêtées soient toujours détectées par MCP pour une récupération ultérieure."
+      "description": "Lorsque vous arrêtez une tâche qui arrive en Révision Humaine, désactive automatiquement le RDR pour cette tâche afin qu'elle ne soit pas récupérée automatiquement. Désactivez cette option si vous souhaitez que les tâches arrêtées soient toujours détectées par MCP pour une récupération ultérieure. Recommandé de garder ACTIVÉ."
     },
     "autoRestartOnFailure": {
       "label": "Redémarrage automatique par LLM Manager",

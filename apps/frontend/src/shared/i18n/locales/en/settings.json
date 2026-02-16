@@ -301,7 +301,7 @@
     },
     "autoDisableRdrOnStop": {
       "label": "Auto-disable RDR on User Stop",
-      "description": "When you stop a task, automatically disable RDR for that task so it won't be auto-recovered. Turn this off if you want stopped tasks to still be detected by MCP for later recovery (e.g., task taking too long and you want it picked up later)."
+      "description": "When you stop a task that lands on Human Review, automatically disable RDR for that task so it won't be auto-recovered. Turn this off if you want stopped tasks to still be detected by MCP for later recovery (e.g., task taking too long and you want it picked up later). Recommended to keep ON."
     },
     "autoRestartOnFailure": {
       "label": "LLM Manager Auto-Restart",
