@@ -442,6 +442,12 @@ function determineInterventionType(task: TaskInfo, hasWorktree?: boolean, rawPla
   // If we got here with human_review status, it's NOT legitimate - flag it
   // This catches plan_review tasks and any other invalid human_review states
   if (task.status === 'human_review') {
+    // User explicitly stopped this task — don't flag for intervention
+    // Human Review is a static board — stopped tasks should stay there
+    if (task.reviewReason === 'stopped') {
+      console.log(`[RDR] Task ${task.specId} in human_review but user stopped it (reviewReason=stopped) — skipping`);
+      return null;
+    }
     // task has human_review status but isLegitimateHumanReview returned false
     // This means it's a plan_review task (needs to start coding) or
     // a task at <100% (QA crashed/incomplete)

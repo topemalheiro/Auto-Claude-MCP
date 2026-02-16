@@ -1143,18 +1143,22 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     const rdrProject = useProjectStore.getState().getActiveProject();
     const rdrActive = rdrProject?.settings?.rdrEnabled ?? false;
 
-    // On first run / after reload, sync heldSlotIds with current HR failures
+    // On first run / after reload, sync heldSlotIds with current non-in_progress tasks
+    // that have a reviewReason indicating failure (not user-stopped or completed)
     // This catches tasks that failed before page reload
     if (rdrActive) {
       const allTasks = useTaskStore.getState().tasks;
-      const hrFailures = allTasks.filter(t =>
-        t.status === 'human_review' &&
+      const failedTasks = allTasks.filter(t =>
+        t.status !== 'in_progress' &&
+        t.status !== 'done' &&
+        t.status !== 'pr_created' &&
+        t.status !== 'queue' &&
         t.reviewReason &&
         t.reviewReason !== 'stopped' &&
         t.reviewReason !== 'completed' &&
         !t.metadata?.archivedAt
       );
-      for (const t of hrFailures) {
+      for (const t of failedTasks) {
         heldSlotIdsRef.current.add(t.id);
       }
     }
@@ -1215,11 +1219,16 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
           processedCount: processedTaskIds.size
         });
 
-        // Calculate held slots: failed tasks in HR that are still holding their in_progress slot
-        // Only tasks with RDR enabled (not rdrDisabled) hold slots
+        // Calculate held slots: tasks that left in_progress and are holding their slot
+        // Only count tasks NOT already in_progress (those are in live count) and NOT terminal
         const activeHeldSlots = rdrActive ? [...heldSlotIdsRef.current].filter(id => {
           const t = currentTasks.find(task => task.id === id);
-          return t && t.status === 'human_review' && !t.metadata?.rdrDisabled && !t.metadata?.archivedAt;
+          return t &&
+            t.status !== 'in_progress' &&   // Not already counted in live slots
+            t.status !== 'done' &&           // Terminal — no longer needs slot
+            t.status !== 'pr_created' &&     // Terminal — no longer needs slot
+            !t.metadata?.rdrDisabled &&
+            !t.metadata?.archivedAt;
         }).length : 0;
 
         // Stop if no capacity (live in_progress + held slots from failures)
@@ -1295,10 +1304,15 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       // Update UI blocked state based on held slots
       const finalHeldSlots = rdrActive ? [...heldSlotIdsRef.current].filter(id => {
         const t = useTaskStore.getState().tasks.find(task => task.id === id);
-        return t && t.status === 'human_review' && !t.metadata?.rdrDisabled && !t.metadata?.archivedAt;
+        return t &&
+          t.status !== 'in_progress' &&
+          t.status !== 'done' &&
+          t.status !== 'pr_created' &&
+          !t.metadata?.rdrDisabled &&
+          !t.metadata?.archivedAt;
       }).length : 0;
       setQueueBlocked(finalHeldSlots > 0);
-      setQueueBlockReason(finalHeldSlots > 0 ? `${finalHeldSlots} failed task(s) holding slots` : null);
+      setQueueBlockReason(finalHeldSlots > 0 ? `${finalHeldSlots} task(s) holding slots` : null);
 
       // Trigger UI refresh if tasks were promoted to ensure UI reflects all changes
       // This handles the case where store updates are batched/delayed via IPC events
@@ -1320,22 +1334,21 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
         const projectState = useProjectStore.getState().getActiveProject();
         const rdrEnabled = projectState?.settings?.rdrEnabled ?? false;
 
-        // Track held slots: only in_progress → human_review failures hold a slot
-        // (ai_review → human_review does NOT hold a slot — that slot was already freed)
-        if (rdrEnabled && oldStatus === 'in_progress' && newStatus === 'human_review') {
-          const task = useTaskStore.getState().tasks.find(t => t.id === taskId);
-          if (task?.reviewReason !== 'stopped') {
-            heldSlotIdsRef.current = new Set([...heldSlotIdsRef.current, taskId]);
-            debugLog(`[Queue] Task ${taskId} failed, holding slot (${heldSlotIdsRef.current.size} held)`);
-          }
+        // Track held slots: ANY departure from in_progress holds a slot when RDR is on
+        // This covers: → human_review (errors), → backlog (no plan), → ai_review, etc.
+        // The held slot reserves the in_progress capacity for RDR to restart the task.
+        if (rdrEnabled && oldStatus === 'in_progress' && newStatus !== 'in_progress') {
+          heldSlotIdsRef.current = new Set([...heldSlotIdsRef.current, taskId]);
+          debugLog(`[Queue] Task ${taskId} left in_progress (→ ${newStatus}), holding slot (${heldSlotIdsRef.current.size} held)`);
         }
 
-        // Release held slot when task moves out of human_review (restarted, marked done, etc.)
-        if (heldSlotIdsRef.current.has(taskId) && newStatus !== 'human_review') {
+        // Release held slot when task returns to in_progress (now counted in live slots)
+        // or reaches a terminal state (done/pr_created — no longer needs a slot)
+        if (heldSlotIdsRef.current.has(taskId) && (newStatus === 'in_progress' || newStatus === 'done' || newStatus === 'pr_created')) {
           const newSet = new Set(heldSlotIdsRef.current);
           newSet.delete(taskId);
           heldSlotIdsRef.current = newSet;
-          debugLog(`[Queue] Task ${taskId} left HR, released held slot (${heldSlotIdsRef.current.size} remaining)`);
+          debugLog(`[Queue] Task ${taskId} → ${newStatus}, released held slot (${heldSlotIdsRef.current.size} remaining)`);
         }
 
         // Process queue when task leaves in_progress (for any reason including failures)
@@ -2132,6 +2145,13 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
 
     const cleanup = window.electronAPI.onTaskRegressionDetected((data) => {
       if (data.projectId !== projectId) return;
+
+      // Check if this was a user-stopped task — don't trigger RDR for intentional stops
+      const task = useTaskStore.getState().tasks.find(t => t.id === data.specId);
+      if (task?.reviewReason === 'stopped') {
+        console.log(`[KanbanBoard] Task regression: ${data.specId} was user-stopped — skipping RDR`);
+        return;
+      }
 
       console.warn(`[KanbanBoard] Task regression: ${data.specId} (${data.oldStatus} → ${data.newStatus})`);
 
