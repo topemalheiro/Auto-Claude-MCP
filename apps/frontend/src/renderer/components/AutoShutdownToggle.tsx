@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Power, PowerOff, Loader2 } from 'lucide-react';
-import { Button } from './ui/button';
 import { Switch } from './ui/switch';
 import {
   Tooltip,
@@ -107,52 +106,56 @@ export function AutoShutdownToggle({ isCollapsed = false }: AutoShutdownTogglePr
   const getStatusIcon = () => {
     // Shutdown pending: red/destructive with pulse
     if (status.shutdownPending) {
-      return <PowerOff className="h-5 w-5 text-destructive animate-pulse" />;
+      return <PowerOff className="h-4 w-4 text-destructive animate-pulse" />;
     }
 
-    // Monitoring: use accent color (theme-specific) with spin animation
+    // Monitoring: bright accent text color with spin animation
     if (status.monitoring) {
-      return <Loader2 className="h-5 w-5 text-accent animate-spin" />;
+      return <Loader2 className="h-4 w-4 text-accent-foreground animate-spin" />;
     }
 
-    // Enabled: use accent color (yellow for default theme, matches theme)
+    // Enabled: bright accent text color
     if (status.enabled) {
-      return <Power className="h-5 w-5 text-accent" />;
+      return <Power className="h-4 w-4 text-accent-foreground" />;
     }
 
     // Disabled: gray/muted
-    return <Power className="h-5 w-5 text-muted-foreground" />;
+    return <Power className="h-4 w-4 text-muted-foreground" />;
   };
 
-  // Collapsed state: show toggle switch only
+  // Collapsed state: power icon only (accent color when on, gray when off)
   if (isCollapsed) {
     return (
       <div className="flex items-center justify-center">
         <Tooltip>
           <TooltipTrigger asChild>
-            <div className="flex items-center justify-center p-2">
-              <Switch
-                checked={status.enabled}
-                onCheckedChange={handleToggle}
-                disabled={status.shutdownPending}
-                aria-label={t('settings:autoShutdown.toggle')}
-                className={cn(
-                  status.shutdownPending && "opacity-50 cursor-not-allowed"
-                )}
-              />
-            </div>
+            <button
+              onClick={() => handleToggle(!status.enabled)}
+              disabled={status.shutdownPending}
+              className={cn(
+                "h-9 w-9 flex items-center justify-center rounded-lg transition-colors",
+                "hover:bg-accent-foreground/10",
+                status.shutdownPending && "opacity-50 cursor-not-allowed"
+              )}
+              aria-label={t('settings:autoShutdown.toggle')}
+            >
+              <Power className={cn(
+                "h-5 w-5",
+                status.shutdownPending
+                  ? "text-destructive animate-pulse"
+                  : (status.enabled || status.monitoring)
+                  ? "text-accent-foreground"
+                  : "text-muted-foreground"
+              )} />
+            </button>
           </TooltipTrigger>
           <TooltipContent side="right" className="max-w-xs">
             <div className="space-y-1">
               <p className="font-medium">{t('settings:autoShutdown.title')}</p>
               <p className={cn(
                 "text-xs",
-                status.shutdownPending
-                  ? "text-destructive font-medium"
-                  : status.monitoring
-                  ? "text-accent font-medium"
-                  : status.enabled
-                  ? "text-accent"
+                (status.monitoring || status.enabled)
+                  ? "text-accent-foreground font-medium"
                   : "text-foreground"
               )}>{getStatusText()}</p>
             </div>
@@ -169,7 +172,7 @@ export function AutoShutdownToggle({ isCollapsed = false }: AutoShutdownTogglePr
       status.shutdownPending
         ? "border-destructive/50 bg-destructive/10"
         : status.monitoring
-        ? "border-accent/50 bg-accent/10"
+        ? "border-accent-foreground/30 bg-accent-foreground/10"
         : "border-border bg-card"
     )}>
       <div className="flex items-center justify-between gap-2">
@@ -186,8 +189,8 @@ export function AutoShutdownToggle({ isCollapsed = false }: AutoShutdownTogglePr
                   status.shutdownPending
                     ? "text-destructive"
                     : (status.monitoring || status.enabled)
-                    ? "text-yellow-300"
-                    : "text-foreground"
+                    ? "text-accent-foreground"
+                    : "text-muted-foreground"
                 )}>
                   {getStatusText()}
                 </span>
