@@ -125,7 +125,72 @@ export const DEFAULT_RDR_MECHANISMS = [
   {
     id: 'windows-claude-code-vscode',
     name: 'Windows Claude Code for VS Code',
-    template: '', // Empty = use platform default (full 60-line PowerShell script from window-manager.ts)
+    template: `$ProgressPreference = 'SilentlyContinue'
+$Handle = {{identifier}}
+$MessageFile = '{{messagePath}}'
+
+# Read message from file
+if (-not (Test-Path $MessageFile)) {
+    Write-Error "Message file not found: $MessageFile"
+    exit 1
+}
+$Message = Get-Content -Path $MessageFile -Raw -Encoding UTF8
+
+# Clean up temp file
+Remove-Item -Path $MessageFile -Force -ErrorAction SilentlyContinue
+
+Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+public class Win32 {
+    [DllImport("user32.dll")]
+    public static extern bool SetForegroundWindow(IntPtr hWnd);
+    [DllImport("user32.dll")]
+    public static extern IntPtr GetForegroundWindow();
+    [DllImport("user32.dll")]
+    public static extern bool IsWindow(IntPtr hWnd);
+}
+"@
+
+# Validate window handle
+if (-not [Win32]::IsWindow([IntPtr]$Handle)) {
+    Write-Error "Invalid window handle"
+    exit 1
+}
+
+# Save original foreground window
+$original = [Win32]::GetForegroundWindow()
+
+# Copy message to clipboard
+Set-Clipboard -Value $Message
+
+# Focus target window
+[Win32]::SetForegroundWindow([IntPtr]$Handle) | Out-Null
+Start-Sleep -Milliseconds 150
+
+# Verify focus succeeded
+$current = [Win32]::GetForegroundWindow()
+if ($current -ne [IntPtr]$Handle) {
+    Write-Error "Failed to focus window"
+    exit 1
+}
+
+# Send Ctrl+V (paste)
+Add-Type -AssemblyName System.Windows.Forms
+[System.Windows.Forms.SendKeys]::SendWait("^v")
+Start-Sleep -Milliseconds 100
+
+# Send Enter (submit)
+[System.Windows.Forms.SendKeys]::SendWait("{ENTER}")
+Start-Sleep -Milliseconds 50
+
+# Restore original window (optional, don't fail if it doesn't work)
+if ($original -ne [IntPtr]::Zero -and $original -ne [IntPtr]$Handle) {
+    Start-Sleep -Milliseconds 100
+    [Win32]::SetForegroundWindow($original) | Out-Null
+}
+
+Write-Output "Message sent successfully"`,
     isDefault: true
   }
 ];

@@ -42,20 +42,108 @@ export async function sendRdrMessage(
 
     // If custom template provided, use it
     if (customTemplate && customTemplate.trim() !== '') {
-      const command = substituteVariables(customTemplate, {
-        message: escapeForShell(message),
-        messagePath,
-        identifier: identifier.toString(),
-        scriptPath: scriptPath || '' // May not be used in custom template
-      });
+      // Detect script type
+      const trimmedTemplate = customTemplate.trim();
+      const isMultiLine = customTemplate.includes('\n');
+      const isPowerShellScript = isMultiLine && (trimmedTemplate.startsWith('$') || trimmedTemplate.includes('$ProgressPreference'));
+      const isShellScript = isMultiLine && (trimmedTemplate.startsWith('#!/bin/bash') || trimmedTemplate.startsWith('#!/bin/sh') || trimmedTemplate.startsWith('#!'));
+      const isBatchScript = isMultiLine && trimmedTemplate.startsWith('@echo');
 
-      console.log('[RDR Sender] Using custom template:', customTemplate);
-      const result = await executeCommand(command);
+      if (isPowerShellScript) {
+        // PowerShell script (.ps1) - Windows
+        scriptPath = path.join(os.tmpdir(), `rdr-script-${Date.now()}.ps1`);
 
-      // Clean up temp file
-      await fs.promises.unlink(messagePath).catch(() => {});
+        // Substitute variables in the script
+        const scriptContent = substituteVariables(customTemplate, {
+          message: escapeForShell(message),
+          messagePath: messagePath.replace(/\\/g, '\\\\'), // Escape backslashes for PowerShell
+          identifier: identifier.toString(),
+          scriptPath: scriptPath
+        });
 
-      return result;
+        // Write script to file
+        await fs.promises.writeFile(scriptPath, scriptContent, 'utf8');
+
+        // Execute script
+        const command = `powershell.exe -ExecutionPolicy Bypass -NoProfile -NonInteractive -File "${scriptPath}"`;
+        console.log('[RDR Sender] Using PowerShell script template');
+        const result = await executeCommand(command);
+
+        // Clean up temp files
+        await fs.promises.unlink(messagePath).catch(() => {});
+        await fs.promises.unlink(scriptPath).catch(() => {});
+
+        return result;
+      } else if (isShellScript) {
+        // Shell script (.sh) - macOS/Linux
+        scriptPath = path.join(os.tmpdir(), `rdr-script-${Date.now()}.sh`);
+
+        // Substitute variables in the script
+        const scriptContent = substituteVariables(customTemplate, {
+          message: escapeForShell(message),
+          messagePath,
+          identifier: identifier.toString(),
+          scriptPath: scriptPath
+        });
+
+        // Write script to file
+        await fs.promises.writeFile(scriptPath, scriptContent, 'utf8');
+
+        // Make script executable
+        await fs.promises.chmod(scriptPath, 0o755);
+
+        // Execute script
+        const command = `/bin/bash "${scriptPath}"`;
+        console.log('[RDR Sender] Using shell script template');
+        const result = await executeCommand(command);
+
+        // Clean up temp files
+        await fs.promises.unlink(messagePath).catch(() => {});
+        await fs.promises.unlink(scriptPath).catch(() => {});
+
+        return result;
+      } else if (isBatchScript) {
+        // Batch script (.bat) - Windows
+        scriptPath = path.join(os.tmpdir(), `rdr-script-${Date.now()}.bat`);
+
+        // Substitute variables in the script
+        const scriptContent = substituteVariables(customTemplate, {
+          message: escapeForShell(message),
+          messagePath,
+          identifier: identifier.toString(),
+          scriptPath: scriptPath
+        });
+
+        // Write script to file
+        await fs.promises.writeFile(scriptPath, scriptContent, 'utf8');
+
+        // Execute script
+        const command = `cmd.exe /c "${scriptPath}"`;
+        console.log('[RDR Sender] Using batch script template');
+        const result = await executeCommand(command);
+
+        // Clean up temp files
+        await fs.promises.unlink(messagePath).catch(() => {});
+        await fs.promises.unlink(scriptPath).catch(() => {});
+
+        return result;
+      } else {
+        // It's a regular command template
+        const command = substituteVariables(customTemplate, {
+          message: escapeForShell(message),
+          messagePath,
+          identifier: identifier.toString(),
+          scriptPath: scriptPath || ''
+        });
+
+        console.log('[RDR Sender] Using command template:', customTemplate);
+        const result = await executeCommand(command);
+
+        // Clean up temp file
+        await fs.promises.unlink(messagePath).catch(() => {});
+
+        return result;
+      }
     }
 
     // Otherwise, use platform-specific default

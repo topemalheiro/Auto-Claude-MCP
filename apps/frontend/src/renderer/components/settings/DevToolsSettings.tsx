@@ -553,17 +553,17 @@ export function DevToolsSettings({ settings, onSettingsChange }: DevToolsSetting
           </div>
 
           {/* Master LLM RDR Prompt Sending Mechanism - Profile System */}
-          <div className="space-y-3 ml-4 w-full">
+          <div className="space-y-3">
             <div className="space-y-2">
-              <Label className="text-sm font-medium">
+              <Label className="text-sm font-medium ml-4">
                 {t('devtools.rdrMechanisms.label', 'Master LLM RDR Prompt Sending Mechanism')}
               </Label>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-muted-foreground ml-4">
                 {t('devtools.rdrMechanisms.description', 'Manage named RDR sending mechanisms. Use template variables: {{message}} (escaped text), {{messagePath}} (temp file path), {{identifier}} (window PID/title), {{scriptPath}} (script file path).')}
               </p>
 
               {/* Mechanism selector + action buttons */}
-              <div className="flex items-center gap-2 w-full">
+              <div className="flex items-center gap-2 w-full px-4">
                 <Select
                   value={activeMechanismId}
                   onValueChange={(id) =>
@@ -630,20 +630,22 @@ export function DevToolsSettings({ settings, onSettingsChange }: DevToolsSetting
               </div>
 
               {/* Template editor - full width and resizable */}
-              <Textarea
-                className="w-full resize-y font-mono text-xs"
-                rows={6}
-                value={selectedMechanism?.template || ''}
-                onChange={(e) => handleUpdateTemplate(e.target.value)}
-                placeholder={t('devtools.rdrMechanisms.templatePlaceholder', 'e.g., ccli --message "$(cat \'{{messagePath}}\')"')}
-              />
+              <div className="px-4">
+                <Textarea
+                  className="w-full resize-y font-mono text-xs"
+                  rows={6}
+                  value={selectedMechanism?.template || ''}
+                  onChange={(e) => handleUpdateTemplate(e.target.value)}
+                  placeholder={t('devtools.rdrMechanisms.templatePlaceholder', 'e.g., ccli --message "$(cat \'{{messagePath}}\')"')}
+                />
+              </div>
 
               {/* Template validation warning */}
               {(() => {
                 const template = selectedMechanism?.template?.trim();
                 if (template && !template.includes('{{message}}') && !template.includes('{{messagePath}}')) {
                   return (
-                    <div className="flex items-start gap-2 p-2 border border-amber-500/50 bg-amber-500/10 rounded-md">
+                    <div className="flex items-start gap-2 p-2 border border-amber-500/50 bg-amber-500/10 rounded-md mx-4">
                       <AlertTriangle className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" />
                       <p className="text-xs text-amber-600 dark:text-amber-400">
                         Template must include either {'{{message}}'} or {'{{messagePath}}'} to send the RDR notification
