@@ -108,7 +108,7 @@ function recordRestart(): void {
  * Execute build command and restart app
  * Workflow: Build → Kill → Start (using reopenCommand if set)
  */
-async function buildAndRestart(buildCommand: string): Promise<IPCResult<void>> {
+export async function buildAndRestart(buildCommand: string): Promise<IPCResult<void>> {
   try {
     // Check cooldown
     const settings = readSettingsFile();
