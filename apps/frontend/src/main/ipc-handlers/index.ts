@@ -39,6 +39,7 @@ import { registerRateLimitHandlers } from './rate-limit-handlers';
 import { registerRdrHandlers } from './rdr-handlers';
 import { registerRestartHandlers } from './restart-handlers';
 import { notificationService } from '../notification-service';
+import { setAgentManagerRef } from './utils';
 
 // Auto-shutdown handlers (self-registering on import)
 import './auto-shutdown-handlers';
@@ -59,6 +60,9 @@ export function setupIpcHandlers(
 ): void {
   // Initialize notification service
   notificationService.initialize(getMainWindow);
+
+  // Wire up agent manager for circuit breaker cleanup
+  setAgentManagerRef(agentManager);
 
   // Project handlers (including Python environment setup)
   registerProjectHandlers(pythonEnvManager, agentManager, getMainWindow);
