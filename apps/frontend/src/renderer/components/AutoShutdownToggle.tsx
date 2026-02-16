@@ -127,29 +127,31 @@ export function AutoShutdownToggle({ isCollapsed = false }: AutoShutdownTogglePr
   // Collapsed state: icon-only button
   if (isCollapsed) {
     return (
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => handleToggle(!status.enabled)}
-            disabled={status.shutdownPending}
-            className={cn(
-              "transition-colors",
-              status.shutdownPending && "opacity-50 cursor-not-allowed"
-            )}
-            aria-label={t('settings:autoShutdown.toggle')}
-          >
-            {getStatusIcon()}
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="right" className="max-w-xs">
-          <div className="space-y-1">
-            <p className="font-medium">{t('settings:autoShutdown.title')}</p>
-            <p className="text-xs text-muted-foreground">{getStatusText()}</p>
-          </div>
-        </TooltipContent>
-      </Tooltip>
+      <div className="flex items-center justify-center">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => handleToggle(!status.enabled)}
+              disabled={status.shutdownPending}
+              className={cn(
+                "transition-colors",
+                status.shutdownPending && "opacity-50 cursor-not-allowed"
+              )}
+              aria-label={t('settings:autoShutdown.toggle')}
+            >
+              {getStatusIcon()}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="right" className="max-w-xs">
+            <div className="space-y-1">
+              <p className="font-medium">{t('settings:autoShutdown.title')}</p>
+              <p className="text-xs text-muted-foreground">{getStatusText()}</p>
+            </div>
+          </TooltipContent>
+        </Tooltip>
+      </div>
     );
   }
 
