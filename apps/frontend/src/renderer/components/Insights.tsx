@@ -150,10 +150,13 @@ export function Insights({ projectId }: InsightsProps) {
   }, [projectId]);
 
   // Reload sessions when showArchived changes (skip first run to avoid duplicate load)
+  // Reset the skip flag when projectId changes to avoid duplicate loads on project switch
+  const prevProjectId = useRef(projectId);
   const isFirstRun = useRef(true);
   useEffect(() => {
-    if (isFirstRun.current) {
+    if (isFirstRun.current || prevProjectId.current !== projectId) {
       isFirstRun.current = false;
+      prevProjectId.current = projectId;
       return;
     }
     loadInsightsSessions(projectId, showArchived);
@@ -216,32 +219,56 @@ export function Insights({ projectId }: InsightsProps) {
   };
 
   const handleArchiveSession = async (sessionId: string) => {
-    await archiveSession(projectId, sessionId);
-    await loadInsightsSessions(projectId, showArchived);
+    try {
+      await archiveSession(projectId, sessionId);
+      await loadInsightsSessions(projectId, showArchived);
+      // Reload current session in case backend switched to a different one
+      await loadInsightsSession(projectId);
+    } catch (error) {
+      console.error(`Failed to archive session ${sessionId}:`, error);
+    }
   };
 
   const handleUnarchiveSession = async (sessionId: string) => {
-    await unarchiveSession(projectId, sessionId);
-    await loadInsightsSessions(projectId, showArchived);
+    try {
+      await unarchiveSession(projectId, sessionId);
+      await loadInsightsSessions(projectId, showArchived);
+      // Reload current session in case backend switched to a different one
+      await loadInsightsSession(projectId);
+    } catch (error) {
+      console.error(`Failed to unarchive session ${sessionId}:`, error);
+    }
   };
 
   const handleDeleteSessions = async (sessionIds: string[]) => {
-    const result = await deleteSessions(projectId, sessionIds);
-    await loadInsightsSessions(projectId, showArchived);
+    try {
+      const result = await deleteSessions(projectId, sessionIds);
+      await loadInsightsSessions(projectId, showArchived);
+      // Reload current session in case backend switched to a different one
+      await loadInsightsSession(projectId);
 
-    // Log partial failures for debugging
-    if (result.failedIds && result.failedIds.length > 0) {
-      console.warn(`Failed to delete ${result.failedIds.length} session(s):`, result.failedIds);
+      // Log partial failures for debugging
+      if (result.failedIds && result.failedIds.length > 0) {
+        console.warn(`Failed to delete ${result.failedIds.length} session(s):`, result.failedIds);
+      }
+    } catch (error) {
+      console.error(`Failed to delete sessions ${sessionIds.join(', ')}:`, error);
     }
   };
 
   const handleArchiveSessions = async (sessionIds: string[]) => {
-    const result = await archiveSessions(projectId, sessionIds);
-    await loadInsightsSessions(projectId, showArchived);
+    try {
+      const result = await archiveSessions(projectId, sessionIds);
+      await loadInsightsSessions(projectId, showArchived);
+      // Reload current session in case backend switched to a different one
+      await loadInsightsSession(projectId);
 
-    // Log partial failures for debugging
-    if (result.failedIds && result.failedIds.length > 0) {
-      console.warn(`Failed to archive ${result.failedIds.length} session(s):`, result.failedIds);
+      // Log partial failures for debugging
+      if (result.failedIds && result.failedIds.length > 0) {
+        console.warn(`Failed to archive ${result.failedIds.length} session(s):`, result.failedIds);
+      }
+    } catch (error) {
+      console.error(`Failed to archive sessions ${sessionIds.join(', ')}:`, error);
     }
   };
 

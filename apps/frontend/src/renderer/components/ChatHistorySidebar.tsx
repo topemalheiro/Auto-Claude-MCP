@@ -473,28 +473,28 @@ function SessionItem({
 
   return (
     <div
-      role="button"
+      role={isSelectionMode ? 'checkbox' : 'button'}
+      aria-checked={isSelectionMode ? isSelected : undefined}
       tabIndex={0}
       className={cn(
         'group relative cursor-pointer px-2 py-2 transition-colors hover:bg-muted',
         isActive && 'bg-primary/10 hover:bg-primary/15',
         isArchived && 'opacity-50'
       )}
-      onClick={isSelectionMode ? undefined : onSelect}
+      onClick={isSelectionMode ? onToggleSelect : onSelect}
       onKeyDown={(e) => {
-        if (!isSelectionMode && (e.key === 'Enter' || e.key === ' ')) {
+        if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
-          onSelect();
+          isSelectionMode ? onToggleSelect() : onSelect();
         }
       }}
     >
       {/* Content with reserved space for the menu button */}
       <div className="flex items-center gap-1.5 pr-7">
         {isSelectionMode ? (
-          <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
+          <div className="shrink-0">
             <Checkbox
               checked={isSelected}
-              onCheckedChange={() => onToggleSelect()}
               className="h-4 w-4"
             />
           </div>
