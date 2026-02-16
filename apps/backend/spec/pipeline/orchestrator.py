@@ -761,9 +761,24 @@ class SpecOrchestrator:
         The functionality has been moved to models.rename_spec_dir_from_requirements.
 
         Returns:
-            True if successful or not needed, False on error
+            True if successful or not needed, False if prerequisites are missing
         """
+        # Check prerequisites first
+        requirements_file = self.spec_dir / "requirements.json"
+        if not requirements_file.exists():
+            return False
+
+        try:
+            with open(requirements_file, encoding="utf-8") as f:
+                req = json.load(f)
+            task_desc = req.get("task_description", "")
+            if not task_desc:
+                return False
+        except (json.JSONDecodeError, OSError):
+            return False
+
+        # Attempt rename
         new_spec_dir = rename_spec_dir_from_requirements(self.spec_dir)
         if new_spec_dir != self.spec_dir:
             self.spec_dir = new_spec_dir
-        return new_spec_dir.exists()
+        return True
