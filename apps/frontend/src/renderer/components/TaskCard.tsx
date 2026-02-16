@@ -74,6 +74,8 @@ interface TaskCardProps {
   onToggleSelect?: () => void;
   // Whether the global RDR toggle is enabled (per-project setting)
   rdrEnabled?: boolean;
+  // Callback when per-task RDR is toggled (to re-evaluate held slots in queue)
+  onRdrToggle?: () => void;
 }
 
 // Custom comparator for React.memo - only re-render when relevant task data changes
@@ -90,7 +92,8 @@ function taskCardPropsAreEqual(prevProps: TaskCardProps, nextProps: TaskCardProp
     prevProps.isSelectable === nextProps.isSelectable &&
     prevProps.isSelected === nextProps.isSelected &&
     prevProps.onToggleSelect === nextProps.onToggleSelect &&
-    prevProps.rdrEnabled === nextProps.rdrEnabled
+    prevProps.rdrEnabled === nextProps.rdrEnabled &&
+    prevProps.onRdrToggle === nextProps.onRdrToggle
   ) {
     return true;
   }
@@ -149,7 +152,8 @@ export const TaskCard = memo(function TaskCard({
   isSelectable,
   isSelected,
   onToggleSelect,
-  rdrEnabled
+  rdrEnabled,
+  onRdrToggle
 }: TaskCardProps) {
   const { t } = useTranslation(['tasks', 'errors']);
   const { toast } = useToast();
@@ -387,6 +391,10 @@ export const TaskCard = memo(function TaskCard({
       console.error('[TaskCard] Failed to toggle RDR:', result.error);
       // Revert on failure
       setRdrDisabled(!newRdrState);
+    } else {
+      // Re-evaluate queue held slots — toggling RDR off releases held slot,
+      // toggling RDR on re-claims held slot
+      onRdrToggle?.();
     }
   };
 

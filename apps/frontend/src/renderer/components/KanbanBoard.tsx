@@ -112,6 +112,8 @@ interface DroppableColumnProps {
   // Queue blocking props (RDR-driven)
   queueBlocked?: boolean;
   queueBlockReason?: string | null;
+  // Callback when per-task RDR is toggled (to re-evaluate held slots)
+  onRdrToggle?: () => void;
 }
 
 /**
@@ -173,6 +175,7 @@ function droppableColumnPropsAreEqual(
   if (prevProps.rdrEnabled !== nextProps.rdrEnabled) return false;
   if (prevProps.queueBlocked !== nextProps.queueBlocked) return false;
   if (prevProps.queueBlockReason !== nextProps.queueBlockReason) return false;
+  if (prevProps.onRdrToggle !== nextProps.onRdrToggle) return false;
 
   // Compare selection props
   const prevSelected = prevProps.selectedTaskIds;
@@ -243,7 +246,7 @@ const getEmptyStateContent = (status: TaskStatus, t: (key: string) => string): {
   }
 };
 
-const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskClick, onStatusChange, onRefresh, isOver, onAddClick, onArchiveAll, onQueueSettings, onQueueAll, maxParallelTasks, archivedCount, showArchived, onToggleArchived, selectedTaskIds, onSelectAll, onDeselectAll, onToggleSelect, isCollapsed, onToggleCollapsed, columnWidth, isResizing, onResizeStart, onResizeEnd, isLocked, onToggleLocked, rdrEnabled, queueBlocked, queueBlockReason }: DroppableColumnProps) {
+const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskClick, onStatusChange, onRefresh, isOver, onAddClick, onArchiveAll, onQueueSettings, onQueueAll, maxParallelTasks, archivedCount, showArchived, onToggleArchived, selectedTaskIds, onSelectAll, onDeselectAll, onToggleSelect, isCollapsed, onToggleCollapsed, columnWidth, isResizing, onResizeStart, onResizeEnd, isLocked, onToggleLocked, rdrEnabled, queueBlocked, queueBlockReason, onRdrToggle }: DroppableColumnProps) {
   const { t } = useTranslation(['tasks', 'common']);
   const { setNodeRef } = useDroppable({
     id: status
@@ -317,9 +320,10 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
         isSelected={isSelectable ? selectedTaskIds?.has(task.id) : undefined}
         onToggleSelect={onToggleSelectHandlers?.get(task.id)}
         rdrEnabled={rdrEnabled}
+        onRdrToggle={onRdrToggle}
       />
     ));
-  }, [tasks, onClickHandlers, onStatusChangeHandlers, onToggleSelectHandlers, selectedTaskIds, rdrEnabled]);
+  }, [tasks, onClickHandlers, onStatusChangeHandlers, onToggleSelectHandlers, selectedTaskIds, rdrEnabled, onRdrToggle]);
 
   const getColumnBorderColor = (): string => {
     switch (status) {
@@ -696,10 +700,10 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   // Queue processing lock to prevent race conditions
   const isProcessingQueueRef = useRef(false);
 
-  // Synchronous queue blocking flag (useRef = immediate, no stale closure)
-  // useState is async (takes effect next render), so processQueue can read stale false.
-  // useRef is synchronous — setting .current = true blocks immediately.
-  const queueBlockedRef = useRef(false);
+  // Held slot IDs: tasks that failed from in_progress and are "holding" their slot
+  // Each failed task independently holds/releases its slot via this Set.
+  // processQueue derives capacity from: inProgress + activeHeldSlots >= maxParallel
+  const heldSlotIdsRef = useRef<Set<string>>(new Set());
 
   // Selection state for bulk actions (Human Review column)
   const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(new Set());
@@ -1135,35 +1139,23 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
    * Promotes multiple tasks if needed (e.g., after bulk queue)
    */
   const processQueue = useCallback(async () => {
-    // Check if queue is blocked by RDR (regression/failure detection)
-    // Uses ref (synchronous) instead of state (async) to prevent race conditions
-    if (queueBlockedRef.current) {
-      debugLog('[Queue] Queue is BLOCKED (ref), skipping processing:', queueBlockReason);
-      return;
-    }
-
-    // RDR timing guard: Check live store data for failed tasks
-    // This catches edge cases where the blocking ref hasn't been set yet
-    // but the store already reflects the failure (synchronous Zustand update)
+    // Check RDR status for held-slot capacity calculations
     const rdrProject = useProjectStore.getState().getActiveProject();
     const rdrActive = rdrProject?.settings?.rdrEnabled ?? false;
+
+    // On first run / after reload, sync heldSlotIds with current HR failures
+    // This catches tasks that failed before page reload
     if (rdrActive) {
       const allTasks = useTaskStore.getState().tasks;
-      const activeFailures = allTasks.filter(t =>
+      const hrFailures = allTasks.filter(t =>
         t.status === 'human_review' &&
         t.reviewReason &&
         t.reviewReason !== 'stopped' &&
         t.reviewReason !== 'completed' &&
         !t.metadata?.archivedAt
       );
-      if (activeFailures.length > 0 && !queueBlockedRef.current) {
-        debugLog('[Queue] RDR timing guard: failed tasks detected, setting block', {
-          failedIds: activeFailures.map(t => t.id)
-        });
-        queueBlockedRef.current = true;
-        setQueueBlocked(true);
-        setQueueBlockReason('Task(s) failed during execution');
-        return;
+      for (const t of hrFailures) {
+        heldSlotIdsRef.current.add(t.id);
       }
     }
 
@@ -1223,9 +1215,16 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
           processedCount: processedTaskIds.size
         });
 
-        // Stop if no capacity (live count — includes tasks promoted by this call AND concurrent restarts)
-        if (currentInProgress.length >= maxParallelTasks) {
-          debugLog(`[Queue] Capacity reached (live: ${currentInProgress.length}/${maxParallelTasks}), stopping queue processing`);
+        // Calculate held slots: failed tasks in HR that are still holding their in_progress slot
+        // Only tasks with RDR enabled (not rdrDisabled) hold slots
+        const activeHeldSlots = rdrActive ? [...heldSlotIdsRef.current].filter(id => {
+          const t = currentTasks.find(task => task.id === id);
+          return t && t.status === 'human_review' && !t.metadata?.rdrDisabled && !t.metadata?.archivedAt;
+        }).length : 0;
+
+        // Stop if no capacity (live in_progress + held slots from failures)
+        if (currentInProgress.length + activeHeldSlots >= maxParallelTasks) {
+          debugLog(`[Queue] Capacity reached (live: ${currentInProgress.length} + held: ${activeHeldSlots} >= ${maxParallelTasks}), stopping`);
           break;
         }
 
@@ -1255,12 +1254,6 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
 
         // Mark task as processed BEFORE attempting promotion to prevent duplicates
         processedTaskIds.add(nextTask.id);
-
-        // Re-check blocking ref before each promotion (another failure may have set it mid-loop)
-        if (queueBlockedRef.current) {
-          debugLog('[Queue] Queue blocked mid-processing, stopping promotion');
-          break;
-        }
 
         debugLog(`[Queue] Promoting task ${nextTask.id} (${promotedInThisCall + 1}/${maxParallelTasks})`);
         const result = await persistTaskStatus(nextTask.id, 'in_progress');
@@ -1299,6 +1292,14 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
         processedIds: Array.from(processedTaskIds)
       });
 
+      // Update UI blocked state based on held slots
+      const finalHeldSlots = rdrActive ? [...heldSlotIdsRef.current].filter(id => {
+        const t = useTaskStore.getState().tasks.find(task => task.id === id);
+        return t && t.status === 'human_review' && !t.metadata?.rdrDisabled && !t.metadata?.archivedAt;
+      }).length : 0;
+      setQueueBlocked(finalHeldSlots > 0);
+      setQueueBlockReason(finalHeldSlots > 0 ? `${finalHeldSlots} failed task(s) holding slots` : null);
+
       // Trigger UI refresh if tasks were promoted to ensure UI reflects all changes
       // This handles the case where store updates are batched/delayed via IPC events
       if (promotedInThisCall > 0 && onRefresh) {
@@ -1310,64 +1311,37 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     }
   }, [maxParallelTasks, projectId, onRefresh]);
 
-  // Register task status change listener for queue auto-promotion
-  // This ensures processQueue() is called whenever a task leaves in_progress
-  // AND implements queue blocking when RDR detects regressions/failures
+  // Register task status change listener for queue auto-promotion and held-slot tracking
+  // Failed tasks (in_progress → human_review with errors) hold their slot in heldSlotIdsRef.
+  // processQueue derives capacity from inProgress + activeHeldSlots >= maxParallel.
   useEffect(() => {
     const unregister = useTaskStore.getState().registerTaskStatusChangeListener(
       (taskId, oldStatus, newStatus) => {
-        // Get RDR setting
         const projectState = useProjectStore.getState().getActiveProject();
         const rdrEnabled = projectState?.settings?.rdrEnabled ?? false;
 
-        // Queue blocking logic (only when RDR is ON)
-        if (rdrEnabled) {
+        // Track held slots: only in_progress → human_review failures hold a slot
+        // (ai_review → human_review does NOT hold a slot — that slot was already freed)
+        if (rdrEnabled && oldStatus === 'in_progress' && newStatus === 'human_review') {
           const task = useTaskStore.getState().tasks.find(t => t.id === taskId);
-
-          // REGRESSION: Task regressed from in_progress to backlog (Planning board)
-          if (oldStatus === 'in_progress' && newStatus === 'backlog') {
-            debugLog(`[Queue] BLOCKED - Task ${taskId} regressed to backlog (Planning board)`);
-            queueBlockedRef.current = true;  // Synchronous — takes effect immediately
-            setQueueBlocked(true);           // Async — for UI rendering
-            setQueueBlockReason('Task regressed to Planning board');
-            return; // Don't process queue
-          }
-
-          // FAILURE: Task failed from in_progress to human_review (not user-stopped)
-          if (oldStatus === 'in_progress' && newStatus === 'human_review') {
-            if (task?.reviewReason !== 'stopped') {
-              debugLog(`[Queue] BLOCKED - Task ${taskId} failed during execution`);
-              queueBlockedRef.current = true;  // Synchronous — takes effect immediately
-              setQueueBlocked(true);           // Async — for UI rendering
-              setQueueBlockReason('Task failed during execution');
-              return; // Don't process queue
-            }
-          }
-
-          // FAILURE: Task failed from ai_review to human_review (not user-stopped)
-          if (oldStatus === 'ai_review' && newStatus === 'human_review') {
-            if (task?.reviewReason !== 'stopped') {
-              debugLog(`[Queue] BLOCKED - Task ${taskId} failed QA review`);
-              queueBlockedRef.current = true;  // Synchronous — takes effect immediately
-              setQueueBlocked(true);           // Async — for UI rendering
-              setQueueBlockReason('Task failed QA review');
-              return; // Don't process queue
-            }
+          if (task?.reviewReason !== 'stopped') {
+            heldSlotIdsRef.current = new Set([...heldSlotIdsRef.current, taskId]);
+            debugLog(`[Queue] Task ${taskId} failed, holding slot (${heldSlotIdsRef.current.size} held)`);
           }
         }
 
-        // Normal queue processing (when task leaves in_progress)
+        // Release held slot when task moves out of human_review (restarted, marked done, etc.)
+        if (heldSlotIdsRef.current.has(taskId) && newStatus !== 'human_review') {
+          const newSet = new Set(heldSlotIdsRef.current);
+          newSet.delete(taskId);
+          heldSlotIdsRef.current = newSet;
+          debugLog(`[Queue] Task ${taskId} left HR, released held slot (${heldSlotIdsRef.current.size} remaining)`);
+        }
+
+        // Process queue when task leaves in_progress (for any reason including failures)
+        // processQueue will correctly derive capacity including held slots
         if (oldStatus === 'in_progress' && newStatus !== 'in_progress') {
-          // When RDR is enabled, don't promote queue tasks for stopped transitions
-          // RDR will restart killed agents, so the slot will be re-filled — promoting would over-fill capacity
-          if (rdrEnabled && newStatus === 'human_review') {
-            const stoppedTask = useTaskStore.getState().tasks.find(t => t.id === taskId);
-            if (stoppedTask?.reviewReason === 'stopped') {
-              debugLog(`[Queue] RDR enabled, task ${taskId} stopped — skipping queue promotion (RDR will handle)`);
-              return;
-            }
-          }
-          debugLog(`[Queue] Task ${taskId} left in_progress, processing queue to fill slot`);
+          debugLog(`[Queue] Task ${taskId} left in_progress, processing queue`);
           processQueue();
         }
       }
@@ -1378,17 +1352,16 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   }, [processQueue]);
 
   /**
-   * Manually unblock the queue
+   * Manually unblock the queue — clears ALL held slots
    * Called when user manually drags a task to in_progress (shows they want to override)
    * or when the problematic task is fixed/moved
    */
   const unblockQueue = useCallback(() => {
-    if (queueBlockedRef.current || queueBlocked) {
-      debugLog('[Queue] Manually unblocking queue');
-      queueBlockedRef.current = false;  // Clear ref synchronously
+    if (heldSlotIdsRef.current.size > 0 || queueBlocked) {
+      debugLog('[Queue] Manually unblocking queue, clearing all held slots');
+      heldSlotIdsRef.current = new Set();
       setQueueBlocked(false);
       setQueueBlockReason(null);
-      // Trigger queue processing to fill newly available slots
       processQueue();
     }
   }, [queueBlocked, processQueue]);
@@ -1398,14 +1371,20 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     processQueue();
   }, [maxParallelTasks, processQueue]);
 
+  // Callback for per-task RDR toggle: re-evaluate held slots and potentially promote from queue
+  const handleTaskRdrToggle = useCallback(() => {
+    debugLog('[Queue] Per-task RDR toggled, re-evaluating held slots');
+    processQueue();
+  }, [processQueue]);
+
   // Clear queue blocking when RDR is toggled off
   const rdrEnabledForBlockClear = useProjectStore(
     (state) => state.getSelectedProject()?.settings?.rdrEnabled ?? false
   );
   useEffect(() => {
-    if (!rdrEnabledForBlockClear && queueBlockedRef.current) {
-      debugLog('[Queue] RDR disabled, clearing queue block');
-      queueBlockedRef.current = false;
+    if (!rdrEnabledForBlockClear && heldSlotIdsRef.current.size > 0) {
+      debugLog('[Queue] RDR disabled, clearing all held slots');
+      heldSlotIdsRef.current = new Set();
       setQueueBlocked(false);
       setQueueBlockReason(null);
     }
@@ -2622,6 +2601,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
               rdrEnabled={rdrEnabled}
               queueBlocked={status === 'in_progress' ? queueBlocked : undefined}
               queueBlockReason={status === 'in_progress' ? queueBlockReason : undefined}
+              onRdrToggle={handleTaskRdrToggle}
             />
           ))}
         </div>

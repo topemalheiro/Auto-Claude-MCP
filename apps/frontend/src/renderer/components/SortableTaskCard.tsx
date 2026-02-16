@@ -16,6 +16,8 @@ interface SortableTaskCardProps {
   onToggleSelect?: () => void;
   // Whether the global RDR toggle is enabled (per-project setting)
   rdrEnabled?: boolean;
+  // Callback when per-task RDR is toggled (to re-evaluate held slots)
+  onRdrToggle?: () => void;
 }
 
 // Custom comparator - only re-render when task or onClick actually changed
@@ -33,11 +35,12 @@ function sortableTaskCardPropsAreEqual(
     prevProps.isSelectable === nextProps.isSelectable &&
     prevProps.isSelected === nextProps.isSelected &&
     prevProps.onToggleSelect === nextProps.onToggleSelect &&
-    prevProps.rdrEnabled === nextProps.rdrEnabled
+    prevProps.rdrEnabled === nextProps.rdrEnabled &&
+    prevProps.onRdrToggle === nextProps.onRdrToggle
   );
 }
 
-export const SortableTaskCard = memo(function SortableTaskCard({ task, onClick, onStatusChange, onRefresh, isSelectable, isSelected, onToggleSelect, rdrEnabled }: SortableTaskCardProps) {
+export const SortableTaskCard = memo(function SortableTaskCard({ task, onClick, onStatusChange, onRefresh, isSelectable, isSelected, onToggleSelect, rdrEnabled, onRdrToggle }: SortableTaskCardProps) {
   const {
     attributes,
     listeners,
@@ -81,6 +84,7 @@ export const SortableTaskCard = memo(function SortableTaskCard({ task, onClick, 
         isSelected={isSelected}
         onToggleSelect={onToggleSelect}
         rdrEnabled={rdrEnabled}
+        onRdrToggle={onRdrToggle}
       />
     </div>
   );
