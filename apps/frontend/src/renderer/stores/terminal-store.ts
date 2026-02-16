@@ -553,6 +553,10 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
     }
     isResumingAll = true;
 
+    // Capture generation BEFORE clearAutoResumeQueue() bumps it, so this call
+    // doesn't immediately invalidate itself, but CAN be cancelled by external calls
+    const generation = autoResumeGeneration;
+
     try {
       // Clear auto-resume queue to prevent redundant processing
       clearAutoResumeQueue();
@@ -567,10 +571,16 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
         return;
       }
 
-      debugLog(`[TerminalStore] Resuming ${pendingTerminals.length} pending Claude sessions with ${AUTO_RESUME_STAGGER_MS}ms stagger`);
+      debugLog(`[TerminalStore] Resuming ${pendingTerminals.length} pending Claude sessions with ${AUTO_RESUME_STAGGER_MS}ms stagger (generation ${generation})`);
 
       // Iterate through terminals with staggered delays
       for (let i = 0; i < pendingTerminals.length; i++) {
+        // Check for cancellation (e.g., project switch triggered clearAutoResumeQueue)
+        if (generation !== autoResumeGeneration) {
+          debugLog(`[TerminalStore] Generation mismatch in resumeAll (${generation} !== ${autoResumeGeneration}) — aborting`);
+          return;
+        }
+
         const terminal = pendingTerminals[i];
 
         // Re-check terminal still needs resume (may have changed during stagger delay)
@@ -591,6 +601,11 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
         // Wait before processing next terminal (staggered delay)
         if (i < pendingTerminals.length - 1) {
           await new Promise(resolve => setTimeout(resolve, AUTO_RESUME_STAGGER_MS));
+          // Re-check generation after await (may have been cancelled during stagger)
+          if (generation !== autoResumeGeneration) {
+            debugLog(`[TerminalStore] Generation mismatch after stagger in resumeAll — aborting`);
+            return;
+          }
         }
       }
 
