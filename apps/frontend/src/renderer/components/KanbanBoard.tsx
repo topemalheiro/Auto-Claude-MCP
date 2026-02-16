@@ -1400,8 +1400,10 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       heldSlotIdsRef.current = new Set();
       setQueueBlocked(false);
       setQueueBlockReason(null);
+      // Process queue to advance waiting tasks now that slots are freed
+      processQueue();
     }
-  }, [rdrEnabledForBlockClear]);
+  }, [rdrEnabledForBlockClear, processQueue]);
 
   // Get task order actions from store
   const reorderTasksInColumn = useTaskStore((state) => state.reorderTasksInColumn);
