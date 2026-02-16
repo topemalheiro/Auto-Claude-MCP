@@ -514,6 +514,33 @@ class RecoveryManager:
 
         self._save_attempt_history(history)
 
+        # Also update the subtask status in implementation_plan.json
+        # so that other callers (like is_build_ready_for_qa) see accurate status
+        try:
+            plan_file = self.spec_dir / "implementation_plan.json"
+            if plan_file.exists():
+                with open(plan_file, encoding="utf-8") as f:
+                    plan = json.load(f)
+
+                updated = False
+                for phase in plan.get("phases", []):
+                    for subtask in phase.get("subtasks", []):
+                        if subtask.get("id") == subtask_id:
+                            subtask["status"] = "failed"
+                            subtask["notes"] = f"Marked as stuck: {reason}"
+                            updated = True
+                            break
+                    if updated:
+                        break
+
+                if updated:
+                    with open(plan_file, "w", encoding="utf-8") as f:
+                        json.dump(plan, f, indent=2)
+        except (OSError, json.JSONDecodeError, UnicodeDecodeError) as e:
+            logger.warning(
+                f"Failed to update implementation_plan.json for stuck subtask {subtask_id}: {e}"
+            )
+
     def get_stuck_subtasks(self) -> list[dict]:
         """
         Get all subtasks marked as stuck.
