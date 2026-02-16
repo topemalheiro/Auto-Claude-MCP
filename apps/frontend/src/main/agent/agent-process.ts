@@ -234,10 +234,8 @@ export class AgentProcessManager {
           augmentedEnv[key] = process.env[key]!;
         }
       }
-      // Normalize PATH casing (Windows uses 'Path', Node/Python expect 'PATH')
-      if (augmentedEnv['Path'] && !augmentedEnv['PATH']) {
-        augmentedEnv['PATH'] = augmentedEnv['Path'];
-      }
+      // Note: Windows Path vs PATH casing is handled in getAugmentedEnv() (env-utils.ts)
+      // which reads both env.PATH and env.Path to preserve the original system path.
     }
 
     // On Windows, detect and pass git-bash path for Claude Code CLI

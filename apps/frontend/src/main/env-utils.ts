@@ -242,7 +242,10 @@ export function getAugmentedEnv(additionalPaths?: string[]): Record<string, stri
   // Ensure PATH has essential system directories when launched from Finder/Dock.
   // When Electron launches from GUI (not terminal), PATH might be empty or minimal.
   // The Claude Agent SDK needs /usr/bin/security to access macOS Keychain.
-  let currentPath = env.PATH || '';
+  // On Windows, env vars are case-insensitive but spreading process.env into a plain
+  // object makes it case-sensitive. Windows stores the path as 'Path' (not 'PATH'),
+  // so we must check both keys to preserve the original system path.
+  let currentPath = env.PATH || env.Path || '';
 
   // Ensure basic system paths are always present
   {
@@ -415,7 +418,8 @@ export async function getAugmentedEnvAsync(additionalPaths?: string[]): Promise<
   const candidatePaths = getExpandedPlatformPaths(additionalPaths);
 
   // Ensure essential system paths are present (for macOS Keychain access, Windows System32)
-  let currentPath = env.PATH || '';
+  // Check both PATH and Path for Windows case-sensitivity (see sync version comment)
+  let currentPath = env.PATH || env.Path || '';
 
   {
     const essentialPaths = isUnix() ? ESSENTIAL_SYSTEM_PATHS.unix : ESSENTIAL_SYSTEM_PATHS.win32;

@@ -986,12 +986,12 @@ async def run_autonomous_agent(
             await asyncio.sleep(AUTO_CONTINUE_DELAY_SECONDS)
 
         elif status == "error":
-            # Write exitReason to implementation_plan.json so RDR can detect it
-            _save_exit_reason(spec_dir, "error")
-
             emit_phase(ExecutionPhase.FAILED, "Session encountered an error")
 
             # Check if this is a tool concurrency error (400)
+            # NOTE: Do NOT write exitReason here — check error type first.
+            # Writing "error" before checking retryable conditions (concurrency,
+            # rate_limit, auth) causes RDR false positives during retry windows.
             is_concurrency_error = (
                 error_info and error_info.get("type") == "tool_concurrency"
             )
@@ -1033,6 +1033,7 @@ async def run_autonomous_agent(
                         )
                         print_status(f"Subtask {subtask_id} marked as STUCK", "error")
 
+                    _save_exit_reason(spec_dir, "error")
                     status_manager.update(state=BuildState.ERROR)
                     break  # Exit the loop
 
@@ -1214,6 +1215,7 @@ async def run_autonomous_agent(
 
             else:
                 # Other errors - use standard retry logic
+                _save_exit_reason(spec_dir, "error")
                 print_status("Session encountered an error", "error")
                 print(muted("Will retry with a fresh session..."))
                 status_manager.update(state=BuildState.ERROR)
