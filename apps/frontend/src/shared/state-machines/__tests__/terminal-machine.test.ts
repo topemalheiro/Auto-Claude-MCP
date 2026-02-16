@@ -495,13 +495,22 @@ describe('terminalMachine', () => {
         const snapshot = runEvents(
           [{ type: 'RESET' }],
           state,
-          { claudeSessionId: 'session-1', profileId: 'profile-1', isBusy: true, error: 'err' }
+          {
+            claudeSessionId: 'session-1',
+            profileId: 'profile-1',
+            isBusy: true,
+            error: 'err',
+            swapTargetProfileId: 'profile-2',
+            swapPhase: 'migrating'
+          }
         );
         expect(snapshot.value).toBe('idle');
         expect(snapshot.context.claudeSessionId).toBeUndefined();
         expect(snapshot.context.profileId).toBeUndefined();
         expect(snapshot.context.isBusy).toBe(false);
         expect(snapshot.context.error).toBeUndefined();
+        expect(snapshot.context.swapTargetProfileId).toBeUndefined();
+        expect(snapshot.context.swapPhase).toBeUndefined();
       });
     }
   });

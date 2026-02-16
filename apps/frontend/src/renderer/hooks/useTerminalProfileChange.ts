@@ -1,4 +1,6 @@
 import { useEffect, useCallback, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
+import { toast } from './use-toast';
 import { useTerminalStore } from '../stores/terminal-store';
 import { terminalBufferManager } from '../lib/terminal-buffer-manager';
 import type { TerminalProfileChangedEvent } from '../../shared/types';
@@ -11,13 +13,15 @@ import { debugLog, debugError } from '../../shared/utils/debug-logger';
  * migrated and automatically resumed with --continue.
  */
 export function useTerminalProfileChange(): void {
+  const { t } = useTranslation(['terminal']);
   // Track terminals being recreated to prevent duplicate processing
   const recreatingTerminals = useRef<Set<string>>(new Set());
 
   const recreateTerminal = useCallback(async (
     terminalId: string,
     sessionId?: string,
-    sessionMigrated?: boolean
+    sessionMigrated?: boolean,
+    isClaudeMode?: boolean
   ) => {
     // Prevent duplicate recreation
     if (recreatingTerminals.current.has(terminalId)) {
@@ -111,21 +115,29 @@ export function useTerminalProfileChange(): void {
         // YOLO mode (dangerouslySkipPermissions) is preserved server-side by the
         // main process during migration (storeMigratedSessionFlag), so resumeClaudeAsync
         // will restore it automatically when migratedSession is true
-        // Note: resumeClaudeInTerminal uses fire-and-forget IPC (ipcRenderer.send),
-        // so errors in the main process cannot be caught here. The main process will
-        // emit onTerminalPendingResume if the resume fails, triggering deferred resume.
+        // Note: resumeClaudeInTerminal uses fire-and-forget IPC (ipcRenderer.send).
+        // If resume fails in the main process, the error is logged but no failure event
+        // is emitted back to the renderer. The terminal will show an empty shell prompt.
         window.electronAPI.resumeClaudeInTerminal(
           newTerminal.id,
           sessionId,
           { migratedSession: true }
         );
         debugLog('[useTerminalProfileChange] Resume initiated for terminal:', newTerminal.id);
+      } else if (isClaudeMode && sessionId && !sessionMigrated) {
+        // Session had an active Claude session but migration failed
+        // Notify user that their Claude session was lost
+        debugError('[useTerminalProfileChange] Session migration failed for terminal:', terminalId);
+        toast({
+          title: t('terminal:swap.migrationFailed'),
+          variant: 'destructive',
+        });
       }
 
     } finally {
       recreatingTerminals.current.delete(terminalId);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     const cleanup = window.electronAPI.onTerminalProfileChanged(async (event: TerminalProfileChangedEvent) => {
@@ -140,7 +152,8 @@ export function useTerminalProfileChange(): void {
         await recreateTerminal(
           terminalInfo.id,
           terminalInfo.sessionId,
-          terminalInfo.sessionMigrated
+          terminalInfo.sessionMigrated,
+          terminalInfo.isClaudeMode
         );
       }
 

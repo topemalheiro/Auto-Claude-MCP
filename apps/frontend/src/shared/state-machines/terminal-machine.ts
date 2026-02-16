@@ -148,7 +148,16 @@ export const terminalMachine = createMachine(
           if (event.type === 'RESUME_REQUESTED') return event.claudeSessionId;
           return undefined;
         },
-        isBusy: () => false,
+        // Preserve isBusy during self-transitions (CLAUDE_ACTIVE in claude_active state)
+        // Only clear it when transitioning into claude_active from another state
+        isBusy: ({ context, event }) => {
+          if (event.type === 'CLAUDE_ACTIVE' && context.claudeSessionId) {
+            // Self-transition: preserve existing isBusy state
+            return context.isBusy;
+          }
+          // Transition into claude_active: clear isBusy
+          return false;
+        },
         error: () => undefined,
       }),
       setBusy: assign({

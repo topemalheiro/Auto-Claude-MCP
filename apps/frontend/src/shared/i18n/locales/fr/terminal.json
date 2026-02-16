@@ -17,7 +17,8 @@
     "resumingSession": "Reprise de la session Claude...",
     "sessionResumed": "Session reprise sous le nouveau profil",
     "resumeFailed": "Impossible de reprendre la session. Vous pouvez démarrer une nouvelle session.",
-    "noSession": "Profil changé. Aucune session active à reprendre."
+    "noSession": "Profil changé. Aucune session active à reprendre.",
+    "migrationFailed": "Profil changé, mais la migration de session a échoué. Démarrage d'un nouveau terminal."
   },
   "worktree": {
     "create": "Worktree",

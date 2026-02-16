@@ -124,6 +124,7 @@ export async function migrateSession(
 
     // Attempt to copy the session .jsonl file
     // This will throw if source doesn't exist or target cannot be written
+    // Note: copyFile silently overwrites by default (no COPYFILE_EXCL flag)
     try {
       await copyFile(sourceFile, targetFile);
       result.filesCopied++;
@@ -133,12 +134,6 @@ export async function migrateSession(
       if (isNodeError(copyError)) {
         if (copyError.code === 'ENOENT') {
           result.error = `Source session file not found: ${sourceFile}`;
-        } else if (copyError.code === 'EEXIST') {
-          // Target already exists - this is OK, treat as successful skip
-          console.warn('[SessionUtils] Session already exists in target profile, skipping copy');
-          result.success = true;
-          result.filesCopied = 0;
-          return result;
         } else {
           result.error = `Failed to copy session file: ${copyError.message}`;
         }

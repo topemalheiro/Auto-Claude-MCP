@@ -403,7 +403,12 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
       const terminal = get().terminals.find(t => t.id === id);
       sendTerminalMachineEvent(id, { type: 'CLAUDE_ACTIVE', claudeSessionId: terminal?.claudeSessionId });
     } else {
-      sendTerminalMachineEvent(id, { type: 'CLAUDE_EXITED' });
+      // Only send CLAUDE_EXITED if machine is in a state that accepts it
+      const actor = getOrCreateTerminalActor(id);
+      const currentState = String(actor.getSnapshot().value);
+      if (currentState === 'claude_starting' || currentState === 'claude_active') {
+        sendTerminalMachineEvent(id, { type: 'CLAUDE_EXITED' });
+      }
     }
 
     set((state) => ({
@@ -423,6 +428,11 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
   },
 
   setClaudeSessionId: (id: string, sessionId: string) => {
+    // Ensure machine has transitioned past idle before sending CLAUDE_ACTIVE
+    const actor = getOrCreateTerminalActor(id);
+    if (String(actor.getSnapshot().value) === 'idle') {
+      sendTerminalMachineEvent(id, { type: 'SHELL_READY' });
+    }
     // Send CLAUDE_ACTIVE with session ID to XState machine
     sendTerminalMachineEvent(id, { type: 'CLAUDE_ACTIVE', claudeSessionId: sessionId });
 
