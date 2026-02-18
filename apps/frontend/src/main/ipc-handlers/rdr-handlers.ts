@@ -54,6 +54,8 @@ export function resetAllRdrAttempts(): void {
       }
     } catch { /* skip unreadable dirs */ }
   }
+  // Load persisted RDR pause state (survives crashes)
+  loadRdrPauseState();
   console.log('[RDR] Reset rdrAttempts for all tasks (normal startup)');
 }
 
@@ -111,6 +113,126 @@ interface PendingRdrTask {
 let pendingTasks: PendingRdrTask[] = [];
 let batchTimer: NodeJS.Timeout | null = null;
 const BATCH_COLLECTION_WINDOW_MS = 30000; // 30 seconds
+
+// ============================================================================
+// RDR Rate Limit Pause
+// ============================================================================
+//
+// When a task agent detects a rate limit, both Claude Code and task agents are
+// on the same subscription — so RDR must STOP sending until the limit resets.
+// State is persisted to disk so it survives app crashes/restarts.
+
+interface RdrPauseState {
+  paused: boolean;
+  reason: string;
+  pausedAt: number;          // epoch ms
+  rateLimitResetAt: number;  // epoch ms — when the rate limit expires
+}
+
+const RDR_PAUSE_FILE = path.join(
+  process.env.APPDATA || os.homedir(),
+  'auto-claude-ui',
+  'rdr-pause.json'
+);
+
+let rdrPauseState: RdrPauseState = { paused: false, reason: '', pausedAt: 0, rateLimitResetAt: 0 };
+
+/** Check if RDR is currently paused */
+function isRdrPaused(): boolean {
+  return rdrPauseState.paused;
+}
+
+/** Persist pause state to disk so it survives crashes */
+function persistRdrPauseState(): void {
+  try {
+    writeFileSync(RDR_PAUSE_FILE, JSON.stringify(rdrPauseState, null, 2));
+  } catch (err) {
+    console.error('[RDR] Failed to persist pause state:', err);
+  }
+}
+
+/** Load pause state from disk on startup */
+function loadRdrPauseState(): void {
+  try {
+    if (!existsSync(RDR_PAUSE_FILE)) return;
+    const raw = readFileSync(RDR_PAUSE_FILE, 'utf-8');
+    const loaded = JSON.parse(raw) as RdrPauseState;
+
+    // If rate limit reset time has passed, auto-clear
+    if (loaded.paused && loaded.rateLimitResetAt > 0 && Date.now() >= loaded.rateLimitResetAt) {
+      console.log('[RDR] Rate limit expired during restart — resuming RDR');
+      rdrPauseState = { paused: false, reason: '', pausedAt: 0, rateLimitResetAt: 0 };
+      persistRdrPauseState();
+      return;
+    }
+
+    rdrPauseState = loaded;
+    if (rdrPauseState.paused) {
+      const remainingMin = Math.ceil((rdrPauseState.rateLimitResetAt - Date.now()) / 60_000);
+      console.log(`[RDR] Loaded persisted pause state — still paused (resets in ${remainingMin}min)`);
+    }
+  } catch {
+    // Corrupted file — start fresh
+    rdrPauseState = { paused: false, reason: '', pausedAt: 0, rateLimitResetAt: 0 };
+  }
+}
+
+/** Pause RDR — block all sends until rate limit resets */
+export function pauseRdr(reason: string, rateLimitResetAt: number): void {
+  rdrPauseState = {
+    paused: true,
+    reason,
+    pausedAt: Date.now(),
+    rateLimitResetAt,
+  };
+  persistRdrPauseState();
+
+  const remainingMin = Math.ceil((rateLimitResetAt - Date.now()) / 60_000);
+  console.log(`[RDR] PAUSED: ${reason} (resets in ${remainingMin}min)`);
+
+  // Notify renderer
+  try {
+    const allWindows = BrowserWindow?.getAllWindows() || [];
+    for (const win of allWindows) {
+      if (!win.isDestroyed()) {
+        win.webContents.send(IPC_CHANNELS.RDR_RATE_LIMITED, {
+          paused: true,
+          reason,
+          rateLimitResetAt,
+        });
+      }
+    }
+  } catch (err) {
+    console.error('[RDR] Failed to notify renderer of pause:', err);
+  }
+}
+
+/** Resume RDR — rate limit cleared, trigger immediate send */
+export function resumeRdr(reason: string): void {
+  if (!rdrPauseState.paused) return;
+
+  console.log(`[RDR] RESUMED: ${reason}`);
+  rdrPauseState = { paused: false, reason: '', pausedAt: 0, rateLimitResetAt: 0 };
+  persistRdrPauseState();
+
+  // Notify renderer
+  try {
+    const allWindows = BrowserWindow?.getAllWindows() || [];
+    for (const win of allWindows) {
+      if (!win.isDestroyed()) {
+        win.webContents.send(IPC_CHANNELS.RDR_RATE_LIMIT_CLEARED, { reason });
+      }
+    }
+  } catch (err) {
+    console.error('[RDR] Failed to notify renderer of resume:', err);
+  }
+
+  // Trigger immediate RDR processing for pending tasks
+  if (pendingTasks.length > 0) {
+    console.log(`[RDR] Processing ${pendingTasks.length} pending tasks after rate limit cleared`);
+    processPendingTasks(true);
+  }
+}
 
 // Agent manager reference — set during registration, used to check if agent IS running
 let agentManagerRef: AgentManager | null = null;
@@ -1386,6 +1508,13 @@ async function checkClaudeCodeBusy(): Promise<boolean> {
   try {
     console.log('[RDR] Checking if Claude Code is busy...');
 
+    // 0. CHECK RATE LIMIT PAUSE (highest priority)
+    if (isRdrPaused()) {
+      const remainingMin = Math.ceil((rdrPauseState.rateLimitResetAt - Date.now()) / 60_000);
+      console.log(`[RDR] BLOCKED: RDR paused — rate limit active (resets in ${remainingMin}min)`);
+      return true;
+    }
+
     // 1. PRIMARY: Check MCP connection (definitive for user's Claude Code)
     // MCP Monitor only tracks user's Claude Code -> Auto-Claude MCP server connection
     // Task agents do NOT connect to this MCP server
@@ -1677,6 +1806,18 @@ export function registerRdrHandlers(agentManager?: AgentManager): void {
 
   // Start event-driven RDR processing
   setupEventDrivenProcessing();
+
+  // Renderer queries current RDR pause state (e.g. on mount)
+  ipcMain.handle(IPC_CHANNELS.RDR_GET_COOLDOWN_STATUS, () => {
+    return {
+      success: true,
+      data: {
+        paused: rdrPauseState.paused,
+        reason: rdrPauseState.reason,
+        rateLimitResetAt: rdrPauseState.rateLimitResetAt,
+      },
+    };
+  });
 
   ipcMain.handle(
     IPC_CHANNELS.TRIGGER_RDR_PROCESSING,

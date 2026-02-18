@@ -636,6 +636,11 @@ export const IPC_CHANNELS = {
   IS_CLAUDE_CODE_BUSY: 'rdr:isClaudeCodeBusy',              // Check if Claude Code is in a prompt loop
   AUTO_RECOVER_ALL_TASKS: 'rdr:autoRecoverAllTasks',        // Auto-recover all tasks with start_requested status
 
+  // RDR Rate Limit Pause (stops RDR when session limit is reached)
+  RDR_RATE_LIMITED: 'rdr:rateLimited',                      // RDR paused due to rate limit (push to renderer)
+  RDR_RATE_LIMIT_CLEARED: 'rdr:rateLimitCleared',           // RDR resumed after rate limit reset (push to renderer)
+  RDR_GET_COOLDOWN_STATUS: 'rdr:getCooldownStatus',         // Renderer queries current pause state
+
   // Auto Shutdown
   GET_AUTO_SHUTDOWN_STATUS: 'autoShutdown:getStatus',       // Get auto-shutdown status for a project
   SET_AUTO_SHUTDOWN: 'autoShutdown:set',                    // Enable/disable auto-shutdown for a project

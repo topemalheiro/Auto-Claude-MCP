@@ -252,6 +252,11 @@ export interface ElectronAPI {
   }>>;
   isClaudeCodeBusy: (identifier: number | string) => Promise<IPCResult<boolean>>;
 
+  // RDR Rate Limit Pause
+  getRdrCooldownStatus: () => Promise<IPCResult<{ paused: boolean; reason: string; rateLimitResetAt: number }>>;
+  onRdrRateLimited: (callback: (data: { paused: boolean; reason: string; rateLimitResetAt: number }) => void) => () => void;
+  onRdrRateLimitCleared: (callback: (data: { reason: string }) => void) => () => void;
+
   // Auto Shutdown (Global - monitors ALL projects)
   getAutoShutdownStatus: () => Promise<IPCResult<AutoShutdownStatus>>;
   setAutoShutdown: (enabled: boolean) => Promise<IPCResult<AutoShutdownStatus>>;

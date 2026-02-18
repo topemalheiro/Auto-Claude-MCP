@@ -136,6 +136,8 @@
     "rdrSelectWindow": "Sélectionner fenêtre",
     "rdrNoWindows": "Aucune fenêtre VS Code trouvée",
     "rdrSelectWindowFirst": "Sélectionnez d'abord une fenêtre VS Code",
+    "rdrPaused": "Limité — reprise dans {{minutes}}min",
+    "rdrPausedTooltip": "RDR en pause — limite de session atteinte. Reprise auto à la réinitialisation.",
     "rdrSending": "Envoi vers Claude Code...",
     "rdrSendingDesc": "Envoi du message avec {{count}} tâches vers la fenêtre VS Code...",
     "rdrSendSuccess": "Message envoyé",

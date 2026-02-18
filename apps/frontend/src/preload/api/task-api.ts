@@ -147,6 +147,11 @@ export interface TaskAPI {
   getRdrBatchDetails: (projectId: string) => Promise<IPCResult<RdrBatchDetails>>;
   isClaudeCodeBusy: (identifier: number | string) => Promise<IPCResult<boolean>>;
 
+  // RDR Rate Limit Pause
+  getRdrCooldownStatus: () => Promise<IPCResult<{ paused: boolean; reason: string; rateLimitResetAt: number }>>;
+  onRdrRateLimited: (callback: (data: { paused: boolean; reason: string; rateLimitResetAt: number }) => void) => () => void;
+  onRdrRateLimitCleared: (callback: (data: { reason: string }) => void) => () => void;
+
   // Auto Shutdown (Global - monitors ALL projects)
   getAutoShutdownStatus: () => Promise<IPCResult<AutoShutdownStatus>>;
   setAutoShutdown: (enabled: boolean) => Promise<IPCResult<AutoShutdownStatus>>;
@@ -520,6 +525,26 @@ export const createTaskAPI = (): TaskAPI => ({
   // Check if Claude Code is busy (in a prompt loop)
   isClaudeCodeBusy: (identifier: number | string): Promise<IPCResult<boolean>> =>
     ipcRenderer.invoke(IPC_CHANNELS.IS_CLAUDE_CODE_BUSY, identifier),
+
+  // RDR Rate Limit Pause
+  getRdrCooldownStatus: (): Promise<IPCResult<{ paused: boolean; reason: string; rateLimitResetAt: number }>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.RDR_GET_COOLDOWN_STATUS),
+
+  onRdrRateLimited: (
+    callback: (data: { paused: boolean; reason: string; rateLimitResetAt: number }) => void
+  ): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, data: { paused: boolean; reason: string; rateLimitResetAt: number }) => callback(data);
+    ipcRenderer.on(IPC_CHANNELS.RDR_RATE_LIMITED, handler);
+    return () => ipcRenderer.removeListener(IPC_CHANNELS.RDR_RATE_LIMITED, handler);
+  },
+
+  onRdrRateLimitCleared: (
+    callback: (data: { reason: string }) => void
+  ): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, data: { reason: string }) => callback(data);
+    ipcRenderer.on(IPC_CHANNELS.RDR_RATE_LIMIT_CLEARED, handler);
+    return () => ipcRenderer.removeListener(IPC_CHANNELS.RDR_RATE_LIMIT_CLEARED, handler);
+  },
 
   // Auto Shutdown (Global - monitors ALL projects)
   getAutoShutdownStatus: () =>

@@ -124,5 +124,10 @@ export const taskMock = {
       taskDetails: []
     }
   }),
-  isClaudeCodeBusy: async () => ({ success: true, data: false }) // Always idle in browser
+  isClaudeCodeBusy: async () => ({ success: true, data: false }), // Always idle in browser
+
+  // RDR Rate Limit Pause
+  getRdrCooldownStatus: async () => ({ success: true, data: { paused: false, reason: '', rateLimitResetAt: 0 } }),
+  onRdrRateLimited: () => () => {},
+  onRdrRateLimitCleared: () => () => {}
 };

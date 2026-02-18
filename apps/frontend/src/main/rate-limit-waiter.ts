@@ -10,6 +10,7 @@
 import { BrowserWindow } from 'electron';
 import { IPC_CHANNELS } from '../shared/constants';
 import type { SDKRateLimitInfo } from './rate-limit-detector';
+import { pauseRdr, resumeRdr } from './ipc-handlers/rdr-handlers';
 
 /**
  * State of an active wait operation
@@ -88,6 +89,9 @@ export function startRateLimitWait(
     });
   }
 
+  // Pause RDR — same subscription, Claude Code is also rate limited
+  pauseRdr('Rate limit detected', completesAt.getTime());
+
   // Create countdown interval (update every second)
   const countdownInterval = setInterval(() => {
     const state = activeWaits.get(waitId);
@@ -140,6 +144,9 @@ export function startRateLimitWait(
         profileId: info.profileId
       });
     }
+
+    // Resume RDR — rate limit cleared, send pending tasks
+    resumeRdr('Rate limit reset');
 
     // Trigger callback for auto-resume
     if (onComplete) {
@@ -314,6 +321,9 @@ export function startRateLimitWaitForTask(
         source: 'task_crash'
       });
     }
+
+    // Resume RDR — rate limit auto-resumed, send pending tasks
+    resumeRdr('Rate limit auto-resume');
 
     // Call optional callback
     if (onResume) {
