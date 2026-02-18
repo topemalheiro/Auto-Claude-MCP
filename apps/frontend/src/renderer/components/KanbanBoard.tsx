@@ -76,6 +76,7 @@ interface KanbanBoardProps {
   onNewTaskClick?: () => void;
   onRefresh?: () => void;
   isRefreshing?: boolean;
+  onOpenMessagingSettings?: () => void;
 }
 
 interface DroppableColumnProps {
@@ -663,7 +664,7 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
   );
 }, droppableColumnPropsAreEqual);
 
-export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isRefreshing }: KanbanBoardProps) {
+export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isRefreshing, onOpenMessagingSettings }: KanbanBoardProps) {
   const { t } = useTranslation(['tasks', 'dialogs', 'common']);
   const { toast } = useToast();
   const [activeTask, setActiveTask] = useState<Task | null>(null);
@@ -2550,8 +2551,8 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
               </div>
             </div>
 
-            {/* MCP Messaging Panel */}
-            <MessagingPanel />
+            {/* MCP Messaging Panel - appears dynamically when project has active configs */}
+            <MessagingPanel onOpenSettings={onOpenMessagingSettings} />
           </div>
 
           {/* Refresh Button */}

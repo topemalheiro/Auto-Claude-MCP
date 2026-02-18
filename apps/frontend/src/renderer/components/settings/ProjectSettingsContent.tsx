@@ -17,6 +17,7 @@ interface ProjectSettingsContentProps {
   activeSection: ProjectSettingsSection;
   isOpen: boolean;
   onHookReady: (hook: UseProjectSettingsReturn | null) => void;
+  onNavigateToAppMessaging?: () => void;
 }
 
 /**
@@ -27,7 +28,8 @@ export function ProjectSettingsContent({
   project,
   activeSection,
   isOpen,
-  onHookReady
+  onHookReady,
+  onNavigateToAppMessaging
 }: ProjectSettingsContentProps) {
   const { t } = useTranslation('settings');
 
@@ -49,6 +51,7 @@ export function ProjectSettingsContent({
       activeSection={activeSection}
       isOpen={isOpen}
       onHookReady={onHookReady}
+      onNavigateToAppMessaging={onNavigateToAppMessaging}
     />
   );
 }
@@ -61,12 +64,14 @@ function ProjectSettingsContentInner({
   project,
   activeSection,
   isOpen,
-  onHookReady
+  onHookReady,
+  onNavigateToAppMessaging
 }: {
   project: Project;
   activeSection: ProjectSettingsSection;
   isOpen: boolean;
   onHookReady: (hook: UseProjectSettingsReturn | null) => void;
+  onNavigateToAppMessaging?: () => void;
 }) {
   const hook = useProjectSettings(project, isOpen);
 
@@ -148,6 +153,7 @@ function ProjectSettingsContentInner({
         isCheckingLinear={isCheckingLinear}
         handleInitialize={handleInitialize}
         onOpenLinearImport={() => setShowLinearImportModal(true)}
+        onNavigateToAppMessaging={onNavigateToAppMessaging}
       />
 
       <ErrorDisplay error={error} envError={envError} />

@@ -8,7 +8,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Tag, MessageSquare, Settings, ExternalLink } from 'lucide-react';
+import { Tag, MessageSquare, Settings } from 'lucide-react';
 import { Label } from '../ui/label';
 import { Button } from '../ui/button';
 import { Switch } from '../ui/switch';
@@ -19,12 +19,14 @@ interface ProjectMessagingSettingsProps {
   project: Project;
   settings: ProjectSettings;
   setSettings: React.Dispatch<React.SetStateAction<ProjectSettings>>;
+  onNavigateToAppMessaging?: () => void;
 }
 
 export function ProjectMessagingSettings({
   project,
   settings,
   setSettings,
+  onNavigateToAppMessaging,
 }: ProjectMessagingSettingsProps) {
   const { t } = useTranslation(['settings', 'common']);
 
@@ -139,10 +141,8 @@ export function ProjectMessagingSettings({
             <Button
               variant="outline"
               size="sm"
-              onClick={() => {
-                // Open app settings to messaging section
-                // This is handled via the settings dialog navigation
-              }}
+              onClick={onNavigateToAppMessaging}
+              disabled={!onNavigateToAppMessaging}
             >
               <Settings className="w-3.5 h-3.5 mr-1.5" />
               {t(

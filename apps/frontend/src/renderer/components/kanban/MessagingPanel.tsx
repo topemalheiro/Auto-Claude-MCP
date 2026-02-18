@@ -3,16 +3,16 @@
  *
  * Shows active messaging configs for the current project.
  * Displayed in the kanban top bar, to the right of the RDR box.
+ * Only renders when the project has at least 1 active messaging config.
  */
 
 import { useEffect, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { MessageSquare, Settings } from 'lucide-react';
+import { Settings } from 'lucide-react';
 import { Switch } from '../ui/switch';
 import { Button } from '../ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
 import { ScrollArea } from '../ui/scroll-area';
-import type { TaskTag, MessagingConfig } from '../../../shared/types/messaging';
 import { useSettingsStore } from '../../stores/settings-store';
 import { useProjectStore } from '../../stores/project-store';
 
@@ -26,15 +26,11 @@ export function MessagingPanel({ onOpenSettings }: MessagingPanelProps) {
   const activeProjectId = useProjectStore(s => s.activeProjectId);
   const projects = useProjectStore(s => s.projects);
 
-  const [tags, setTags] = useState<TaskTag[]>([]);
-  const [configs, setConfigs] = useState<MessagingConfig[]>([]);
-  const [activeConfigIds, setActiveConfigIds] = useState<string[]>([]);
+  // Derive tags/configs directly from store (no state duplication)
+  const tags = settings.messagingTags ?? [];
+  const configs = settings.messagingConfigs ?? [];
 
-  // Load global tags/configs from settings
-  useEffect(() => {
-    setTags(settings.messagingTags ?? []);
-    setConfigs(settings.messagingConfigs ?? []);
-  }, [settings.messagingTags, settings.messagingConfigs]);
+  const [activeConfigIds, setActiveConfigIds] = useState<string[]>([]);
 
   // Load project-specific active config IDs
   useEffect(() => {
@@ -42,10 +38,12 @@ export function MessagingPanel({ onOpenSettings }: MessagingPanelProps) {
     setActiveConfigIds(project?.settings?.activeMessagingConfigIds ?? []);
   }, [activeProjectId, projects]);
 
-  // Toggle a config's activation for this project
+  // Toggle a config's activation for this project (with rollback on failure)
   const toggleConfigForProject = useCallback(
     async (configId: string) => {
       if (!activeProjectId) return;
+
+      const previousIds = activeConfigIds;
       const newIds = activeConfigIds.includes(configId)
         ? activeConfigIds.filter(id => id !== configId)
         : [...activeConfigIds, configId];
@@ -55,6 +53,7 @@ export function MessagingPanel({ onOpenSettings }: MessagingPanelProps) {
         await window.electronAPI.messaging.setActiveMessagingConfigs(activeProjectId, newIds);
       } catch (err) {
         console.error('[MessagingPanel] Failed to save active configs:', err);
+        setActiveConfigIds(previousIds);
       }
     },
     [activeProjectId, activeConfigIds]
@@ -63,11 +62,12 @@ export function MessagingPanel({ onOpenSettings }: MessagingPanelProps) {
   // Get tag by ID
   const getTag = (id: string) => tags.find(tag => tag.id === id);
 
-  // Only show configs that are globally enabled
-  const enabledConfigs = configs.filter(c => c.enabled);
+  // Show configs that are active for this project
+  const activeConfigs = configs.filter(c => activeConfigIds.includes(c.id));
 
-  if (enabledConfigs.length === 0) {
-    return null; // Don't render panel if no configs exist
+  // Don't render panel if no configs are activated for this project
+  if (activeConfigIds.length === 0) {
+    return null;
   }
 
   return (
@@ -78,43 +78,50 @@ export function MessagingPanel({ onOpenSettings }: MessagingPanelProps) {
       </span>
 
       <div className="flex items-center gap-2">
-        <ScrollArea className="max-h-[80px] max-w-[280px]">
-          <div className="flex flex-col gap-1">
-            {enabledConfigs.map(config => {
-              const triggerTag = getTag(config.triggerTag);
-              const isActive = activeConfigIds.includes(config.id);
+        {activeConfigs.length > 0 ? (
+          <ScrollArea className="max-h-[80px] max-w-[280px]">
+            <div className="flex flex-col gap-1">
+              {activeConfigs.map(config => {
+                const triggerTag = getTag(config.triggerTag);
+                const isActive = activeConfigIds.includes(config.id);
 
-              return (
-                <Tooltip key={config.id}>
-                  <TooltipTrigger asChild>
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      <Switch
-                        checked={isActive}
-                        onCheckedChange={() => toggleConfigForProject(config.id)}
-                        className="scale-75"
-                      />
-                      {triggerTag && (
-                        <span
-                          className="w-2 h-2 rounded-full flex-shrink-0"
-                          style={{ backgroundColor: triggerTag.color }}
+                return (
+                  <Tooltip key={config.id}>
+                    <TooltipTrigger asChild>
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <Switch
+                          checked={isActive}
+                          onCheckedChange={() => toggleConfigForProject(config.id)}
+                          className="scale-75"
                         />
-                      )}
-                      <span className="text-[10px] text-muted-foreground truncate max-w-[120px]">
-                        {config.name}
-                      </span>
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" className="max-w-xs">
-                    <p className="text-xs">
-                      {triggerTag ? `Tag: ${triggerTag.name} | ` : ''}
-                      Trigger: {config.triggerStatus} | {config.receiver.type === 'rdr_mechanism' ? 'RDR Mechanism' : `Window: ${config.receiver.windowTitle}`}
-                    </p>
-                  </TooltipContent>
-                </Tooltip>
-              );
-            })}
-          </div>
-        </ScrollArea>
+                        {triggerTag && (
+                          <span
+                            className="w-2 h-2 rounded-full flex-shrink-0"
+                            style={{ backgroundColor: triggerTag.color }}
+                          />
+                        )}
+                        <span className={`text-[10px] truncate max-w-[120px] ${config.enabled ? 'text-muted-foreground' : 'text-muted-foreground/50 line-through'}`}>
+                          {config.name}
+                        </span>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="max-w-xs">
+                      <p className="text-xs">
+                        {!config.enabled && t('tasks:kanban.messagingDisabledGlobally', '(Disabled globally) ')}
+                        {triggerTag ? `${t('tasks:kanban.messagingTag', 'Tag')}: ${triggerTag.name} | ` : ''}
+                        {t('tasks:kanban.messagingTrigger', 'Trigger')}: {config.triggerStatus} | {config.receiver.type === 'rdr_mechanism' ? t('tasks:kanban.messagingRdrMechanism', 'RDR Mechanism') : `${t('tasks:kanban.messagingWindow', 'Window')}: ${config.receiver.windowTitle}`}
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                );
+              })}
+            </div>
+          </ScrollArea>
+        ) : (
+          <span className="text-[10px] text-muted-foreground/50 italic">
+            {t('tasks:kanban.messagingNoConfigs', 'No matching configs')}
+          </span>
+        )}
 
         {/* Settings button */}
         {onOpenSettings && (

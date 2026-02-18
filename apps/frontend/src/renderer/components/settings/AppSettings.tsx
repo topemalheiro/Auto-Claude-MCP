@@ -236,6 +236,10 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
         activeSection={projectSection}
         isOpen={open}
         onHookReady={handleProjectHookReady}
+        onNavigateToAppMessaging={() => {
+          setActiveTopLevel('app');
+          setAppSection('messaging');
+        }}
       />
     );
   };

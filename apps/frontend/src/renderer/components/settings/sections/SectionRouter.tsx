@@ -39,6 +39,7 @@ interface SectionRouterProps {
   isCheckingLinear: boolean;
   handleInitialize: () => Promise<void>;
   onOpenLinearImport: () => void;
+  onNavigateToAppMessaging?: () => void;
 }
 
 /**
@@ -72,7 +73,8 @@ export function SectionRouter({
   linearConnectionStatus,
   isCheckingLinear,
   handleInitialize,
-  onOpenLinearImport
+  onOpenLinearImport,
+  onNavigateToAppMessaging
 }: SectionRouterProps) {
   const { t } = useTranslation('settings');
 
@@ -105,6 +107,7 @@ export function SectionRouter({
             project={project}
             settings={settings}
             setSettings={setSettings}
+            onNavigateToAppMessaging={onNavigateToAppMessaging}
           />
         </SettingsSection>
       );
