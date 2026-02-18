@@ -10,14 +10,13 @@ import { SectionRouter } from './sections/SectionRouter';
 import { createHookProxy } from './utils/hookProxyFactory';
 import type { Project } from '../../../shared/types';
 
-export type ProjectSettingsSection = 'general' | 'messaging' | 'linear' | 'github' | 'gitlab' | 'huggingface' | 'memory';
+export type ProjectSettingsSection = 'general' | 'linear' | 'github' | 'gitlab' | 'huggingface' | 'memory';
 
 interface ProjectSettingsContentProps {
   project: Project | undefined;
   activeSection: ProjectSettingsSection;
   isOpen: boolean;
   onHookReady: (hook: UseProjectSettingsReturn | null) => void;
-  onNavigateToAppMessaging?: () => void;
 }
 
 /**
@@ -28,8 +27,7 @@ export function ProjectSettingsContent({
   project,
   activeSection,
   isOpen,
-  onHookReady,
-  onNavigateToAppMessaging
+  onHookReady
 }: ProjectSettingsContentProps) {
   const { t } = useTranslation('settings');
 
@@ -51,7 +49,6 @@ export function ProjectSettingsContent({
       activeSection={activeSection}
       isOpen={isOpen}
       onHookReady={onHookReady}
-      onNavigateToAppMessaging={onNavigateToAppMessaging}
     />
   );
 }
@@ -64,14 +61,12 @@ function ProjectSettingsContentInner({
   project,
   activeSection,
   isOpen,
-  onHookReady,
-  onNavigateToAppMessaging
+  onHookReady
 }: {
   project: Project;
   activeSection: ProjectSettingsSection;
   isOpen: boolean;
   onHookReady: (hook: UseProjectSettingsReturn | null) => void;
-  onNavigateToAppMessaging?: () => void;
 }) {
   const hook = useProjectSettings(project, isOpen);
 
@@ -153,7 +148,6 @@ function ProjectSettingsContentInner({
         isCheckingLinear={isCheckingLinear}
         handleInitialize={handleInitialize}
         onOpenLinearImport={() => setShowLinearImportModal(true)}
-        onNavigateToAppMessaging={onNavigateToAppMessaging}
       />
 
       <ErrorDisplay error={error} envError={envError} />

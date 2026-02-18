@@ -22,8 +22,5 @@ export * from './app-update';
 export * from './cli';
 export * from './pr-status';
 
-// Messaging system types
-export * from './messaging';
-
 // IPC types (must be last to use types from other modules)
 export * from './ipc';

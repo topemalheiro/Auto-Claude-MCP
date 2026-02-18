@@ -927,10 +927,6 @@ export function App() {
                     onNewTaskClick={() => setIsNewTaskDialogOpen(true)}
                     onRefresh={handleRefreshTasks}
                     isRefreshing={isRefreshingTasks}
-                    onOpenMessagingSettings={() => {
-                      setSettingsInitialSection('messaging');
-                      setIsSettingsDialogOpen(true);
-                    }}
                   />
                 )}
                 {/* TerminalGrid is always mounted but hidden when not active to preserve terminal state */}

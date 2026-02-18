@@ -293,9 +293,6 @@ export class TaskStateManager {
       }
       this.emitStatus(taskId, status, reviewReason, project.id);
 
-      // MCP Messaging System — check if this transition triggers any messaging configs
-      this.checkMessagingTriggers(task.specId, status, project);
-
       // Also emit execution progress to sync phase display with column
       // This ensures crisp transitions - phase and column update together
       this.emitPhaseFromState(taskId, stateValue, project.id);
@@ -399,30 +396,6 @@ export class TaskStateManager {
     // This handles the case where we reload lastSequence from plan file and the next
     // event has the same sequence number (which shouldn't happen, but we should be lenient)
     return last === undefined || sequence >= last;
-  }
-
-  /**
-   * Check if a status transition triggers any messaging configs.
-   * Runs async — does not block the status emission pipeline.
-   */
-  private checkMessagingTriggers(specId: string, status: TaskStatus, project: Project): void {
-    // Only trigger for statuses that messaging configs care about
-    const triggerStatuses = new Set(['human_review', 'done', 'ai_review']);
-    if (!triggerStatuses.has(status)) return;
-
-    // Fire-and-forget — messaging should never block state transitions
-    import('./messaging/messaging-trigger')
-      .then(({ checkAndTriggerMessages }) =>
-        checkAndTriggerMessages(
-          specId,
-          status,
-          project.id,
-          project.path,
-          project.name,
-          this.getMainWindow
-        )
-      )
-      .catch(err => console.error('[TaskStateManager] Messaging trigger error:', err));
   }
 
   private buildSnapshotFromTask(task: Task) {
