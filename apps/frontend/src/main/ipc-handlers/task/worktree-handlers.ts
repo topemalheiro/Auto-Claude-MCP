@@ -3,7 +3,7 @@ import { IPC_CHANNELS, AUTO_BUILD_PATHS, DEFAULT_APP_SETTINGS, DEFAULT_FEATURE_M
 import type { IPCResult, WorktreeStatus, WorktreeDiff, WorktreeDiffFile, WorktreeMergeResult, WorktreeDiscardResult, WorktreeListResult, WorktreeListItem, WorktreeCreatePROptions, WorktreeCreatePRResult, SupportedIDE, SupportedTerminal, AppSettings } from '../../../shared/types';
 import path from 'path';
 import { minimatch } from 'minimatch';
-import { existsSync, readdirSync, statSync, readFileSync, promises as fsPromises } from 'fs';
+import { existsSync, readdirSync, statSync, readFileSync, rmSync, promises as fsPromises } from 'fs';
 import { execFileSync, spawn, spawnSync, exec, execFile } from 'child_process';
 import { homedir } from 'os';
 import { projectStore } from '../../project-store';

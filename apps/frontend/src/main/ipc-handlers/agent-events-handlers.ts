@@ -44,12 +44,38 @@ export function registerAgenteventsHandlers(
   // Agent Manager Events → Renderer
   // ============================================
 
+  // Track repeated log lines per task to suppress rate limit spam
+  const lastLogByTask = new Map<string, { line: string; count: number; timestamp: number }>();
+
   agentManager.on("log", (taskId: string, log: string, projectId?: string) => {
     // Use projectId from event when available; fall back to lookup for backward compatibility
     if (!projectId) {
       const { project } = findTaskAndProject(taskId);
       projectId = project?.id;
     }
+
+    // Deduplicate repeated lines (e.g., "You've hit your limit" every ~20s during rate limit waits)
+    const trimmed = log.trim();
+    const cached = lastLogByTask.get(taskId);
+    if (cached && cached.line === trimmed && Date.now() - cached.timestamp < 120_000) {
+      // Same line repeated within 2 minutes — suppress
+      cached.count++;
+      cached.timestamp = Date.now();
+      return;
+    }
+
+    // Different line or first occurrence — flush suppression count if any, then send
+    if (cached && cached.count > 1) {
+      safeSendToRenderer(
+        getMainWindow,
+        IPC_CHANNELS.TASK_LOG,
+        taskId,
+        `[Previous message repeated ${cached.count - 1} more time${cached.count > 2 ? "s" : ""}]\n`,
+        projectId
+      );
+    }
+
+    lastLogByTask.set(taskId, { line: trimmed, count: 1, timestamp: Date.now() });
     safeSendToRenderer(getMainWindow, IPC_CHANNELS.TASK_LOG, taskId, log, projectId);
   });
 
