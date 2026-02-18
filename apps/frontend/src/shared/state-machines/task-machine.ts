@@ -160,6 +160,7 @@ export const taskMachine = createMachine(
           CREATE_PR: 'creating_pr',
           MARK_DONE: 'done',
           USER_RESUMED: { target: 'coding', actions: 'clearReviewReason' },
+          PLANNING_STARTED: { target: 'planning', actions: 'clearReviewReason' },
           FORCE_BACKLOG: { target: 'backlog', actions: 'clearReviewReason' },
           FORCE_HUMAN_REVIEW: { target: 'human_review', actions: 'setReviewReasonStopped' },
           FORCE_AI_REVIEW: { target: 'qa_review', actions: 'clearReviewReason' }
@@ -168,6 +169,7 @@ export const taskMachine = createMachine(
       error: {
         on: {
           USER_RESUMED: { target: 'coding', actions: 'clearReviewReason' },
+          PLANNING_STARTED: { target: 'planning', actions: 'clearReviewReason' },
           MARK_DONE: 'done',
           FORCE_BACKLOG: { target: 'backlog', actions: 'clearReviewReason' },
           FORCE_HUMAN_REVIEW: { target: 'human_review', actions: 'setReviewReasonStopped' },
