@@ -50,7 +50,6 @@ import {
   AlertDialogTitle,
 } from './ui/alert-dialog';
 import type { Task, TaskStatus, TaskOrderState } from '../../shared/types';
-import { MessagingPanel } from './kanban/MessagingPanel';
 
 // Type guard for valid drop column targets - preserves literal type from TASK_STATUS_COLUMNS
 const VALID_DROP_COLUMNS = new Set<string>(TASK_STATUS_COLUMNS);
@@ -76,7 +75,6 @@ interface KanbanBoardProps {
   onNewTaskClick?: () => void;
   onRefresh?: () => void;
   isRefreshing?: boolean;
-  onOpenMessagingSettings?: () => void;
 }
 
 interface DroppableColumnProps {
@@ -664,7 +662,7 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
   );
 }, droppableColumnPropsAreEqual);
 
-export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isRefreshing, onOpenMessagingSettings }: KanbanBoardProps) {
+export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isRefreshing }: KanbanBoardProps) {
   const { t } = useTranslation(['tasks', 'dialogs', 'common']);
   const { toast } = useToast();
   const [activeTask, setActiveTask] = useState<Task | null>(null);
@@ -2634,8 +2632,6 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
               </div>
             </div>
 
-            {/* MCP Messaging Panel - appears dynamically when project has active configs */}
-            <MessagingPanel onOpenSettings={onOpenMessagingSettings} />
           </div>
 
           {/* Refresh Button */}

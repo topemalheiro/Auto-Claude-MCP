@@ -3,7 +3,6 @@ import type { Project, ProjectSettings as ProjectSettingsType, AutoBuildVersionI
 import { SettingsSection } from '../SettingsSection';
 import { GeneralSettings } from '../../project-settings/GeneralSettings';
 import { SecuritySettings } from '../../project-settings/SecuritySettings';
-import { ProjectMessagingSettings } from '../../project-settings/ProjectMessagingSettings';
 import { LinearIntegration } from '../integrations/LinearIntegration';
 import { GitHubIntegration } from '../integrations/GitHubIntegration';
 import { GitLabIntegration } from '../integrations/GitLabIntegration';
@@ -39,7 +38,6 @@ interface SectionRouterProps {
   isCheckingLinear: boolean;
   handleInitialize: () => Promise<void>;
   onOpenLinearImport: () => void;
-  onNavigateToAppMessaging?: () => void;
 }
 
 /**
@@ -73,8 +71,7 @@ export function SectionRouter({
   linearConnectionStatus,
   isCheckingLinear,
   handleInitialize,
-  onOpenLinearImport,
-  onNavigateToAppMessaging
+  onOpenLinearImport
 }: SectionRouterProps) {
   const { t } = useTranslation('settings');
 
@@ -93,21 +90,6 @@ export function SectionRouter({
             isCheckingVersion={isCheckingVersion}
             isUpdating={isUpdating}
             handleInitialize={handleInitialize}
-          />
-        </SettingsSection>
-      );
-
-    case 'messaging':
-      return (
-        <SettingsSection
-          title={t('projectSections.messaging.title')}
-          description={t('projectSections.messaging.description')}
-        >
-          <ProjectMessagingSettings
-            project={project}
-            settings={settings}
-            setSettings={setSettings}
-            onNavigateToAppMessaging={onNavigateToAppMessaging}
           />
         </SettingsSection>
       );

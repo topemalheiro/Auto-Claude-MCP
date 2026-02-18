@@ -249,9 +249,6 @@ export interface TaskMetadata {
   // Testing: Force recovery mode (yellow stuck outline) for testing RDR detection
   forceRecovery?: boolean;
 
-  // MCP Messaging System — tag assignments
-  tags?: string[];  // Tag IDs assigned to this task
-
   // Archive status
   archivedAt?: string;  // ISO date when task was archived
   archivedInVersion?: string;  // Version in which task was archived (from changelog)

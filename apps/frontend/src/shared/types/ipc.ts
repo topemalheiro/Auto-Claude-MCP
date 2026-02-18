@@ -959,9 +959,6 @@ export interface ElectronAPI {
 
   // Queue Routing API (rate limit recovery)
   queue: import('../../preload/api/queue-api').QueueAPI;
-
-  // MCP Messaging System API
-  messaging: import('../../preload/api/modules/messaging-api').MessagingAPI;
 }
 
 /** Platform information exposed via contextBridge for platform-specific behavior */

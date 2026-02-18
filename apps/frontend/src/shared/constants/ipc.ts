@@ -649,14 +649,5 @@ export const IPC_CHANNELS = {
   // Auto-Restart on Loop/Crash
   RESTART_TRIGGER_AUTO_RESTART: 'restart:triggerAutoRestart',  // Trigger build and restart
   RESTART_CHECK_COOLDOWN: 'restart:checkCooldown',             // Check if restart is allowed
-  RESTART_GRACEFUL: 'restart:graceful',                        // Graceful restart (from MCP or user)
-
-  // MCP Messaging System
-  MESSAGING_GET_CONFIGS: 'messaging:getConfigs',               // Get global messaging configs + tags
-  MESSAGING_SAVE_CONFIGS: 'messaging:saveConfigs',             // Save global messaging configs + tags
-  MESSAGING_SET_TASK_TAGS: 'messaging:setTaskTags',            // Set tags on a task
-  MESSAGING_GET_TASK_TAGS: 'messaging:getTaskTags',            // Get tags for a task
-  MESSAGING_TEST_CONFIG: 'messaging:testConfig',               // Send a test message
-  MESSAGING_SET_ACTIVE_CONFIGS: 'messaging:setActiveConfigs',  // Set per-project active config IDs
-  MESSAGING_TRIGGERED: 'messaging:triggered'                   // Event: message was triggered (main -> renderer)
+  RESTART_GRACEFUL: 'restart:graceful'                         // Graceful restart (from MCP or user)
 } as const;
