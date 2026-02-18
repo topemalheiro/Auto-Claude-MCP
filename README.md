@@ -10,6 +10,17 @@
 
 ## **To get the 'Master LLM' working properly through the MCP, either with RDR or general MCP usage, you'll need to copy the folders inside the skills folder in .claude to your personal \.claude\skills folder.**
 
+Fork of [Auto-Claude](https://github.com/AndyMik90/Auto-Claude) with a custom MCP system, automatic recovery, and infrastructure for autonomous overnight batch runs. I added **22,000+ lines** across 114 files on top of main.
+
+**Brief Summary:**
+You can automatically orchestrate and/or troubleshoot your tasks done by LLMs with a master LLM chat through the MCP, sort of like a manager chat. It can work 24/7, with Auto Resume on session limit reset, and has an Auto Shutdown feature to shut down your computer when all tasks are done.
+
+You can make the master LLM create batches of auto-started tasks (use start_requested status on creation to daisy chain, or at prompt end) with prompt inputs, as well as further develop the MCP to improve its maneuverability.
+
+**This is a great tool for building dynamic pipelines and further automating your agentic workflows.**
+
+> **Note:** The MCP server and all task management tools are standard MCP protocol and work with any MCP client. The RDR message **delivery pipeline** (how recovery prompts physically reach the the master LLM that enacts on the MCP) currently targets: **Windows** (PowerShell + Win32 API for clipboard paste + keyboard simulation), **VS Code** (process-level window detection, not extension-specific), and **Claude Code** (JSONL transcript reading for busy-state). The delivery is blind "focus window, paste, enter" — it works when the target chat input is focused but is not tied to any extension API. Each layer can be swapped independently. Contributions for macOS/Linux, other VS Code forks (Cursor, etc.), or other LLM CLIs are welcome. See also [Watchdog Process](#watchdog-process) for OS-specific launcher requirements.
+
 ## MCP Setup (Claude Code Integration)
 
 To manage Auto-Claude tasks from Claude Code in any project, add the MCP server globally:
@@ -38,17 +49,6 @@ claude mcp add auto-claude-manager --scope user -- npx --yes tsx --import "file:
 Replace `<path-to>` with your absolute install path (e.g., `C:/Users/you/repos`). Restart Claude Code after adding.
 
 > **Windows users:** The `--import` path **must** use `file:///C:/...` — bare `C:/` paths fail because Node.js ESM interprets `C:` as a URL scheme.
-
-Fork of [Auto-Claude](https://github.com/AndyMik90/Auto-Claude) with a custom MCP system, automatic recovery, and infrastructure for autonomous overnight batch runs. I added **22,000+ lines** across 114 files on top of main.
-
-**Brief Summary:**
-You can automatically orchestrate and/or troubleshoot your tasks done by LLMs with a master LLM chat through the MCP, sort of like a manager chat. It can work 24/7, with Auto Resume on session limit reset, and has an Auto Shutdown feature to shut down your computer when all tasks are done.
-
-You can make the master LLM create batches of auto-started tasks (use start_requested status on creation to daisy chain, or at prompt end) with prompt inputs, as well as further develop the MCP to improve its maneuverability.
-
-**This is a great tool for building dynamic pipelines and further automating your agentic workflows.**
-
-> **Note:** The MCP server and all task management tools are standard MCP protocol and work with any MCP client. The RDR message **delivery pipeline** (how recovery prompts physically reach the the master LLM that enacts on the MCP) currently targets: **Windows** (PowerShell + Win32 API for clipboard paste + keyboard simulation), **VS Code** (process-level window detection, not extension-specific), and **Claude Code** (JSONL transcript reading for busy-state). The delivery is blind "focus window, paste, enter" — it works when the target chat input is focused but is not tied to any extension API. Each layer can be swapped independently. Contributions for macOS/Linux, other VS Code forks (Cursor, etc.), or other LLM CLIs are welcome. See also [Watchdog Process](#watchdog-process) for OS-specific launcher requirements.
 
 ## What This Fork Adds
 
