@@ -44,6 +44,9 @@ class ImplementationPlan:
     recoveryNote: str | None = None
     qa_signoff: dict | None = None
 
+    # Exit reason (set by frontend when agent process exits)
+    exitReason: str | None = None
+
     # Task chaining configuration
     # chain: { next_task_id, on_completion: auto_start|notify|manual, require_approval }
     chain: dict | None = None
@@ -70,6 +73,8 @@ class ImplementationPlan:
             result["recoveryNote"] = self.recoveryNote
         if self.qa_signoff:
             result["qa_signoff"] = self.qa_signoff
+        if self.exitReason:
+            result["exitReason"] = self.exitReason
         # Include task chaining fields
         if self.chain:
             result["chain"] = self.chain
@@ -110,6 +115,7 @@ class ImplementationPlan:
             planStatus=data.get("planStatus"),
             recoveryNote=data.get("recoveryNote"),
             qa_signoff=data.get("qa_signoff"),
+            exitReason=data.get("exitReason"),
             chain=data.get("chain"),
             chainedFrom=data.get("chainedFrom"),
         )
