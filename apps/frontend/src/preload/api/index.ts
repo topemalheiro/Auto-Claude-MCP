@@ -16,6 +16,7 @@ import { McpAPI, createMcpAPI } from './modules/mcp-api';
 import { ProfileAPI, createProfileAPI } from './profile-api';
 import { ScreenshotAPI, createScreenshotAPI } from './screenshot-api';
 import { QueueAPI, createQueueAPI } from './queue-api';
+import { MessagingAPI, createMessagingAPI } from './modules/messaging-api';
 
 export interface ElectronAPI extends
   ProjectAPI,
@@ -37,6 +38,8 @@ export interface ElectronAPI extends
   github: GitHubAPI;
   /** Queue routing API for rate limit recovery */
   queue: QueueAPI;
+  /** MCP Messaging System API */
+  messaging: MessagingAPI;
 }
 
 export const createElectronAPI = (): ElectronAPI => ({
@@ -53,7 +56,8 @@ export const createElectronAPI = (): ElectronAPI => ({
   ...createProfileAPI(),
   ...createScreenshotAPI(),
   github: createGitHubAPI(),
-  queue: createQueueAPI()  // Queue routing for rate limit recovery
+  queue: createQueueAPI(),  // Queue routing for rate limit recovery
+  messaging: createMessagingAPI()  // MCP Messaging System
 });
 
 // Export individual API creators for potential use in tests or specialized contexts
@@ -72,7 +76,8 @@ export {
   createClaudeCodeAPI,
   createMcpAPI,
   createScreenshotAPI,
-  createQueueAPI
+  createQueueAPI,
+  createMessagingAPI
 };
 
 export type {
@@ -93,5 +98,6 @@ export type {
   ClaudeCodeAPI,
   McpAPI,
   ScreenshotAPI,
-  QueueAPI
+  QueueAPI,
+  MessagingAPI
 };

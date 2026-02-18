@@ -446,6 +446,15 @@
       "integrationTitle": "Mémoire",
       "integrationDescription": "Configurer la mémoire persistante inter-sessions pour les agents",
       "syncDescription": "Configurer la mémoire persistante"
+    },
+    "messaging": {
+      "title": "Messagerie",
+      "description": "Messagerie déclenchée par tags",
+      "activateDescription": "Choisissez quelles configs de messagerie globales sont actives pour ce projet. Gérez les tags et configs dans Paramètres App > Messagerie.",
+      "activeConfigs": "Configs de messagerie actives",
+      "noGlobalConfigs": "Aucune config de messagerie définie. Créez-les d'abord dans les Paramètres App.",
+      "openAppSettings": "Ouvrir Paramètres App",
+      "activeCount": "{{count}} sur {{total}} configs actives pour ce projet"
     }
   },
   "agentProfile": {
@@ -961,6 +970,35 @@
     "pr_template_filler": {
       "label": "Remplisseur de modèle PR",
       "description": "Remplit intelligemment les modèles de PR GitHub à partir des changements de code"
+    }
+  },
+  "messaging": {
+    "title": "Système de messagerie MCP",
+    "description": "Configurez des messages déclenchés par des tags. Lorsqu'une tâche taguée atteint un statut cible, un message est envoyé automatiquement via le mécanisme de livraison choisi.",
+    "tags": {
+      "label": "Tags",
+      "empty": "Aucun tag défini. Créez des tags pour les utiliser avec les configs de messagerie.",
+      "create": "Créer un tag",
+      "edit": "Modifier le tag",
+      "color": "Couleur"
+    },
+    "configs": {
+      "label": "Configs de messagerie",
+      "empty": "Aucune config de messagerie. Créez-en une pour envoyer des messages lorsque des tâches taguées changent de statut.",
+      "create": "Créer une config de messagerie",
+      "edit": "Modifier la config de messagerie",
+      "triggerTag": "Tag déclencheur",
+      "triggerStatus": "Déclencher quand le statut atteint",
+      "template": "Modèle de message",
+      "includeTaskInfo": "Inclure les détails complets des sous-tâches",
+      "receiver": "Méthode de livraison",
+      "test": "Envoyer un message test",
+      "triggerOn": "Déclencher sur"
+    },
+    "panel": {
+      "title": "Messagerie",
+      "noConfigs": "Aucune config de messagerie active. Configurez dans les Paramètres.",
+      "openSettings": "Paramètres"
     }
   },
   "autoShutdown": {

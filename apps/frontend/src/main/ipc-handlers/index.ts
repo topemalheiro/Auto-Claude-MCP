@@ -38,6 +38,7 @@ import { registerTerminalWorktreeIpcHandlers } from './terminal';
 import { registerRateLimitHandlers } from './rate-limit-handlers';
 import { registerRdrHandlers } from './rdr-handlers';
 import { registerRestartHandlers } from './restart-handlers';
+import { registerMessagingHandlers } from './messaging-handlers';
 import { notificationService } from '../notification-service';
 import { setAgentManagerRef } from './utils';
 
@@ -145,6 +146,9 @@ export function setupIpcHandlers(
   // Auto-restart on loop/crash handlers - rebuild and restart on failure
   registerRestartHandlers(agentManager);
 
+  // MCP Messaging System handlers - tag-triggered message delivery
+  registerMessagingHandlers();
+
   console.warn('[IPC] All handler modules registered successfully');
 }
 
@@ -176,5 +180,6 @@ export {
   registerScreenshotHandlers,
   registerRateLimitHandlers,
   registerRdrHandlers,
-  registerRestartHandlers
+  registerRestartHandlers,
+  registerMessagingHandlers
 };

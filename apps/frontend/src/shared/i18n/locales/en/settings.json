@@ -446,6 +446,15 @@
       "integrationTitle": "Memory",
       "integrationDescription": "Configure persistent cross-session memory for agents",
       "syncDescription": "Configure persistent memory"
+    },
+    "messaging": {
+      "title": "Messaging",
+      "description": "Tag-triggered messaging",
+      "activateDescription": "Choose which global messaging configs are active for this project. Manage tags and configs in App Settings > Messaging.",
+      "activeConfigs": "Active Messaging Configs",
+      "noGlobalConfigs": "No messaging configs defined yet. Create them in App Settings first.",
+      "openAppSettings": "Open App Settings",
+      "activeCount": "{{count}} of {{total}} configs active for this project"
     }
   },
   "agentProfile": {
@@ -961,6 +970,35 @@
     "pr_template_filler": {
       "label": "PR Template Filler",
       "description": "AI-fills GitHub PR templates from code changes"
+    }
+  },
+  "messaging": {
+    "title": "MCP Messaging System",
+    "description": "Configure tag-triggered messages. When a tagged task reaches a target status, a message is automatically sent via your chosen delivery mechanism.",
+    "tags": {
+      "label": "Tags",
+      "empty": "No tags defined. Create tags to use with messaging configs.",
+      "create": "Create Tag",
+      "edit": "Edit Tag",
+      "color": "Color"
+    },
+    "configs": {
+      "label": "Messaging Configs",
+      "empty": "No messaging configs. Create one to send messages when tagged tasks change status.",
+      "create": "Create Messaging Config",
+      "edit": "Edit Messaging Config",
+      "triggerTag": "Trigger Tag",
+      "triggerStatus": "Trigger When Status Reaches",
+      "template": "Message Template",
+      "includeTaskInfo": "Include full subtask details",
+      "receiver": "Delivery Method",
+      "test": "Send test message",
+      "triggerOn": "Trigger on"
+    },
+    "panel": {
+      "title": "Messaging",
+      "noConfigs": "No messaging configs active. Configure in Settings.",
+      "openSettings": "Settings"
     }
   },
   "autoShutdown": {

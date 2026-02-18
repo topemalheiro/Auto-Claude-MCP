@@ -349,6 +349,10 @@ export interface AppSettings {
     maxRestarts: number;       // Max restarts within cooldown period (default: 3)
     restartCooldown: number;   // Cooldown period in ms (default: 60000 = 1 minute)
   };
+  // MCP Messaging System — global tag and config definitions
+  // Tags are reusable across all projects; configs are selectable per-project
+  messagingTags?: import('./messaging').TaskTag[];
+  messagingConfigs?: import('./messaging').MessagingConfig[];
 }
 
 // Auto-Claude Source Environment Configuration (for auto-claude repo .env)

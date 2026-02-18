@@ -46,6 +46,8 @@ export interface ProjectSettings {
    * (default: true when Auto-Build is initialized)
    */
   llmManagerEnabled?: boolean;
+  /** IDs of messaging configs active for this project (from global messagingConfigs) */
+  activeMessagingConfigIds?: string[];
 }
 
 export interface NotificationSettings {

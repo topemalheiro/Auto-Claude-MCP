@@ -50,6 +50,7 @@ import {
   AlertDialogTitle,
 } from './ui/alert-dialog';
 import type { Task, TaskStatus, TaskOrderState } from '../../shared/types';
+import { MessagingPanel } from './kanban/MessagingPanel';
 
 // Type guard for valid drop column targets - preserves literal type from TASK_STATUS_COLUMNS
 const VALID_DROP_COLUMNS = new Set<string>(TASK_STATUS_COLUMNS);
@@ -2548,6 +2549,9 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
                 </Tooltip>
               </div>
             </div>
+
+            {/* MCP Messaging Panel */}
+            <MessagingPanel />
           </div>
 
           {/* Refresh Button */}

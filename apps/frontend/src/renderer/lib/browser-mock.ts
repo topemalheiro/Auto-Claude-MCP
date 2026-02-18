@@ -257,6 +257,17 @@ const browserMockAPI: ElectronAPI = {
     onQueueBlockedNoProfiles: () => () => {}
   },
 
+  // MCP Messaging System
+  messaging: {
+    getMessagingConfigs: async () => ({ success: true, data: { tags: [], configs: [] } }),
+    saveMessagingConfigs: async () => ({ success: true }),
+    setTaskTags: async () => ({ success: true }),
+    getTaskTags: async () => ({ success: true, data: [] }),
+    setActiveMessagingConfigs: async () => ({ success: true }),
+    testMessagingConfig: async () => ({ success: true }),
+    onMessagingTriggered: () => () => {}
+  },
+
   // Claude Code Operations
   checkClaudeCodeVersion: async () => ({
     success: true,
