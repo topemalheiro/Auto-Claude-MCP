@@ -10,6 +10,35 @@
 
 ## **To get the 'Master LLM' working properly through the MCP, either with RDR or general MCP usage, you'll need to copy the folders inside the skills folder in .claude to your personal \.claude\skills folder.**
 
+## MCP Setup (Claude Code Integration)
+
+To manage Auto-Claude tasks from Claude Code in any project, add the MCP server globally:
+
+**Option A: CLI command (recommended)**
+
+```bash
+claude mcp add auto-claude-manager --scope user -- npx --yes tsx --import "file:///<path-to>/Auto-Claude-MCP/apps/frontend/src/main/mcp-server/register-loader.mjs" "<path-to>/Auto-Claude-MCP/apps/frontend/src/main/mcp-server/index.ts"
+```
+
+**Option B: Manual config** — add to `~/.claude.json` under `"mcpServers"`:
+
+```json
+{
+  "auto-claude-manager": {
+    "command": "npx",
+    "args": [
+      "--yes", "tsx", "--import",
+      "file:///<path-to>/Auto-Claude-MCP/apps/frontend/src/main/mcp-server/register-loader.mjs",
+      "<path-to>/Auto-Claude-MCP/apps/frontend/src/main/mcp-server/index.ts"
+    ]
+  }
+}
+```
+
+Replace `<path-to>` with your absolute install path (e.g., `C:/Users/you/repos`). Restart Claude Code after adding.
+
+> **Windows users:** The `--import` path **must** use `file:///C:/...` — bare `C:/` paths fail because Node.js ESM interprets `C:` as a URL scheme.
+
 Fork of [Auto-Claude](https://github.com/AndyMik90/Auto-Claude) with a custom MCP system, automatic recovery, and infrastructure for autonomous overnight batch runs. I added **22,000+ lines** across 114 files on top of main.
 
 **Brief Summary:**
