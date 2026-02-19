@@ -164,15 +164,23 @@ export function registerTaskExecutionHandlers(
 
       console.warn('[TASK_START] Found task:', task.specId, 'status:', task.status, 'reviewReason:', task.reviewReason, 'subtasks:', task.subtasks.length);
 
-      // Immediately mark as started so the UI moves the card to In Progress.
-      // Use XState actor state as source of truth (if actor exists), with task data as fallback.
-      // - plan_review: User approved the plan, send PLAN_APPROVED to transition to coding
-      // - human_review/error: User resuming, send USER_RESUMED
-      // - backlog/other: Fresh start, send PLANNING_STARTED
+      // Route XState transition based on task board position and actor state.
+      // PRIORITY: task.status (set by file watcher based on subtask progress) takes precedence
+      // over stale XState actor state for ai_review routing. Without this, a task with all
+      // subtasks complete that the file watcher routed to ai_review gets overridden by
+      // a stale XState 'error' actor → USER_RESUMED → coding → in_progress.
       const currentXState = taskStateManager.getCurrentState(taskId);
       console.warn('[TASK_START] Current XState:', currentXState, '| Task status:', task.status, task.reviewReason);
 
-      if (currentXState === 'plan_review') {
+      if (task.status === 'ai_review') {
+        // File watcher routed here based on subtask completion — respect it
+        if (currentXState !== 'qa_review' && currentXState !== 'qa_fixing') {
+          console.warn('[TASK_START] Task on AI Review board -> qa_review via FORCE_AI_REVIEW');
+          taskStateManager.handleUiEvent(taskId, { type: 'FORCE_AI_REVIEW' }, task, project);
+        } else {
+          console.warn('[TASK_START] XState already in QA phase - staying on AI Review board');
+        }
+      } else if (currentXState === 'plan_review') {
         console.warn('[TASK_START] XState: plan_review -> coding via PLAN_APPROVED');
         taskStateManager.handleUiEvent(taskId, { type: 'PLAN_APPROVED' }, task, project);
       } else if (currentXState === 'human_review' || currentXState === 'error') {
@@ -186,10 +194,7 @@ export function registerTaskExecutionHandlers(
         console.warn('[TASK_START] XState:', currentXState, '- staying on current board');
       } else if (currentXState === 'backlog' || !currentXState) {
         // Fresh start or no XState actor — use fallback logic based on task.status
-        if (task.status === 'ai_review') {
-          console.warn('[TASK_START] No XState actor, task on AI Review -> qa_review via FORCE_AI_REVIEW');
-          taskStateManager.handleUiEvent(taskId, { type: 'FORCE_AI_REVIEW' }, task, project);
-        } else if (task.status === 'human_review' && task.reviewReason === 'plan_review') {
+        if (task.status === 'human_review' && task.reviewReason === 'plan_review') {
           console.warn('[TASK_START] No XState actor, task data: plan_review -> coding via PLAN_APPROVED');
           taskStateManager.handleUiEvent(taskId, { type: 'PLAN_APPROVED' }, task, project);
         } else if (task.status === 'human_review' || task.status === 'error') {
