@@ -22,6 +22,7 @@ import { isElectron } from '../electron-compat';
 import { outputMonitor } from '../claude-code/output-monitor';
 import type { AgentManager } from '../agent/agent-manager';
 import { readSettingsFile } from '../settings-utils';
+import { parseResetTime } from '../claude-profile/usage-parser';
 
 /**
  * Reset rdrAttempts for all tasks across all projects.
@@ -268,7 +269,7 @@ export interface TaskInfo {
 }
 
 export interface RdrBatch {
-  type: 'json_error' | 'incomplete' | 'qa_rejected' | 'errors';
+  type: 'json_error' | 'incomplete' | 'qa_rejected' | 'errors' | 'recovery';
   taskIds: string[];
   tasks: TaskInfo[];
 }
@@ -434,8 +435,20 @@ function isLegitimateHumanReview(task: TaskInfo): boolean {
     return false;  // Flag for intervention — stopped before QA completed
   }
 
-  // Tasks at 100% with reviewReason and no exitReason = legitimate
-  // These are QA-approved tasks waiting for user merge (even with stale planStatus='review')
+  // Tasks at 100% with error/failure reviewReasons are NOT legitimate
+  // These reviewReasons explicitly indicate failure states that need intervention:
+  // - 'errors' = XState error state (task crashed/agent died)
+  // - 'qa_rejected' = QA agent explicitly rejected the work
+  if (progress === 100 && (
+    task.reviewReason === 'errors' ||
+    task.reviewReason === 'qa_rejected'
+  )) {
+    return false;  // Flag for intervention — error/rejection, not legitimate review
+  }
+
+  // Tasks at 100% with other reviewReasons = legitimate
+  // Remaining possibilities: 'plan_review' (handled downstream),
+  // 'completed' (caught above at qaSignoff check), or unknown future reason
   if (progress === 100) {
     return true;  // Don't flag - task completed all subtasks, waiting for user action
   }
@@ -726,6 +739,46 @@ function getLastLogEntries(projectPath: string, specId: string, count: number = 
 }
 
 /**
+ * Rate limit patterns found in task agent logs
+ * Matches: "You've hit your limit · resets 1am (Europe/Lisbon)"
+ * Matches: "Limit reached · resets Dec 17 at 6am (Europe/Oslo)"
+ */
+const TASK_LOG_RATE_LIMIT_PATTERN = /(?:You've hit your limit|Limit reached)\s*[·•]\s*resets\s+(.+?)(?:\s*$)/im;
+
+/**
+ * Scan task logs for rate limit messages.
+ * If any task log contains a rate limit message with a future reset time,
+ * returns the rate limit info so RDR can pause.
+ */
+function checkTaskLogsForRateLimit(
+  batches: RdrBatch[],
+  projectPath: string
+): { isRateLimited: boolean; resetTime?: number; reason?: string } {
+  for (const batch of batches) {
+    for (const task of batch.tasks) {
+      // Read more entries (10) to catch rate limit messages that may not be the very last
+      const logs = getLastLogEntries(projectPath, task.specId, 10);
+      for (const log of logs) {
+        const match = log.content.match(TASK_LOG_RATE_LIMIT_PATTERN);
+        if (match) {
+          const resetTimeStr = match[1].trim();
+          const resetDate = parseResetTime(resetTimeStr);
+          const resetTime = resetDate.getTime();
+          if (resetTime > Date.now()) {
+            return {
+              isRateLimited: true,
+              resetTime,
+              reason: `Task ${task.specId} log: "${log.content}"`
+            };
+          }
+        }
+      }
+    }
+  }
+  return { isRateLimited: false };
+}
+
+/**
  * Get current active phase from task_logs.json
  */
 function getCurrentPhase(projectPath: string, specId: string): 'planning' | 'coding' | 'validation' | undefined {
@@ -982,10 +1035,24 @@ export function categorizeTasks(tasks: TaskInfo[], projectPath?: string): RdrBat
 
     return false;
   });
-  if (incomplete.length > 0) {
-    batches.push({ type: 'incomplete', taskIds: incomplete.map(t => t.specId), tasks: incomplete });
-    incomplete.forEach(t => categorized.add(t.specId));
-    console.log(`[RDR] Batch 2 - Incomplete Tasks: ${incomplete.length} tasks`);
+  // Split incomplete tasks: active-board tasks (agent died mid-work) need P2 recovery,
+  // others (human_review/backlog) just need P1 restart
+  const incompleteP1 = incomplete.filter(t =>
+    t.status !== 'in_progress' && t.status !== 'ai_review'
+  );
+  const incompleteP2 = incomplete.filter(t =>
+    t.status === 'in_progress' || t.status === 'ai_review'
+  );
+
+  if (incompleteP1.length > 0) {
+    batches.push({ type: 'incomplete', taskIds: incompleteP1.map(t => t.specId), tasks: incompleteP1 });
+    incompleteP1.forEach(t => categorized.add(t.specId));
+    console.log(`[RDR] Batch 2a - Incomplete (P1 restart): ${incompleteP1.length} tasks`);
+  }
+  if (incompleteP2.length > 0) {
+    batches.push({ type: 'recovery', taskIds: incompleteP2.map(t => t.specId), tasks: incompleteP2 });
+    incompleteP2.forEach(t => categorized.add(t.specId));
+    console.log(`[RDR] Batch 2b - Incomplete (P2 recovery): ${incompleteP2.length} tasks`);
   }
 
   // Batch 3: QA Rejected
@@ -1265,22 +1332,18 @@ function generateBatchPrompt(batches: RdrBatch[], projectId: string, projectPath
     `**Timestamp:** ${new Date().toISOString()}`,
     `**Total Batches:** ${batches.length}`,
     '',
-    '## CRITICAL: 4-Tier Priority System',
+    '## CRITICAL: Priority System',
     '',
-    '**PRIORITY 1 (AUTO - 95%):** System auto-recovers via file watcher',
-    '- Tasks automatically move to correct boards and resume',
-    '- **YOU DO NOTHING** - Already handled by MCP tools',
+    '**P1 (AUTO-CONTINUE):** Restart tasks via `process_rdr_batch`',
+    '- For errors, incomplete, qa_rejected batches on human_review/backlog',
     '',
-    '**PRIORITY 2 (REQUEST - 4%):** Request changes only',
-    '- Use `process_rdr_batch` to write fix requests',
-    '- Let task agent fix issues itself',
+    '**P2 (RECOVERY):** Recover stuck tasks via `recover_stuck_task`',
+    '- For tasks on in_progress/ai_review with dead agents',
+    '- Agent died mid-work, needs recovery context to resume',
     '',
-    '**PRIORITY 3 (FIX - <1%):** Auto-fix ONLY JSON errors',
-    '- Use `process_rdr_batch` for technical blockers',
+    '**P3 (FIX):** Auto-fix JSON errors via `process_rdr_batch`',
     '',
-    '**PRIORITY 4 (MANUAL - RARE):** Last resort only',
-    '- ONLY when Priorities 1-3 fail',
-    '- Minimal intervention',
+    '**P4 (MANUAL - RARE):** Last resort only',
     '',
     '## ⚠️ STRICT RULES',
     '',
@@ -1346,15 +1409,30 @@ function generateBatchPrompt(batches: RdrBatch[], projectId: string, projectPath
 
   lines.push('## IMMEDIATE ACTION');
   lines.push('');
-  lines.push('Call `mcp__auto-claude-manager__process_rdr_batch` NOW for EACH batch:');
+  lines.push('Call MCP tools NOW for EACH batch:');
   lines.push('');
   for (const batch of batches) {
-    lines.push(`  mcp__auto-claude-manager__process_rdr_batch({`);
-    lines.push(`    projectId: "${projectId}",`);
-    lines.push(`    projectPath: "${projectPath}",`);
-    lines.push(`    batchType: "${batch.type}",`);
-    lines.push(`    fixes: [${batch.taskIds.map(id => `{ taskId: "${id}" }`).join(', ')}]`);
-    lines.push(`  })`);
+    if (batch.type === 'recovery') {
+      // P2: Use recover_stuck_task for stuck active-board tasks (agent died mid-work)
+      lines.push(`  // P2 RECOVERY: Agent died on active board — use recover_stuck_task`);
+      for (const taskId of batch.taskIds) {
+        lines.push(`  mcp__auto-claude-manager__recover_stuck_task({`);
+        lines.push(`    projectId: "${projectId}",`);
+        lines.push(`    projectPath: "${projectPath}",`);
+        lines.push(`    taskId: "${taskId}",`);
+        lines.push(`    autoRestart: true`);
+        lines.push(`  })`);
+        lines.push('');
+      }
+    } else {
+      // P1: Use process_rdr_batch for restart/fix
+      lines.push(`  mcp__auto-claude-manager__process_rdr_batch({`);
+      lines.push(`    projectId: "${projectId}",`);
+      lines.push(`    projectPath: "${projectPath}",`);
+      lines.push(`    batchType: "${batch.type}",`);
+      lines.push(`    fixes: [${batch.taskIds.map(id => `{ taskId: "${id}" }`).join(', ')}]`);
+      lines.push(`  })`);
+    }
     lines.push('');
   }
   lines.push('**REMEMBER:** Call MCP tool ONLY. NO manual fixes. System auto-recovers.');
@@ -1642,6 +1720,16 @@ async function processPendingTasks(skipBusyCheck: boolean = false): Promise<void
     const batches = categorizeTasks(tasks, project.path);
     console.log(`[RDR] Categorized ${tasks.length} tasks into ${batches.length} batches for project ${projectId}`);
 
+    // Check task logs for rate limits BEFORE processing
+    if (batches.length > 0) {
+      const rateLimitCheck = checkTaskLogsForRateLimit(batches, project.path);
+      if (rateLimitCheck.isRateLimited && rateLimitCheck.resetTime) {
+        console.log(`[RDR] Rate limit detected in task logs — pausing RDR`);
+        pauseRdr(rateLimitCheck.reason || 'Rate limit in task logs', rateLimitCheck.resetTime);
+        continue; // Skip this project — rate limited
+      }
+    }
+
     // Increment RDR attempt counter for all tasks being processed
     const allTaskIds = batches.flatMap(b => b.taskIds);
     if (allTaskIds.length > 0) {
@@ -1658,7 +1746,7 @@ async function processPendingTasks(skipBusyCheck: boolean = false): Promise<void
     }
 
     // Write signal file for batches needing Claude Code analysis
-    const mcpBatches = batches.filter(b => b.type === 'qa_rejected' || b.type === 'errors');
+    const mcpBatches = batches.filter(b => b.type === 'qa_rejected' || b.type === 'errors' || b.type === 'recovery');
     if (mcpBatches.length > 0) {
       writeRdrSignalFile(project.path, projectId, mcpBatches);
 
@@ -1920,6 +2008,19 @@ export function registerRdrHandlers(agentManager?: AgentManager): void {
       console.log(`[RDR] Categorized ${tasks.length} tasks into ${batches.length} batches:`);
       for (const batch of batches) {
         console.log(`[RDR]   - ${batch.type}: ${batch.taskIds.length} tasks`);
+      }
+
+      // Check task logs for rate limits BEFORE sending
+      if (batches.length > 0) {
+        const rateLimitCheck = checkTaskLogsForRateLimit(batches, project.path);
+        if (rateLimitCheck.isRateLimited && rateLimitCheck.resetTime) {
+          console.log(`[RDR] Rate limit detected in task logs — pausing RDR`);
+          pauseRdr(rateLimitCheck.reason || 'Rate limit in task logs', rateLimitCheck.resetTime);
+          return {
+            success: false,
+            error: `Rate limited — RDR paused until ${new Date(rateLimitCheck.resetTime).toLocaleTimeString()}`
+          };
+        }
       }
 
       // Increment RDR attempt counter for all tasks being processed
