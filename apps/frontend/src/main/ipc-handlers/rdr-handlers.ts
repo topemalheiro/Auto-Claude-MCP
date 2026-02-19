@@ -541,6 +541,18 @@ function determineInterventionType(task: TaskInfo, hasWorktree?: boolean, rawPla
       console.log(`[RDR] Task ${task.specId} has start_requested but never started - needs restart`);
       return 'incomplete';
     }
+    // REGRESSION: Task was previously started (by user OR master LLM) but crashed back
+    // to queue/backlog during planning. No worktree exists yet (planning doesn't create one),
+    // but exitReason/planStatus/phases show evidence of prior execution.
+    // Without this check, master-LLM-started tasks that fail during planning go undetected.
+    if (task.exitReason) {
+      console.log(`[RDR] Task ${task.specId} regressed to ${task.status} with exitReason '${task.exitReason}' - was previously started, needs restart`);
+      return 'incomplete';
+    }
+    if (task.planStatus && task.planStatus !== 'pending' && task.planStatus !== 'draft') {
+      console.log(`[RDR] Task ${task.specId} regressed to ${task.status} with planStatus '${task.planStatus}' - was previously started, needs restart`);
+      return 'incomplete';
+    }
     return null;
   }
 
