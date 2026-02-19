@@ -9,6 +9,7 @@
 
 import { execSync, exec } from 'child_process';
 import { isWindows } from '../index';
+import { stripControlChars } from '../../ipc-handlers/shared/sanitize';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
@@ -63,9 +64,10 @@ $windows = @()
 Get-Process -Name "Code" -ErrorAction SilentlyContinue |
 Where-Object { $_.MainWindowHandle -ne 0 -and $_.MainWindowTitle } |
 ForEach-Object {
+    $cleanTitle = ($_.MainWindowTitle -replace '[\x00-\x1f\x7f]', '')
     $windows += @{
         handle = $_.MainWindowHandle.ToInt64()
-        title = $_.MainWindowTitle
+        title = $cleanTitle
         processId = $_.Id
     }
 }
@@ -95,7 +97,9 @@ if ($windows.Count -eq 0) {
       return [];
     }
 
-    const windows = JSON.parse(jsonLine);
+    // Sanitize control characters that PowerShell's ConvertTo-Json doesn't escape
+    const sanitized = stripControlChars(jsonLine, false);
+    const windows = JSON.parse(sanitized);
     console.log('[WindowManager] Found windows:', windows);
     return Array.isArray(windows) ? windows : [windows];
   } catch (error) {
