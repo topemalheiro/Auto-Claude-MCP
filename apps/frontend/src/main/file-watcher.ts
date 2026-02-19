@@ -1,9 +1,10 @@
 import chokidar, { FSWatcher } from 'chokidar';
-import { readFileSync, existsSync } from 'fs';
+import { readFileSync, existsSync, writeFileSync } from 'fs';
 import path from 'path';
 import { EventEmitter } from 'events';
 import type { ImplementationPlan, Task, TaskStatus } from '../shared/types';
 import { projectStore } from './project-store';
+import { persistPlanStatusSync } from './ipc-handlers/task/plan-file-utils';
 
 interface WatcherInfo {
   taskId: string;
@@ -294,24 +295,41 @@ export class FileWatcher extends EventEmitter {
             // Recovery: Move task to correct board based on subtask progress
             let taskWasMoved = false;
             const task = taskForArchiveCheck;
+            let resolvedStatus: TaskStatus | null = null;
             if (task && task.status !== 'done' && task.status !== 'pr_created') {
-              const targetStatus = determineResumeStatus(task, bestPlan);
+              resolvedStatus = determineResumeStatus(task, bestPlan);
 
-              if (targetStatus !== task.status) {
+              if (resolvedStatus !== task.status) {
                 taskWasMoved = true;
-                console.log(`[FileWatcher] RECOVER: Moving task ${specId} from ${task.status} → ${targetStatus}`);
-                const success = projectStore.updateTaskStatus(projectId, task.id, targetStatus);
+                console.log(`[FileWatcher] RECOVER: Moving task ${specId} from ${task.status} → ${resolvedStatus}`);
+                const success = projectStore.updateTaskStatus(projectId, task.id, resolvedStatus);
                 if (success) {
                   this.emit('task-status-changed', {
                     projectId,
                     taskId: task.id,
                     specId,
                     oldStatus: task.status,
-                    newStatus: targetStatus
+                    newStatus: resolvedStatus
                   });
                 }
               } else {
-                console.log(`[FileWatcher] Task ${specId} already on correct board (${targetStatus})`);
+                console.log(`[FileWatcher] Task ${specId} already on correct board (${resolvedStatus})`);
+              }
+            }
+
+            // Persist the resolved status to disk so forceRefresh reads correct board
+            // (without this, disk still says 'start_requested' and forceRefresh reverts routing)
+            if (resolvedStatus) {
+              const persistStatus = resolvedStatus === 'backlog' ? 'pending' as TaskStatus : resolvedStatus;
+              try {
+                persistPlanStatusSync(filePath, persistStatus, projectId);
+                console.log(`[FileWatcher] Persisted status '${persistStatus}' to main plan for ${specId}`);
+                if (existsSync(worktreePlanPath)) {
+                  persistPlanStatusSync(worktreePlanPath, persistStatus, projectId);
+                  console.log(`[FileWatcher] Persisted status '${persistStatus}' to worktree plan for ${specId}`);
+                }
+              } catch (persistErr) {
+                console.warn(`[FileWatcher] Failed to persist status for ${specId}:`, persistErr);
               }
             }
 
@@ -412,24 +430,41 @@ export class FileWatcher extends EventEmitter {
             // Recovery: Move task to correct board based on subtask progress
             let taskWasMoved = false;
             const task = taskForArchiveCheck;
+            let resolvedStatus: TaskStatus | null = null;
             if (task && task.status !== 'done' && task.status !== 'pr_created') {
-              const targetStatus = determineResumeStatus(task, bestPlan);
+              resolvedStatus = determineResumeStatus(task, bestPlan);
 
-              if (targetStatus !== task.status) {
+              if (resolvedStatus !== task.status) {
                 taskWasMoved = true;
-                console.log(`[FileWatcher] RECOVER: Moving task ${specId} from ${task.status} → ${targetStatus}`);
-                const success = projectStore.updateTaskStatus(projectId, task.id, targetStatus);
+                console.log(`[FileWatcher] RECOVER: Moving task ${specId} from ${task.status} → ${resolvedStatus}`);
+                const success = projectStore.updateTaskStatus(projectId, task.id, resolvedStatus);
                 if (success) {
                   this.emit('task-status-changed', {
                     projectId,
                     taskId: task.id,
                     specId,
                     oldStatus: task.status,
-                    newStatus: targetStatus
+                    newStatus: resolvedStatus
                   });
                 }
               } else {
-                console.log(`[FileWatcher] Task ${specId} already on correct board (${targetStatus})`);
+                console.log(`[FileWatcher] Task ${specId} already on correct board (${resolvedStatus})`);
+              }
+            }
+
+            // Persist the resolved status to disk so forceRefresh reads correct board
+            // (without this, disk still says 'start_requested' and forceRefresh reverts routing)
+            if (resolvedStatus) {
+              const persistStatus = resolvedStatus === 'backlog' ? 'pending' as TaskStatus : resolvedStatus;
+              try {
+                persistPlanStatusSync(filePath, persistStatus, projectId);
+                console.log(`[FileWatcher] Persisted status '${persistStatus}' to main plan for ${specId}`);
+                if (existsSync(worktreePlanPath)) {
+                  persistPlanStatusSync(worktreePlanPath, persistStatus, projectId);
+                  console.log(`[FileWatcher] Persisted status '${persistStatus}' to worktree plan for ${specId}`);
+                }
+              } catch (persistErr) {
+                console.warn(`[FileWatcher] Failed to persist status for ${specId}:`, persistErr);
               }
             }
 
