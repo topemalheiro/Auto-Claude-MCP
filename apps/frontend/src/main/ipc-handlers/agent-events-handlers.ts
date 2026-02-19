@@ -326,10 +326,17 @@ export function registerAgenteventsHandlers(
     // 'planning' phase that XState already emitted via emitPhaseFromState.
     const currentXState = taskStateManager.getCurrentState(taskId);
     const xstateInTerminalState = currentXState && XSTATE_SETTLED_STATES.has(currentXState);
+    // Guard: When XState is in QA state (qa_review/qa_fixing), don't let stale phase
+    // events (e.g., 'planning' from agent startup) overwrite the correct ai_review
+    // status on disk via persistPlanPhaseSync. Without this guard, the agent's initial
+    // execution-progress (phase: 'planning') maps to status 'in_progress' and overwrites
+    // the ai_review that FORCE_AI_REVIEW correctly set.
+    const xstateInQAState = currentXState === 'qa_review' || currentXState === 'qa_fixing';
 
     // Persist phase to plan file for restoration on app refresh
     // Must persist to BOTH main project and worktree (if exists) since task may be loaded from either
-    if (task && project && progress.phase && !xstateInTerminalState) {
+    // Skip when XState is in terminal state (stale events) or QA state (prevents ai_review overwrite)
+    if (task && project && progress.phase && !xstateInTerminalState && !xstateInQAState) {
       const mainPlanPath = getPlanPath(project, task);
       persistPlanPhaseSync(mainPlanPath, progress.phase, project.id);
 
@@ -349,10 +356,13 @@ export function registerAgenteventsHandlers(
       }
     } else if (xstateInTerminalState && progress.phase) {
       console.debug(`[agent-events-handlers] Skipping persistPlanPhaseSync for ${taskId}: XState in '${currentXState}', not overwriting with phase '${progress.phase}'`);
+    } else if (xstateInQAState && progress.phase) {
+      console.debug(`[agent-events-handlers] Skipping persistPlanPhaseSync for ${taskId}: XState in QA state '${currentXState}', not overwriting ai_review with phase '${progress.phase}'`);
     }
 
     // Skip sending execution-progress to renderer when XState has settled.
     // XState's emitPhaseFromState already sent the correct phase to the renderer.
+    // QA states still receive progress updates for display.
     if (xstateInTerminalState) {
       console.debug(`[agent-events-handlers] Skipping execution-progress to renderer for ${taskId}: XState in '${currentXState}', ignoring phase '${progress.phase}'`);
       return;
