@@ -1190,7 +1190,7 @@ server.tool(
 
 server.tool(
   'get_rdr_batches',
-  'Get all pending RDR (Recover Debug Resend) batches categorized by problem type. Returns tasks grouped into: json_error, incomplete, qa_rejected, errors. Also reads and clears any pending signal file from the Electron app.',
+  'Get all pending RDR (Recover Debug Resend) batches categorized by problem type. Returns tasks grouped into: json_error, incomplete, qa_rejected, errors, recovery. Recovery batches (tasks on in_progress/ai_review with dead agents) should use recover_stuck_task, not process_rdr_batch. Also reads and clears any pending signal file from the Electron app.',
   {
     projectId: z.string().describe('The project ID (UUID)'),
     projectPath: z.string().optional().describe('Fallback filesystem path if projectId UUID not found')
@@ -1281,7 +1281,7 @@ server.tool(
             batchesFromSignal: signalData.batches
           } : null,
           instructions: batches.length > 0 ?
-            'Use process_rdr_batch tool to process each batch. For json_error batch, RDR auto-fixes are applied. For incomplete batch, submit_task_fix_request auto-resumes. For qa_rejected/errors, analyze and submit fixes.' :
+            'Process each batch by type: For "recovery" batches (tasks on in_progress/ai_review with dead agents), use recover_stuck_task(taskId, autoRestart: true) per task. For "incomplete" batches (tasks on human_review/backlog), use process_rdr_batch(batchType: "incomplete"). For "json_error" batch, use process_rdr_batch(batchType: "json_error"). For "qa_rejected"/"errors" batches, use process_rdr_batch with matching batchType.' :
             signalData ?
               `Signal file contained prompt:\n\n${signalData.prompt}` :
               'No tasks need intervention.'
