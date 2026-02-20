@@ -998,35 +998,11 @@ export class AgentProcessManager {
         }
       }
 
-      // Crash detection: non-zero exit code and not a graceful shutdown
-      const crashed = code !== 0 && code !== null && signal !== 'SIGTERM';
-
-      if (crashed) {
-        console.error(`[CRASH] Task ${taskId} crashed with code ${code} signal ${signal}`);
-
-        // Check if auto-restart is enabled
-        const settings = readSettingsFile();
-        if (settings.autoRestartOnFailure?.enabled) {
-          const restartMarkerPath = path.join(app.getPath('userData'), '.restart-requested');
-          writeFileSync(restartMarkerPath, JSON.stringify({
-            reason: 'crash',
-            timestamp: new Date().toISOString(),
-            taskId,
-            exitCode: code,
-            signal: signal || 'none'
-          }));
-
-          console.log('[CRASH] Auto-restart enabled, triggering rebuild after 5s delay...');
-
-          // Trigger restart after short delay (let other tasks finish)
-          setTimeout(() => {
-            import('../ipc-handlers/restart-handlers.js').then(({ buildAndRestart }) => {
-              buildAndRestart(settings.autoRestartOnFailure.buildCommand || 'npm run build').catch(error => {
-                console.error('[CRASH] Auto-restart failed:', error);
-              });
-            });
-          }, 5000);
-        }
+      // Log non-zero exits for debugging (session limits, rate limits, etc.)
+      // Note: Task agent exits are NOT Auto-Claude crashes — RDR handles task recovery.
+      // Auto-restart (buildAndRestart) is only available via MCP tool or UI button.
+      if (code !== 0 && code !== null && signal !== 'SIGTERM') {
+        console.warn(`[AgentProcess] Task ${taskId} exited with code ${code} signal ${signal} — RDR will handle recovery`);
       }
 
       this.emitter.emit('exit', taskId, code, processType, projectId);
