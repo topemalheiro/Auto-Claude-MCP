@@ -1164,6 +1164,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       const allTasks = useTaskStore.getState().tasks;
       const failedTasks = allTasks.filter(t =>
         t.status !== 'in_progress' &&
+        t.status !== 'ai_review' &&       // ai_review = QA running, not a failure
         t.status !== 'done' &&
         t.status !== 'pr_created' &&
         t.status !== 'queue' &&
@@ -1239,6 +1240,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
           const t = currentTasks.find(task => task.id === id);
           return t &&
             t.status !== 'in_progress' &&   // Not already counted in live slots
+            t.status !== 'ai_review' &&      // QA is running — legitimate progression, not failure
             t.status !== 'done' &&           // Terminal — no longer needs slot
             t.status !== 'pr_created' &&     // Terminal — no longer needs slot
             !t.metadata?.rdrDisabled &&
@@ -1320,6 +1322,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
         const t = useTaskStore.getState().tasks.find(task => task.id === id);
         return t &&
           t.status !== 'in_progress' &&
+          t.status !== 'ai_review' &&      // QA running = legitimate, not blocking
           t.status !== 'done' &&
           t.status !== 'pr_created' &&
           !t.metadata?.rdrDisabled &&
@@ -1364,7 +1367,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
 
         // Release held slot when task returns to in_progress (now counted in live slots)
         // or reaches a terminal state (done/pr_created — no longer needs a slot)
-        if (heldSlotIdsRef.current.has(taskId) && (newStatus === 'in_progress' || newStatus === 'done' || newStatus === 'pr_created')) {
+        if (heldSlotIdsRef.current.has(taskId) && (newStatus === 'in_progress' || newStatus === 'ai_review' || newStatus === 'done' || newStatus === 'pr_created')) {
           const newSet = new Set(heldSlotIdsRef.current);
           newSet.delete(taskId);
           heldSlotIdsRef.current = newSet;
