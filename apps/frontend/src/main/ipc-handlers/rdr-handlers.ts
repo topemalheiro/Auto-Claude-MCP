@@ -22,7 +22,7 @@ import { isElectron } from '../electron-compat';
 import { outputMonitor } from '../claude-code/output-monitor';
 import type { AgentManager } from '../agent/agent-manager';
 import { readSettingsFile } from '../settings-utils';
-import { parseResetTime } from '../claude-profile/usage-parser';
+import { getUsageMonitor } from '../claude-profile/usage-monitor';
 
 /**
  * Reset rdrAttempts for all tasks across all projects.
@@ -751,43 +751,26 @@ function getLastLogEntries(projectPath: string, specId: string, count: number = 
 }
 
 /**
- * Rate limit patterns found in task agent logs
- * Matches: "You've hit your limit · resets 1am (Europe/Lisbon)"
- * Matches: "Limit reached · resets Dec 17 at 6am (Europe/Oslo)"
+ * Check if session limit is reached using the Usage Monitor (real-time API data).
+ * Uses the same data source as the Usage Breakdown popup in the UI.
  */
-const TASK_LOG_RATE_LIMIT_PATTERN = /(?:You've hit your limit|Limit reached)\s*[·•]\s*resets\s+(.+?)(?:\s*$)/im;
+function isSessionLimitReached(): { limited: boolean; resetTime?: number; reason?: string } {
+  const monitor = getUsageMonitor();
+  const usage = monitor.getCurrentUsage();
+  if (!usage) return { limited: false };
 
-/**
- * Scan task logs for rate limit messages.
- * If any task log contains a rate limit message with a future reset time,
- * returns the rate limit info so RDR can pause.
- */
-function checkTaskLogsForRateLimit(
-  batches: RdrBatch[],
-  projectPath: string
-): { isRateLimited: boolean; resetTime?: number; reason?: string } {
-  for (const batch of batches) {
-    for (const task of batch.tasks) {
-      // Read more entries (10) to catch rate limit messages that may not be the very last
-      const logs = getLastLogEntries(projectPath, task.specId, 10);
-      for (const log of logs) {
-        const match = log.content.match(TASK_LOG_RATE_LIMIT_PATTERN);
-        if (match) {
-          const resetTimeStr = match[1].trim();
-          const resetDate = parseResetTime(resetTimeStr);
-          const resetTime = resetDate.getTime();
-          if (resetTime > Date.now()) {
-            return {
-              isRateLimited: true,
-              resetTime,
-              reason: `Task ${task.specId} log: "${log.content}"`
-            };
-          }
-        }
-      }
-    }
+  if (usage.sessionPercent >= 80) {
+    const resetTime = usage.sessionResetTimestamp
+      ? new Date(usage.sessionResetTimestamp).getTime()
+      : Date.now() + 5 * 60 * 60 * 1000; // fallback: 5h
+    return {
+      limited: true,
+      resetTime,
+      reason: `Session at ${usage.sessionPercent}% (resets ${usage.sessionResetTime || 'in ~5h'})`
+    };
   }
-  return { isRateLimited: false };
+
+  return { limited: false };
 }
 
 /**
@@ -1732,14 +1715,12 @@ async function processPendingTasks(skipBusyCheck: boolean = false): Promise<void
     const batches = categorizeTasks(tasks, project.path);
     console.log(`[RDR] Categorized ${tasks.length} tasks into ${batches.length} batches for project ${projectId}`);
 
-    // Check task logs for rate limits BEFORE processing
-    if (batches.length > 0) {
-      const rateLimitCheck = checkTaskLogsForRateLimit(batches, project.path);
-      if (rateLimitCheck.isRateLimited && rateLimitCheck.resetTime) {
-        console.log(`[RDR] Rate limit detected in task logs — pausing RDR`);
-        pauseRdr(rateLimitCheck.reason || 'Rate limit in task logs', rateLimitCheck.resetTime);
-        continue; // Skip this project — rate limited
-      }
+    // Check usage monitor for session limit BEFORE processing
+    const rateLimitCheck = isSessionLimitReached();
+    if (rateLimitCheck.limited && rateLimitCheck.resetTime) {
+      console.log(`[RDR] Session limit reached (${rateLimitCheck.reason}) — pausing RDR`);
+      pauseRdr(rateLimitCheck.reason || 'Session limit reached', rateLimitCheck.resetTime);
+      continue; // Skip this project — rate limited
     }
 
     // Increment RDR attempt counter for all tasks being processed
@@ -2022,17 +2003,15 @@ export function registerRdrHandlers(agentManager?: AgentManager): void {
         console.log(`[RDR]   - ${batch.type}: ${batch.taskIds.length} tasks`);
       }
 
-      // Check task logs for rate limits BEFORE sending
-      if (batches.length > 0) {
-        const rateLimitCheck = checkTaskLogsForRateLimit(batches, project.path);
-        if (rateLimitCheck.isRateLimited && rateLimitCheck.resetTime) {
-          console.log(`[RDR] Rate limit detected in task logs — pausing RDR`);
-          pauseRdr(rateLimitCheck.reason || 'Rate limit in task logs', rateLimitCheck.resetTime);
-          return {
-            success: false,
-            error: `Rate limited — RDR paused until ${new Date(rateLimitCheck.resetTime).toLocaleTimeString()}`
-          };
-        }
+      // Check usage monitor for session limit BEFORE sending
+      const rateLimitCheck = isSessionLimitReached();
+      if (rateLimitCheck.limited && rateLimitCheck.resetTime) {
+        console.log(`[RDR] Session limit reached (${rateLimitCheck.reason}) — pausing RDR`);
+        pauseRdr(rateLimitCheck.reason || 'Session limit reached', rateLimitCheck.resetTime);
+        return {
+          success: false,
+          error: `Rate limited — RDR paused until ${new Date(rateLimitCheck.resetTime).toLocaleTimeString()}`
+        };
       }
 
       // Increment RDR attempt counter for all tasks being processed
@@ -2300,23 +2279,20 @@ export function registerRdrHandlers(agentManager?: AgentManager): void {
         // Categorize into batches
         const batches = categorizeTasks(taskInfos, projectPath);
 
-        // Check task logs for rate limits BEFORE building the message
+        // Check usage monitor for session limit BEFORE building the message
         // This is the 30-second polling path — must detect rate limits here
-        // (processPendingTasks and PING_RDR_IMMEDIATE already check, but this handler didn't)
-        if (projectPath && batches.length > 0) {
-          const rateLimitCheck = checkTaskLogsForRateLimit(batches, projectPath);
-          if (rateLimitCheck.isRateLimited && rateLimitCheck.resetTime) {
-            console.log(`[RDR] Rate limit detected in task logs — pausing RDR`);
-            pauseRdr(rateLimitCheck.reason || 'Rate limit in task logs', rateLimitCheck.resetTime);
-            return {
-              success: true,
-              data: {
-                projectPath: projectPath || '',
-                batches: [],
-                taskDetails: []
-              }
-            };
-          }
+        const rateLimitCheck = isSessionLimitReached();
+        if (rateLimitCheck.limited && rateLimitCheck.resetTime) {
+          console.log(`[RDR] Session limit reached (${rateLimitCheck.reason}) — pausing RDR`);
+          pauseRdr(rateLimitCheck.reason || 'Session limit reached', rateLimitCheck.resetTime);
+          return {
+            success: true,
+            data: {
+              projectPath: projectPath || '',
+              batches: [],
+              taskDetails: []
+            }
+          };
         }
 
         // Build detailed task info for the message
