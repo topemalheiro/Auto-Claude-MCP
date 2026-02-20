@@ -1731,7 +1731,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   const RDR_IN_FLIGHT_TIMEOUT_MS = 90000; // 90 seconds - safety net (3x polling interval to prevent double-send)
 
   // RDR rate limit pause state
-  const [rdrCooldown, setRdrCooldown] = useState<{ paused: boolean; reason: string; rateLimitResetAt: number }>({ paused: false, reason: '', rateLimitResetAt: 0 });
+  const [rdrCooldown, setRdrCooldown] = useState<{ paused: boolean; warning: boolean; reason: string; rateLimitResetAt: number }>({ paused: false, warning: false, reason: '', rateLimitResetAt: 0 });
   const rdrCooldownRef = useRef(rdrCooldown);
   rdrCooldownRef.current = rdrCooldown;
 
@@ -2231,6 +2231,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       if (result.success && result.data) {
         setRdrCooldown({
           paused: result.data.paused,
+          warning: result.data.warning ?? result.data.paused,
           reason: result.data.reason,
           rateLimitResetAt: result.data.rateLimitResetAt,
         });
@@ -2238,9 +2239,10 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     }).catch(() => { /* ignore */ });
 
     const unsubLimited = window.electronAPI.onRdrRateLimited((data) => {
-      console.log('[RDR] Rate limit pause activated:', data.reason);
+      console.log(`[RDR] Rate limit ${data.paused ? 'pause' : 'warning'} activated:`, data.reason);
       setRdrCooldown({
-        paused: true,
+        paused: data.paused ?? true,
+        warning: data.warning ?? true,
         reason: data.reason,
         rateLimitResetAt: data.rateLimitResetAt,
       });
@@ -2248,7 +2250,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
 
     const unsubCleared = window.electronAPI.onRdrRateLimitCleared((data) => {
       console.log('[RDR] Rate limit cleared — triggering RDR:', data.reason);
-      setRdrCooldown({ paused: false, reason: '', rateLimitResetAt: 0 });
+      setRdrCooldown({ paused: false, warning: false, reason: '', rateLimitResetAt: 0 });
       // Trigger immediate RDR send now that rate limit cleared
       rdrSkipBusyCheckRef.current = true;
       handleAutoRdr();
@@ -2262,12 +2264,12 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
 
   // Countdown timer for rate limit display + auto-clear when reset time passes
   useEffect(() => {
-    if (!rdrCooldown.paused || rdrCooldown.rateLimitResetAt <= 0) return;
+    if ((!rdrCooldown.paused && !rdrCooldown.warning) || rdrCooldown.rateLimitResetAt <= 0) return;
 
     const timer = setInterval(() => {
       const remaining = rdrCooldown.rateLimitResetAt - Date.now();
       if (remaining <= 0) {
-        setRdrCooldown({ paused: false, reason: '', rateLimitResetAt: 0 });
+        setRdrCooldown({ paused: false, warning: false, reason: '', rateLimitResetAt: 0 });
       } else {
         // Force re-render to update the displayed minutes
         setRdrCooldown(prev => ({ ...prev }));
@@ -2275,7 +2277,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     }, 60_000);
 
     return () => clearInterval(timer);
-  }, [rdrCooldown.paused, rdrCooldown.rateLimitResetAt]);
+  }, [rdrCooldown.paused, rdrCooldown.warning, rdrCooldown.rateLimitResetAt]);
 
   // Detect task regression (started → backlog) and trigger immediate RDR
   useEffect(() => {
@@ -2663,19 +2665,22 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
                   </TooltipContent>
                 </Tooltip>
 
-                {/* Rate limit pause indicator */}
-                {rdrCooldown.paused && rdrCooldown.rateLimitResetAt > Date.now() && (
+                {/* Rate limit indicator: warning (80%+) or paused (100%) */}
+                {(rdrCooldown.paused || rdrCooldown.warning) && rdrCooldown.rateLimitResetAt > Date.now() && (
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <div className="flex items-center gap-1 text-amber-500">
+                      <div className={`flex items-center gap-1 ${rdrCooldown.paused ? 'text-amber-500' : 'text-amber-400/70'}`}>
                         <Clock className="h-3.5 w-3.5" />
                         <span className="text-[10px] font-medium">
-                          {t('kanban.rdrPaused', { minutes: Math.ceil((rdrCooldown.rateLimitResetAt - Date.now()) / 60000) })}
+                          {rdrCooldown.paused
+                            ? t('kanban.rdrPaused', { minutes: Math.ceil((rdrCooldown.rateLimitResetAt - Date.now()) / 60000) })
+                            : t('kanban.rdrWarning', { minutes: Math.ceil((rdrCooldown.rateLimitResetAt - Date.now()) / 60000) })
+                          }
                         </span>
                       </div>
                     </TooltipTrigger>
                     <TooltipContent side="bottom" className="max-w-xs">
-                      <p>{t('kanban.rdrPausedTooltip')}</p>
+                      <p>{rdrCooldown.paused ? t('kanban.rdrPausedTooltip') : t('kanban.rdrWarningTooltip')}</p>
                     </TooltipContent>
                   </Tooltip>
                 )}

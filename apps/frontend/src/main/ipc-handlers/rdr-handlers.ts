@@ -125,6 +125,7 @@ const BATCH_COLLECTION_WINDOW_MS = 30000; // 30 seconds
 
 interface RdrPauseState {
   paused: boolean;
+  warning: boolean;          // true at 80%+ — show timer, but RDR still sends
   reason: string;
   pausedAt: number;          // epoch ms
   rateLimitResetAt: number;  // epoch ms — when the rate limit expires
@@ -136,7 +137,7 @@ const RDR_PAUSE_FILE = path.join(
   'rdr-pause.json'
 );
 
-let rdrPauseState: RdrPauseState = { paused: false, reason: '', pausedAt: 0, rateLimitResetAt: 0 };
+let rdrPauseState: RdrPauseState = { paused: false, warning: false, reason: '', pausedAt: 0, rateLimitResetAt: 0 };
 
 /** Check if RDR is currently paused */
 function isRdrPaused(): boolean {
@@ -159,10 +160,13 @@ function loadRdrPauseState(): void {
     const raw = readFileSync(RDR_PAUSE_FILE, 'utf-8');
     const loaded = JSON.parse(raw) as RdrPauseState;
 
-    // If rate limit reset time has passed, auto-clear
-    if (loaded.paused && loaded.rateLimitResetAt > 0 && Date.now() >= loaded.rateLimitResetAt) {
+    // Backcompat: old files may not have `warning` field
+    if (loaded.warning === undefined) loaded.warning = loaded.paused;
+
+    // If rate limit reset time has passed, auto-clear both pause and warning
+    if ((loaded.paused || loaded.warning) && loaded.rateLimitResetAt > 0 && Date.now() >= loaded.rateLimitResetAt) {
       console.log('[RDR] Rate limit expired during restart — resuming RDR');
-      rdrPauseState = { paused: false, reason: '', pausedAt: 0, rateLimitResetAt: 0 };
+      rdrPauseState = { paused: false, warning: false, reason: '', pausedAt: 0, rateLimitResetAt: 0 };
       persistRdrPauseState();
       return;
     }
@@ -171,17 +175,21 @@ function loadRdrPauseState(): void {
     if (rdrPauseState.paused) {
       const remainingMin = Math.ceil((rdrPauseState.rateLimitResetAt - Date.now()) / 60_000);
       console.log(`[RDR] Loaded persisted pause state — still paused (resets in ${remainingMin}min)`);
+    } else if (rdrPauseState.warning) {
+      const remainingMin = Math.ceil((rdrPauseState.rateLimitResetAt - Date.now()) / 60_000);
+      console.log(`[RDR] Loaded persisted warning state — session high (resets in ${remainingMin}min), RDR still active`);
     }
   } catch {
     // Corrupted file — start fresh
-    rdrPauseState = { paused: false, reason: '', pausedAt: 0, rateLimitResetAt: 0 };
+    rdrPauseState = { paused: false, warning: false, reason: '', pausedAt: 0, rateLimitResetAt: 0 };
   }
 }
 
-/** Pause RDR — block all sends until rate limit resets */
+/** Pause RDR — block all sends until rate limit resets (100% session usage) */
 export function pauseRdr(reason: string, rateLimitResetAt: number): void {
   rdrPauseState = {
     paused: true,
+    warning: true,
     reason,
     pausedAt: Date.now(),
     rateLimitResetAt,
@@ -198,6 +206,7 @@ export function pauseRdr(reason: string, rateLimitResetAt: number): void {
       if (!win.isDestroyed()) {
         win.webContents.send(IPC_CHANNELS.RDR_RATE_LIMITED, {
           paused: true,
+          warning: true,
           reason,
           rateLimitResetAt,
         });
@@ -208,12 +217,47 @@ export function pauseRdr(reason: string, rateLimitResetAt: number): void {
   }
 }
 
+/** Warn RDR — show countdown timer but DON'T block sends (80-99% session usage) */
+export function warnRdr(reason: string, rateLimitResetAt: number): void {
+  // Don't downgrade a pause to a warning
+  if (rdrPauseState.paused) return;
+
+  rdrPauseState = {
+    paused: false,
+    warning: true,
+    reason,
+    pausedAt: Date.now(),
+    rateLimitResetAt,
+  };
+  persistRdrPauseState();
+
+  const remainingMin = Math.ceil((rateLimitResetAt - Date.now()) / 60_000);
+  console.log(`[RDR] WARNING: ${reason} (resets in ${remainingMin}min) — RDR still active`);
+
+  // Notify renderer to show timer (but NOT block sends)
+  try {
+    const allWindows = BrowserWindow?.getAllWindows() || [];
+    for (const win of allWindows) {
+      if (!win.isDestroyed()) {
+        win.webContents.send(IPC_CHANNELS.RDR_RATE_LIMITED, {
+          paused: false,
+          warning: true,
+          reason,
+          rateLimitResetAt,
+        });
+      }
+    }
+  } catch (err) {
+    console.error('[RDR] Failed to notify renderer of warning:', err);
+  }
+}
+
 /** Resume RDR — rate limit cleared, trigger immediate send */
 export function resumeRdr(reason: string): void {
-  if (!rdrPauseState.paused) return;
+  if (!rdrPauseState.paused && !rdrPauseState.warning) return;
 
   console.log(`[RDR] RESUMED: ${reason}`);
-  rdrPauseState = { paused: false, reason: '', pausedAt: 0, rateLimitResetAt: 0 };
+  rdrPauseState = { paused: false, warning: false, reason: '', pausedAt: 0, rateLimitResetAt: 0 };
   persistRdrPauseState();
 
   // Notify renderer
@@ -751,26 +795,30 @@ function getLastLogEntries(projectPath: string, specId: string, count: number = 
 }
 
 /**
- * Check if session limit is reached using the Usage Monitor (real-time API data).
- * Uses the same data source as the Usage Breakdown popup in the UI.
+ * Check session usage using the Usage Monitor (real-time API data).
+ * Two thresholds:
+ *   - 80%+: warning = true (show orange timer, RDR keeps sending)
+ *   - 100%: limited = true (pause RDR, stop sending until reset)
  */
-function isSessionLimitReached(): { limited: boolean; resetTime?: number; reason?: string } {
+function isSessionLimitReached(): { limited: boolean; warning: boolean; resetTime?: number; reason?: string } {
   const monitor = getUsageMonitor();
   const usage = monitor.getCurrentUsage();
-  if (!usage) return { limited: false };
+  if (!usage) return { limited: false, warning: false };
 
   if (usage.sessionPercent >= 80) {
     const resetTime = usage.sessionResetTimestamp
       ? new Date(usage.sessionResetTimestamp).getTime()
       : Date.now() + 5 * 60 * 60 * 1000; // fallback: 5h
+    const reason = `Session at ${usage.sessionPercent}% (resets ${usage.sessionResetTime || 'in ~5h'})`;
     return {
-      limited: true,
+      limited: usage.sessionPercent >= 100,
+      warning: true,
       resetTime,
-      reason: `Session at ${usage.sessionPercent}% (resets ${usage.sessionResetTime || 'in ~5h'})`
+      reason
     };
   }
 
-  return { limited: false };
+  return { limited: false, warning: false };
 }
 
 /**
@@ -1721,6 +1769,9 @@ async function processPendingTasks(skipBusyCheck: boolean = false): Promise<void
       console.log(`[RDR] Session limit reached (${rateLimitCheck.reason}) — pausing RDR`);
       pauseRdr(rateLimitCheck.reason || 'Session limit reached', rateLimitCheck.resetTime);
       continue; // Skip this project — rate limited
+    } else if (rateLimitCheck.warning && rateLimitCheck.resetTime) {
+      warnRdr(rateLimitCheck.reason || 'Session usage high', rateLimitCheck.resetTime);
+      // Don't skip — RDR keeps sending at 80-99%
     }
 
     // Increment RDR attempt counter for all tasks being processed
@@ -1894,6 +1945,7 @@ export function registerRdrHandlers(agentManager?: AgentManager): void {
       success: true,
       data: {
         paused: rdrPauseState.paused,
+        warning: rdrPauseState.warning,
         reason: rdrPauseState.reason,
         rateLimitResetAt: rdrPauseState.rateLimitResetAt,
       },
@@ -2012,6 +2064,9 @@ export function registerRdrHandlers(agentManager?: AgentManager): void {
           success: false,
           error: `Rate limited — RDR paused until ${new Date(rateLimitCheck.resetTime).toLocaleTimeString()}`
         };
+      } else if (rateLimitCheck.warning && rateLimitCheck.resetTime) {
+        warnRdr(rateLimitCheck.reason || 'Session usage high', rateLimitCheck.resetTime);
+        // Don't return — RDR keeps sending at 80-99%
       }
 
       // Increment RDR attempt counter for all tasks being processed
@@ -2293,6 +2348,9 @@ export function registerRdrHandlers(agentManager?: AgentManager): void {
               taskDetails: []
             }
           };
+        } else if (rateLimitCheck.warning && rateLimitCheck.resetTime) {
+          warnRdr(rateLimitCheck.reason || 'Session usage high', rateLimitCheck.resetTime);
+          // Don't return — continue building message, RDR keeps sending at 80-99%
         }
 
         // Build detailed task info for the message

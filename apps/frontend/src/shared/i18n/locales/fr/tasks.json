@@ -138,6 +138,8 @@
     "rdrSelectWindowFirst": "Sélectionnez d'abord une fenêtre VS Code",
     "rdrPaused": "Limité — reprise dans {{minutes}}min",
     "rdrPausedTooltip": "RDR en pause — limite de session atteinte. Reprise auto à la réinitialisation.",
+    "rdrWarning": "Session reprise dans {{minutes}}min",
+    "rdrWarningTooltip": "Utilisation de session au-dessus de 80%. RDR est toujours actif.",
     "rdrSending": "Envoi vers Claude Code...",
     "rdrSendingDesc": "Envoi du message avec {{count}} tâches vers la fenêtre VS Code...",
     "rdrSendSuccess": "Message envoyé",
