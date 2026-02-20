@@ -2300,6 +2300,25 @@ export function registerRdrHandlers(agentManager?: AgentManager): void {
         // Categorize into batches
         const batches = categorizeTasks(taskInfos, projectPath);
 
+        // Check task logs for rate limits BEFORE building the message
+        // This is the 30-second polling path — must detect rate limits here
+        // (processPendingTasks and PING_RDR_IMMEDIATE already check, but this handler didn't)
+        if (projectPath && batches.length > 0) {
+          const rateLimitCheck = checkTaskLogsForRateLimit(batches, projectPath);
+          if (rateLimitCheck.isRateLimited && rateLimitCheck.resetTime) {
+            console.log(`[RDR] Rate limit detected in task logs — pausing RDR`);
+            pauseRdr(rateLimitCheck.reason || 'Rate limit in task logs', rateLimitCheck.resetTime);
+            return {
+              success: true,
+              data: {
+                projectPath: projectPath || '',
+                batches: [],
+                taskDetails: []
+              }
+            };
+          }
+        }
+
         // Build detailed task info for the message
         const taskDetails = tasksNeedingHelp.map(task => {
           // Extract error summary if available
