@@ -19,6 +19,16 @@ RDR handles TWO types of recovery:
    - QA rejected → Submit fix request
    - Errors → Debug and fix
 
+## CRITICAL: RDR Notification = Rate Limit Has Reset
+
+**If you receive an RDR notification, the rate limit has ALREADY RESET.** ALWAYS process ALL tasks immediately.
+
+Task log entries showing "You've hit your limit · resets Xam" are **HISTORICAL** — they were written when the task agent hit the limit, NOT reflecting current state. RDR only sends notifications when the Claude Code session is available again.
+
+**NEVER** refuse to recover tasks because task logs show rate limit messages. Those entries are old. The fact that RDR sent you a notification proves the session is back online.
+
+**Rule:** Receive RDR → process ALL tasks → no exceptions.
+
 ## Instant Recovery Workflow
 
 1. **Get batches:** `get_rdr_batches(projectId)` → Returns tasks grouped by problem type
