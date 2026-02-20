@@ -173,153 +173,92 @@ backlog → in_progress → ai_review → human_review → pr_created → done
 - **done** - Merged and complete
 - **error** - Something went wrong
 
-## RDR (Recover, Debug, Resend) Troubleshooting
+## RDR (Recover, Debug, Resend) - Task Recovery System
 
-**CRITICAL: Auto-Claude must automatically recover from errors and resume stuck tasks.**
+**CRITICAL: When RDR sends notification → Use MCP tools to recover tasks, don't manually edit files.**
 
-### RDR 5-Tier Priority System
+### CRITICAL: RDR Notification = Rate Limit Has Reset
 
-**Priority 1 (95%): Task Recovery - Auto-Resume**
-- Tasks with incomplete subtasks stuck in `plan_review` or `human_review`
-- **Action**: Change status to `"start_requested"` in implementation_plan.json
-- File watcher auto-detects within 2-3 seconds
-- **No MCP tools needed** - just file writes to trigger resume
+**If you receive an RDR notification, the rate limit has ALREADY RESET.** ALWAYS process ALL tasks immediately.
 
-**Priority 2 (4%): Debug & Fix**
-- Tasks showing errors with logs available
-- **Action**: Analyze error logs, fix root cause, trigger resume
+Task log entries showing "You've hit your limit" are **HISTORICAL** — written when the agent hit the limit, NOT current state. RDR only sends when Claude Code is available again.
 
-**Priority 3 (<1%): Auto-fix JSON Errors**
-- Empty or malformed `implementation_plan.json` files
-- **Action**: Create minimal valid JSON:
-  ```json
-  {
-    "feature": "Auto-recovery task",
-    "description": "Task recovered by RDR system",
-    "created_at": "2026-01-31T00:00:00Z",
-    "updated_at": "2026-01-31T00:00:00Z",
-    "status": "start_requested",
-    "phases": []
-  }
-  ```
+**Rule:** Receive RDR → process ALL tasks → no exceptions.
 
-**Priority 4 (RARE): Manual Edits**
-- Only when auto-fix fails repeatedly
+### Auto-Escalation Priority System (6 Levels)
 
-**Priority 5 (LAST RESORT): Delete & Recreate**
-- Only for completely corrupted worktrees
+**P1: Auto-CONTINUE** (Attempt 1-2, 95% of cases)
+- **Use**: `process_rdr_batch(type: "incomplete")` or `process_rdr_batch(type: "errors")`
+- **Result**: Sets `status: "start_requested"` → file watcher auto-starts within 2-3s
 
-### Common RDR Scenarios
+**P2: Auto-RECOVER** (dead agent on active board)
+- **Use**: `recover_stuck_task(taskId, autoRestart: true)`
+- **When**: Task has `metadata.stuckSince` set (yellow outline in UI)
 
-**Scenario 1: Tasks stuck in "plan_review" with incomplete subtasks**
-```bash
-# Main project
-sed -i 's/"status": "plan_review"/"status": "start_requested"/' \
-  "/path/to/project/.auto-claude/specs/TASK-ID/implementation_plan.json"
+**P3: Request Changes** (Attempt 3+, 4% of cases)
+- **Use**: `submit_task_fix_request(taskId, feedback)`
+- **When**: Same error appears 2+ times, `mcp_iteration` >= 3
 
-# Worktree (CRITICAL: Auto-Claude prefers worktree versions!)
-sed -i 's/"status": "plan_review"/"status": "start_requested"/' \
-  "/path/to/project/.auto-claude/worktrees/tasks/TASK-ID/.auto-claude/specs/TASK-ID/implementation_plan.json"
-```
+**P4: Auto-fix JSON** (anytime)
+- **Use**: `process_rdr_batch(type: "json_error")`
+- **When**: JSON parse errors detected
 
-**Scenario 2: JSON Parse Errors (empty/malformed files)**
-```bash
-# Fix main version
-cat > "/path/to/project/.auto-claude/specs/TASK-ID/implementation_plan.json" << 'EOF'
-{
-  "feature": "Auto-recovery task",
-  "description": "Task recovered by RDR system",
-  "created_at": "2026-01-31T00:00:00Z",
-  "updated_at": "2026-01-31T00:00:00Z",
-  "status": "start_requested",
-  "phases": []
-}
-EOF
+**P5: Manual Debug** (RARE, `mcp_iteration` >= 4)
+- **Use**: `get_task_error_details` → `submit_task_fix_request`
 
-# Fix worktree version (if exists)
-if [ -d "/path/to/project/.auto-claude/worktrees/tasks/TASK-ID" ]; then
-  cat > "/path/to/project/.auto-claude/worktrees/tasks/TASK-ID/.auto-claude/specs/TASK-ID/implementation_plan.json" << 'EOF'
-{
-  "feature": "Auto-recovery task",
-  "description": "Task recovered by RDR system",
-  "created_at": "2026-01-31T00:00:00Z",
-  "updated_at": "2026-01-31T00:00:00Z",
-  "status": "start_requested",
-  "phases": []
-}
-EOF
-fi
-```
+**P6: Delete & Recreate / Build & Restart / Defer** (LAST RESORT)
+- **6A**: Delete & recreate task (problem in task)
+- **6B**: Build & restart Auto-Claude (problem in Auto-Claude)
+- **6C**: `defer_task` — park task for manual review
 
-**Scenario 3: Tasks showing "Needs Recovery" button**
-- These tasks are stuck and need status change to resume
-- UI shows yellow "Recover" button
-- **Action**: Same as Scenario 1 - change status to `"start_requested"`
+### MCP Tools Quick Reference
 
-**Scenario 4: Tasks showing "Stuck" status**
-- Agent interrupted mid-execution
-- **Action**: Change status from current state to `"start_requested"`
-
-### RDR Troubleshooting Checklist
-
-**RDR not sending auto-prompts:**
-1. Check startup logs for module resolution errors
-2. Verify OutputMonitor is working: `[OutputMonitor] AT_PROMPT` in logs
-3. Verify MCP monitor loaded: `[RDR] MCP monitor check...` in logs
-4. Check if Claude Code is busy: `[RDR] BUSY: Claude Code is processing...`
-
-**Tasks not resuming after status change:**
-1. Verify BOTH main AND worktree JSON files updated
-2. Check file watcher is active: `[FileWatcher] Specs watcher READY`
-3. Verify status changed to `"start_requested"` (not `"backlog"` or `"in_progress"`)
-4. Check ProjectStore logs for cache invalidation
-
-**Auto-Claude UI not updating:**
-1. Auto-refresh triggers within 2-3 seconds of file changes
-2. Check browser console for errors
-3. Verify file watcher detected changes in logs
-4. Manually refresh if needed (rarely required)
-
-### Recovery Decision Tree
-
-```
-Task needs recovery?
-├─ JSON Parse Error → Priority 3: Create minimal JSON with status="start_requested"
-├─ Stuck in plan_review → Priority 1: Change status to "start_requested"
-├─ Stuck in human_review → Priority 1: Change status to "start_requested"
-├─ Shows "Needs Recovery" → Priority 1: Change status to "start_requested"
-├─ Error with logs → Priority 2: Debug logs, fix issue, set status="start_requested"
-└─ Completely corrupted → Priority 5: Delete worktree, recreate task
-```
+- **get_rdr_batches(projectId)** → Get all tasks needing intervention
+- **process_rdr_batch(projectId, batchType, fixes)** → Batch process tasks (P1, P4)
+- **recover_stuck_task(projectId, taskId, autoRestart?)** → Recover stuck tasks (P2)
+- **submit_task_fix_request(projectId, taskId, feedback)** → Submit fix request (P3)
+- **get_task_error_details(projectId, taskId)** → Get error logs
+- **defer_task(projectId, taskId, reason?)** → Park broken task (P6C)
 
 ### Critical Recovery Rules
 
-1. **ALWAYS fix BOTH main and worktree versions**
-   - Auto-Claude ProjectStore prefers worktree over main
-   - Fixing only main will NOT work if worktree exists
+1. **ALWAYS fix BOTH main and worktree versions** — worktree takes precedence
+2. **Use `"start_requested"` status to trigger** — NOT `"backlog"` or `"in_progress"`
+3. **File watcher auto-starts** — changes detected within 2-3 seconds
 
-2. **Use `"start_requested"` status to trigger**
-   - NOT `"backlog"` (won't start)
-   - NOT `"in_progress"` (won't trigger planning)
-   - `"start_requested"` tells Auto-Claude to begin/resume
+## MCP Connection & Troubleshooting
 
-3. **File watcher triggers automatically**
-   - No need to manually refresh UI
-   - Changes detected within 2-3 seconds
-   - Task cards update automatically
+### How the MCP Server Connects
 
-4. **Check worktree location**
-   ```
-   .auto-claude/
-   ├── specs/           # Main project specs
-   └── worktrees/
-       └── tasks/
-           └── TASK-ID/  # Worktree for this task
-               └── .auto-claude/
-                   └── specs/
-                       └── TASK-ID/
-                           └── implementation_plan.json  # THIS ONE takes precedence!
-   ```
+Auto-Claude's MCP server runs as a **stdio** subprocess spawned by Claude Code. Config in `~/.claude.json`:
+
+```json
+{
+  "mcpServers": {
+    "auto-claude-manager": {
+      "command": "npx",
+      "args": [
+        "--yes", "tsx",
+        "--import", "file:///C:/Users/topem/source/repos/Auto-Claude-MCP/apps/frontend/src/main/mcp-server/register-loader.mjs",
+        "C:/Users/topem/source/repos/Auto-Claude-MCP/apps/frontend/src/main/mcp-server/index.ts"
+      ]
+    }
+  }
+}
+```
+
+### Critical Windows Rules
+
+- `--import` flag path MUST use `file:///C:/...` prefix (Node reads `C:` as URL scheme without it)
+- Main entry point (tsx arg) does NOT need `file:///` — tsx handles it
+- `claude mcp add-json` silently strips `cwd` field — always use absolute paths
+
+### If MCP Tools Are Unavailable
+
+1. **Check config**: Read `~/.claude.json`, verify `mcpServers.auto-claude-manager` exists
+2. **Re-add if missing**: Edit `~/.claude.json` to restore config (you have permission)
+3. **Restart session**: MCP reconnects on new session
+4. **Verify**: Server logs `[MCP] Auto-Claude Manager MCP server started` on success
 
 ## Overnight Workflow Example
 

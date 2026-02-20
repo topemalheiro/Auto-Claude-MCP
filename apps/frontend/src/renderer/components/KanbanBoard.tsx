@@ -1726,12 +1726,12 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   const [selectedWindowHandle, setSelectedWindowHandle] = useState<number | null>(null);
   const [isLoadingWindows, setIsLoadingWindows] = useState(false);
 
-  // RDR 60-second auto timer state
+  // RDR auto timer state
   const [rdrMessageInFlight, setRdrMessageInFlight] = useState(false);
   const rdrIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const rdrSkipBusyCheckRef = useRef(true); // Skip busy check on first send + idle events
-  const RDR_INTERVAL_MS = 30000; // 30 seconds (reduced from 60s for faster fallback)
-  const RDR_IN_FLIGHT_TIMEOUT_MS = 90000; // 90 seconds - safety net (3x polling interval to prevent double-send)
+  const rdrSkipBusyCheckRef = useRef(false); // Only skip when idle event fires (proven idle)
+  const RDR_INTERVAL_MS = 30000; // 30 seconds fallback polling
+  const RDR_IN_FLIGHT_TIMEOUT_MS = 90000; // 90 seconds safety net
 
   // RDR rate limit pause state
   const [rdrCooldown, setRdrCooldown] = useState<{ paused: boolean; warning: boolean; reason: string; rateLimitResetAt: number }>({ paused: false, warning: false, reason: '', rateLimitResetAt: 0 });
@@ -2092,9 +2092,9 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     // Use window handle for stable matching (title changes when user switches editor tabs)
     const handle = selectedWindow.handle;
 
-    // Check if Claude Code is busy - SKIP on first check after enable and on idle events
+    // Check if Claude Code is busy - SKIP only when idle event fires (proven idle)
     if (rdrSkipBusyCheckRef.current) {
-      console.log('[RDR] Skipping busy check (first send or idle event)');
+      console.log('[RDR] Skipping busy check (idle event confirmed)');
       rdrSkipBusyCheckRef.current = false;
     } else {
       try {
@@ -2155,6 +2155,8 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       } else {
         console.error('[RDR] Auto-send failed:', sendResult.data?.error);
         setRdrMessageInFlight(false);
+        // Refresh windows on failure (handle may be stale after session reset)
+        loadVsCodeWindows();
       }
 
       // Reset in-flight flag after timeout (assume Claude Code processed by then)
@@ -2179,20 +2181,23 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
 
     // Only start timer if RDR is enabled AND a window is selected
     if (rdrEnabled && selectedWindowHandle) {
-      console.log(`[RDR] Starting event-driven RDR - immediate check + idle event triggers`);
+      console.log(`[RDR] Starting event-driven RDR - delayed initial check + idle event triggers`);
 
-      // IMMEDIATE CHECK: Catch existing tasks needing intervention
-      handleAutoRdr();
+      // DELAYED CHECK: Give OutputMonitor time to detect current state (5s grace period)
+      // OutputMonitor needs to scan JSONL files and determine if Claude is PROCESSING
+      const startupTimer = setTimeout(() => {
+        console.log('[RDR] Initial startup check (after 5s grace period)');
+        handleAutoRdr();
+      }, 5000);
 
       // EVENT-DRIVEN: Subscribe to 'claude-code-idle' IPC event for sequential batching
       const idleListener = (_event: any, data: { from: string; to: string; timestamp: number }) => {
         console.log(`[RDR] EVENT: Claude Code became idle (${data.from} -> ${data.to})`);
 
-        // Clear in-flight flag — idle event proves Claude finished processing
-        setRdrMessageInFlight(false);
+        // DON'T clear in-flight here — the min send interval (120s) prevents re-triggering
+        // Previously clearing in-flight on every idle event caused rapid re-sending loops
 
         // Skip busy check - the idle event already proves Claude is idle
-        // Re-checking creates a race condition where state changes between emit and check
         rdrSkipBusyCheckRef.current = true;
         handleAutoRdr();
       };
@@ -2200,7 +2205,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       // @ts-ignore - electron API exists in renderer
       window.electron?.ipcRenderer.on('claude-code-idle', idleListener);
 
-      // FALLBACK POLLING: Set up 60-second interval as fallback if event system fails
+      // FALLBACK POLLING: Set up interval as fallback if event system fails
       rdrIntervalRef.current = setInterval(() => {
         console.log('[RDR] Fallback polling check (30s interval)');
         handleAutoRdr();
@@ -2208,17 +2213,18 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
 
       // Cleanup on unmount or dependency change
       return () => {
+        clearTimeout(startupTimer);
+
         // Remove IPC listener
         // @ts-ignore
         window.electron?.ipcRenderer.removeListener('claude-code-idle', idleListener);
 
-        // Clear timer and reset skip flag for next enable
+        // Clear timer
         if (rdrIntervalRef.current) {
           clearInterval(rdrIntervalRef.current);
           rdrIntervalRef.current = null;
           console.log('[RDR] Auto-send timer stopped');
         }
-        rdrSkipBusyCheckRef.current = true; // Reset for next enable
       };
     } else {
       console.log('[RDR] Auto-send timer not started (RDR disabled or no window selected)');

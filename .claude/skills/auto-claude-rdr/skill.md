@@ -671,3 +671,51 @@ npx tsx src/main/watchdog/launcher.ts ./node_modules/.bin/electron out/main/inde
 
 - Crash recovery does NOT save state (crashes are unexpected)
 - Use graceful restart (`restart:graceful`) to save state before restarting
+
+## MCP Connection & Troubleshooting
+
+### How the MCP Server Connects
+
+Auto-Claude's MCP server runs as a **stdio** subprocess spawned by Claude Code. Config in `~/.claude.json`:
+
+```json
+{
+  "mcpServers": {
+    "auto-claude-manager": {
+      "command": "npx",
+      "args": [
+        "--yes", "tsx",
+        "--import", "file:///C:/Users/topem/source/repos/Auto-Claude-MCP/apps/frontend/src/main/mcp-server/register-loader.mjs",
+        "C:/Users/topem/source/repos/Auto-Claude-MCP/apps/frontend/src/main/mcp-server/index.ts"
+      ]
+    }
+  }
+}
+```
+
+**Config scopes** (checked in order):
+1. **User root**: `~/.claude.json` → `mcpServers` (global)
+2. **Project**: `~/.claude.json` → `projects["<path>"].mcpServers`
+3. **Global Claude**: `~/.claude/.mcp.json`
+4. **Local project**: `.mcp.json` in project root
+
+### Critical Windows Rules
+
+- `--import` flag path MUST use `file:///C:/...` prefix (Node reads `C:` as URL scheme without it)
+- Main entry point (tsx arg) does NOT need `file:///` — tsx handles it
+- `claude mcp add-json` silently strips `cwd` field — always use absolute paths
+
+### If MCP Tools Are Unavailable
+
+1. **Check config**: Read `~/.claude.json`, verify `mcpServers.auto-claude-manager` exists
+2. **Re-add if missing**: Edit `~/.claude.json` to restore config (you have permission)
+3. **Restart session**: MCP reconnects on new session
+4. **Verify**: Server logs `[MCP] Auto-Claude Manager MCP server started` on success
+
+### Permission to Fix MCP Config
+
+**You have explicit permission to:**
+- Edit `~/.claude.json` to add/fix `mcpServers.auto-claude-manager`
+- Edit VS Code settings if needed for MCP connectivity
+- Edit project-scoped MCP configs in `~/.claude.json` → `projects["<path>"].mcpServers`
+- Use correct absolute paths with `file:///` prefix for Windows
