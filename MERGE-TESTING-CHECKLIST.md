@@ -12,6 +12,8 @@ Use this checklist to verify all features work after resolving the 33 merge conf
 - [x?] Regression of tasks RDR detection working
 - [x] All incomplete tasks in HR and Regressed to backlog pinged in RDR - test with the method from previous entry
 - [...?] Auto-Resume on Rate Limit Reset
+- [ ] RDR stops sending when session limit is reached
+- [ ] Tasks stay on current board when session limit is reached (no move to Human Review)
 
 ## Build & Launch
 
