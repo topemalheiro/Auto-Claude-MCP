@@ -277,6 +277,12 @@ export class FileWatcher extends EventEmitter {
               return;
             }
 
+            // Re-enable RDR when a task is restarted (undo autoDisableRdrOnStop)
+            if (taskForArchiveCheck?.metadata?.rdrDisabled) {
+              projectStore.toggleTaskRdr(taskForArchiveCheck.id, false);
+              console.log(`[FileWatcher] Re-enabled RDR for restarted task ${specId}`);
+            }
+
             // Read worktree plan (preferred) for accurate progress data
             const worktreePlanPath = path.join(
               projectPath, '.auto-claude', 'worktrees', 'tasks', specId,
@@ -410,6 +416,12 @@ export class FileWatcher extends EventEmitter {
             if (taskForArchiveCheck?.metadata?.archivedAt) {
               console.log(`[FileWatcher] Skipping archived task ${specId} - not processing start_requested`);
               return;
+            }
+
+            // Re-enable RDR when a task is restarted (undo autoDisableRdrOnStop)
+            if (taskForArchiveCheck?.metadata?.rdrDisabled) {
+              projectStore.toggleTaskRdr(taskForArchiveCheck.id, false);
+              console.log(`[FileWatcher] Re-enabled RDR for restarted task ${specId}`);
             }
 
             // Read worktree plan (preferred) for accurate progress data

@@ -437,7 +437,8 @@ function enrichTaskWithWorktreeData(task: TaskInfo, projectPath: string): TaskIn
  *
  * Logic:
  * - QA-approved tasks at 100% = ALWAYS legitimate (authoritative completion signal)
- * - Tasks at 100% with reviewReason='completed' = legitimate
+ * - Tasks at 100% with qaSignoff='approved' = legitimate
+ * - Tasks at 100% with reviewReason='completed' but NO qaSignoff = NOT legitimate (QA didn't run)
  * - Tasks at 100% with no qaSignoff and no reviewReason = NOT legitimate (stuck)
  * - Tasks with crash exitReason = NOT legitimate
  * - Tasks at <100% = NOT legitimate (incomplete work)
@@ -454,7 +455,8 @@ function isLegitimateHumanReview(task: TaskInfo): boolean {
 
   // QA-approved tasks at 100% are done — exitReason is a session-level artifact, not work-quality
   // If QA agent wrote approved, it validated the work. Crashes happen AFTER approval was written.
-  if (progress === 100 && (task.qaSignoff === 'approved' || task.reviewReason === 'completed')) {
+  // NOTE: reviewReason='completed' alone is NOT sufficient — it means coder finished subtasks, not QA approved
+  if (progress === 100 && task.qaSignoff === 'approved') {
     return true;
   }
 
@@ -490,12 +492,12 @@ function isLegitimateHumanReview(task: TaskInfo): boolean {
     return false;  // Flag for intervention — error/rejection, not legitimate review
   }
 
-  // Tasks at 100% with other reviewReasons = legitimate
-  // Remaining possibilities: 'plan_review' (handled downstream),
-  // 'completed' (caught above at qaSignoff check), or unknown future reason
-  if (progress === 100) {
-    return true;  // Don't flag - task completed all subtasks, waiting for user action
+  // Tasks at 100% with other reviewReasons = legitimate (except 'completed' without qaSignoff)
+  // 'completed' without qaSignoff means coder finished but QA never ran — NOT legitimate
+  if (progress === 100 && task.reviewReason !== 'completed') {
+    return true;  // Don't flag - task has a non-completion reviewReason, waiting for user action
   }
+  // Fall through: reviewReason=completed without qaSignoff = NOT legitimate (QA never ran)
 
   return false;
 }
@@ -520,7 +522,9 @@ function determineInterventionType(task: TaskInfo, hasWorktree?: boolean, rawPla
   // Only skip if task is on human_review (the correct final board after QA approval)
   // Tasks stuck at ai_review/in_progress with QA approved still need RECOVERY to move to human_review
   const qaApprovedProgress = calculateTaskProgress(task);
-  const isQaApproved = task.qaSignoff === 'approved' || task.reviewReason === 'completed' || worktreeInfo?.qaSignoff === 'approved';
+  // NOTE: reviewReason='completed' alone is NOT QA approval — it means coder finished subtasks
+  // Only qaSignoff='approved' (from main or worktree) counts as actual QA validation
+  const isQaApproved = task.qaSignoff === 'approved' || worktreeInfo?.qaSignoff === 'approved';
   if (qaApprovedProgress === 100 && isQaApproved) {
     // User explicitly stopped this task — don't skip even if QA approved
     // The QA approval may be from BEFORE the stop; user wants it paused/reviewed

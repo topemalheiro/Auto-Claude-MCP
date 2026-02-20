@@ -1902,8 +1902,12 @@ server.tool(
                   agentKilled = result.status === 0;
                 } else {
                   // Unix: SIGKILL for guaranteed termination
-                  process.kill(pid, 'SIGKILL');
-                  agentKilled = true;
+                  try {
+                    process.kill(pid, 'SIGKILL');
+                    agentKilled = true;
+                  } catch (killErr) {
+                    console.warn(`[MCP] process.kill(${pid}, SIGKILL) failed: ${killErr}`);
+                  }
                 }
                 console.warn(`[MCP] Killed agent process PID ${pid} for ${taskId} (forceRecovery — cross-process kill, success=${agentKilled})`);
               }
