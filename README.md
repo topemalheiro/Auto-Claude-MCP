@@ -6,7 +6,7 @@
 [![CI](https://img.shields.io/github/actions/workflow/status/AndyMik90/Auto-Claude/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/AndyMik90/Auto-Claude/actions)
 [![Mentioned in Awesome Claude Code](https://awesome.re/mentioned-badge-flat.svg)](https://github.com/hesreallyhim/awesome-claude-code)
 
-# Latest features are on the dev-next branch. PR pending to upstream — develop is frozen until merge. Main has my features implemented, too (and is probably the most stable rn, I'll delete this tomorrow if dev-next/develop is okay).
+# Latest features are on the dev-next branch. PR pending to upstream — develop is frozen until merge. Main has my features implemented, too.
 
 ## **To get the 'Master LLM' working properly through the MCP, either with RDR or general MCP usage, you'll need to copy the folders inside the skills folder in .claude to your personal \.claude\skills folder.**
 
@@ -19,7 +19,7 @@ You can make the master LLM create batches of auto-started tasks (use start_requ
 
 **This is a great tool for building dynamic pipelines and further automating your agentic workflows.**
 
-> **Note:** The MCP server and all task management tools are standard MCP protocol and work with any MCP client. The RDR message **delivery pipeline** (how recovery prompts physically reach the the master LLM that enacts on the MCP) currently targets: **Windows** (PowerShell + Win32 API for clipboard paste + keyboard simulation), **VS Code** (process-level window detection, not extension-specific), and **Claude Code** (JSONL transcript reading for busy-state). The delivery is blind "focus window, paste, enter" — it works when the target chat input is focused but is not tied to any extension API. Each layer can be swapped independently. Contributions for macOS/Linux, other VS Code forks (Cursor, etc.), or other LLM CLIs are welcome. See also [Watchdog Process](#watchdog-process) for OS-specific launcher requirements.
+> **Note:** The MCP server and all task management tools are standard MCP protocol and work with any MCP client. The RDR message **delivery pipeline** (how recovery prompts physically reach the master LLM that enacts on the MCP) currently targets: **Windows** (PowerShell + Win32 API for clipboard paste + keyboard simulation), **VS Code** (process-level window detection, not extension-specific), and **Claude Code** (JSONL transcript reading for busy-state). The delivery is blind "focus window, paste, enter" — it works when the target chat input is focused but is not tied to any extension API. Each layer can be swapped independently. Contributions for macOS/Linux, other VS Code forks (Cursor, etc.), or other LLM CLIs are welcome. See also [Watchdog Process](#watchdog-process) for OS-specific launcher requirements.
 
 ## MCP Setup (Claude Code Integration)
 
