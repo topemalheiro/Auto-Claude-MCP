@@ -348,6 +348,11 @@ export interface AppSettings {
     autoRestart: boolean;      // Auto-restart after crash (if false, just log crash)
     maxRestarts: number;       // Max restarts within cooldown period (default: 3)
     restartCooldown: number;   // Cooldown period in ms (default: 60000 = 1 minute)
+    // Freeze detection — detects renderer hangs and main process freezes
+    freezeDetection?: boolean;              // Enable freeze detection (default: true)
+    rendererFreezeGraceMs?: number;         // Grace period before killing unresponsive renderer (default: 15000)
+    heartbeatIntervalMs?: number;           // How often main process writes heartbeat (default: 10000)
+    heartbeatStaleThresholdMs?: number;     // How long before heartbeat is considered stale (default: 45000)
   };
 }
 
