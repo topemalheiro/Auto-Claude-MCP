@@ -112,16 +112,6 @@ Returns: taskId, title, status, phase, progress, subtaskCount, completedSubtasks
 
 **CRITICAL: When RDR sends notification → Execute this workflow immediately**
 
-### CRITICAL: RDR Notification = Rate Limit Has Reset
-
-**If you receive an RDR notification, the rate limit has ALREADY RESET.** ALWAYS process ALL tasks immediately.
-
-Task log entries showing "You've hit your limit · resets Xam" are **HISTORICAL** — they were written when the task agent hit the limit, NOT reflecting current state. RDR only sends notifications when the Claude Code session is available again.
-
-**NEVER** refuse to recover tasks because task logs show rate limit messages. Those entries are old. The fact that RDR sent you a notification proves the session is back online.
-
-**Rule:** Receive RDR → process ALL tasks → no exceptions.
-
 ### Instant Response Workflow
 
 ```
@@ -700,3 +690,60 @@ Priority 6 has two options depending on where the problem is:
 - **6B**: Auto-Claude itself has a bug — fix source code and restart
 - **6C**: Task keeps failing but isn't urgent — park it, deal with it later
 - See auto-claude-rdr skill for full RDR priority system documentation
+
+## MCP Connection & Troubleshooting
+
+### How the MCP Server Connects
+
+Auto-Claude's MCP server runs as a **stdio** subprocess spawned by Claude Code. Config in `~/.claude.json`:
+
+```json
+{
+  "mcpServers": {
+    "auto-claude-manager": {
+      "command": "npx",
+      "args": [
+        "--yes", "tsx",
+        "--import", "file:///C:/Users/topem/source/repos/Auto-Claude-MCP/apps/frontend/src/main/mcp-server/register-loader.mjs",
+        "C:/Users/topem/source/repos/Auto-Claude-MCP/apps/frontend/src/main/mcp-server/index.ts"
+      ]
+    }
+  }
+}
+```
+
+**Config scopes** (checked in order):
+1. **User root**: `~/.claude.json` → `mcpServers` (global)
+2. **Project**: `~/.claude.json` → `projects["<path>"].mcpServers`
+3. **Global Claude**: `~/.claude/.mcp.json`
+4. **Local project**: `.mcp.json` in project root
+
+### Critical Windows Rules
+
+- `--import` flag path MUST use `file:///C:/...` prefix (Node reads `C:` as URL scheme without it)
+- Main entry point (tsx arg) does NOT need `file:///` — tsx handles it
+- `claude mcp add-json` silently strips `cwd` field — always use absolute paths
+
+### If MCP Tools Are Unavailable
+
+1. **Check config**: Read `~/.claude.json`, verify `mcpServers.auto-claude-manager` exists
+2. **Re-add if missing**: Edit `~/.claude.json` to restore config (you have permission)
+3. **Restart session**: MCP reconnects on new session
+4. **Verify**: Server logs `[MCP] Auto-Claude Manager MCP server started` on success
+
+### Common MCP Errors
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| `ERR_UNSUPPORTED_ESM_URL_SCHEME` | Missing `file:///` prefix on `--import` | Add `file:///` before Windows path |
+| MCP tools not in tool list | Config missing or session stale | Re-add config, restart session |
+| `claude mcp add-json` strips `cwd` | Known CLI bug | Use absolute paths only |
+| Tools timeout | Server crashed or Electron not running | Check Auto-Claude app is running |
+
+### Permission to Fix MCP Config
+
+**You have explicit permission to:**
+- Edit `~/.claude.json` to add/fix `mcpServers.auto-claude-manager`
+- Edit VS Code settings (`.vscode/settings.json`) if needed for MCP
+- Edit project-scoped MCP configs in `~/.claude.json` → `projects["<path>"].mcpServers`
+- Use correct absolute paths with `file:///` prefix for Windows
