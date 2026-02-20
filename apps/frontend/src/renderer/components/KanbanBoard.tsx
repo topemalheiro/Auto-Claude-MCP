@@ -1735,10 +1735,6 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   const rdrCooldownRef = useRef(rdrCooldown);
   rdrCooldownRef.current = rdrCooldown;
 
-  // RDR consecutive failure tracking — refresh windows after repeated failures
-  const rdrConsecutiveFailuresRef = useRef(0);
-  const RDR_MAX_CONSECUTIVE_FAILURES = 5;
-
   // Load VS Code windows from system
   const loadVsCodeWindows = useCallback(async () => {
     setIsLoadingWindows(true);
@@ -2077,29 +2073,16 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       return;
     }
 
-    // Backoff: after too many consecutive failures, refresh windows and reset
-    if (rdrConsecutiveFailuresRef.current >= RDR_MAX_CONSECUTIVE_FAILURES) {
-      console.log(`[RDR] Paused — ${rdrConsecutiveFailuresRef.current} consecutive failures. Clearing stale handle and refreshing windows...`);
-      rdrConsecutiveFailuresRef.current = 0;
-      setSelectedWindowHandle(null);
-      loadVsCodeWindows();
-      return;
-    }
-
     // Skip if no window selected
     if (!selectedWindowHandle) {
-      // Try to refresh windows — handle may have been cleared by backoff or session reset
-      loadVsCodeWindows();
-      console.log('[RDR] Skipping auto-send - no window selected (refreshing...)');
+      console.log('[RDR] Skipping auto-send - no window selected');
       return;
     }
 
     // Find window from selected handle to get process ID
     const selectedWindow = vsCodeWindows.find(w => w.handle === selectedWindowHandle);
     if (!selectedWindow) {
-      console.log('[RDR] Selected window not found — clearing stale handle and refreshing');
-      setSelectedWindowHandle(null);
-      loadVsCodeWindows();
+      console.log('[RDR] Selected window not found in list');
       return;
     }
 
@@ -2162,17 +2145,12 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
 
       if (sendResult.success) {
         console.log('[RDR] Auto-send successful');
-        rdrConsecutiveFailuresRef.current = 0; // Reset failure counter on success
         toast({
           title: t('kanban.rdrSendSuccess'),
           description: t('kanban.rdrSendSuccessDesc')
         });
       } else {
         console.error('[RDR] Auto-send failed:', sendResult.data?.error);
-        rdrConsecutiveFailuresRef.current++;
-        // Clear stale handle and refresh — the window may have changed after session reset
-        setSelectedWindowHandle(null);
-        loadVsCodeWindows();
         setRdrMessageInFlight(false);
       }
 
@@ -2184,10 +2162,9 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
 
     } catch (error) {
       console.error('[RDR] Auto-send error:', error);
-      rdrConsecutiveFailuresRef.current++;
       setRdrMessageInFlight(false);
     }
-  }, [rdrMessageInFlight, selectedWindowHandle, projectId, buildRdrMessage, toast, t, loadVsCodeWindows, vsCodeWindows]);
+  }, [rdrMessageInFlight, selectedWindowHandle, projectId, buildRdrMessage, toast, t, vsCodeWindows]);
 
   // EVENT-DRIVEN RDR: Check immediately on startup, then respond to idle events
   useEffect(() => {

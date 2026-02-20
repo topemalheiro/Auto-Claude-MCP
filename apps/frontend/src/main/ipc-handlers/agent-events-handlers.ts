@@ -136,7 +136,15 @@ export function registerAgenteventsHandlers(
     const { task: exitTask, project: exitProject } = findTaskAndProject(taskId, projectId);
     const exitProjectId = exitProject?.id || projectId;
 
-    taskStateManager.handleProcessExited(taskId, code, exitTask, exitProject);
+    // Check if this was a rate limit exit BEFORE telling XState
+    // Rate limit = temporary pause, not an error — task should stay on current board
+    const isRateLimitExit = code !== 0 && code !== null ? !!getRateLimitForTask(taskId) : false;
+
+    if (isRateLimitExit) {
+      console.warn(`[Task ${taskId}] Rate limit exit (code ${code}) — keeping task on current board, skipping XState PROCESS_EXITED`);
+    } else {
+      taskStateManager.handleProcessExited(taskId, code, exitTask, exitProject);
+    }
 
     // Send final plan state to renderer BEFORE unwatching
     // This ensures the renderer has the final subtask data (fixes 0/0 subtask bug)
