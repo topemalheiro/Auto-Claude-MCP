@@ -86,7 +86,11 @@ export const DEFAULT_APP_SETTINGS = {
     enabled: true,         // When enabled: auto-restart via watchdog; when disabled: do nothing
     autoRestart: true,     // Auto-restart after crash (if enabled is true)
     maxRestarts: 3,        // Maximum restarts within cooldown period
-    restartCooldown: 60000 // Cooldown period in ms (1 minute)
+    restartCooldown: 60000, // Cooldown period in ms (1 minute)
+    freezeDetection: true,              // Detect renderer hangs + main process freezes
+    rendererFreezeGraceMs: 15000,       // 15s grace before killing unresponsive renderer
+    heartbeatIntervalMs: 10000,         // Write heartbeat every 10s
+    heartbeatStaleThresholdMs: 45000    // Stale after 45s = freeze detected
   },
   // Auto-shutdown when all tasks across ALL projects reach Human Review (disabled by default)
   autoShutdownEnabled: false

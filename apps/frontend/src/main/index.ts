@@ -185,6 +185,83 @@ let terminalManager: TerminalManager | null = null;
 // Fixes: pty.node SIGABRT crash caused by environment teardown before PTY cleanup (GitHub #1469)
 let isQuitting = false;
 
+/**
+ * Write freeze notification files for the watchdog and Claude Code.
+ * Reuses crash-flag.json / crash-notification.json format with freeze-specific fields.
+ */
+function writeFreezeNotification(type: string, reason: string): void {
+  try {
+    const userData = app.getPath('userData');
+
+    // Write crash-flag.json (read by crash-recovery-handler on next startup)
+    const flagPath = join(userData, 'crash-flag.json');
+    const crashFlag = {
+      timestamp: Date.now(),
+      exitCode: 1,
+      signal: null,
+      logs: [`[Freeze] ${type}: ${reason}`],
+      freezeDetected: true,
+      freezeType: type
+    };
+    writeFileSync(flagPath, JSON.stringify(crashFlag, null, 2), 'utf-8');
+
+    // Write crash-notification.json (polled by Claude Code MCP)
+    const notificationPath = join(userData, 'crash-notification.json');
+    const notification = {
+      type: 'freeze_detected',
+      freezeType: type,
+      timestamp: new Date().toISOString(),
+      exitCode: 1,
+      signal: null,
+      logs: [`[Freeze] ${reason}`],
+      autoRestart: true,
+      restartCount: 0,
+      message: `Auto-Claude froze at ${new Date().toISOString()}. Type: ${type}. Restarting automatically.`
+    };
+    writeFileSync(notificationPath, JSON.stringify(notification, null, 2), 'utf-8');
+
+    console.error('[main] Freeze notification written:', type, reason);
+  } catch (error) {
+    console.error('[main] Failed to write freeze notification:', error);
+  }
+}
+
+// --- Freeze Detection: Layer 2 (Main Process Heartbeat) ---
+let heartbeatInterval: ReturnType<typeof setInterval> | null = null;
+const HEARTBEAT_INTERVAL_MS = 10_000; // Write heartbeat every 10 seconds
+
+function startHeartbeat(): void {
+  const userData = app.getPath('userData');
+  const heartbeatPath = join(userData, 'heartbeat.json');
+
+  const writeHeartbeat = (): void => {
+    try {
+      writeFileSync(heartbeatPath, JSON.stringify({ pid: process.pid, timestamp: Date.now() }), 'utf-8');
+    } catch {
+      // Ignore write errors — watchdog will detect stale heartbeat
+    }
+  };
+
+  writeHeartbeat(); // Write immediately
+  heartbeatInterval = setInterval(writeHeartbeat, HEARTBEAT_INTERVAL_MS);
+  heartbeatInterval.unref(); // Don't prevent process exit
+  console.log('[main] Heartbeat writer started (interval:', HEARTBEAT_INTERVAL_MS, 'ms)');
+}
+
+function stopHeartbeat(): void {
+  if (heartbeatInterval) {
+    clearInterval(heartbeatInterval);
+    heartbeatInterval = null;
+  }
+  // Delete heartbeat file to signal clean shutdown
+  try {
+    const heartbeatPath = join(app.getPath('userData'), 'heartbeat.json');
+    if (existsSync(heartbeatPath)) {
+      rmSync(heartbeatPath);
+    }
+  } catch { /* ignore cleanup errors */ }
+}
+
 function createWindow(): void {
   // Get the primary display's work area (accounts for taskbar, dock, etc.)
   // Wrapped in try/catch to handle potential failures with fallback to safe defaults
@@ -378,6 +455,35 @@ function createWindow(): void {
     mainWindow.webContents.openDevTools({ mode: 'right' });
   }
 
+  // --- Freeze Detection: Layer 1 (Renderer Freeze) ---
+  let rendererFreezeTimer: ReturnType<typeof setTimeout> | null = null;
+  const RENDERER_FREEZE_GRACE_MS = 15_000; // 15 seconds grace period
+
+  mainWindow.webContents.on('unresponsive', () => {
+    console.error('[main] Renderer became unresponsive (potential freeze)');
+    if (!rendererFreezeTimer) {
+      rendererFreezeTimer = setTimeout(() => {
+        console.error('[main] Renderer still unresponsive after grace period — forcing restart');
+        writeFreezeNotification('renderer_freeze', 'Renderer process unresponsive for 15+ seconds');
+        app.exit(1); // Non-zero exit triggers watchdog restart
+      }, RENDERER_FREEZE_GRACE_MS);
+    }
+  });
+
+  mainWindow.webContents.on('responsive', () => {
+    if (rendererFreezeTimer) {
+      console.warn('[main] Renderer recovered from unresponsive state');
+      clearTimeout(rendererFreezeTimer);
+      rendererFreezeTimer = null;
+    }
+  });
+
+  mainWindow.webContents.on('render-process-gone', (_event, details) => {
+    console.error('[main] Renderer process gone:', details.reason, 'exitCode:', details.exitCode);
+    writeFreezeNotification('renderer_crash', `Renderer process gone: ${details.reason} (exit: ${details.exitCode})`);
+    app.exit(1);
+  });
+
   // Clean up on close
   mainWindow.on('closed', () => {
     // Kill all agents when window closes (prevents orphaned processes)
@@ -554,6 +660,9 @@ app.whenReady().then(() => {
   // Create window
   createWindow();
 
+  // Start heartbeat writer for watchdog freeze detection (Layer 2)
+  startHeartbeat();
+
   // NOTE: preWarmToolCache() is now called inside createWindow()'s ready-to-show handler
   // to ensure CLI detection runs AFTER window is visible (hides cmd.exe flashes on Windows)
 
@@ -705,6 +814,7 @@ app.on('before-quit', (event) => {
   event.preventDefault();
 
   // Stop synchronous services immediately
+  stopHeartbeat();
   stopPeriodicUpdates();
 
   const usageMonitor = getUsageMonitor();

@@ -27,6 +27,8 @@ interface CrashInfo {
   exitCode: number | null;
   signal: NodeJS.Signals | null;
   logs: string[];
+  freezeDetected?: boolean;
+  freezeType?: string;
 }
 
 interface WatchdogSettings {
@@ -45,6 +47,13 @@ export class AutoClaudeWatchdog extends EventEmitter {
   private readonly maxLogLines = 100;
   private settings: WatchdogSettings;
   private settingsPath: string;
+  // Heartbeat monitoring for freeze detection (Layer 2)
+  private heartbeatCheckInterval: ReturnType<typeof setInterval> | null = null;
+  private readonly HEARTBEAT_CHECK_INTERVAL_MS = 15_000;  // Check every 15s
+  private readonly HEARTBEAT_STALE_THRESHOLD_MS = 45_000; // Stale after 45s
+  // When true, handleProcessExit uses the stored freeze crashInfo instead of a generic one
+  private freezeTriggered = false;
+  private freezeCrashInfo: CrashInfo | null = null;
 
   constructor() {
     super();
@@ -168,6 +177,9 @@ export class AutoClaudeWatchdog extends EventEmitter {
     }
 
     console.log('[Watchdog] Process started with PID:', this.process.pid);
+
+    // Start heartbeat monitoring for freeze detection (Layer 2)
+    this.startHeartbeatMonitoring();
   }
 
   /**
@@ -222,11 +234,20 @@ export class AutoClaudeWatchdog extends EventEmitter {
       // Record crash timestamp
       this.crashTimestamps.push(now);
 
-      // Get crash info
-      const crashInfo = this.getCrashInfo(code, signal);
+      // Use freeze crash info if this exit was triggered by freeze detection,
+      // otherwise generate a generic crash info. This prevents overwriting
+      // the freeze-specific crash flag that handleFreezeDetected() already wrote.
+      const crashInfo = this.freezeTriggered && this.freezeCrashInfo
+        ? this.freezeCrashInfo
+        : this.getCrashInfo(code, signal);
+      this.freezeTriggered = false;
+      this.freezeCrashInfo = null;
 
       // Write crash flag file for Electron to read on restart
-      this.writeCrashFlag(crashInfo);
+      // (skip if freeze handler already wrote it — the flag is already on disk)
+      if (!crashInfo.freezeDetected) {
+        this.writeCrashFlag(crashInfo);
+      }
 
       // Check for crash loop (too many crashes in short time)
       const recentCrashes = this.crashTimestamps.filter(
@@ -330,17 +351,23 @@ export class AutoClaudeWatchdog extends EventEmitter {
         fs.mkdirSync(notificationDir, { recursive: true });
       }
 
+      const isFreeze = crashInfo.freezeDetected === true;
       const notification = {
-        type: 'crash_detected',
+        type: isFreeze ? 'freeze_detected' : 'crash_detected',
+        ...(isFreeze ? { freezeType: crashInfo.freezeType } : {}),
         timestamp: new Date().toISOString(),
         exitCode: crashInfo.exitCode,
         signal: crashInfo.signal,
         logs: crashInfo.logs,
         autoRestart: this.settings.autoRestart,
         restartCount: this.restartCount,
-        message: `Auto-Claude crashed at ${new Date(crashInfo.timestamp).toISOString()}. ${
-          this.settings.autoRestart ? 'Auto-restart enabled, restarting in 2 seconds...' : 'Auto-restart disabled.'
-        }`
+        message: isFreeze
+          ? `Auto-Claude froze at ${new Date(crashInfo.timestamp).toISOString()}. Type: ${crashInfo.freezeType}. ${
+              this.settings.autoRestart ? 'Restarting automatically.' : 'Auto-restart disabled.'
+            }`
+          : `Auto-Claude crashed at ${new Date(crashInfo.timestamp).toISOString()}. ${
+              this.settings.autoRestart ? 'Auto-restart enabled, restarting in 2 seconds...' : 'Auto-restart disabled.'
+            }`
       };
 
       fs.writeFileSync(notificationPath, JSON.stringify(notification, null, 2), 'utf-8');
@@ -386,12 +413,116 @@ export class AutoClaudeWatchdog extends EventEmitter {
     }
   }
 
+  // --- Heartbeat Monitoring (Layer 2: Detect main process freeze) ---
+
+  /**
+   * Get the path to the heartbeat file written by the Electron main process
+   */
+  private getHeartbeatPath(): string {
+    const appDataPath = process.env.APPDATA ||
+      (process.platform === 'darwin'
+        ? path.join(process.env.HOME!, 'Library', 'Application Support')
+        : path.join(process.env.HOME!, '.config'));
+    return path.join(appDataPath, APP_DATA_DIR_NAME, 'heartbeat.json');
+  }
+
+  /**
+   * Start polling the heartbeat file to detect main process freezes
+   */
+  private startHeartbeatMonitoring(): void {
+    const heartbeatPath = this.getHeartbeatPath();
+    console.log('[Watchdog] Starting heartbeat monitor, checking:', heartbeatPath);
+
+    this.heartbeatCheckInterval = setInterval(() => {
+      if (this.isShuttingDown) return;
+
+      try {
+        if (!fs.existsSync(heartbeatPath)) {
+          // No heartbeat file yet — process may still be starting up
+          return;
+        }
+
+        const content = fs.readFileSync(heartbeatPath, 'utf-8');
+        const heartbeat = JSON.parse(content);
+        const age = Date.now() - heartbeat.timestamp;
+
+        if (age > this.HEARTBEAT_STALE_THRESHOLD_MS) {
+          console.error(
+            `[Watchdog] FREEZE DETECTED: Heartbeat stale by ${Math.round(age / 1000)}s ` +
+            `(threshold: ${this.HEARTBEAT_STALE_THRESHOLD_MS / 1000}s)`
+          );
+          this.handleFreezeDetected(heartbeat.pid, age);
+        }
+      } catch {
+        // JSON parse error or read error — skip this check (file might be mid-write)
+      }
+    }, this.HEARTBEAT_CHECK_INTERVAL_MS);
+
+    this.heartbeatCheckInterval.unref();
+  }
+
+  /**
+   * Handle detected freeze — kill frozen process and trigger restart via existing exit handler
+   */
+  private handleFreezeDetected(frozenPid: number, staleAge: number): void {
+    // Stop heartbeat monitoring to prevent duplicate detections
+    this.stopHeartbeatMonitoring();
+
+    const reason = `Main process freeze detected (heartbeat stale for ${Math.round(staleAge / 1000)}s)`;
+    console.error('[Watchdog] Killing frozen process (PID:', frozenPid, ')');
+
+    // Write freeze-specific crash flag + notification
+    const crashInfo: CrashInfo = {
+      timestamp: Date.now(),
+      exitCode: null,
+      signal: null,
+      logs: [
+        `[Freeze] ${reason}`,
+        `[Freeze] Frozen PID: ${frozenPid}`,
+        `[Freeze] Stale age: ${Math.round(staleAge / 1000)}s`,
+        ...this.recentLogs.slice(-15)
+      ],
+      freezeDetected: true,
+      freezeType: 'main_process_freeze'
+    };
+    this.writeCrashFlag(crashInfo);
+
+    // Store freeze info so handleProcessExit doesn't overwrite the crash flag
+    this.freezeTriggered = true;
+    this.freezeCrashInfo = crashInfo;
+
+    // Force-kill the frozen process
+    try {
+      if (process.platform === 'win32') {
+        const { spawnSync } = require('child_process') as typeof import('child_process');
+        spawnSync('taskkill', ['/pid', frozenPid.toString(), '/f', '/t'], { stdio: 'ignore' });
+      } else {
+        process.kill(frozenPid, 'SIGKILL');
+      }
+    } catch (error) {
+      console.error('[Watchdog] Failed to kill frozen process:', error);
+    }
+
+    // The existing process.on('exit') handler fires after the kill → triggers restart
+  }
+
+  /**
+   * Stop heartbeat monitoring
+   */
+  private stopHeartbeatMonitoring(): void {
+    if (this.heartbeatCheckInterval) {
+      clearInterval(this.heartbeatCheckInterval);
+      this.heartbeatCheckInterval = null;
+    }
+  }
+
   /**
    * Stop the watchdog and monitored process
    */
   public async stop(): Promise<void> {
     console.log('[Watchdog] Stopping...');
     this.isShuttingDown = true;
+    this.stopHeartbeatMonitoring();
 
     if (this.process && !this.process.killed) {
       console.log('[Watchdog] Terminating monitored process...');

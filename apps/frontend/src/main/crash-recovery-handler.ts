@@ -16,6 +16,8 @@ interface CrashInfo {
   exitCode: number | null;
   signal: string | null;
   logs: string[];
+  freezeDetected?: boolean;
+  freezeType?: string;
 }
 
 /**
@@ -32,37 +34,47 @@ function getCrashFlagPath(): string {
 function buildCrashMessage(crashInfo: CrashInfo, restartCount: number): string {
   const lines: string[] = [];
   const date = new Date(crashInfo.timestamp);
+  const isFreeze = crashInfo.freezeDetected === true;
 
-  lines.push('[Auto-Claude Crash Recovery] ⚠️ APP RESTARTED AFTER CRASH');
-  lines.push('');
-  lines.push('**Crash Details:**');
-  lines.push(`- **Time:** ${date.toLocaleString()}`);
-  lines.push(`- **Exit Code:** ${crashInfo.exitCode ?? 'N/A'}`);
-  lines.push(`- **Signal:** ${crashInfo.signal ?? 'N/A'}`);
-  lines.push(`- **Restart Attempt:** ${restartCount}`);
-  lines.push('');
-  lines.push('**Status:** Auto-Claude was automatically restarted by the watchdog');
+  if (isFreeze) {
+    lines.push('[Auto-Claude Crash Recovery] APP RESTARTED AFTER FREEZE');
+    lines.push('');
+    lines.push('**Freeze Details:**');
+    lines.push(`- **Time:** ${date.toLocaleString()}`);
+    lines.push(`- **Type:** ${crashInfo.freezeType ?? 'Unknown'}`);
+    lines.push(`- **Restart Attempt:** ${restartCount}`);
+    lines.push('');
+    lines.push('**What Happened?**');
+    lines.push('The Auto-Claude application froze (became unresponsive). The freeze was detected');
+    lines.push(`via ${crashInfo.freezeType === 'main_process_freeze' ? 'heartbeat monitoring (main process stalled)' : 'Electron unresponsive detection (renderer hung)'}.`);
+    lines.push('The application was automatically killed and restarted.');
+  } else {
+    lines.push('[Auto-Claude Crash Recovery] APP RESTARTED AFTER CRASH');
+    lines.push('');
+    lines.push('**Crash Details:**');
+    lines.push(`- **Time:** ${date.toLocaleString()}`);
+    lines.push(`- **Exit Code:** ${crashInfo.exitCode ?? 'N/A'}`);
+    lines.push(`- **Signal:** ${crashInfo.signal ?? 'N/A'}`);
+    lines.push(`- **Restart Attempt:** ${restartCount}`);
+    lines.push('');
+    lines.push('**What Happened?**');
+    lines.push('The Auto-Claude application crashed unexpectedly. The external watchdog detected');
+    lines.push('the crash and automatically restarted the application.');
+  }
+
   lines.push('');
   lines.push('---');
   lines.push('');
-  lines.push('**Recent Logs (Last 20 lines):**');
+  lines.push('**Recent Logs:**');
   lines.push('```');
   crashInfo.logs.forEach(log => lines.push(log));
   lines.push('```');
   lines.push('');
-  lines.push('---');
-  lines.push('');
-  lines.push('**What Happened?**');
-  lines.push('The Auto-Claude application crashed unexpectedly. The external watchdog detected');
-  lines.push('the crash and automatically restarted the application. This notification provides');
-  lines.push('crash details for debugging.');
-  lines.push('');
   lines.push('**Recovery Actions:**');
-  lines.push('- ✅ Application restarted successfully');
-  lines.push('- ✅ Crash details logged');
-  lines.push('- ⚠️ Review logs above for error patterns');
+  lines.push('- Application restarted successfully');
+  lines.push('- Review logs above for error patterns');
   lines.push('');
-  lines.push('**To Disable Crash Recovery:**');
+  lines.push('**To Disable:**');
   lines.push('Go to Settings → Updates → Crash Recovery (toggle off)');
 
   return lines.join('\n');
