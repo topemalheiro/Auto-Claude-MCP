@@ -153,7 +153,9 @@ function getActiveTaskIds(projectPath: string): string[] {
 
         if (!hasErrorExit) {
           // Complete = done, pr_created, or human_review (QA passed, ready for human)
-          if (content.status === 'done' || content.status === 'pr_created' || content.status === 'human_review') {
+          // NOTE: human_review with reviewReason='errors' is NOT complete — agent crashed, needs RDR
+          const isLegitHumanReview = content.status === 'human_review' && content.reviewReason !== 'errors';
+          if (content.status === 'done' || content.status === 'pr_created' || isLegitHumanReview) {
             continue;
           }
 
@@ -239,7 +241,9 @@ function countTasksByStatus(projectPath: string): { total: number; humanReview: 
 
         if (!hasErrorExit) {
           // Complete = done, pr_created, or human_review (QA passed, ready for human)
-          if (content.status === 'done' || content.status === 'pr_created' || content.status === 'human_review') {
+          // NOTE: human_review with reviewReason='errors' is NOT complete — agent crashed, needs RDR
+          const isLegitHumanReview = content.status === 'human_review' && content.reviewReason !== 'errors';
+          if (content.status === 'done' || content.status === 'pr_created' || isLegitHumanReview) {
             continue;
           }
 

@@ -1240,7 +1240,8 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
           const t = currentTasks.find(task => task.id === id);
           return t &&
             t.status !== 'in_progress' &&   // Not already counted in live slots
-            t.status !== 'ai_review' &&      // QA is running — legitimate progression, not failure
+            t.status !== 'ai_review' &&      // QA is running — legitimate progression
+            t.status !== 'human_review' &&   // Human review (QA-approved or error) — slot released
             t.status !== 'done' &&           // Terminal — no longer needs slot
             t.status !== 'pr_created' &&     // Terminal — no longer needs slot
             !t.metadata?.rdrDisabled &&
@@ -1365,9 +1366,11 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
           debugLog(`[Queue] Task ${taskId} stopped by user, NOT holding slot (RDR auto-disabled)`);
         }
 
-        // Release held slot when task returns to in_progress (now counted in live slots)
-        // or reaches a terminal state (done/pr_created — no longer needs a slot)
-        if (heldSlotIdsRef.current.has(taskId) && (newStatus === 'in_progress' || newStatus === 'ai_review' || newStatus === 'done' || newStatus === 'pr_created')) {
+        // Release held slot when task returns to in_progress, progresses to ai_review/human_review,
+        // or reaches a terminal state (done/pr_created). human_review is included because:
+        // - QA-approved path: work is done, slot no longer needed
+        // - Error path (rate limit crash): RDR will re-queue the task when recovered
+        if (heldSlotIdsRef.current.has(taskId) && (newStatus === 'in_progress' || newStatus === 'ai_review' || newStatus === 'human_review' || newStatus === 'done' || newStatus === 'pr_created')) {
           const newSet = new Set(heldSlotIdsRef.current);
           newSet.delete(taskId);
           heldSlotIdsRef.current = newSet;
