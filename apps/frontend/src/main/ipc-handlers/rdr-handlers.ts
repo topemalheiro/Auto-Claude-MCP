@@ -139,8 +139,22 @@ const RDR_PAUSE_FILE = path.join(
 
 let rdrPauseState: RdrPauseState = { paused: false, warning: false, reason: '', pausedAt: 0, rateLimitResetAt: 0 };
 
-/** Check if RDR is currently paused */
+/** Check if RDR is currently paused — auto-expires if reset time has passed while app was running */
 function isRdrPaused(): boolean {
+  if ((rdrPauseState.paused || rdrPauseState.warning) && rdrPauseState.rateLimitResetAt > 0 && Date.now() >= rdrPauseState.rateLimitResetAt) {
+    console.log('[RDR] Rate limit reset time passed — auto-resuming');
+    rdrPauseState = { paused: false, warning: false, reason: '', pausedAt: 0, rateLimitResetAt: 0 };
+    persistRdrPauseState();
+    try {
+      const allWindows = BrowserWindow?.getAllWindows() || [];
+      for (const win of allWindows) {
+        if (!win.isDestroyed()) {
+          win.webContents.send(IPC_CHANNELS.RDR_RATE_LIMIT_CLEARED, { reason: 'Rate limit expired' });
+        }
+      }
+    } catch {}
+    return false;
+  }
   return rdrPauseState.paused;
 }
 
@@ -809,20 +823,33 @@ function isSessionLimitReached(): { limited: boolean; warning: boolean; resetTim
   const usage = monitor.getCurrentUsage();
   if (!usage) return { limited: false, warning: false };
 
-  if (usage.sessionPercent >= 80) {
-    const resetTime = usage.sessionResetTimestamp
-      ? new Date(usage.sessionResetTimestamp).getTime()
-      : Date.now() + 5 * 60 * 60 * 1000; // fallback: 5h
-    const reason = `Session at ${usage.sessionPercent}% (resets ${usage.sessionResetTime || 'in ~5h'})`;
+  const sessionPct = usage.sessionPercent;
+  const weeklyPct = usage.weeklyPercent;
+
+  if (sessionPct < 80 && weeklyPct < 80) return { limited: false, warning: false };
+
+  // Use whichever limit is more constrained (higher %) as the binding constraint
+  if (weeklyPct > sessionPct) {
+    const resetTime = usage.weeklyResetTimestamp
+      ? new Date(usage.weeklyResetTimestamp).getTime()
+      : Date.now() + 7 * 24 * 60 * 60 * 1000; // fallback: 7 days
     return {
-      limited: usage.sessionPercent >= 100,
+      limited: weeklyPct >= 100,
       warning: true,
       resetTime,
-      reason
+      reason: `Weekly at ${weeklyPct}% (resets ${usage.weeklyResetTime || 'in ~7 days'})`
     };
   }
 
-  return { limited: false, warning: false };
+  const resetTime = usage.sessionResetTimestamp
+    ? new Date(usage.sessionResetTimestamp).getTime()
+    : Date.now() + 5 * 60 * 60 * 1000; // fallback: 5h
+  return {
+    limited: sessionPct >= 100,
+    warning: true,
+    resetTime,
+    reason: `Session at ${sessionPct}% (resets ${usage.sessionResetTime || 'in ~5h'})`
+  };
 }
 
 /**
