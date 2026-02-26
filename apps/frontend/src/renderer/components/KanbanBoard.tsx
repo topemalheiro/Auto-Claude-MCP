@@ -1731,7 +1731,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   const rdrIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const rdrSkipBusyCheckRef = useRef(false); // Only skip when idle event fires (proven idle)
   const RDR_INTERVAL_MS = 30000; // 30 seconds fallback polling
-  const RDR_IN_FLIGHT_TIMEOUT_MS = 90000; // 90 seconds safety net
+  const RDR_IN_FLIGHT_TIMEOUT_MS = 300000; // 5 min safety net (VS Code extension: no idle events, polling only)
 
   // RDR rate limit pause state
   const [rdrCooldown, setRdrCooldown] = useState<{ paused: boolean; warning: boolean; reason: string; rateLimitResetAt: number }>({ paused: false, warning: false, reason: '', rateLimitResetAt: 0 });
@@ -2103,11 +2103,6 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
           console.log('[RDR] Skipping auto-send - Claude Code is busy');
           return;
         }
-        // Claude is NOT busy — if we were in-flight, clear it (Claude finished processing)
-        if (rdrMessageInFlight) {
-          console.log('[RDR] Claude is idle while in-flight — clearing in-flight flag');
-          setRdrMessageInFlight(false);
-        }
       } catch (error) {
         console.warn('[RDR] Failed to check busy state, proceeding with send:', error);
       }
@@ -2194,8 +2189,9 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       const idleListener = (_event: any, data: { from: string; to: string; timestamp: number }) => {
         console.log(`[RDR] EVENT: Claude Code became idle (${data.from} -> ${data.to})`);
 
-        // DON'T clear in-flight here — the min send interval (120s) prevents re-triggering
-        // Previously clearing in-flight on every idle event caused rapid re-sending loops
+        // Clear in-flight when Claude goes idle — this is the reactive path (idle event fires once per response)
+        // Safe because the idle event only fires on a genuine state transition, not on every poll
+        setRdrMessageInFlight(false);
 
         // Skip busy check - the idle event already proves Claude is idle
         rdrSkipBusyCheckRef.current = true;

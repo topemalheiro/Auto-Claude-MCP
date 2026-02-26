@@ -1088,7 +1088,7 @@ export function categorizeTasks(tasks: TaskInfo[], projectPath?: string): RdrBat
     t.status !== 'in_progress' && t.status !== 'ai_review'
   );
   const incompleteP2 = incomplete.filter(t =>
-    t.status === 'in_progress' || t.status === 'ai_review'
+    (t.status === 'in_progress' || t.status === 'ai_review') && !isTaskAgentRunning(t.specId)
   );
 
   if (incompleteP1.length > 0) {
