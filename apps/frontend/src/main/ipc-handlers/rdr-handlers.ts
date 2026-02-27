@@ -406,20 +406,45 @@ function enrichTaskWithWorktreeData(task: TaskInfo, projectPath: string): TaskIn
       return task;
     }
 
+    // Map raw plan status to Kanban TaskStatus — must match projectStore.determineTaskStatusAndReason()
+    // Without this mapping, raw statuses like "planning"/"coding"/"review" bypass the active task
+    // check in determineInterventionType() (which expects "in_progress"/"ai_review"), causing
+    // running agents to be falsely flagged as needing intervention.
+    const RAW_TO_KANBAN_STATUS: Record<string, string> = {
+      'pending': 'backlog',
+      'start_requested': 'backlog',
+      'planning': 'in_progress',
+      'in_progress': 'in_progress',
+      'coding': 'in_progress',
+      'review': 'ai_review',
+      'qa_review': 'ai_review',
+      'qa_fixing': 'ai_review',
+      'completed': 'done',
+      'done': 'done',
+      'human_review': 'human_review',
+      'ai_review': 'ai_review',
+      'pr_created': 'pr_created',
+      'backlog': 'backlog',
+      'error': 'error',
+      'queue': 'queue',
+      'queued': 'queue'
+    };
+    const mappedStatus = RAW_TO_KANBAN_STATUS[worktreeStatus] || worktreeStatus;
+
     // Always read qa_signoff from worktree (authoritative completion signal)
     const worktreeQaSignoff = worktreePlan.qa_signoff?.status as string | undefined;
 
-    // Enrich for ANY non-terminal worktree status that differs from main
-    // Terminal statuses (done, pr_created) already handled above at line 236
+    // Enrich for ANY non-terminal worktree status that differs from main (using mapped status)
+    // Terminal statuses (done, pr_created) already handled above
     // This eliminates the entire class of "missing status" bugs — any new status
     // the backend introduces (qa_revalidation, review, approved, etc.) is auto-covered
-    if (worktreeStatus !== task.status) {
-      console.log(`[RDR] Enriching task ${task.specId}: main=${task.status} → worktree=${worktreeStatus}`);
+    if (mappedStatus !== task.status) {
+      console.log(`[RDR] Enriching task ${task.specId}: main=${task.status} → worktree=${mappedStatus} (raw: ${worktreeStatus})`);
       return {
         ...task,
-        status: worktreeStatus,
+        status: mappedStatus,
         phases: worktreePlan.phases || task.phases,
-        planStatus: worktreePlan.status,
+        planStatus: worktreePlan.status, // Keep raw status for planStatus (used by other checks)
         updated_at: worktreePlan.updated_at || worktreePlan.last_updated || task.updated_at,
         exitReason: worktreePlan.exitReason !== undefined ? worktreePlan.exitReason : task.exitReason,
         reviewReason: worktreePlan.reviewReason !== undefined ? worktreePlan.reviewReason : task.reviewReason,
