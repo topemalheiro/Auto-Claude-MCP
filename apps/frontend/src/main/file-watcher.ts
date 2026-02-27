@@ -5,6 +5,7 @@ import { EventEmitter } from 'events';
 import type { ImplementationPlan, Task, TaskStatus } from '../shared/types';
 import { projectStore } from './project-store';
 import { persistPlanStatusSync } from './ipc-handlers/task/plan-file-utils';
+import { activityMonitor } from './activity-monitor';
 
 interface WatcherInfo {
   taskId: string;
@@ -317,6 +318,7 @@ export class FileWatcher extends EventEmitter {
                     oldStatus: task.status,
                     newStatus: resolvedStatus
                   });
+                  activityMonitor.recordActivity('task-status-changed');
                 }
               } else {
                 console.log(`[FileWatcher] Task ${specId} already on correct board (${resolvedStatus})`);
@@ -355,6 +357,7 @@ export class FileWatcher extends EventEmitter {
               specDir,
               specId
             });
+            activityMonitor.recordActivity('task-start-requested');
           }
         } catch (err) {
           // Ignore parse errors - file might not be fully written yet
@@ -458,6 +461,7 @@ export class FileWatcher extends EventEmitter {
                     oldStatus: task.status,
                     newStatus: resolvedStatus
                   });
+                  activityMonitor.recordActivity('task-status-changed');
                 }
               } else {
                 console.log(`[FileWatcher] Task ${specId} already on correct board (${resolvedStatus})`);
@@ -496,6 +500,7 @@ export class FileWatcher extends EventEmitter {
               specDir,
               specId
             });
+            activityMonitor.recordActivity('task-start-requested');
           }
         } catch (err) {
           // Ignore parse errors - file might be mid-write

@@ -86,6 +86,7 @@ import { setupErrorLogging } from './app-logger';
 import { initSentryMain } from './sentry';
 import { checkAndHandleRestart, resumeTasksAfterRestart } from './ipc-handlers/restart-handlers';
 import { resetAllRdrAttempts } from './ipc-handlers/rdr-handlers';
+import { activityMonitor } from './activity-monitor';
 import { preWarmToolCache } from './cli-tool-manager';
 import { initializeClaudeProfileManager, getClaudeProfileManager } from './claude-profile-manager';
 import { isProfileAuthenticated } from './claude-profile/profile-utils';
@@ -236,7 +237,16 @@ function startHeartbeat(): void {
 
   const writeHeartbeat = (): void => {
     try {
-      writeFileSync(heartbeatPath, JSON.stringify({ pid: process.pid, timestamp: Date.now() }), 'utf-8');
+      writeFileSync(heartbeatPath, JSON.stringify({
+        pid: process.pid,
+        timestamp: Date.now(),
+        activity: {
+          lastActivityAt: activityMonitor.getLastActivityAt(),
+          lastActivitySource: activityMonitor.getLastActivitySource(),
+          runningAgents: agentManager?.getRunningTasks().length ?? 0,
+          selfHealAttempts: activityMonitor.getSelfHealAttempts(),
+        },
+      }), 'utf-8');
     } catch {
       // Ignore write errors — watchdog will detect stale heartbeat
     }
@@ -663,6 +673,10 @@ app.whenReady().then(() => {
   // Start heartbeat writer for watchdog freeze detection (Layer 2)
   startHeartbeat();
 
+  // Start activity monitor for functional freeze detection (Layer 3)
+  activityMonitor.configure(agentManager, () => mainWindow);
+  activityMonitor.start();
+
   // NOTE: preWarmToolCache() is now called inside createWindow()'s ready-to-show handler
   // to ensure CLI detection runs AFTER window is visible (hides cmd.exe flashes on Windows)
 
@@ -815,6 +829,7 @@ app.on('before-quit', (event) => {
 
   // Stop synchronous services immediately
   stopHeartbeat();
+  activityMonitor.stop();
   stopPeriodicUpdates();
 
   const usageMonitor = getUsageMonitor();

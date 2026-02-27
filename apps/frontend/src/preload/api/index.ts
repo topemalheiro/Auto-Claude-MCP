@@ -16,6 +16,7 @@ import { McpAPI, createMcpAPI } from './modules/mcp-api';
 import { ProfileAPI, createProfileAPI } from './profile-api';
 import { ScreenshotAPI, createScreenshotAPI } from './screenshot-api';
 import { QueueAPI, createQueueAPI } from './queue-api';
+import { ipcRenderer } from 'electron';
 export interface ElectronAPI extends
   ProjectAPI,
   TerminalAPI,
@@ -36,6 +37,8 @@ export interface ElectronAPI extends
   github: GitHubAPI;
   /** Queue routing API for rate limit recovery */
   queue: QueueAPI;
+  /** Notify main process activity monitor of meaningful work */
+  recordActivity: (source: string) => void;
 }
 
 export const createElectronAPI = (): ElectronAPI => ({
@@ -52,7 +55,8 @@ export const createElectronAPI = (): ElectronAPI => ({
   ...createProfileAPI(),
   ...createScreenshotAPI(),
   github: createGitHubAPI(),
-  queue: createQueueAPI()  // Queue routing for rate limit recovery
+  queue: createQueueAPI(),  // Queue routing for rate limit recovery
+  recordActivity: (source: string) => ipcRenderer.send('activity:record', source),
 });
 
 // Export individual API creators for potential use in tests or specialized contexts

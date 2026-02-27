@@ -5,7 +5,7 @@
  * organized by domain into separate handler modules.
  */
 
-import type { BrowserWindow } from 'electron';
+import { type BrowserWindow, ipcMain } from 'electron';
 import { AgentManager } from '../agent';
 import { TerminalManager } from '../terminal-manager';
 import { PythonEnvManager } from '../python-env-manager';
@@ -40,6 +40,7 @@ import { registerRdrHandlers } from './rdr-handlers';
 import { registerRestartHandlers } from './restart-handlers';
 import { notificationService } from '../notification-service';
 import { setAgentManagerRef } from './utils';
+import { activityMonitor } from '../activity-monitor';
 
 // Auto-shutdown handlers (self-registering on import)
 import './auto-shutdown-handlers';
@@ -144,6 +145,11 @@ export function setupIpcHandlers(
 
   // Auto-restart on loop/crash handlers - rebuild and restart on failure
   registerRestartHandlers(agentManager);
+
+  // Activity monitor IPC (renderer reports RDR send success)
+  ipcMain.on('activity:record', (_event, source: string) => {
+    activityMonitor.recordActivity(source);
+  });
 
   console.warn('[IPC] All handler modules registered successfully');
 }

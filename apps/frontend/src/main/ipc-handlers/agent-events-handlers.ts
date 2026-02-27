@@ -29,6 +29,7 @@ import {
 import { startRateLimitWaitForTask } from "../rate-limit-waiter";
 import { readSettingsFile } from "../settings-utils";
 import { queueTaskForRdr } from "./rdr-handlers";
+import { activityMonitor } from "../activity-monitor";
 import { projectStore } from "../project-store";
 
 /**
@@ -132,6 +133,8 @@ export function registerAgenteventsHandlers(
   });
 
   agentManager.on("exit", (taskId: string, code: number | null, processType: ProcessType, projectId?: string) => {
+    activityMonitor.recordActivity('agent-exited');
+
     // Use projectId from event to scope the lookup (prevents cross-project contamination)
     const { task: exitTask, project: exitProject } = findTaskAndProject(taskId, projectId);
     const exitProjectId = exitProject?.id || projectId;
@@ -318,6 +321,8 @@ export function registerAgenteventsHandlers(
   });
 
   agentManager.on("execution-progress", (taskId: string, progress: ExecutionProgressData, projectId?: string) => {
+    activityMonitor.recordActivity('execution-progress');
+
     // Use projectId from event to scope the lookup (prevents cross-project contamination)
     const { task, project } = findTaskAndProject(taskId, projectId);
     const taskProjectId = project?.id || projectId;

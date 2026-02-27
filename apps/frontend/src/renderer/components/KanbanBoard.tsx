@@ -2147,6 +2147,8 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
 
       if (sendResult.success) {
         console.log('[RDR] Auto-send successful');
+        // Notify main process activity monitor
+        window.electronAPI.recordActivity?.('rdr-send-success');
         toast({
           title: t('kanban.rdrSendSuccess'),
           description: t('kanban.rdrSendSuccessDesc')
@@ -2205,6 +2207,16 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       // @ts-ignore - electron API exists in renderer
       window.electron?.ipcRenderer.on('claude-code-idle', idleListener);
 
+      // ACTIVITY MONITOR: Force-reset RDR when main process detects functional stall
+      const forceResetListener = () => {
+        console.warn('[RDR] Force reset from ActivityMonitor — clearing in-flight and re-triggering');
+        setRdrMessageInFlight(false);
+        rdrSkipBusyCheckRef.current = true;
+        handleAutoRdr();
+      };
+      // @ts-ignore - electron API exists in renderer
+      window.electron?.ipcRenderer.on('activity-monitor:force-rdr-reset', forceResetListener);
+
       // FALLBACK POLLING: Set up interval as fallback if event system fails
       rdrIntervalRef.current = setInterval(() => {
         console.log('[RDR] Fallback polling check (30s interval)');
@@ -2215,9 +2227,11 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       return () => {
         clearTimeout(startupTimer);
 
-        // Remove IPC listener
+        // Remove IPC listeners
         // @ts-ignore
         window.electron?.ipcRenderer.removeListener('claude-code-idle', idleListener);
+        // @ts-ignore
+        window.electron?.ipcRenderer.removeListener('activity-monitor:force-rdr-reset', forceResetListener);
 
         // Clear timer
         if (rdrIntervalRef.current) {

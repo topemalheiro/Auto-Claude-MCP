@@ -140,7 +140,7 @@ const RDR_PAUSE_FILE = path.join(
 let rdrPauseState: RdrPauseState = { paused: false, warning: false, reason: '', pausedAt: 0, rateLimitResetAt: 0 };
 
 /** Check if RDR is currently paused — auto-expires if reset time has passed while app was running */
-function isRdrPaused(): boolean {
+export function isRdrPaused(): boolean {
   if ((rdrPauseState.paused || rdrPauseState.warning) && rdrPauseState.rateLimitResetAt > 0 && Date.now() >= rdrPauseState.rateLimitResetAt) {
     console.log('[RDR] Rate limit reset time passed — auto-resuming');
     rdrPauseState = { paused: false, warning: false, reason: '', pausedAt: 0, rateLimitResetAt: 0 };

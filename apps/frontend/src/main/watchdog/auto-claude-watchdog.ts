@@ -452,6 +452,22 @@ export class AutoClaudeWatchdog extends EventEmitter {
             `(threshold: ${this.HEARTBEAT_STALE_THRESHOLD_MS / 1000}s)`
           );
           this.handleFreezeDetected(heartbeat.pid, age);
+          return;
+        }
+
+        // Functional freeze check: process alive but no useful work happening
+        // Main process self-heals at 15 min; watchdog is the backup at 20 min
+        const FUNCTIONAL_FREEZE_MS = 20 * 60_000;
+        if (heartbeat.activity) {
+          const activityAge = Date.now() - heartbeat.activity.lastActivityAt;
+          if (activityAge > FUNCTIONAL_FREEZE_MS && heartbeat.activity.selfHealAttempts >= 3) {
+            console.error(
+              `[Watchdog] FUNCTIONAL FREEZE: No activity for ${Math.round(activityAge / 60_000)}min, ` +
+              `${heartbeat.activity.selfHealAttempts} self-heals failed, ` +
+              `last activity: "${heartbeat.activity.lastActivitySource}"`
+            );
+            this.handleFreezeDetected(heartbeat.pid, activityAge);
+          }
         }
       } catch {
         // JSON parse error or read error — skip this check (file might be mid-write)
