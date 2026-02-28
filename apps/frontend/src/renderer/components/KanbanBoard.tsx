@@ -1734,7 +1734,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   const rdrIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const rdrSkipBusyCheckRef = useRef(false); // Only skip when idle event fires (proven idle)
   const RDR_INTERVAL_MS = 30000; // 30 seconds fallback polling
-  const RDR_IN_FLIGHT_TIMEOUT_MS = 30000; // 30s safety net — matches poll interval
+  const RDR_IN_FLIGHT_TIMEOUT_MS = 120000; // 2 min safety net (activity monitor handles session death sooner)
 
   // RDR rate limit pause state
   const [rdrCooldown, setRdrCooldown] = useState<{ paused: boolean; warning: boolean; reason: string; rateLimitResetAt: number }>({ paused: false, warning: false, reason: '', rateLimitResetAt: 0 });
@@ -2111,11 +2111,12 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       }
     }
 
-    // If Claude confirmed IDLE (busy check passed), previous message was processed or session ended.
-    // Clear stale in-flight and proceed to send next batch immediately.
+    // In-flight guard: if a message is already in-flight, don't double-send.
+    // Cleared reactively by: (1) idle event, (2) activity monitor force-reset, (3) backup timeout.
+    // The busy check is a GUARD ONLY — it does NOT clear in-flight (that caused 30s re-send loops).
     if (rdrMessageInFlight) {
-      console.log('[RDR] Claude confirmed IDLE — clearing stale in-flight flag');
-      setRdrMessageInFlight(false);
+      console.log('[RDR] Message still in-flight, will retry next poll');
+      return;
     }
 
     // Skip if no project
