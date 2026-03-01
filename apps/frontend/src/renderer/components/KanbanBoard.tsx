@@ -1730,7 +1730,9 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   const [isLoadingWindows, setIsLoadingWindows] = useState(false);
 
   // RDR auto timer state
-  const [rdrMessageInFlight, setRdrMessageInFlight] = useState(false);
+  // CRITICAL: useRef for in-flight logic (not useState) — useState causes handleAutoRdr recreation
+  // → useEffect re-runs → new 5s startup timer → unnecessary send attempts (same pattern as queueBlockedRef)
+  const rdrMessageInFlightRef = useRef(false);
   const rdrIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const rdrSkipBusyCheckRef = useRef(false); // Only skip when idle event fires (proven idle)
   const RDR_INTERVAL_MS = 30000; // 30 seconds fallback polling
@@ -2115,7 +2117,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
 
     // In-flight guard: if a message is already in-flight, don't double-send.
     // Cleared by: (1) activity monitor force-reset, (2) backup timeout. NOT by idle event (causes loop).
-    if (rdrMessageInFlight) {
+    if (rdrMessageInFlightRef.current) {
       console.log('[RDR] Message still in-flight, will retry next poll');
       return;
     }
@@ -2149,8 +2151,8 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       const message = buildRdrMessage({ ...result.data, projectId, projectPath: result.data.projectPath });
       console.log(`[RDR] Sending detailed message with ${result.data.taskDetails.length} tasks`);
 
-      // Mark message as in-flight
-      setRdrMessageInFlight(true);
+      // Mark message as in-flight (ref = synchronous, no React render cascade)
+      rdrMessageInFlightRef.current = true;
 
       // Send to VS Code window using window handle (stable regardless of active editor tab)
       const sendResult = await window.electronAPI.sendRdrToWindow(handle, message);
@@ -2166,22 +2168,22 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
         });
       } else {
         console.error('[RDR] Auto-send failed:', sendResult.data?.error);
-        setRdrMessageInFlight(false);
+        rdrMessageInFlightRef.current = false;
         // Refresh windows on failure (handle may be stale after session reset)
         loadVsCodeWindows();
       }
 
       // Reset in-flight flag after timeout (assume Claude Code processed by then)
       setTimeout(() => {
-        setRdrMessageInFlight(false);
+        rdrMessageInFlightRef.current = false;
         console.log('[RDR] In-flight timeout - ready for next message');
       }, RDR_IN_FLIGHT_TIMEOUT_MS);
 
     } catch (error) {
       console.error('[RDR] Auto-send error:', error);
-      setRdrMessageInFlight(false);
+      rdrMessageInFlightRef.current = false;
     }
-  }, [rdrMessageInFlight, selectedWindowHandle, projectId, buildRdrMessage, toast, t, vsCodeWindows]);
+  }, [selectedWindowHandle, projectId, buildRdrMessage, toast, t, vsCodeWindows]);
 
   // EVENT-DRIVEN RDR: Check immediately on startup, then respond to idle events
   useEffect(() => {
@@ -2221,7 +2223,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       // ACTIVITY MONITOR: Force-reset RDR when main process detects functional stall
       const forceResetListener = () => {
         console.warn('[RDR] Force reset from ActivityMonitor — clearing in-flight and re-triggering');
-        setRdrMessageInFlight(false);
+        rdrMessageInFlightRef.current = false;
         rdrSkipBusyCheckRef.current = true;
         handleAutoRdr();
       };
