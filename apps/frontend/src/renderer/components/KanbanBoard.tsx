@@ -1735,6 +1735,8 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   const rdrSkipBusyCheckRef = useRef(false); // Only skip when idle event fires (proven idle)
   const RDR_INTERVAL_MS = 30000; // 30 seconds fallback polling
   const RDR_IN_FLIGHT_TIMEOUT_MS = 120000; // 2 min safety net (activity monitor handles session death sooner)
+  const lastRdrSendTimestampRef = useRef<number>(0);
+  const RDR_MIN_SEND_INTERVAL_MS = 180000; // 3 min minimum between sends (prevents idle-event re-send loop)
 
   // RDR rate limit pause state
   const [rdrCooldown, setRdrCooldown] = useState<{ paused: boolean; warning: boolean; reason: string; rateLimitResetAt: number }>({ paused: false, warning: false, reason: '', rateLimitResetAt: 0 });
@@ -2112,10 +2114,17 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     }
 
     // In-flight guard: if a message is already in-flight, don't double-send.
-    // Cleared reactively by: (1) idle event, (2) activity monitor force-reset, (3) backup timeout.
-    // The busy check is a GUARD ONLY — it does NOT clear in-flight (that caused 30s re-send loops).
+    // Cleared by: (1) activity monitor force-reset, (2) backup timeout. NOT by idle event (causes loop).
     if (rdrMessageInFlight) {
       console.log('[RDR] Message still in-flight, will retry next poll');
+      return;
+    }
+
+    // Minimum send interval: prevent re-send loop when Claude finishes and goes idle.
+    // Without this, idle event → clear in-flight → 30s poll → send again → infinite loop.
+    const timeSinceLastSend = Date.now() - lastRdrSendTimestampRef.current;
+    if (timeSinceLastSend < RDR_MIN_SEND_INTERVAL_MS) {
+      console.log(`[RDR] Min send interval not reached (${Math.round(timeSinceLastSend / 1000)}s / ${RDR_MIN_SEND_INTERVAL_MS / 1000}s)`);
       return;
     }
 
@@ -2148,6 +2157,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
 
       if (sendResult.success) {
         console.log('[RDR] Auto-send successful');
+        lastRdrSendTimestampRef.current = Date.now();
         // Notify main process activity monitor
         window.electronAPI.recordActivity?.('rdr-send-success');
         toast({
@@ -2196,9 +2206,9 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       const idleListener = (_event: any, data: { from: string; to: string; timestamp: number }) => {
         console.log(`[RDR] EVENT: Claude Code became idle (${data.from} -> ${data.to})`);
 
-        // Clear in-flight when Claude goes idle — this is the reactive path (idle event fires once per response)
-        // Safe because the idle event only fires on a genuine state transition, not on every poll
-        setRdrMessageInFlight(false);
+        // DON'T clear in-flight here — causes immediate re-send loop (lesson from 7e30fe06).
+        // In-flight cleared by: backup timeout (2min) or activity monitor force-reset only.
+        // Min send interval (3min) provides the real protection against re-sending too soon.
 
         // Skip busy check - the idle event already proves Claude is idle
         rdrSkipBusyCheckRef.current = true;
