@@ -48,6 +48,19 @@ export function resetAllRdrAttempts(): void {
           const raw = readFileSync(metadataPath, 'utf-8');
           const metadata = JSON.parse(raw);
           if (metadata.rdrAttempts && metadata.rdrAttempts > 0) {
+            // Don't reset rdrAttempts for backlog/pending/queue tasks — rdrAttempts > 0
+            // is the signal that a task was previously processed by RDR and regressed.
+            // Without this, regression detection can't distinguish "new task" from "regressed task"
+            // after an app restart (the gap that caused 43 tasks to go undetected).
+            const planPath = path.join(specsDir, dir, 'implementation_plan.json');
+            try {
+              const planRaw = readFileSync(planPath, 'utf-8');
+              const plan = JSON.parse(planRaw);
+              const status = plan.status || plan.planStatus;
+              if (status === 'pending' || status === 'backlog' || status === 'queue') {
+                continue; // Preserve rdrAttempts — regression signal
+              }
+            } catch { /* can't read plan — reset as before */ }
             const updated = { ...metadata, rdrAttempts: 0, rdrLastAttempt: null };
             writeFileSync(metadataPath, JSON.stringify(updated, null, 2));
           }
@@ -57,7 +70,7 @@ export function resetAllRdrAttempts(): void {
   }
   // Load persisted RDR pause state (survives crashes)
   loadRdrPauseState();
-  console.log('[RDR] Reset rdrAttempts for all tasks (normal startup)');
+  console.log('[RDR] Reset rdrAttempts for active/done tasks (preserved backlog/pending for regression detection)');
 }
 
 /**
@@ -638,6 +651,15 @@ function determineInterventionType(task: TaskInfo, hasWorktree?: boolean, rawPla
     }
     if (task.planStatus && task.planStatus !== 'pending' && task.planStatus !== 'draft') {
       console.log(`[RDR] Task ${task.specId} regressed to ${task.status} with planStatus '${task.planStatus}' - was previously started, needs restart`);
+      return 'incomplete';
+    }
+    // REGRESSION via RDR history: Task was previously processed by RDR (rdrAttempts > 0)
+    // but is back in backlog with no other regression signals (no worktree, no exitReason,
+    // planStatus still pending). This catches planning-phase regressions after app restart
+    // where all other signals are lost. rdrAttempts survives restarts for backlog tasks
+    // (resetAllRdrAttempts skips backlog/pending/queue tasks).
+    if (task.metadata?.rdrAttempts && task.metadata.rdrAttempts > 0) {
+      console.log(`[RDR] Task ${task.specId} regressed to ${task.status} with rdrAttempts=${task.metadata.rdrAttempts} - previously processed by RDR, needs restart`);
       return 'incomplete';
     }
     return null;
