@@ -83,7 +83,7 @@ Automatic 6-priority recovery system that detects stuck/failed tasks and sends a
 
 | Priority | Name              | When                     | Action                                          |
 | -------- | ----------------- | ------------------------ | ----------------------------------------------- |
-| P1       | Auto-CONTINUE     | Default (95% of cases)   | Sets `start_requested`, task self-recovers    |
+| P1       | Auto-CONTINUE     | Task not in expected board | Sets `start_requested`, task self-recovers   |
 | P2       | Auto-RECOVER      | Task in recovery mode    | Clears stuck state, restarts                    |
 | P3       | Request Changes   | P1 failed 3+ times       | Writes detailed fix request with error analysis |
 | P4       | Auto-fix JSON     | Corrupted plan files     | Rebuilds valid JSON structure                   |
