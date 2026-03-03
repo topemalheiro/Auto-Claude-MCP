@@ -210,13 +210,13 @@ RDR is Auto-Claude's automatic recovery system that:
 
 ### RDR Recovery Priority System (6 Levels)
 
-**P1: Auto-CONTINUE (95%)** — Set `start_requested` to restart tasks. They usually self-recover.
+**P1: Auto-CONTINUE** — Set `start_requested` to restart tasks. They usually self-recover.
 - Use `process_rdr_batch` → file watcher auto-starts within 2-3 seconds
 
 **P2: Auto-RECOVER** — P1 failed, task in recovery mode (yellow outline). Click Recover button.
 - Use `recover_stuck_task(taskId, autoRestart: true)`
 
-**P3: Request Changes (4%)** — Tasks with persistent errors need troubleshooting context.
+**P3: Request Changes** — Tasks with persistent errors need troubleshooting context.
 - Use `submit_task_fix_request(taskId, feedback)` with error analysis
 
 **P4: Auto-fix JSON** — Fix corrupted/empty JSON files (can run anytime):
