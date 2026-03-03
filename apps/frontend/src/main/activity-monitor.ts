@@ -6,15 +6,17 @@ import { isRdrPaused } from './ipc-handlers/rdr-handlers';
 import type { AgentManager } from './agent';
 import type { BrowserWindow } from 'electron';
 
-const CHECK_INTERVAL_MS = 60_000;       // Check every 60s
-const STALL_THRESHOLD_MS = 5 * 60_000;  // 5 min without activity = stalled
-const MAX_SELF_HEAL_ATTEMPTS = 3;       // 3 × 5 min = 15 min before escalation
+const CHECK_INTERVAL_MS = 60_000;              // Check every 60s
+const STALL_THRESHOLD_MS = 3 * 60_000;        // 3 min without activity = stalled
+const MAX_SELF_HEAL_ATTEMPTS = 2;              // 2 × 3 min = 6 min before escalation
+const AGENT_STALE_THRESHOLD_MS = 10 * 60_000; // 10 min with "running" agents but no activity = stale
 
 class ActivityMonitor {
   private lastActivityAt: number = Date.now();
   private lastActivitySource: string = 'startup';
   private checkInterval: ReturnType<typeof setInterval> | null = null;
   private selfHealAttempts: number = 0;
+  private reloadAttempted: boolean = false;
   private agentManager: AgentManager | null = null;
   private getMainWindow: (() => BrowserWindow | null) | null = null;
 
@@ -40,9 +42,10 @@ class ActivityMonitor {
   recordActivity(source: string): void {
     this.lastActivityAt = Date.now();
     this.lastActivitySource = source;
-    // Real activity resets self-heal counter
+    // Real activity resets self-heal counter and reload flag
     if (!source.startsWith('self-heal')) {
       this.selfHealAttempts = 0;
+      this.reloadAttempted = false;
     }
   }
 
@@ -71,9 +74,17 @@ class ActivityMonitor {
       return;
     }
 
-    // 3. Are agents actively running?
+    // 3. Are agents actively running AND making progress?
     if (this.agentManager && this.agentManager.getRunningTasks().length > 0) {
-      return;
+      const agentStaleDuration = Date.now() - this.lastActivityAt;
+      if (agentStaleDuration < AGENT_STALE_THRESHOLD_MS) {
+        return; // Agents running AND recent activity — all good
+      }
+      // Agents "running" but no activity for 10+ min — likely stale/dead processes
+      console.warn(
+        `[ActivityMonitor] Agents appear STALE: ${this.agentManager.getRunningTasks().length} "running" ` +
+        `but no activity for ${Math.round(agentStaleDuration / 60_000)}min — falling through to stall detection`
+      );
     }
 
     // 4. Has it been long enough to worry?
@@ -124,21 +135,35 @@ class ActivityMonitor {
       `${this.selfHealAttempts} self-heal attempts failed. Last activity: "${this.lastActivitySource}"`;
     console.error(`[ActivityMonitor] ESCALATING: ${reason}`);
 
-    // Write freeze notification for crash recovery handler + Claude Code MCP
-    this.writeFunctionalFreezeNotification(reason);
-
     const win = this.getMainWindow?.();
-    if (app.isPackaged) {
-      // Production mode: exit and let watchdog restart
-      console.error('[ActivityMonitor] Production mode — exiting for watchdog restart');
-      app.exit(1);
-    } else if (win && !win.isDestroyed()) {
-      // Dev mode: reload renderer window
-      console.warn('[ActivityMonitor] Dev mode — reloading renderer window');
+
+    // Try renderer reload first (less aggressive than full process kill)
+    if (!this.reloadAttempted && win && !win.isDestroyed()) {
+      console.warn('[ActivityMonitor] Attempting renderer reload before process kill...');
+      this.writeFunctionalFreezeNotification(reason);
       win.webContents.reload();
+      this.reloadAttempted = true;
       this.selfHealAttempts = 0;
       this.lastActivityAt = Date.now();
       this.lastActivitySource = 'renderer-reload';
+      return;
+    }
+
+    // Reload already tried or no window — kill the process
+    console.error('[ActivityMonitor] Renderer reload failed or already attempted — exiting');
+    this.writeFunctionalFreezeNotification(reason);
+
+    if (app.isPackaged) {
+      console.error('[ActivityMonitor] Production mode — exiting for watchdog restart');
+      app.exit(1);
+    } else if (win && !win.isDestroyed()) {
+      // Dev mode: last resort reload
+      console.warn('[ActivityMonitor] Dev mode — force reloading renderer');
+      win.webContents.reload();
+      this.reloadAttempted = false;
+      this.selfHealAttempts = 0;
+      this.lastActivityAt = Date.now();
+      this.lastActivitySource = 'dev-force-reload';
     }
   }
 

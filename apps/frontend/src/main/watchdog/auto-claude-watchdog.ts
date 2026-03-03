@@ -47,10 +47,14 @@ export class AutoClaudeWatchdog extends EventEmitter {
   private readonly maxLogLines = 100;
   private settings: WatchdogSettings;
   private settingsPath: string;
+  private appDataDir: string;
+  private logStream: fs.WriteStream | null = null;
   // Heartbeat monitoring for freeze detection (Layer 2)
   private heartbeatCheckInterval: ReturnType<typeof setInterval> | null = null;
   private readonly HEARTBEAT_CHECK_INTERVAL_MS = 15_000;  // Check every 15s
   private readonly HEARTBEAT_STALE_THRESHOLD_MS = 45_000; // Stale after 45s
+  // Watchdog self-heartbeat (so launcher can detect watchdog freeze)
+  private selfHeartbeatInterval: ReturnType<typeof setInterval> | null = null;
   // When true, handleProcessExit uses the stored freeze crashInfo instead of a generic one
   private freezeTriggered = false;
   private freezeCrashInfo: CrashInfo | null = null;
@@ -62,11 +66,102 @@ export class AutoClaudeWatchdog extends EventEmitter {
     const appDataPath = process.env.APPDATA ||
                         (process.platform === 'darwin' ? path.join(process.env.HOME!, 'Library', 'Application Support') :
                          path.join(process.env.HOME!, '.config'));
-    const settingsDir = path.join(appDataPath, APP_DATA_DIR_NAME);
-    this.settingsPath = path.join(settingsDir, 'settings.json');
+    this.appDataDir = path.join(appDataPath, APP_DATA_DIR_NAME);
+    this.settingsPath = path.join(this.appDataDir, 'settings.json');
+
+    // Ensure app data directory exists
+    if (!fs.existsSync(this.appDataDir)) {
+      fs.mkdirSync(this.appDataDir, { recursive: true });
+    }
+
+    // Initialize disk logging
+    this.initLogFile();
 
     // Load crash recovery settings
     this.settings = this.loadSettings();
+  }
+
+  /**
+   * Initialize log file for persistent disk logging
+   */
+  private initLogFile(): void {
+    const logPath = path.join(this.appDataDir, 'watchdog.log');
+    try {
+      // Truncate if > 1MB
+      if (fs.existsSync(logPath)) {
+        const stat = fs.statSync(logPath);
+        if (stat.size > 1_000_000) {
+          fs.unlinkSync(logPath);
+        }
+      }
+      this.logStream = fs.createWriteStream(logPath, { flags: 'a' });
+    } catch (error) {
+      console.error('[Watchdog] Failed to init log file:', error);
+    }
+  }
+
+  /**
+   * Write a timestamped log entry to both console and disk
+   */
+  private log(level: 'INFO' | 'WARN' | 'ERROR', ...args: unknown[]): void {
+    const timestamp = new Date().toISOString();
+    const message = args.map(a => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ');
+    const line = `[${timestamp}] [Watchdog:${level}] ${message}`;
+
+    if (level === 'ERROR') {
+      console.error(line);
+    } else if (level === 'WARN') {
+      console.warn(line);
+    } else {
+      console.log(line);
+    }
+
+    try {
+      this.logStream?.write(line + '\n');
+    } catch { /* ignore write errors */ }
+  }
+
+  /**
+   * Start watchdog self-heartbeat and status file
+   */
+  private startSelfHeartbeat(): void {
+    const hbPath = path.join(this.appDataDir, 'watchdog-heartbeat.json');
+    const statusPath = path.join(this.appDataDir, 'watchdog-status.json');
+
+    const writeStatus = (): void => {
+      try {
+        const heartbeat = {
+          pid: process.pid,
+          timestamp: Date.now(),
+          monitoring: this.process?.pid ?? null,
+          restartCount: this.restartCount,
+          recentCrashes: this.crashTimestamps.filter(t => Date.now() - t < this.settings.restartCooldown).length,
+          enabled: this.settings.enabled,
+          running: this.process !== null && !this.process.killed
+        };
+        fs.writeFileSync(hbPath, JSON.stringify(heartbeat), 'utf-8');
+        fs.writeFileSync(statusPath, JSON.stringify(heartbeat, null, 2), 'utf-8');
+      } catch { /* ignore */ }
+    };
+
+    writeStatus(); // Write immediately
+    this.selfHeartbeatInterval = setInterval(writeStatus, 15_000);
+    this.selfHeartbeatInterval.unref();
+  }
+
+  /**
+   * Stop watchdog self-heartbeat and clean up files
+   */
+  private stopSelfHeartbeat(): void {
+    if (this.selfHeartbeatInterval) {
+      clearInterval(this.selfHeartbeatInterval);
+      this.selfHeartbeatInterval = null;
+    }
+    // Clean up heartbeat file on clean shutdown
+    try {
+      const hbPath = path.join(this.appDataDir, 'watchdog-heartbeat.json');
+      if (fs.existsSync(hbPath)) fs.unlinkSync(hbPath);
+    } catch { /* ignore */ }
   }
 
   /**
@@ -106,7 +201,7 @@ export class AutoClaudeWatchdog extends EventEmitter {
    */
   public reloadSettings(): void {
     this.settings = this.loadSettings();
-    console.log('[Watchdog] Settings reloaded:', this.settings);
+    this.log('INFO', 'Settings reloaded:', this.settings);
   }
 
   /**
@@ -118,17 +213,17 @@ export class AutoClaudeWatchdog extends EventEmitter {
       return;
     }
 
-    console.log('[Watchdog] Starting Auto-Claude process...');
-    console.log('[Watchdog] Electron path:', electronPath);
-    console.log('[Watchdog] App path:', appPath);
-    console.log('[Watchdog] Settings:', this.settings);
+    this.log('INFO', 'Starting Auto-Claude process...');
+    this.log('INFO', 'Electron path:', electronPath);
+    this.log('INFO', 'App path:', appPath);
+    this.log('INFO', 'Settings:', this.settings);
 
     // Resolve the electron path to absolute
     const resolvedElectronPath = path.resolve(electronPath);
     const resolvedAppPath = path.resolve(appPath);
 
-    console.log('[Watchdog] Resolved electron path:', resolvedElectronPath);
-    console.log('[Watchdog] Resolved app path:', resolvedAppPath);
+    this.log('INFO', 'Resolved electron path:', resolvedElectronPath);
+    this.log('INFO', 'Resolved app path:', resolvedAppPath);
 
     // Launch Auto-Claude main process
     // On Windows, electron in node_modules/.bin is a .cmd file — needs shell: true
@@ -176,10 +271,13 @@ export class AutoClaudeWatchdog extends EventEmitter {
       });
     }
 
-    console.log('[Watchdog] Process started with PID:', this.process.pid);
+    this.log('INFO', 'Process started with PID:', this.process.pid);
 
     // Start heartbeat monitoring for freeze detection (Layer 2)
     this.startHeartbeatMonitoring();
+
+    // Start watchdog self-heartbeat (so launcher can detect watchdog freeze)
+    this.startSelfHeartbeat();
   }
 
   /**
@@ -207,7 +305,7 @@ export class AutoClaudeWatchdog extends EventEmitter {
 
     for (const pattern of crashPatterns) {
       if (pattern.test(line)) {
-        console.warn('[Watchdog] Crash indicator detected:', line);
+        this.log('WARN', 'Crash indicator detected:', line);
         this.emit('crash-indicator', line);
         break;
       }
@@ -227,9 +325,9 @@ export class AutoClaudeWatchdog extends EventEmitter {
     const isCrash = code !== 0 || signal !== null;
 
     if (isCrash) {
-      console.error('[Watchdog] Process crashed!');
-      console.error('[Watchdog] Exit code:', code);
-      console.error('[Watchdog] Signal:', signal);
+      this.log('ERROR', 'Process crashed!');
+      this.log('ERROR', 'Exit code:', code);
+      this.log('ERROR', 'Signal:', signal);
 
       // Record crash timestamp
       this.crashTimestamps.push(now);
@@ -255,10 +353,10 @@ export class AutoClaudeWatchdog extends EventEmitter {
       );
 
       if (recentCrashes.length >= this.settings.maxRestarts) {
-        console.error(
-          `[Watchdog] Crash loop detected: ${recentCrashes.length} crashes in ${this.settings.restartCooldown / 1000}s`
+        this.log('ERROR',
+          `Crash loop detected: ${recentCrashes.length} crashes in ${this.settings.restartCooldown / 1000}s`
         );
-        console.error('[Watchdog] Stopping restart attempts to prevent infinite loop');
+        this.log('ERROR', 'Stopping restart attempts to prevent infinite loop');
 
         // Write crash loop notification for Claude Code
         this.writeCrashLoopNotification(recentCrashes.length, crashInfo);
@@ -276,19 +374,19 @@ export class AutoClaudeWatchdog extends EventEmitter {
 
       // Auto-restart if enabled
       if (this.settings.autoRestart) {
-        console.log('[Watchdog] Auto-restart enabled, restarting in 2 seconds...');
+        this.log('INFO', 'Auto-restart enabled, restarting in 2 seconds...');
         this.restartCount++;
 
         setTimeout(() => {
           if (!this.isShuttingDown) {
-            console.log(`[Watchdog] Restarting (attempt ${this.restartCount})...`);
+            this.log('INFO', `Restarting (attempt ${this.restartCount})...`);
             // Note: Restart logic would need electron/app paths stored
             this.emit('restart-needed');
           }
         }, 2000);
       }
     } else {
-      console.log('[Watchdog] Process exited normally (code 0)');
+      this.log('INFO', 'Process exited normally (code 0)');
       // Emit normal-exit event so launcher can exit cleanly and close the terminal
       this.emit('normal-exit', { exitCode: code });
     }
@@ -311,24 +409,15 @@ export class AutoClaudeWatchdog extends EventEmitter {
    */
   private writeCrashFlag(crashInfo: CrashInfo): void {
     try {
-      const appDataPath = process.env.APPDATA ||
-                          (process.platform === 'darwin' ? path.join(process.env.HOME!, 'Library', 'Application Support') :
-                           path.join(process.env.HOME!, '.config'));
-      const flagDir = path.join(appDataPath, APP_DATA_DIR_NAME);
-      const flagPath = path.join(flagDir, 'crash-flag.json');
-
-      // Ensure directory exists
-      if (!fs.existsSync(flagDir)) {
-        fs.mkdirSync(flagDir, { recursive: true });
-      }
+      const flagPath = path.join(this.appDataDir, 'crash-flag.json');
 
       fs.writeFileSync(flagPath, JSON.stringify(crashInfo, null, 2), 'utf-8');
-      console.log('[Watchdog] Crash flag written:', flagPath);
+      this.log('INFO', 'Crash flag written:', flagPath);
 
       // Also write crash notification for Claude Code's MCP server to poll
       this.writeCrashNotification(crashInfo);
     } catch (error) {
-      console.error('[Watchdog] Failed to write crash flag:', error);
+      this.log('ERROR', 'Failed to write crash flag:', error);
     }
   }
 
@@ -339,17 +428,7 @@ export class AutoClaudeWatchdog extends EventEmitter {
    */
   private writeCrashNotification(crashInfo: CrashInfo): void {
     try {
-      const appDataPath = process.env.APPDATA ||
-                          (process.platform === 'darwin' ? path.join(process.env.HOME!, 'Library', 'Application Support') :
-                           path.join(process.env.HOME!, '.config'));
-
-      const notificationDir = path.join(appDataPath, APP_DATA_DIR_NAME);
-      const notificationPath = path.join(notificationDir, 'crash-notification.json');
-
-      // Ensure directory exists
-      if (!fs.existsSync(notificationDir)) {
-        fs.mkdirSync(notificationDir, { recursive: true });
-      }
+      const notificationPath = path.join(this.appDataDir, 'crash-notification.json');
 
       const isFreeze = crashInfo.freezeDetected === true;
       const notification = {
@@ -371,9 +450,9 @@ export class AutoClaudeWatchdog extends EventEmitter {
       };
 
       fs.writeFileSync(notificationPath, JSON.stringify(notification, null, 2), 'utf-8');
-      console.log('[Watchdog] Crash notification written for Claude Code:', notificationPath);
+      this.log('INFO', 'Crash notification written for Claude Code:', notificationPath);
     } catch (error) {
-      console.error('[Watchdog] Failed to write crash notification:', error);
+      this.log('ERROR', 'Failed to write crash notification:', error);
     }
   }
 
@@ -382,17 +461,7 @@ export class AutoClaudeWatchdog extends EventEmitter {
    */
   public writeCrashLoopNotification(crashCount: number, crashInfo: CrashInfo): void {
     try {
-      const appDataPath = process.env.APPDATA ||
-                          (process.platform === 'darwin' ? path.join(process.env.HOME!, 'Library', 'Application Support') :
-                           path.join(process.env.HOME!, '.config'));
-
-      const notificationDir = path.join(appDataPath, APP_DATA_DIR_NAME);
-      const notificationPath = path.join(notificationDir, 'crash-notification.json');
-
-      // Ensure directory exists
-      if (!fs.existsSync(notificationDir)) {
-        fs.mkdirSync(notificationDir, { recursive: true });
-      }
+      const notificationPath = path.join(this.appDataDir, 'crash-notification.json');
 
       const notification = {
         type: 'crash_loop',
@@ -407,9 +476,9 @@ export class AutoClaudeWatchdog extends EventEmitter {
       };
 
       fs.writeFileSync(notificationPath, JSON.stringify(notification, null, 2), 'utf-8');
-      console.log('[Watchdog] Crash LOOP notification written for Claude Code:', notificationPath);
+      this.log('ERROR', 'Crash LOOP notification written for Claude Code:', notificationPath);
     } catch (error) {
-      console.error('[Watchdog] Failed to write crash loop notification:', error);
+      this.log('ERROR', 'Failed to write crash loop notification:', error);
     }
   }
 
@@ -419,11 +488,7 @@ export class AutoClaudeWatchdog extends EventEmitter {
    * Get the path to the heartbeat file written by the Electron main process
    */
   private getHeartbeatPath(): string {
-    const appDataPath = process.env.APPDATA ||
-      (process.platform === 'darwin'
-        ? path.join(process.env.HOME!, 'Library', 'Application Support')
-        : path.join(process.env.HOME!, '.config'));
-    return path.join(appDataPath, APP_DATA_DIR_NAME, 'heartbeat.json');
+    return path.join(this.appDataDir, 'heartbeat.json');
   }
 
   /**
@@ -431,7 +496,7 @@ export class AutoClaudeWatchdog extends EventEmitter {
    */
   private startHeartbeatMonitoring(): void {
     const heartbeatPath = this.getHeartbeatPath();
-    console.log('[Watchdog] Starting heartbeat monitor, checking:', heartbeatPath);
+    this.log('INFO', 'Starting heartbeat monitor, checking:', heartbeatPath);
 
     this.heartbeatCheckInterval = setInterval(() => {
       if (this.isShuttingDown) return;
@@ -447,8 +512,8 @@ export class AutoClaudeWatchdog extends EventEmitter {
         const age = Date.now() - heartbeat.timestamp;
 
         if (age > this.HEARTBEAT_STALE_THRESHOLD_MS) {
-          console.error(
-            `[Watchdog] FREEZE DETECTED: Heartbeat stale by ${Math.round(age / 1000)}s ` +
+          this.log('ERROR',
+            `FREEZE DETECTED: Heartbeat stale by ${Math.round(age / 1000)}s ` +
             `(threshold: ${this.HEARTBEAT_STALE_THRESHOLD_MS / 1000}s)`
           );
           this.handleFreezeDetected(heartbeat.pid, age);
@@ -461,8 +526,8 @@ export class AutoClaudeWatchdog extends EventEmitter {
         if (heartbeat.activity) {
           const activityAge = Date.now() - heartbeat.activity.lastActivityAt;
           if (activityAge > FUNCTIONAL_FREEZE_MS && heartbeat.activity.selfHealAttempts >= 3) {
-            console.error(
-              `[Watchdog] FUNCTIONAL FREEZE: No activity for ${Math.round(activityAge / 60_000)}min, ` +
+            this.log('ERROR',
+              `FUNCTIONAL FREEZE: No activity for ${Math.round(activityAge / 60_000)}min, ` +
               `${heartbeat.activity.selfHealAttempts} self-heals failed, ` +
               `last activity: "${heartbeat.activity.lastActivitySource}"`
             );
@@ -485,7 +550,7 @@ export class AutoClaudeWatchdog extends EventEmitter {
     this.stopHeartbeatMonitoring();
 
     const reason = `Main process freeze detected (heartbeat stale for ${Math.round(staleAge / 1000)}s)`;
-    console.error('[Watchdog] Killing frozen process (PID:', frozenPid, ')');
+    this.log('ERROR', 'Killing frozen process (PID:', frozenPid, ')');
 
     // Write freeze-specific crash flag + notification
     const crashInfo: CrashInfo = {
@@ -516,7 +581,7 @@ export class AutoClaudeWatchdog extends EventEmitter {
         process.kill(frozenPid, 'SIGKILL');
       }
     } catch (error) {
-      console.error('[Watchdog] Failed to kill frozen process:', error);
+      this.log('ERROR', 'Failed to kill frozen process:', error);
     }
 
     // The existing process.on('exit') handler fires after the kill → triggers restart
@@ -536,9 +601,10 @@ export class AutoClaudeWatchdog extends EventEmitter {
    * Stop the watchdog and monitored process
    */
   public async stop(): Promise<void> {
-    console.log('[Watchdog] Stopping...');
+    this.log('INFO', 'Stopping...');
     this.isShuttingDown = true;
     this.stopHeartbeatMonitoring();
+    this.stopSelfHeartbeat();
 
     if (this.process && !this.process.killed) {
       console.log('[Watchdog] Terminating monitored process...');
@@ -567,7 +633,9 @@ export class AutoClaudeWatchdog extends EventEmitter {
     }
 
     this.process = null;
-    console.log('[Watchdog] Stopped');
+    this.log('INFO', 'Stopped');
+    // Close log stream
+    try { this.logStream?.end(); } catch { /* ignore */ }
   }
 
   /**

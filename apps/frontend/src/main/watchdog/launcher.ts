@@ -156,6 +156,30 @@ process.on('uncaughtException', (error) => {
     console.log('');
     console.log('Press Ctrl+C to stop');
     console.log('='.repeat(80));
+
+    // Monitor watchdog self-heartbeat — detect if watchdog monitoring stops
+    const APP_DATA_DIR_NAME = 'auto-claude-ui';
+    const appDataPath = process.env.APPDATA ||
+      (process.platform === 'darwin' ? path.join(process.env.HOME!, 'Library', 'Application Support') :
+       path.join(process.env.HOME!, '.config'));
+    const watchdogHbPath = path.join(appDataPath, APP_DATA_DIR_NAME, 'watchdog-heartbeat.json');
+    const WATCHDOG_STALE_MS = 60_000; // 60s without heartbeat = watchdog frozen
+
+    const watchdogHealthCheck = setInterval(() => {
+      try {
+        if (!fs.existsSync(watchdogHbPath)) return; // Not started yet
+        const content = fs.readFileSync(watchdogHbPath, 'utf-8');
+        const hb = JSON.parse(content);
+        const age = Date.now() - hb.timestamp;
+        if (age > WATCHDOG_STALE_MS) {
+          console.error(`[Launcher] WARNING: Watchdog heartbeat stale by ${Math.round(age / 1000)}s — watchdog may be frozen`);
+          // Restart the heartbeat monitoring by reloading settings
+          watchdog.reloadSettings();
+        }
+      } catch { /* ignore */ }
+    }, 30_000);
+    watchdogHealthCheck.unref();
+
   } catch (error) {
     console.error('[Launcher] Failed to start watchdog:', error);
     process.exit(1);
