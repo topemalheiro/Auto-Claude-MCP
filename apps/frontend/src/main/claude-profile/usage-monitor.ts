@@ -895,6 +895,29 @@ export class UsageMonitor extends EventEmitter {
       profileId = activeProfile.profileId;
       isAPIProfile = activeProfile.isAPIProfile;
 
+      // Warm-start: Populate currentUsage from persisted profile data before the API call.
+      // If the API is temporarily rate-limited (429), the meter shows the last-known data
+      // instead of going gray. Applies to OAuth profiles only (API profiles have no cached usage).
+      if (!this.currentUsage && !isAPIProfile) {
+        const profileManager = getClaudeProfileManager();
+        const oauthProfile = profileManager.getActiveProfile();
+        const cachedUsage = oauthProfile?.usage;
+        if (cachedUsage?.sessionUsagePercent != null) {
+          const warmStart: ClaudeUsageSnapshot = {
+            profileId,
+            profileName: activeProfile.profileName,
+            profileEmail: activeProfile.profileEmail,
+            sessionPercent: cachedUsage.sessionUsagePercent,
+            weeklyPercent: cachedUsage.weeklyUsagePercent ?? 0,
+            fetchedAt: cachedUsage.lastUpdated ?? new Date(),
+          };
+          this.currentUsage = warmStart;
+          this.currentUsageProfileId = profileId;
+          this.emit('usage-updated', warmStart);
+          this.debugLog('[UsageMonitor] Warm-started currentUsage from persisted profile cache');
+        }
+      }
+
       // Step 2: Fetch current usage (pass activeProfile for consistency)
       const credential = await this.getCredential();
       const usage = await this.fetchUsage(profileId, credential, activeProfile);
