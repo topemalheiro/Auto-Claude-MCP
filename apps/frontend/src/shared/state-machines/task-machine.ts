@@ -194,7 +194,11 @@ export const taskMachine = createMachine(
         }
       },
       done: {
-        type: 'final'
+        on: {
+          FORCE_BACKLOG: { target: 'backlog', actions: 'clearReviewReason' },
+          FORCE_HUMAN_REVIEW: { target: 'human_review', actions: 'setReviewReasonStopped' },
+          FORCE_AI_REVIEW: { target: 'qa_review', actions: 'clearReviewReason' }
+        }
       }
     }
   },
