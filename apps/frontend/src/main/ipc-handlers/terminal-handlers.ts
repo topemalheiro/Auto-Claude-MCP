@@ -528,6 +528,11 @@ export function registerTerminalHandlers(
       try {
         const monitor = getUsageMonitor();
         const usage = monitor.getCurrentUsage();
+        // If usage is null (cache cleared after rate limit/re-auth), trigger immediate refresh
+        // so the meter recovers within seconds instead of waiting up to 30s for the next poll
+        if (!usage) {
+          monitor.checkNow();
+        }
         return { success: true, data: usage };
       } catch (error) {
         return {

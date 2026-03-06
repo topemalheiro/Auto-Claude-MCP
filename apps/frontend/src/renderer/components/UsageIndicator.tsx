@@ -327,20 +327,26 @@ export function UsageIndicator() {
       setActiveProfileNeedsReauth(activeProfile?.needsReauthentication ?? false);
     });
 
-    // Request initial usage on mount
-    window.electronAPI.requestUsageUpdate().then((result) => {
-      setIsLoading(false);
-      if (result.success && result.data) {
-        setUsage(result.data);
-        setIsAvailable(true);
-      } else {
+    // Request initial usage on mount — retry every 5s if null (usage cache cleared during re-auth/rate-limit)
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    const fetchUsage = (): void => {
+      window.electronAPI.requestUsageUpdate().then((result) => {
+        setIsLoading(false);
+        if (result.success && result.data) {
+          setUsage(result.data);
+          setIsAvailable(true);
+        } else {
+          setIsAvailable(false);
+          // Retry in 5s — usage monitor is refreshing after cache clear (rate limit/re-auth)
+          retryTimer = setTimeout(fetchUsage, 5000);
+        }
+      }).catch((error) => {
+        console.warn('[UsageIndicator] Failed to fetch initial usage:', error);
+        setIsLoading(false);
         setIsAvailable(false);
-      }
-    }).catch((error) => {
-      console.warn('[UsageIndicator] Failed to fetch initial usage:', error);
-      setIsLoading(false);
-      setIsAvailable(false);
-    });
+      });
+    };
+    fetchUsage();
 
     // Request all profiles usage immediately on mount (so other accounts show right away)
     window.electronAPI.requestAllProfilesUsage?.().then((result) => {
@@ -358,6 +364,7 @@ export function UsageIndicator() {
     });
 
     return () => {
+      if (retryTimer) clearTimeout(retryTimer);
       unsubscribe();
       unsubscribeAllProfiles?.();
     };
