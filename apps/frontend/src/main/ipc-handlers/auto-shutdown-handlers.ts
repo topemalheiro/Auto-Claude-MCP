@@ -153,8 +153,17 @@ function getActiveTaskIds(projectPath: string): string[] {
 
         if (!hasErrorExit) {
           // Complete = done, pr_created, or human_review (QA passed, ready for human)
-          // NOTE: human_review with reviewReason='errors' is NOT complete — agent crashed, needs RDR
-          const isLegitHumanReview = content.status === 'human_review' && content.reviewReason !== 'errors';
+          // NOTE: human_review is ONLY terminal if QA explicitly approved the work.
+          // - reviewReason='completed' = coder finished, QA not yet run → NOT terminal
+          // - reviewReason='qa_rejected' = QA found issues, needs fixing → NOT terminal
+          // - reviewReason='stopped' without qa_signoff = work interrupted → NOT terminal
+          // - reviewReason='errors' = agent crashed → NOT terminal
+          const qaApproved = (content as any).qa_signoff?.status === 'approved';
+          const isLegitHumanReview = content.status === 'human_review' &&
+            content.reviewReason !== 'errors' &&
+            content.reviewReason !== 'qa_rejected' &&
+            (content.reviewReason !== 'stopped' || qaApproved) &&
+            (content.reviewReason !== 'completed' || qaApproved);
           if (content.status === 'done' || content.status === 'pr_created' || isLegitHumanReview) {
             continue;
           }
@@ -241,8 +250,17 @@ function countTasksByStatus(projectPath: string): { total: number; humanReview: 
 
         if (!hasErrorExit) {
           // Complete = done, pr_created, or human_review (QA passed, ready for human)
-          // NOTE: human_review with reviewReason='errors' is NOT complete — agent crashed, needs RDR
-          const isLegitHumanReview = content.status === 'human_review' && content.reviewReason !== 'errors';
+          // NOTE: human_review is ONLY terminal if QA explicitly approved the work.
+          // - reviewReason='completed' = coder finished, QA not yet run → NOT terminal
+          // - reviewReason='qa_rejected' = QA found issues, needs fixing → NOT terminal
+          // - reviewReason='stopped' without qa_signoff = work interrupted → NOT terminal
+          // - reviewReason='errors' = agent crashed → NOT terminal
+          const qaApproved = (content as any).qa_signoff?.status === 'approved';
+          const isLegitHumanReview = content.status === 'human_review' &&
+            content.reviewReason !== 'errors' &&
+            content.reviewReason !== 'qa_rejected' &&
+            (content.reviewReason !== 'stopped' || qaApproved) &&
+            (content.reviewReason !== 'completed' || qaApproved);
           if (content.status === 'done' || content.status === 'pr_created' || isLegitHumanReview) {
             continue;
           }
