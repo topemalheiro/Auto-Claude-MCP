@@ -1324,6 +1324,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
         return t &&
           t.status !== 'in_progress' &&
           t.status !== 'ai_review' &&      // QA running = legitimate, not blocking
+          t.status !== 'human_review' &&   // Human review = slot released, not blocking
           t.status !== 'done' &&
           t.status !== 'pr_created' &&
           !t.metadata?.rdrDisabled &&
