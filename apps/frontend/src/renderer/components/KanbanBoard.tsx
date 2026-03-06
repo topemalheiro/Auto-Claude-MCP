@@ -2298,6 +2298,9 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       const remaining = rdrCooldown.rateLimitResetAt - Date.now();
       if (remaining <= 0) {
         setRdrCooldown({ paused: false, warning: false, reason: '', rateLimitResetAt: 0 });
+        // Trigger RDR immediately on expiry — same as onRdrRateLimitCleared IPC path
+        rdrSkipBusyCheckRef.current = true;
+        handleAutoRdr();
       } else {
         // Force re-render to update the displayed minutes
         setRdrCooldown(prev => ({ ...prev }));
@@ -2305,7 +2308,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     }, 60_000);
 
     return () => clearInterval(timer);
-  }, [rdrCooldown.paused, rdrCooldown.warning, rdrCooldown.rateLimitResetAt]);
+  }, [rdrCooldown.paused, rdrCooldown.warning, rdrCooldown.rateLimitResetAt, handleAutoRdr]);
 
   // Detect task regression (started → backlog) and trigger immediate RDR
   useEffect(() => {
