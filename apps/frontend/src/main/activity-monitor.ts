@@ -1,5 +1,5 @@
 import { app } from './electron-compat';
-import { writeFileSync } from 'fs';
+import { writeFileSync, readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { projectStore } from './project-store';
 import { isRdrPaused } from './ipc-handlers/rdr-handlers';
@@ -29,6 +29,10 @@ class ActivityMonitor {
     if (this.checkInterval) return;
     this.checkInterval = setInterval(() => this.check(), CHECK_INTERVAL_MS);
     this.checkInterval.unref();
+
+    // Check for stale RDR pause on startup (watchdog may have cleared it)
+    this.checkWatchdogRdrClear();
+
     console.log('[ActivityMonitor] Started (check interval:', CHECK_INTERVAL_MS / 1000, 's, stall threshold:', STALL_THRESHOLD_MS / 1000, 's)');
   }
 
@@ -36,6 +40,30 @@ class ActivityMonitor {
     if (this.checkInterval) {
       clearInterval(this.checkInterval);
       this.checkInterval = null;
+    }
+  }
+
+  /** Check if the watchdog cleared a stale RDR pause (wrote rdr-clear-signal.json) */
+  private checkWatchdogRdrClear(): void {
+    try {
+      const userData = app.getPath('userData');
+      const signalPath = join(userData, 'rdr-clear-signal.json');
+      if (!existsSync(signalPath)) return;
+
+      const content = readFileSync(signalPath, 'utf-8').trim();
+      if (!content) return;
+
+      const signal = JSON.parse(content);
+      console.log(`[ActivityMonitor] Watchdog cleared stale RDR pause at ${signal.clearedAt}`);
+
+      // Import resumeRdr to clear the in-memory state and notify renderer
+      const { resumeRdr } = require('./ipc-handlers/rdr-handlers');
+      resumeRdr('Watchdog cleared stale RDR pause');
+
+      // Clear the signal file
+      writeFileSync(signalPath, '', 'utf-8');
+    } catch {
+      // Ignore errors
     }
   }
 
@@ -63,6 +91,9 @@ class ActivityMonitor {
 
   private check(): void {
     const staleDuration = Date.now() - this.lastActivityAt;
+
+    // 0. Check if watchdog cleared a stale RDR pause
+    this.checkWatchdogRdrClear();
 
     // 1. Is there actually work to do?
     if (!this.hasIncompleteWork()) {

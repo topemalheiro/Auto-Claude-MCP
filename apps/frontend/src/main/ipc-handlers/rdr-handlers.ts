@@ -214,6 +214,13 @@ function loadRdrPauseState(): void {
 
 /** Pause RDR — block all sends until rate limit resets (100% session usage) */
 export function pauseRdr(reason: string, rateLimitResetAt: number): void {
+  // Reject invalid or already-past reset times — stale cached usage data can trigger
+  // pauseRdr() after the limit has already reset, creating a zombie pause state
+  if (!rateLimitResetAt || !Number.isFinite(rateLimitResetAt) || rateLimitResetAt <= Date.now()) {
+    console.log(`[RDR] Ignoring pauseRdr — reset time already passed or invalid (${rateLimitResetAt})`);
+    return;
+  }
+
   rdrPauseState = {
     paused: true,
     warning: true,
@@ -248,6 +255,12 @@ export function pauseRdr(reason: string, rateLimitResetAt: number): void {
 export function warnRdr(reason: string, rateLimitResetAt: number): void {
   // Don't downgrade a pause to a warning
   if (rdrPauseState.paused) return;
+
+  // Reject invalid or already-past reset times (same guard as pauseRdr)
+  if (!rateLimitResetAt || !Number.isFinite(rateLimitResetAt) || rateLimitResetAt <= Date.now()) {
+    console.log(`[RDR] Ignoring warnRdr — reset time already passed or invalid (${rateLimitResetAt})`);
+    return;
+  }
 
   rdrPauseState = {
     paused: false,
@@ -894,6 +907,11 @@ function isSessionLimitReached(): { limited: boolean; warning: boolean; resetTim
     const resetTime = usage.weeklyResetTimestamp
       ? new Date(usage.weeklyResetTimestamp).getTime()
       : Date.now() + 7 * 24 * 60 * 60 * 1000; // fallback: 7 days
+    // If reset time is already past, the cached data is stale — treat as not limited
+    if (Number.isFinite(resetTime) && resetTime <= Date.now()) {
+      console.log(`[RDR] isSessionLimitReached: weekly reset time already passed (stale cache) — treating as not limited`);
+      return { limited: false, warning: false };
+    }
     return {
       limited: weeklyPct >= 100,
       warning: true,
@@ -905,6 +923,12 @@ function isSessionLimitReached(): { limited: boolean; warning: boolean; resetTim
   const resetTime = usage.sessionResetTimestamp
     ? new Date(usage.sessionResetTimestamp).getTime()
     : Date.now() + 5 * 60 * 60 * 1000; // fallback: 5h
+  // If reset time is already past, the cached data is stale — treat as not limited
+  // This prevents re-pausing RDR from stale UsageMonitor cache after the limit resets
+  if (Number.isFinite(resetTime) && resetTime <= Date.now()) {
+    console.log(`[RDR] isSessionLimitReached: session reset time already passed (stale cache) — treating as not limited`);
+    return { limited: false, warning: false };
+  }
   return {
     limited: sessionPct >= 100,
     warning: true,

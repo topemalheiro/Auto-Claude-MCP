@@ -557,12 +557,68 @@ export class AutoClaudeWatchdog extends EventEmitter {
             this.handleFreezeDetected(heartbeat.pid, activityAge);
           }
         }
+
+        // RDR stale-pause detection: if RDR is paused but the reset time has passed,
+        // the main process failed to auto-clear (app freeze, bug, or race condition).
+        // Watchdog clears the stale pause file and signals the main process.
+        this.checkStaleRdrPause();
       } catch {
         // JSON parse error or read error — skip this check (file might be mid-write)
       }
     }, this.HEARTBEAT_CHECK_INTERVAL_MS);
 
     this.heartbeatCheckInterval.unref();
+  }
+
+  /**
+   * Check if RDR pause state is stale (paused but reset time already passed).
+   * This catches the race condition where isSessionLimitReached() re-pauses RDR
+   * from stale cached usage data after the rate limit has already reset.
+   * Writes a signal file that the main process ActivityMonitor picks up.
+   */
+  private checkStaleRdrPause(): void {
+    try {
+      const pausePath = path.join(this.appDataDir, 'rdr-pause.json');
+      if (!fs.existsSync(pausePath)) return;
+
+      const content = fs.readFileSync(pausePath, 'utf-8');
+      const state = JSON.parse(content);
+
+      if (!state.paused && !state.warning) return;
+      if (!state.rateLimitResetAt || state.rateLimitResetAt <= 0) return;
+
+      const now = Date.now();
+      // Give 2 minutes grace period for the main process auto-expiry to fire
+      const GRACE_MS = 2 * 60_000;
+      if (now < state.rateLimitResetAt + GRACE_MS) return;
+
+      const staleMin = Math.round((now - state.rateLimitResetAt) / 60_000);
+      this.log('WARN',
+        `STALE RDR PAUSE: paused=${state.paused}, reset was ${staleMin}min ago. ` +
+        `Main process failed to auto-clear. Clearing from watchdog.`
+      );
+
+      // Clear the pause file directly
+      fs.writeFileSync(pausePath, JSON.stringify({
+        paused: false,
+        warning: false,
+        reason: '',
+        pausedAt: 0,
+        rateLimitResetAt: 0,
+      }, null, 2));
+
+      // Write signal file for main process to pick up and notify renderer
+      const signalPath = path.join(this.appDataDir, 'rdr-clear-signal.json');
+      fs.writeFileSync(signalPath, JSON.stringify({
+        clearedAt: new Date().toISOString(),
+        reason: `Watchdog cleared stale RDR pause (${staleMin}min overdue)`,
+        originalState: state,
+      }, null, 2));
+
+      this.log('INFO', 'Wrote rdr-clear-signal.json for main process');
+    } catch {
+      // Non-critical — skip this check
+    }
   }
 
   /**
