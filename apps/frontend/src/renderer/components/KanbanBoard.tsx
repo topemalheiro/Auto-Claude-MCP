@@ -32,7 +32,7 @@ import { QueueSettingsModal } from './QueueSettingsModal';
 import { TASK_STATUS_COLUMNS, TASK_STATUS_LABELS } from '../../shared/constants';
 import { debugLog } from '../../shared/utils/debug-logger';
 import { cn } from '../lib/utils';
-import { persistTaskStatus, forceCompleteTask, archiveTasks, deleteTasks, useTaskStore, isQueueAtCapacity, DEFAULT_MAX_PARALLEL_TASKS, startTask, isIncompleteHumanReview } from '../stores/task-store';
+import { persistTaskStatus, forceCompleteTask, archiveTasks, deleteTasks, useTaskStore, isQueueAtCapacity, DEFAULT_MAX_PARALLEL_TASKS, startTask } from '../stores/task-store';
 import { updateProjectSettings, useProjectStore } from '../stores/project-store';
 import { useKanbanSettingsStore, DEFAULT_COLUMN_WIDTH, MIN_COLUMN_WIDTH, MAX_COLUMN_WIDTH, COLLAPSED_COLUMN_WIDTH_REM, MIN_COLUMN_WIDTH_REM, MAX_COLUMN_WIDTH_REM, BASE_FONT_SIZE, pxToRem } from '../stores/kanban-settings-store';
 import { useSettingsStore } from '../stores/settings-store';
@@ -2370,23 +2370,34 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       await window.electronAPI.updateProjectSettings(currentProject.id, updatedSettings);
     }
 
-    // When turning ON, resume all incomplete tasks in human_review (those showing "Needs Resume")
+    // When turning ON, detect orphaned tasks (active board, no running agent) and start them
     if (checked) {
-      const incompleteTasks = tasks.filter(task => isIncompleteHumanReview(task));
+      const result = await window.electronAPI.getRunningTasksByProfile();
+      if (result.success && result.data) {
+        const runningIds = new Set(Object.values(result.data.byProfile).flat());
 
-      if (incompleteTasks.length > 0) {
-        console.log(`[KanbanBoard] Auto-resume enabled - resuming ${incompleteTasks.length} incomplete tasks`);
-
-        // Start all tasks with retry logic (run in parallel)
-        const results = await Promise.all(
-          incompleteTasks.map(task => startTaskWithRetry(task.id))
+        const orphanedTasks = tasks.filter(task =>
+          (task.status === 'in_progress' || task.status === 'ai_review') &&
+          !runningIds.has(task.id) &&
+          task.reviewReason !== 'stopped' &&
+          task.reviewReason !== 'errors'
         );
 
-        const successCount = results.filter(Boolean).length;
-        const failCount = results.length - successCount;
-        console.log(`[KanbanBoard] Auto-resume complete: ${successCount} succeeded, ${failCount} failed`);
-      } else {
-        console.log('[KanbanBoard] Auto-resume enabled - no incomplete tasks to resume');
+        if (orphanedTasks.length > 0) {
+          const capacity = Math.max(0, maxParallelTasks - result.data.totalRunning);
+          const toStart = orphanedTasks.slice(0, capacity);
+
+          console.log(`[AutoResume] Toggle ON - ${orphanedTasks.length} orphaned, capacity ${capacity}, starting ${toStart.length}`);
+
+          const results = await Promise.all(
+            toStart.map(task => startTaskWithRetry(task.id))
+          );
+          const successCount = results.filter(Boolean).length;
+          const failCount = results.length - successCount;
+          console.log(`[AutoResume] Complete: ${successCount} succeeded, ${failCount} failed`);
+        } else {
+          console.log('[AutoResume] Toggle ON - no orphaned tasks to resume');
+        }
       }
     }
   };
@@ -2525,30 +2536,48 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   const autoResumedTasksRef = useRef<Set<string>>(new Set());
 
   // Auto-resume on mount/reconnect if toggle is already ON
-  // Also re-runs when tasks load/change to catch tasks that weren't loaded initially
+  // Detects orphaned tasks (on active boards but no running agent) and auto-starts them
   useEffect(() => {
     if (!autoResumeEnabled || tasks.length === 0) return;
 
-    const incompleteTasks = tasks.filter(task =>
-      isIncompleteHumanReview(task) && !autoResumedTasksRef.current.has(task.id)
-    );
+    const detectAndResumeOrphans = async () => {
+      // Use existing queue API to get running task IDs
+      const result = await window.electronAPI.getRunningTasksByProfile();
+      if (!result.success || !result.data) return;
 
-    if (incompleteTasks.length > 0) {
-      console.log(`[KanbanBoard] Auto-resume active - resuming ${incompleteTasks.length} incomplete tasks`);
+      const runningIds = new Set(Object.values(result.data.byProfile).flat());
 
-      // Mark these tasks as attempted (to prevent re-resuming)
-      incompleteTasks.forEach(task => autoResumedTasksRef.current.add(task.id));
+      // Find tasks on active boards (in_progress / ai_review) with no running agent
+      const orphanedTasks = tasks.filter(task =>
+        (task.status === 'in_progress' || task.status === 'ai_review') &&
+        !runningIds.has(task.id) &&
+        !autoResumedTasksRef.current.has(task.id) &&
+        task.reviewReason !== 'stopped' &&
+        task.reviewReason !== 'errors'
+      );
 
-      // Start all tasks with retry logic (run in parallel)
-      Promise.all(
-        incompleteTasks.map(task => startTaskWithRetry(task.id))
-      ).then(results => {
-        const successCount = results.filter(Boolean).length;
-        const failCount = results.length - successCount;
-        console.log(`[KanbanBoard] Auto-resume complete: ${successCount} succeeded, ${failCount} failed`);
-      });
-    }
-  }, [autoResumeEnabled, tasks, startTaskWithRetry]); // Re-run when toggle changes OR tasks load
+      if (orphanedTasks.length === 0) return;
+
+      // Respect parallel task limit
+      const capacity = Math.max(0, maxParallelTasks - result.data.totalRunning);
+      const toStart = orphanedTasks.slice(0, capacity);
+
+      console.log(`[AutoResume] ${orphanedTasks.length} orphaned tasks, capacity ${capacity}, starting ${toStart.length}`);
+
+      toStart.forEach(task => autoResumedTasksRef.current.add(task.id));
+
+      const results = await Promise.all(
+        toStart.map(task => startTaskWithRetry(task.id))
+      );
+      const successCount = results.filter(Boolean).length;
+      const failCount = results.length - successCount;
+      console.log(`[AutoResume] Complete: ${successCount} succeeded, ${failCount} failed`);
+    };
+
+    // 3s delay to let agents initialize on fresh startup
+    const timer = setTimeout(detectAndResumeOrphans, 3000);
+    return () => clearTimeout(timer);
+  }, [autoResumeEnabled, tasks, startTaskWithRetry, maxParallelTasks]);
 
   // Clear the auto-resumed set when toggle is turned OFF (so tasks can be resumed again when turned ON)
   useEffect(() => {

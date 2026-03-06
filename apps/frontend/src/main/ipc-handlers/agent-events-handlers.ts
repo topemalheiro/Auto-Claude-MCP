@@ -27,7 +27,6 @@ import {
   setRateLimitForTask,
 } from "../rate-limit-detector";
 import { startRateLimitWaitForTask } from "../rate-limit-waiter";
-import { readSettingsFile } from "../settings-utils";
 import { queueTaskForRdr } from "./rdr-handlers";
 import { activityMonitor } from "../activity-monitor";
 import { projectStore } from "../project-store";
@@ -201,9 +200,8 @@ export function registerAgenteventsHandlers(
           console.error(`[Task ${taskId}] Failed to persist rate limit info:`, err);
         }
 
-        // Check if auto-resume is enabled in settings
-        const currentSettings = readSettingsFile();
-        const autoResumeEnabled = currentSettings?.autoResumeAfterRateLimit === true;
+        // Check if auto-resume is enabled in per-project settings (not global)
+        const autoResumeEnabled = project?.settings?.autoResumeAfterRateLimit === true;
 
         // Start auto-wait for rate limit reset (only if enabled)
         if (autoResumeEnabled) {
