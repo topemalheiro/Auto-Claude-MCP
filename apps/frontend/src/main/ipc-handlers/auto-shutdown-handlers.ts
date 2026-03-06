@@ -142,7 +142,9 @@ function getActiveTaskIds(projectPath: string): string[] {
           // QA approved + successful exit = genuinely done regardless of planStatus
           const isSuccessfulExit = effectiveStatus === 'start_requested' && content.exitReason === 'success';
 
-          if (isOnCorrectBoard || isCompletedLifecycle || isSuccessfulExit) {
+          // Matches RDR line 515: stopped tasks are NEVER terminal (user wants manual review)
+          if ((isOnCorrectBoard || isCompletedLifecycle || isSuccessfulExit) &&
+              content.reviewReason !== 'stopped') {
             continue;
           }
         }
@@ -237,7 +239,9 @@ function countTasksByStatus(projectPath: string): { total: number; humanReview: 
             (content.planStatus === 'completed' || content.planStatus === 'approved');
           const isSuccessfulExit = effectiveStatus === 'start_requested' && content.exitReason === 'success';
 
-          if (isOnCorrectBoard || isCompletedLifecycle || isSuccessfulExit) {
+          // Matches RDR line 515: stopped tasks are NEVER terminal (user wants manual review)
+          if ((isOnCorrectBoard || isCompletedLifecycle || isSuccessfulExit) &&
+              content.reviewReason !== 'stopped') {
             continue;
           }
         }
