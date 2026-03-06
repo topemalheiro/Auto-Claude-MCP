@@ -1738,8 +1738,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   const rdrSkipBusyCheckRef = useRef(false); // Only skip when idle event fires (proven idle)
   const RDR_INTERVAL_MS = 30000; // 30 seconds fallback polling
   const RDR_IN_FLIGHT_TIMEOUT_MS = 120000; // 2 min safety net (activity monitor handles session death sooner)
-  const lastRdrSendTimestampRef = useRef<number>(0);
-  const RDR_MIN_SEND_INTERVAL_MS = 180000; // 3 min minimum between sends (prevents idle-event re-send loop)
+  const lastRdrSendTimestampRef = useRef<number>(0); // kept for logging only
 
   // RDR rate limit pause state
   const [rdrCooldown, setRdrCooldown] = useState<{ paused: boolean; warning: boolean; reason: string; rateLimitResetAt: number }>({ paused: false, warning: false, reason: '', rateLimitResetAt: 0 });
@@ -2120,14 +2119,6 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     // Cleared by: (1) activity monitor force-reset, (2) backup timeout. NOT by idle event (causes loop).
     if (rdrMessageInFlightRef.current) {
       console.log('[RDR] Message still in-flight, will retry next poll');
-      return;
-    }
-
-    // Minimum send interval: prevent re-send loop when Claude finishes and goes idle.
-    // Without this, idle event → clear in-flight → 30s poll → send again → infinite loop.
-    const timeSinceLastSend = Date.now() - lastRdrSendTimestampRef.current;
-    if (timeSinceLastSend < RDR_MIN_SEND_INTERVAL_MS) {
-      console.log(`[RDR] Min send interval not reached (${Math.round(timeSinceLastSend / 1000)}s / ${RDR_MIN_SEND_INTERVAL_MS / 1000}s)`);
       return;
     }
 
