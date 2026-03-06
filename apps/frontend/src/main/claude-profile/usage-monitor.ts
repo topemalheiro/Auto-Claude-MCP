@@ -204,6 +204,7 @@ export class UsageMonitor extends EventEmitter {
   private intervalId: NodeJS.Timeout | null = null;
   private currentUsage: ClaudeUsageSnapshot | null = null;
   private currentUsageProfileId: string | null = null; // Track which profile's usage is in currentUsage
+  private lastGoodUsage: ClaudeUsageSnapshot | null = null; // Disk-persisted fallback (never grays out meter)
   private isChecking = false;
 
   // Per-profile API failure tracking with cooldown-based retry
@@ -272,6 +273,21 @@ export class UsageMonitor extends EventEmitter {
 
     this.debugLog('[UsageMonitor] Starting with interval: ' + interval + ' ms (30-second updates for accurate usage stats)');
 
+    // Load last-good usage from disk so meter shows something even when API fails on startup
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { readFileSync, existsSync } = require('fs');
+      const p = this.getLastGoodUsagePath();
+      if (existsSync(p)) {
+        const parsed = JSON.parse(readFileSync(p, 'utf8'));
+        if (parsed.fetchedAt) parsed.fetchedAt = new Date(parsed.fetchedAt);
+        this.lastGoodUsage = parsed as ClaudeUsageSnapshot;
+        this.debugLog('[UsageMonitor] Loaded lastGoodUsage from disk (meter will show on startup)');
+      }
+    } catch {
+      // Non-critical — silently ignore
+    }
+
     // Check immediately
     this.checkUsageAndSwap();
 
@@ -293,10 +309,23 @@ export class UsageMonitor extends EventEmitter {
   }
 
   /**
-   * Get current usage snapshot (for UI indicator)
+   * Path to the persistent last-good usage snapshot file.
+   * Independent of claude-profiles.json — works for all users.
+   */
+  private getLastGoodUsagePath(): string {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { app } = require('electron');
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const path = require('path');
+    return path.join(app.getPath('userData'), 'last-usage-snapshot.json');
+  }
+
+  /**
+   * Get current usage snapshot (for UI indicator).
+   * Falls back to last-good disk-persisted snapshot so meter never goes gray.
    */
   getCurrentUsage(): ClaudeUsageSnapshot | null {
-    return this.currentUsage;
+    return this.currentUsage ?? this.lastGoodUsage;
   }
 
   /**
@@ -931,6 +960,16 @@ export class UsageMonitor extends EventEmitter {
 
       this.currentUsage = usage;
       this.currentUsageProfileId = profileId; // Track which profile this usage belongs to
+
+      // Persist last-good usage to disk — survives restarts and 429 gaps
+      this.lastGoodUsage = usage;
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { writeFileSync } = require('fs');
+        writeFileSync(this.getLastGoodUsagePath(), JSON.stringify(usage), 'utf8');
+      } catch {
+        // Non-critical — silently ignore
+      }
 
       // Step 2.5: Persist usage to profile for caching (so other profiles can display cached usage)
       const profileManager = getClaudeProfileManager();
