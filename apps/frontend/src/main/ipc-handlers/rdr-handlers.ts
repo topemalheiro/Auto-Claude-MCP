@@ -499,12 +499,11 @@ function enrichTaskWithWorktreeData(task: TaskInfo, projectPath: string): TaskIn
  * Check if task is legitimate human review (shouldn't be flagged by RDR)
  *
  * Logic:
- * - Tasks explicitly stopped by user = NEVER legitimate (reviewReason='stopped')
- * - Tasks with crash/error exitReason = NOT legitimate (crashed during validation)
- * - Tasks at 100% with no reviewReason and no qaSignoff = NOT legitimate (stuck/never started QA)
- * - Tasks at 100% with error/rejection reviewReasons = NOT legitimate (errors/qa_rejected)
- * - Tasks at 100% with reviewReason='completed' = LEGITIMATE (coding done, waiting for QA or user)
- * - Tasks at 100% with qaSignoff='approved' = LEGITIMATE (fully validated)
+ * - QA-approved tasks at 100% = ALWAYS legitimate (authoritative completion signal)
+ * - Tasks at 100% with qaSignoff='approved' = legitimate
+ * - Tasks at 100% with reviewReason='completed' but NO qaSignoff = NOT legitimate (QA didn't run)
+ * - Tasks at 100% with no qaSignoff and no reviewReason = NOT legitimate (stuck)
+ * - Tasks with crash exitReason = NOT legitimate
  * - Tasks at <100% = NOT legitimate (incomplete work)
  */
 function isLegitimateHumanReview(task: TaskInfo): boolean {
@@ -517,6 +516,19 @@ function isLegitimateHumanReview(task: TaskInfo): boolean {
     return false;
   }
 
+  // QA-approved tasks at 100% are done — exitReason is a session-level artifact, not work-quality
+  // If QA agent wrote approved, it validated the work. Crashes happen AFTER approval was written.
+  // NOTE: reviewReason='completed' alone is NOT sufficient — it means coder finished subtasks, not QA approved
+  if (progress === 100 && task.qaSignoff === 'approved') {
+    return true;
+  }
+
+  // Tasks at 100% with NO qaSignoff and NO reviewReason are NOT legitimate
+  // (QA validation crashed or still running)
+  if (progress === 100 && !task.reviewReason && !task.qaSignoff) {
+    return false;  // Flag for intervention - validation didn't complete properly
+  }
+
   // Tasks with crash/error exitReason are NOT legitimate (even at 100%)
   // This catches tasks that completed subtasks but then crashed during validation/QA
   if (task.exitReason === 'error' ||
@@ -526,10 +538,10 @@ function isLegitimateHumanReview(task: TaskInfo): boolean {
     return false;  // Flag for intervention - crashed/errored
   }
 
-  // Tasks at 100% with NO qaSignoff and NO reviewReason are NOT legitimate
-  // (QA validation crashed or agent died before setting any status)
-  if (progress === 100 && !task.reviewReason && !task.qaSignoff) {
-    return false;  // Flag for intervention - validation didn't complete properly
+  // Tasks stopped by user (reviewReason='stopped') without QA signoff are NOT legitimate
+  // They were interrupted mid-validation and need to complete QA
+  if (progress === 100 && task.reviewReason === 'stopped' && task.qaSignoff !== 'approved') {
+    return false;  // Flag for intervention — stopped before QA completed
   }
 
   // Tasks at 100% with error/failure reviewReasons are NOT legitimate
@@ -543,12 +555,12 @@ function isLegitimateHumanReview(task: TaskInfo): boolean {
     return false;  // Flag for intervention — error/rejection, not legitimate review
   }
 
-  // Tasks at 100% are legitimate — they're waiting for QA or user action
-  // This includes reviewReason='completed' (coding done, QA pending) and qaSignoff='approved' (fully done)
-  // RDR should NOT disturb these tasks — recovering them risks routing them to Done instead of AI Review
-  if (progress === 100) {
-    return true;
+  // Tasks at 100% with other reviewReasons = legitimate (except 'completed' without qaSignoff)
+  // 'completed' without qaSignoff means coder finished but QA never ran — NOT legitimate
+  if (progress === 100 && task.reviewReason !== 'completed') {
+    return true;  // Don't flag - task has a non-completion reviewReason, waiting for user action
   }
+  // Fall through: reviewReason=completed without qaSignoff = NOT legitimate (QA never ran)
 
   return false;
 }

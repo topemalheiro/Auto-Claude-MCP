@@ -304,7 +304,13 @@ export class FileWatcher extends EventEmitter {
             const task = taskForArchiveCheck;
             let resolvedStatus: TaskStatus | null = null;
             if (task && task.status !== 'done' && task.status !== 'pr_created') {
-              resolvedStatus = determineResumeStatus(task, bestPlan);
+              // Tasks recovered from human_review (coding complete, QA pending) always go to ai_review.
+              // determineResumeStatus may misroute these if phase names don't match 'Implementation'/'Validation'.
+              if (task.status === 'human_review' && task.reviewReason !== 'stopped') {
+                resolvedStatus = 'ai_review';
+              } else {
+                resolvedStatus = determineResumeStatus(task, bestPlan);
+              }
 
               if (resolvedStatus !== task.status) {
                 taskWasMoved = true;
@@ -447,7 +453,13 @@ export class FileWatcher extends EventEmitter {
             const task = taskForArchiveCheck;
             let resolvedStatus: TaskStatus | null = null;
             if (task && task.status !== 'done' && task.status !== 'pr_created') {
-              resolvedStatus = determineResumeStatus(task, bestPlan);
+              // Tasks recovered from human_review (coding complete, QA pending) always go to ai_review.
+              // determineResumeStatus may misroute these if phase names don't match 'Implementation'/'Validation'.
+              if (task.status === 'human_review' && task.reviewReason !== 'stopped') {
+                resolvedStatus = 'ai_review';
+              } else {
+                resolvedStatus = determineResumeStatus(task, bestPlan);
+              }
 
               if (resolvedStatus !== task.status) {
                 taskWasMoved = true;
