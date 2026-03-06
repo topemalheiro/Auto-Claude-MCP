@@ -304,6 +304,17 @@ export class FileWatcher extends EventEmitter {
             const task = taskForArchiveCheck;
             let resolvedStatus: TaskStatus | null = null;
             if (task && task.status !== 'done' && task.status !== 'pr_created') {
+              // GUARD: QA-approved tasks must NEVER be re-routed to ai_review.
+              // Re-running QA on an approved task triggers the full QA completion flow:
+              // qa_signoff=approved → TASK_REVIEW IPC → MARK_DONE → Done board.
+              if ((bestPlan as any).qa_signoff?.status === 'approved') {
+                persistPlanStatusSync(filePath, 'human_review', projectId);
+                if (existsSync(worktreePlanPath)) {
+                  persistPlanStatusSync(worktreePlanPath, 'human_review', projectId);
+                }
+                console.log(`[FileWatcher] ${specId}: qa_signoff=approved — restoring human_review, NOT restarting agent`);
+                return;
+              }
               // Tasks recovered from human_review (coding complete, QA pending) always go to ai_review.
               // determineResumeStatus may misroute these if phase names don't match 'Implementation'/'Validation'.
               if (task.status === 'human_review' && task.reviewReason !== 'stopped') {
@@ -453,6 +464,17 @@ export class FileWatcher extends EventEmitter {
             const task = taskForArchiveCheck;
             let resolvedStatus: TaskStatus | null = null;
             if (task && task.status !== 'done' && task.status !== 'pr_created') {
+              // GUARD: QA-approved tasks must NEVER be re-routed to ai_review.
+              // Re-running QA on an approved task triggers the full QA completion flow:
+              // qa_signoff=approved → TASK_REVIEW IPC → MARK_DONE → Done board.
+              if ((bestPlan as any).qa_signoff?.status === 'approved') {
+                persistPlanStatusSync(filePath, 'human_review', projectId);
+                if (existsSync(worktreePlanPath)) {
+                  persistPlanStatusSync(worktreePlanPath, 'human_review', projectId);
+                }
+                console.log(`[FileWatcher] ${specId}: qa_signoff=approved — restoring human_review, NOT restarting agent`);
+                return;
+              }
               // Tasks recovered from human_review (coding complete, QA pending) always go to ai_review.
               // determineResumeStatus may misroute these if phase names don't match 'Implementation'/'Validation'.
               if (task.status === 'human_review' && task.reviewReason !== 'stopped') {
