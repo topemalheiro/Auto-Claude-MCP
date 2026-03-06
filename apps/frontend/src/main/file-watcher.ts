@@ -358,11 +358,12 @@ export class FileWatcher extends EventEmitter {
               }
             }
 
-            // Never restart agents for terminal-state tasks (done/pr_created).
-            // RDR tools may write start_requested to a task already in Done/PR Created.
-            // Without this guard: emit fires → QA agent starts → approves → MARK_DONE → Done again.
-            if (task && (task.status === 'done' || task.status === 'pr_created')) {
-              console.log(`[FileWatcher] ${specId}: terminal state (${task.status}) — skipping agent restart`);
+            // Never restart agents for terminal-state tasks (done/pr_created) or QA-approved tasks.
+            // qa_signoff check catches: (a) null task (not in project store), (b) stale non-terminal
+            // status in memory despite QA already approving the work. Either condition is sufficient.
+            if ((task && (task.status === 'done' || task.status === 'pr_created')) ||
+                (bestPlan as any).qa_signoff?.status === 'approved') {
+              console.log(`[FileWatcher] ${specId}: terminal state (${task?.status ?? 'null'}) or qa_signoff=approved — skipping agent restart`);
               return;
             }
             // Always emit task-start-requested for start_requested status.
@@ -525,11 +526,12 @@ export class FileWatcher extends EventEmitter {
               }
             }
 
-            // Never restart agents for terminal-state tasks (done/pr_created).
-            // RDR tools may write start_requested to a task already in Done/PR Created.
-            // Without this guard: emit fires → QA agent starts → approves → MARK_DONE → Done again.
-            if (task && (task.status === 'done' || task.status === 'pr_created')) {
-              console.log(`[FileWatcher] ${specId}: terminal state (${task.status}) — skipping agent restart`);
+            // Never restart agents for terminal-state tasks (done/pr_created) or QA-approved tasks.
+            // qa_signoff check catches: (a) null task (not in project store), (b) stale non-terminal
+            // status in memory despite QA already approving the work. Either condition is sufficient.
+            if ((task && (task.status === 'done' || task.status === 'pr_created')) ||
+                (bestPlan as any).qa_signoff?.status === 'approved') {
+              console.log(`[FileWatcher] ${specId}: terminal state (${task?.status ?? 'null'}) or qa_signoff=approved — skipping agent restart`);
               return;
             }
             // Always emit task-start-requested for start_requested status.

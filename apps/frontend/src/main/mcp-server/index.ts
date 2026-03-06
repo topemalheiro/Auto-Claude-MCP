@@ -1373,18 +1373,17 @@ server.tool(
           // User stopped this task — always allow recovery regardless of QA status
           const isStopped = qaGuard.reviewReason === 'stopped';
           const hasHardError = qaGuard.exitReason === 'error' || qaGuard.exitReason === 'auth_failure';
-          // Note: 'approved' is a non-standard worktree status — NOT terminal here.
-          // Task needs recovery to move to proper human_review board.
-          const terminalStatuses = ['human_review', 'done', 'pr_created'];
-          const onCorrectBoard = terminalStatuses.includes(qaGuard.status || '');
-
-          if (!isStopped && !hasHardError && onCorrectBoard) {
-            console.log(`[MCP] Skipping ${fix.taskId} - QA-approved at 100% on ${qaGuard.status}, no hard error`);
+          // qa_signoff=approved = task fully validated. Never restart regardless of board position.
+          // plan.status may be stale (e.g., 'start_requested' from a previous batch run) — trust
+          // qa_signoff as ground truth, not plan.status. Removing onCorrectBoard check prevents the
+          // feedback loop: stale status → guard fails → start_requested written → agent starts → Done.
+          if (!isStopped && !hasHardError) {
+            console.log(`[MCP] Skipping ${fix.taskId} - QA-approved at 100%, no hard error (status=${qaGuard.status ?? 'unknown'})`);
             results.push({ taskId: fix.taskId, success: false, action: 'skipped_complete', priority: 0, error: 'Task QA-approved at 100% — skipping to prevent restart loop' });
             continue;
           }
-          // Hard error or wrong board — proceed with recovery
-          console.log(`[MCP] ${fix.taskId} QA-approved but needs recovery (exitReason=${qaGuard.exitReason || 'none'}, status=${qaGuard.status || 'unknown'})`);
+          // Hard error or stopped — proceed with recovery despite QA approval
+          console.log(`[MCP] ${fix.taskId} QA-approved but recovering (exitReason=${qaGuard.exitReason || 'none'}, stopped=${isStopped})`);
         }
       } catch { /* proceed if guard check fails */ }
 
