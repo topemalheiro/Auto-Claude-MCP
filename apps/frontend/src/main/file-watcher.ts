@@ -358,6 +358,13 @@ export class FileWatcher extends EventEmitter {
               }
             }
 
+            // Never restart agents for terminal-state tasks (done/pr_created).
+            // RDR tools may write start_requested to a task already in Done/PR Created.
+            // Without this guard: emit fires → QA agent starts → approves → MARK_DONE → Done again.
+            if (task && (task.status === 'done' || task.status === 'pr_created')) {
+              console.log(`[FileWatcher] ${specId}: terminal state (${task.status}) — skipping agent restart`);
+              return;
+            }
             // Always emit task-start-requested for start_requested status.
             // Both CONTINUE (same board) and RECOVER (board moved) need agent restart.
             // The task execution system decides which agent to run (coder vs QA) based on subtask progress.
@@ -518,6 +525,13 @@ export class FileWatcher extends EventEmitter {
               }
             }
 
+            // Never restart agents for terminal-state tasks (done/pr_created).
+            // RDR tools may write start_requested to a task already in Done/PR Created.
+            // Without this guard: emit fires → QA agent starts → approves → MARK_DONE → Done again.
+            if (task && (task.status === 'done' || task.status === 'pr_created')) {
+              console.log(`[FileWatcher] ${specId}: terminal state (${task.status}) — skipping agent restart`);
+              return;
+            }
             // Always emit task-start-requested for start_requested status.
             // Both CONTINUE (same board) and RECOVER (board moved) need agent restart.
             // The task execution system decides which agent to run (coder vs QA) based on subtask progress.
