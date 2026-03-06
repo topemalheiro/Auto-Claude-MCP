@@ -152,25 +152,23 @@ function getActiveTaskIds(projectPath: string): string[] {
         // (requires correct board position or completed lifecycle).
 
         if (!hasErrorExit) {
-          // Complete = done, pr_created, or human_review (QA passed, ready for human)
-          // NOTE: human_review is ONLY terminal if QA explicitly approved the work.
-          // - reviewReason='completed' = coder finished, QA not yet run → NOT terminal
-          // - reviewReason='qa_rejected' = QA found issues, needs fixing → NOT terminal
-          // - reviewReason='stopped' without qa_signoff = work interrupted → NOT terminal
-          // - reviewReason='errors' = agent crashed → NOT terminal
+          // NOTE: human_review is ONLY terminal when qa_signoff='approved' AND user didn't stop it.
+          // Matches RDR isLegitimateHumanReview: QA approval is the authoritative completion signal.
+          // Any other human_review state (no signoff, stopped, errors, partial work) = needs attention.
           const qaApproved = (content as any).qa_signoff?.status === 'approved';
           const isLegitHumanReview = content.status === 'human_review' &&
-            content.reviewReason !== 'errors' &&
-            content.reviewReason !== 'qa_rejected' &&
-            (content.reviewReason !== 'stopped' || qaApproved) &&
-            (content.reviewReason !== 'completed' || qaApproved);
+            qaApproved &&
+            content.reviewReason !== 'stopped';
           if (content.status === 'done' || content.status === 'pr_created' || isLegitHumanReview) {
             continue;
           }
 
-          // start_requested + completed planStatus = task lifecycle done
+          // start_requested + completed planStatus + QA approved = task lifecycle done
+          // Without qaSignoff, start_requested means RDR queued a restart — NOT terminal
+          // (RDR detects rawPlanStatus='start_requested' and flags it as needing restart)
           if (content.status === 'start_requested' &&
-              (content.planStatus === 'completed' || content.planStatus === 'approved')) {
+              (content.planStatus === 'completed' || content.planStatus === 'approved') &&
+              (content as any).qa_signoff?.status === 'approved') {
             continue;
           }
 
@@ -249,25 +247,23 @@ function countTasksByStatus(projectPath: string): { total: number; humanReview: 
         // (requires correct board position or completed lifecycle).
 
         if (!hasErrorExit) {
-          // Complete = done, pr_created, or human_review (QA passed, ready for human)
-          // NOTE: human_review is ONLY terminal if QA explicitly approved the work.
-          // - reviewReason='completed' = coder finished, QA not yet run → NOT terminal
-          // - reviewReason='qa_rejected' = QA found issues, needs fixing → NOT terminal
-          // - reviewReason='stopped' without qa_signoff = work interrupted → NOT terminal
-          // - reviewReason='errors' = agent crashed → NOT terminal
+          // NOTE: human_review is ONLY terminal when qa_signoff='approved' AND user didn't stop it.
+          // Matches RDR isLegitimateHumanReview: QA approval is the authoritative completion signal.
+          // Any other human_review state (no signoff, stopped, errors, partial work) = needs attention.
           const qaApproved = (content as any).qa_signoff?.status === 'approved';
           const isLegitHumanReview = content.status === 'human_review' &&
-            content.reviewReason !== 'errors' &&
-            content.reviewReason !== 'qa_rejected' &&
-            (content.reviewReason !== 'stopped' || qaApproved) &&
-            (content.reviewReason !== 'completed' || qaApproved);
+            qaApproved &&
+            content.reviewReason !== 'stopped';
           if (content.status === 'done' || content.status === 'pr_created' || isLegitHumanReview) {
             continue;
           }
 
-          // start_requested + completed planStatus = task lifecycle done
+          // start_requested + completed planStatus + QA approved = task lifecycle done
+          // Without qaSignoff, start_requested means RDR queued a restart — NOT terminal
+          // (RDR detects rawPlanStatus='start_requested' and flags it as needing restart)
           if (content.status === 'start_requested' &&
-              (content.planStatus === 'completed' || content.planStatus === 'approved')) {
+              (content.planStatus === 'completed' || content.planStatus === 'approved') &&
+              (content as any).qa_signoff?.status === 'approved') {
             continue;
           }
 
