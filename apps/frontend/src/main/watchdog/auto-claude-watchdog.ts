@@ -484,6 +484,10 @@ export class AutoClaudeWatchdog extends EventEmitter {
 
   // --- Heartbeat Monitoring (Layer 2: Detect main process freeze) ---
 
+  // Track consecutive renderer-not-responding checks for fast renderer freeze detection
+  private rendererNotRespondingCount = 0;
+  private readonly RENDERER_NOT_RESPONDING_THRESHOLD = 2; // 2 × 15s = 30s before declaring freeze
+
   /**
    * Get the path to the heartbeat file written by the Electron main process
    */
@@ -518,6 +522,25 @@ export class AutoClaudeWatchdog extends EventEmitter {
           );
           this.handleFreezeDetected(heartbeat.pid, age);
           return;
+        }
+
+        // Renderer responsiveness check: heartbeat.rendererResponding=false means the
+        // renderer is hung (Electron's webContents.isResponding() returned false).
+        // Require 2 consecutive false readings (~30s) to avoid false positives on startup.
+        if (heartbeat.rendererResponding === false) {
+          this.rendererNotRespondingCount++;
+          if (this.rendererNotRespondingCount >= this.RENDERER_NOT_RESPONDING_THRESHOLD) {
+            this.log('ERROR',
+              `RENDERER FREEZE: webContents.isResponding()=false for ` +
+              `${this.rendererNotRespondingCount} consecutive checks (~${this.rendererNotRespondingCount * this.HEARTBEAT_CHECK_INTERVAL_MS / 1000}s)`
+            );
+            this.handleFreezeDetected(heartbeat.pid, this.rendererNotRespondingCount * this.HEARTBEAT_CHECK_INTERVAL_MS);
+            return;
+          }
+          this.log('WARN', `Renderer not responding (check ${this.rendererNotRespondingCount}/${this.RENDERER_NOT_RESPONDING_THRESHOLD})`);
+        } else {
+          // Reset counter when renderer is responding normally
+          this.rendererNotRespondingCount = 0;
         }
 
         // Functional freeze check: process alive but no useful work happening
@@ -595,6 +618,7 @@ export class AutoClaudeWatchdog extends EventEmitter {
       clearInterval(this.heartbeatCheckInterval);
       this.heartbeatCheckInterval = null;
     }
+    this.rendererNotRespondingCount = 0;
   }
 
   /**

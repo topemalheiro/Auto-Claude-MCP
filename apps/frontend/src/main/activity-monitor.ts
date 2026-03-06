@@ -153,12 +153,16 @@ class ActivityMonitor {
     console.error('[ActivityMonitor] Renderer reload failed or already attempted — exiting');
     this.writeFunctionalFreezeNotification(reason);
 
-    if (app.isPackaged) {
-      console.error('[ActivityMonitor] Production mode — exiting for watchdog restart');
+    // Exit if watchdog is running (set by launcher.ts via WATCHDOG_ENABLED=true env var).
+    // This covers both packaged apps AND the bat-file launch path (electron out/main/index.js),
+    // where app.isPackaged is false but the watchdog IS running and will restart us.
+    const watchdogRunning = process.env.WATCHDOG_ENABLED === 'true';
+    if (watchdogRunning || app.isPackaged) {
+      console.error('[ActivityMonitor] Watchdog present — exiting for restart');
       app.exit(1);
     } else if (win && !win.isDestroyed()) {
-      // Dev mode: last resort reload
-      console.warn('[ActivityMonitor] Dev mode — force reloading renderer');
+      // Pure dev mode without watchdog — last resort reload
+      console.warn('[ActivityMonitor] No watchdog — force reloading renderer');
       win.webContents.reload();
       this.reloadAttempted = false;
       this.selfHealAttempts = 0;

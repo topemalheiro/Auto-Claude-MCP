@@ -237,9 +237,13 @@ function startHeartbeat(): void {
 
   const writeHeartbeat = (): void => {
     try {
+      const win = mainWindow;
       writeFileSync(heartbeatPath, JSON.stringify({
         pid: process.pid,
         timestamp: Date.now(),
+        // rendererResponding: false means the renderer is hung. Watchdog uses this
+        // for fast freeze detection without waiting for the 45s stale threshold.
+        rendererResponding: win && !win.isDestroyed() ? win.webContents.isResponding() : null,
         activity: {
           lastActivityAt: activityMonitor.getLastActivityAt(),
           lastActivitySource: activityMonitor.getLastActivitySource(),
