@@ -1525,25 +1525,6 @@ export class UsageMonitor extends EventEmitter {
           endpoint: usageEndpoint
         });
 
-        // 429 from usage API = polling too fast, NOT session limit reached.
-        // Try to extract real data from body; if unavailable, return null
-        // and let warm-start / lastGoodUsage handle the display.
-        if (response.status === 429) {
-          let bodyData: any;
-          try { bodyData = await response.json(); } catch { /* ignore parse failure */ }
-
-          if (bodyData) {
-            const parsed = this.tryNormalizeResponse(bodyData, profileId, profileName, profileEmail, provider);
-            if (parsed) {
-              this.debugLog('[UsageMonitor] Extracted usage data from 429 response body');
-              return parsed;
-            }
-          }
-
-          this.debugLog('[UsageMonitor] 429 from usage API — no usable body data, returning null');
-          return null;
-        }
-
         // Check for auth failures via status code (works for all providers)
         if (response.status === 401 || response.status === 403) {
           const error = new Error(`API Auth Failure: ${response.status} (${provider})`);
