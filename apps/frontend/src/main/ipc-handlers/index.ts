@@ -36,6 +36,7 @@ import { registerProfileHandlers } from './profile-handlers';
 import { registerScreenshotHandlers } from './screenshot-handlers';
 import { registerTerminalWorktreeIpcHandlers } from './terminal';
 import { registerRateLimitHandlers } from './rate-limit-handlers';
+import { registerQueueRoutingHandlers } from './queue-routing-handlers';
 import { registerRdrHandlers } from './rdr-handlers';
 import { registerRestartHandlers } from './restart-handlers';
 import { notificationService } from '../notification-service';
@@ -140,6 +141,9 @@ export function setupIpcHandlers(
   // Rate limit wait-and-resume handlers (single account scenario)
   registerRateLimitHandlers(agentManager, getMainWindow);
 
+  // Queue routing handlers (rate limit recovery, profile-aware task distribution)
+  registerQueueRoutingHandlers(agentManager, getMainWindow);
+
   // RDR (Recover Debug Resend) handlers - auto-recovery for stuck/errored tasks
   registerRdrHandlers(agentManager);
 
@@ -181,6 +185,7 @@ export {
   registerProfileHandlers,
   registerScreenshotHandlers,
   registerRateLimitHandlers,
+  registerQueueRoutingHandlers,
   registerRdrHandlers,
   registerRestartHandlers
 };
