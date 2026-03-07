@@ -1378,7 +1378,17 @@ server.tool(
           // qa_signoff as ground truth, not plan.status. Removing onCorrectBoard check prevents the
           // feedback loop: stale status → guard fails → start_requested written → agent starts → Done.
           if (!isStopped && !hasHardError) {
-            console.log(`[MCP] Skipping ${fix.taskId} - QA-approved at 100%, no hard error (status=${qaGuard.status ?? 'unknown'})`);
+            // Route QA-approved task to human_review if on wrong board (no restart, just UI fix)
+            try {
+              const task = projectStore.getTaskBySpecId(projectId, fix.taskId);
+              if (task && task.status !== 'human_review' && task.status !== 'done' && task.status !== 'pr_created') {
+                projectStore.updateTaskStatus(projectId, fix.taskId, 'human_review' as any);
+                console.log(`[MCP] Board routing QA-approved task ${fix.taskId} → human_review (was ${task.status})`);
+              }
+            } catch (routeErr) {
+              console.warn(`[MCP] Board routing failed for QA-approved ${fix.taskId}:`, routeErr);
+            }
+            console.log(`[MCP] Skipping restart for ${fix.taskId} - QA-approved at 100%, no hard error (status=${qaGuard.status ?? 'unknown'})`);
             results.push({ taskId: fix.taskId, success: false, action: 'skipped_complete', priority: 0, error: 'Task QA-approved at 100% — skipping to prevent restart loop' });
             continue;
           }
