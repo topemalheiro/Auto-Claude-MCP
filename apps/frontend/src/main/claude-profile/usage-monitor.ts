@@ -225,6 +225,10 @@ export class UsageMonitor extends EventEmitter {
   private allProfilesUsageCache: Map<string, { usage: ProfileUsageSummary; fetchedAt: number }> = new Map();
   private static PROFILE_USAGE_CACHE_TTL_MS = 60 * 1000; // 1 minute cache for inactive profiles
 
+  // Throttle usage emissions to prevent renderer re-render floods
+  private lastEmitTimestamp = 0;
+  private static EMIT_THROTTLE_MS = 5_000; // Min 5 seconds between emissions
+
   // Debug flag for verbose logging
   private readonly isDebug = process.env.DEBUG === 'true';
 
@@ -239,6 +243,19 @@ export class UsageMonitor extends EventEmitter {
         console.warn(message);
       }
     }
+  }
+
+  /**
+   * Throttled emit for 'usage-updated' — prevents renderer re-render floods.
+   * At most one emission every EMIT_THROTTLE_MS (5s).
+   */
+  private throttledEmitUsage(usage: ClaudeUsageSnapshot): void {
+    const now = Date.now();
+    if (now - this.lastEmitTimestamp < UsageMonitor.EMIT_THROTTLE_MS) {
+      return; // Skip — emitted too recently
+    }
+    this.lastEmitTimestamp = now;
+    this.emit('usage-updated', usage);
   }
 
   private constructor() {
@@ -293,7 +310,8 @@ export class UsageMonitor extends EventEmitter {
     if (this.lastGoodUsage) {
       this.currentUsage = this.lastGoodUsage;
       this.currentUsageProfileId = this.lastGoodUsage.profileId;
-      this.emit('usage-updated', this.lastGoodUsage);
+      this.lastEmitTimestamp = 0; // Force first emit through throttle
+      this.throttledEmitUsage(this.lastGoodUsage);
       this.debugLog('[UsageMonitor] Emitted lastGoodUsage on startup — meter shows data immediately');
     }
 
@@ -958,7 +976,7 @@ export class UsageMonitor extends EventEmitter {
           };
           this.currentUsage = warmStart;
           this.currentUsageProfileId = profileId;
-          this.emit('usage-updated', warmStart);
+          this.throttledEmitUsage(warmStart);
           this.debugLog('[UsageMonitor] Warm-started currentUsage from persisted profile cache');
         }
       }
@@ -968,10 +986,10 @@ export class UsageMonitor extends EventEmitter {
       const usage = await this.fetchUsage(profileId, credential, activeProfile);
       if (!usage) {
         this.debugLog('[UsageMonitor] Failed to fetch usage');
-        // Re-emit best-available data so meter doesn't go gray/stale
+        // Re-emit best-available data so meter doesn't go gray/stale (throttled)
         const bestAvailable = this.currentUsage ?? this.lastGoodUsage;
         if (bestAvailable) {
-          this.emit('usage-updated', bestAvailable);
+          this.throttledEmitUsage(bestAvailable);
         }
         return;
       }
@@ -983,11 +1001,11 @@ export class UsageMonitor extends EventEmitter {
       this.currentUsageProfileId = profileId; // Track which profile this usage belongs to
 
       // Persist last-good usage to disk — survives restarts and 429 gaps
+      // Uses async writeFile to avoid blocking the main Electron event loop
       this.lastGoodUsage = usage;
       try {
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const { writeFileSync } = require('fs');
-        writeFileSync(this.getLastGoodUsagePath(), JSON.stringify(usage), 'utf8');
+        const { writeFile } = require('fs/promises');
+        writeFile(this.getLastGoodUsagePath(), JSON.stringify(usage), 'utf8').catch(() => {});
       } catch {
         // Non-critical — silently ignore
       }
@@ -996,8 +1014,8 @@ export class UsageMonitor extends EventEmitter {
       const profileManager = getClaudeProfileManager();
       profileManager.updateProfileUsageFromAPI(profileId, usage.sessionPercent, usage.weeklyPercent);
 
-      // Step 3: Emit usage update for UI (always emit, regardless of proactive swap settings)
-      this.emit('usage-updated', usage);
+      // Step 3: Emit usage update for UI (throttled to prevent renderer floods)
+      this.throttledEmitUsage(usage);
 
       // Step 3.5: Emit all profiles usage for multi-profile display
       const allProfilesUsage = await this.getAllProfilesUsage();
@@ -1952,20 +1970,31 @@ export class UsageMonitor extends EventEmitter {
     profileId: string,
     profileName: string
   ): Promise<ClaudeUsageSnapshot | null> {
+    // Skip fallback entirely if we already have cached data — avoids double API calls
+    // and redundant I/O that can contribute to main-process stalls under heavy load.
+    if (this.currentUsage) {
+      this.debugLog('[UsageMonitor] CLI fallback: skipped — currentUsage already available');
+      return null;
+    }
+
     // Fallback: read Claude Code's own stored credentials and make a direct API call.
     // This provides a secondary credential source when the primary keychain-based
     // token has expired or when the main API path is in cooldown.
     try {
       const path = require('path');
-      const { readFileSync, existsSync } = require('fs');
+      const { readFile, access } = require('fs/promises');
+      const { constants } = require('fs');
 
       const credPath = path.join(homedir(), '.claude', '.credentials.json');
-      if (!existsSync(credPath)) {
+      try {
+        await access(credPath, constants.R_OK);
+      } catch {
         this.debugLog('[UsageMonitor] CLI fallback: no credentials file at ' + credPath);
         return null;
       }
 
-      const credData = JSON.parse(readFileSync(credPath, 'utf8'));
+      const credRaw = await readFile(credPath, 'utf8');
+      const credData = JSON.parse(credRaw);
       const token = credData?.claudeAiOauth?.accessToken;
       if (!token) {
         this.debugLog('[UsageMonitor] CLI fallback: no access token in credentials file');
