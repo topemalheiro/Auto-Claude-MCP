@@ -939,6 +939,13 @@ export class UsageMonitor extends EventEmitter {
             sessionPercent: cachedUsage.sessionUsagePercent,
             weeklyPercent: cachedUsage.weeklyUsagePercent ?? 0,
             fetchedAt: cachedUsage.lastUpdated ?? new Date(),
+            // Carry over metadata from disk-persisted lastGoodUsage so
+            // hover tooltips show reset times even before first successful API call
+            sessionResetTimestamp: this.lastGoodUsage?.sessionResetTimestamp,
+            weeklyResetTimestamp: this.lastGoodUsage?.weeklyResetTimestamp,
+            usageWindows: this.lastGoodUsage?.usageWindows,
+            sessionResetTime: this.lastGoodUsage?.sessionResetTime,
+            weeklyResetTime: this.lastGoodUsage?.weeklyResetTime,
           };
           this.currentUsage = warmStart;
           this.currentUsageProfileId = profileId;
