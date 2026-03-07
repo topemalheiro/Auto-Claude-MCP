@@ -2372,7 +2372,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
 
     // When turning ON, detect orphaned tasks (active board, no running agent) and start them
     if (checked) {
-      const result = await window.electronAPI.getRunningTasksByProfile();
+      const result = await window.electronAPI.queue.getRunningTasksByProfile();
       if (result.success && result.data) {
         const runningIds = new Set(Object.values(result.data.byProfile).flat());
 
@@ -2542,7 +2542,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
 
     const detectAndResumeOrphans = async () => {
       // Use existing queue API to get running task IDs
-      const result = await window.electronAPI.getRunningTasksByProfile();
+      const result = await window.electronAPI.queue.getRunningTasksByProfile();
       if (!result.success || !result.data) return;
 
       const runningIds = new Set(Object.values(result.data.byProfile).flat());
