@@ -1385,7 +1385,9 @@ server.tool(
           // Hard error or stopped — proceed with recovery despite QA approval
           console.log(`[MCP] ${fix.taskId} QA-approved but recovering (exitReason=${qaGuard.exitReason || 'none'}, stopped=${isStopped})`);
         }
-      } catch { /* proceed if guard check fails */ }
+      } catch (guardErr) {
+        console.warn(`[MCP] QA guard check failed for ${fix.taskId} — proceeding with caution:`, guardErr);
+      }
 
       try {
         let action = '';
@@ -1610,31 +1612,43 @@ Batch Type: ${batchType}
             : existsSync(planPath) ? JSON.parse(readFileSync(planPath, 'utf-8')) : null;
 
           if (routingPlan) {
-            const allSubtasks = (routingPlan.phases || []).flatMap((p: any) => p.subtasks || []);
-            const total = allSubtasks.length;
-            const completed = allSubtasks.filter((s: any) => s.status === 'completed').length;
-
-            let targetBoard: string;
-            if (total === 0) {
-              targetBoard = 'backlog';
-            } else if (completed === total) {
-              targetBoard = 'ai_review';
+            // Second-layer qa_signoff guard: never re-route QA-approved tasks.
+            // This catches the case where the primary guard (line 1372) failed silently
+            // due to JSON parse errors or missing plan files.
+            if (routingPlan.qa_signoff?.status === 'approved') {
+              console.log(`[MCP] Skipping direct board routing for ${fix.taskId} — qa_signoff=approved`);
             } else {
-              const implPhase = (routingPlan.phases || []).find((p: any) => p.name === 'Implementation');
-              const validationPhase = (routingPlan.phases || []).find((p: any) => p.name === 'Validation');
-              const implDone = implPhase?.subtasks?.length > 0 && implPhase.subtasks.every((s: any) => s.status === 'completed');
-              const valIncomplete = validationPhase?.subtasks?.some((s: any) => s.status !== 'completed');
-              targetBoard = (implDone && valIncomplete) ? 'ai_review' : 'in_progress';
-            }
+              const allSubtasks = (routingPlan.phases || []).flatMap((p: any) => p.subtasks || []);
+              const total = allSubtasks.length;
+              const completed = allSubtasks.filter((s: any) => s.status === 'completed').length;
 
-            const task = projectStore.getTaskBySpecId(projectId, fix.taskId);
-            if (task && task.status !== targetBoard) {
-              const routed = projectStore.updateTaskStatus(projectId, fix.taskId, targetBoard as any);
-              if (routed) {
-                console.log(`[MCP] Direct board routing: ${fix.taskId} → ${targetBoard} (was ${task.status})`);
+              let targetBoard: string;
+              if (total === 0) {
+                targetBoard = 'backlog';
+              } else if (completed === total) {
+                targetBoard = 'ai_review';
+              } else {
+                const implPhase = (routingPlan.phases || []).find((p: any) => p.name === 'Implementation');
+                const validationPhase = (routingPlan.phases || []).find((p: any) => p.name === 'Validation');
+                const implDone = implPhase?.subtasks?.length > 0 && implPhase.subtasks.every((s: any) => s.status === 'completed');
+                const valIncomplete = validationPhase?.subtasks?.some((s: any) => s.status !== 'completed');
+                targetBoard = (implDone && valIncomplete) ? 'ai_review' : 'in_progress';
               }
-            } else if (task) {
-              console.log(`[MCP] Task ${fix.taskId} already on correct board (${targetBoard})`);
+
+              const task = projectStore.getTaskBySpecId(projectId, fix.taskId);
+              if (task && task.status !== targetBoard) {
+                // Never route FROM done/pr_created (terminal states) — only route non-terminal tasks
+                if (task.status === 'done' || task.status === 'pr_created') {
+                  console.log(`[MCP] Skipping direct board routing for ${fix.taskId} — already in terminal state (${task.status})`);
+                } else {
+                  const routed = projectStore.updateTaskStatus(projectId, fix.taskId, targetBoard as any);
+                  if (routed) {
+                    console.log(`[MCP] Direct board routing: ${fix.taskId} → ${targetBoard} (was ${task.status})`);
+                  }
+                }
+              } else if (task) {
+                console.log(`[MCP] Task ${fix.taskId} already on correct board (${targetBoard})`);
+              }
             }
           }
         } catch (routeErr) {

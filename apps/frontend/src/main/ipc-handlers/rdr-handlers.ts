@@ -171,10 +171,13 @@ export function isRdrPaused(): boolean {
   return rdrPauseState.paused;
 }
 
-/** Persist pause state to disk so it survives crashes */
+/** Persist pause state to disk so it survives crashes (async to avoid blocking event loop) */
 function persistRdrPauseState(): void {
   try {
-    writeFileSync(RDR_PAUSE_FILE, JSON.stringify(rdrPauseState, null, 2));
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { writeFile } = require('fs/promises');
+    writeFile(RDR_PAUSE_FILE, JSON.stringify(rdrPauseState, null, 2))
+      .catch((writeErr: unknown) => console.error('[RDR] Failed to persist pause state:', writeErr));
   } catch (err) {
     console.error('[RDR] Failed to persist pause state:', err);
   }

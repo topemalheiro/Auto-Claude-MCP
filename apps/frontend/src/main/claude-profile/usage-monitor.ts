@@ -225,9 +225,14 @@ export class UsageMonitor extends EventEmitter {
   private allProfilesUsageCache: Map<string, { usage: ProfileUsageSummary; fetchedAt: number }> = new Map();
   private static PROFILE_USAGE_CACHE_TTL_MS = 60 * 1000; // 1 minute cache for inactive profiles
 
-  // Throttle usage emissions to prevent renderer re-render floods
+  // Throttle usage emissions to prevent renderer re-render floods (trailing-edge debounce)
   private lastEmitTimestamp = 0;
   private static EMIT_THROTTLE_MS = 5_000; // Min 5 seconds between emissions
+  private pendingUsage: ClaudeUsageSnapshot | null = null;
+  private pendingEmitTimer: ReturnType<typeof setTimeout> | null = null;
+
+  // Track last RDR notification state to avoid redundant pauseRdr/warnRdr calls
+  private lastRdrNotificationState: 'none' | 'warning' | 'paused' = 'none';
 
   // Debug flag for verbose logging
   private readonly isDebug = process.env.DEBUG === 'true';
@@ -246,16 +251,116 @@ export class UsageMonitor extends EventEmitter {
   }
 
   /**
-   * Throttled emit for 'usage-updated' — prevents renderer re-render floods.
-   * At most one emission every EMIT_THROTTLE_MS (5s).
+   * Trailing-edge debounced emit for 'usage-updated'.
+   * Emits immediately if enough time has passed, otherwise schedules the latest
+   * value to be emitted after the cooldown. Never silently drops the latest update.
    */
   private throttledEmitUsage(usage: ClaudeUsageSnapshot): void {
+    this.pendingUsage = usage;
     const now = Date.now();
-    if (now - this.lastEmitTimestamp < UsageMonitor.EMIT_THROTTLE_MS) {
-      return; // Skip — emitted too recently
+
+    if (now - this.lastEmitTimestamp >= UsageMonitor.EMIT_THROTTLE_MS) {
+      // Enough time passed — emit immediately
+      this.clearPendingEmit();
+      this.lastEmitTimestamp = now;
+      this.emit('usage-updated', usage);
+    } else if (!this.pendingEmitTimer) {
+      // Schedule trailing emission so the latest value is never lost
+      const remaining = UsageMonitor.EMIT_THROTTLE_MS - (now - this.lastEmitTimestamp);
+      this.pendingEmitTimer = setTimeout(() => {
+        this.pendingEmitTimer = null;
+        if (this.pendingUsage) {
+          this.lastEmitTimestamp = Date.now();
+          const toEmit = this.pendingUsage;
+          this.pendingUsage = null;
+          this.emit('usage-updated', toEmit);
+        }
+      }, remaining);
     }
-    this.lastEmitTimestamp = now;
-    this.emit('usage-updated', usage);
+  }
+
+  /** Cancel any scheduled trailing emission */
+  private clearPendingEmit(): void {
+    if (this.pendingEmitTimer) {
+      clearTimeout(this.pendingEmitTimer);
+      this.pendingEmitTimer = null;
+    }
+    this.pendingUsage = null;
+  }
+
+  /**
+   * If a cached snapshot's reset timestamps have passed, zero out the stale percentages.
+   * Returns a new snapshot (immutable) with corrected values, or the original if still valid.
+   */
+  private expireStaleUsage(cached: ClaudeUsageSnapshot): ClaudeUsageSnapshot {
+    const now = Date.now();
+    let sessionPct = cached.sessionPercent;
+    let weeklyPct = cached.weeklyPercent;
+
+    // If session reset time has passed, the 5-hour window rolled over — usage is ~0%
+    if (cached.sessionResetTimestamp) {
+      const resetMs = new Date(cached.sessionResetTimestamp).getTime();
+      if (Number.isFinite(resetMs) && resetMs <= now) {
+        sessionPct = 0;
+      }
+    }
+
+    // If weekly reset time has passed, the weekly window rolled over — usage is ~0%
+    if (cached.weeklyResetTimestamp) {
+      const resetMs = new Date(cached.weeklyResetTimestamp).getTime();
+      if (Number.isFinite(resetMs) && resetMs <= now) {
+        weeklyPct = 0;
+      }
+    }
+
+    if (sessionPct === cached.sessionPercent && weeklyPct === cached.weeklyPercent) {
+      return cached; // No change — still valid
+    }
+
+    console.log(`[UsageMonitor] Expired stale cached usage: session ${cached.sessionPercent}%→${sessionPct}%, weekly ${cached.weeklyPercent}%→${weeklyPct}%`);
+    return { ...cached, sessionPercent: sessionPct, weeklyPercent: weeklyPct };
+  }
+
+  /**
+   * Proactively check usage thresholds and notify RDR system.
+   * Called after every successful fetch and on expired startup data.
+   * Ensures orange text appears at 80%+ and RDR pauses at 100% regardless
+   * of whether task agents or RDR processing are active.
+   */
+  private checkRdrThresholds(usage: ClaudeUsageSnapshot): void {
+    try {
+      // Lazy import to avoid circular dependency at module load time
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { pauseRdr, warnRdr, resumeRdr } = require('../ipc-handlers/rdr-handlers');
+
+      const sessionPct = usage.sessionPercent;
+      const weeklyPct = usage.weeklyPercent;
+      const bindingPct = Math.max(sessionPct, weeklyPct);
+
+      // Determine reset timestamp for the binding constraint
+      const resetTimestamp = weeklyPct > sessionPct
+        ? (usage.weeklyResetTimestamp ? new Date(usage.weeklyResetTimestamp).getTime() : Date.now() + 7 * 24 * 60 * 60 * 1000)
+        : (usage.sessionResetTimestamp ? new Date(usage.sessionResetTimestamp).getTime() : Date.now() + 5 * 60 * 60 * 1000);
+
+      if (bindingPct >= 100 && this.lastRdrNotificationState !== 'paused') {
+        const reason = weeklyPct > sessionPct
+          ? `Weekly at ${weeklyPct}% (resets ${usage.weeklyResetTime || 'in ~7 days'})`
+          : `Session at ${sessionPct}% (resets ${usage.sessionResetTime || 'in ~5h'})`;
+        pauseRdr(reason, resetTimestamp);
+        this.lastRdrNotificationState = 'paused';
+      } else if (bindingPct >= 80 && bindingPct < 100 && this.lastRdrNotificationState !== 'warning') {
+        const reason = weeklyPct > sessionPct
+          ? `Weekly at ${weeklyPct}%`
+          : `Session at ${sessionPct}%`;
+        warnRdr(reason, resetTimestamp);
+        this.lastRdrNotificationState = 'warning';
+      } else if (bindingPct < 80 && this.lastRdrNotificationState !== 'none') {
+        resumeRdr('Usage dropped below 80%');
+        this.lastRdrNotificationState = 'none';
+      }
+    } catch (err) {
+      this.debugLog('[UsageMonitor] checkRdrThresholds error:', err);
+    }
   }
 
   private constructor() {
@@ -306,12 +411,15 @@ export class UsageMonitor extends EventEmitter {
     }
 
     // Emit lastGoodUsage immediately so meter shows data before first API call.
-    // This prevents 0%|0% on startup when the API is rate-limited (429).
+    // Expire stale percentages first — if the 5h/weekly window has reset since last save,
+    // the meter should show ~0% instead of the old 100%.
     if (this.lastGoodUsage) {
-      this.currentUsage = this.lastGoodUsage;
-      this.currentUsageProfileId = this.lastGoodUsage.profileId;
+      const fresh = this.expireStaleUsage(this.lastGoodUsage);
+      this.currentUsage = fresh;
+      this.currentUsageProfileId = fresh.profileId;
       this.lastEmitTimestamp = 0; // Force first emit through throttle
-      this.throttledEmitUsage(this.lastGoodUsage);
+      this.throttledEmitUsage(fresh);
+      this.checkRdrThresholds(fresh); // Proactively clear stale pause state if usage expired to 0%
       this.debugLog('[UsageMonitor] Emitted lastGoodUsage on startup — meter shows data immediately');
     }
 
@@ -333,6 +441,7 @@ export class UsageMonitor extends EventEmitter {
       this.intervalId = null;
       this.debugLog('[UsageMonitor] Stopped');
     }
+    this.clearPendingEmit();
   }
 
   /**
@@ -974,9 +1083,10 @@ export class UsageMonitor extends EventEmitter {
             sessionResetTime: this.lastGoodUsage?.sessionResetTime,
             weeklyResetTime: this.lastGoodUsage?.weeklyResetTime,
           };
-          this.currentUsage = warmStart;
+          const expired = this.expireStaleUsage(warmStart);
+          this.currentUsage = expired;
           this.currentUsageProfileId = profileId;
-          this.throttledEmitUsage(warmStart);
+          this.throttledEmitUsage(expired);
           this.debugLog('[UsageMonitor] Warm-started currentUsage from persisted profile cache');
         }
       }
@@ -986,10 +1096,13 @@ export class UsageMonitor extends EventEmitter {
       const usage = await this.fetchUsage(profileId, credential, activeProfile);
       if (!usage) {
         this.debugLog('[UsageMonitor] Failed to fetch usage');
-        // Re-emit best-available data so meter doesn't go gray/stale (throttled)
+        // Re-emit best-available data so meter doesn't go gray/stale (throttled).
+        // Expire stale percentages first — if session has reset, show ~0% not old 100%.
         const bestAvailable = this.currentUsage ?? this.lastGoodUsage;
         if (bestAvailable) {
-          this.throttledEmitUsage(bestAvailable);
+          const fresh = this.expireStaleUsage(bestAvailable);
+          this.currentUsage = fresh;
+          this.throttledEmitUsage(fresh);
         }
         return;
       }
@@ -1016,6 +1129,11 @@ export class UsageMonitor extends EventEmitter {
 
       // Step 3: Emit usage update for UI (throttled to prevent renderer floods)
       this.throttledEmitUsage(usage);
+
+      // Step 3.1: Proactively check usage thresholds and notify RDR system.
+      // This ensures orange text appears at 80%+ and RDR pauses at 100% even
+      // when no task agents are running and no RDR tasks need processing.
+      this.checkRdrThresholds(usage);
 
       // Step 3.5: Emit all profiles usage for multi-profile display
       const allProfilesUsage = await this.getAllProfilesUsage();
