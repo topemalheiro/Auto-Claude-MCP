@@ -1382,7 +1382,7 @@ export class UsageMonitor extends EventEmitter {
   ): ClaudeUsageSnapshot | null {
     try {
       if (provider === 'anthropic') {
-        return this.normalizeAnthropicUsage(data, profileId, profileName, profileEmail);
+        return this.normalizeAnthropicResponse(data, profileId, profileName, profileEmail);
       }
       if (provider === 'zai' || provider === 'zhipu') {
         const inner = data.data ?? data;
@@ -1518,14 +1518,13 @@ export class UsageMonitor extends EventEmitter {
           endpoint: usageEndpoint
         });
 
-        // 429 = usage API itself is rate-limited. This strongly correlates with
-        // the account being at its session limit. Try to extract data from the
-        // 429 body; if unavailable, conservatively report 100% session usage.
+        // 429 from usage API = polling too fast, NOT session limit reached.
+        // Try to extract real data from body; if unavailable, return null
+        // and let warm-start / lastGoodUsage handle the display.
         if (response.status === 429) {
           let bodyData: any;
           try { bodyData = await response.json(); } catch { /* ignore parse failure */ }
 
-          // Some providers include usage data even in 429 responses
           if (bodyData) {
             const parsed = this.tryNormalizeResponse(bodyData, profileId, profileName, profileEmail, provider);
             if (parsed) {
@@ -1534,22 +1533,8 @@ export class UsageMonitor extends EventEmitter {
             }
           }
 
-          // No usable data in 429 body — synthesize 100% session usage
-          // This prevents the meter from showing a stale lower value
-          console.warn('[UsageMonitor] 429 from usage API — reporting 100% session usage');
-          const lastGood = this.currentUsage ?? this.lastGoodUsage;
-          return {
-            sessionPercent: 100,
-            weeklyPercent: lastGood?.weeklyPercent ?? 0,
-            profileId,
-            profileName,
-            profileEmail,
-            fetchedAt: new Date(),
-            limitType: 'session',
-            sessionResetTimestamp: lastGood?.sessionResetTimestamp,
-            weeklyResetTimestamp: lastGood?.weeklyResetTimestamp,
-            usageWindows: lastGood?.usageWindows,
-          };
+          this.debugLog('[UsageMonitor] 429 from usage API — no usable body data, returning null');
+          return null;
         }
 
         // Check for auth failures via status code (works for all providers)
