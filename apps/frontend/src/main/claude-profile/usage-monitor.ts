@@ -288,6 +288,15 @@ export class UsageMonitor extends EventEmitter {
       // Non-critical — silently ignore
     }
 
+    // Emit lastGoodUsage immediately so meter shows data before first API call.
+    // This prevents 0%|0% on startup when the API is rate-limited (429).
+    if (this.lastGoodUsage) {
+      this.currentUsage = this.lastGoodUsage;
+      this.currentUsageProfileId = this.lastGoodUsage.profileId;
+      this.emit('usage-updated', this.lastGoodUsage);
+      this.debugLog('[UsageMonitor] Emitted lastGoodUsage on startup — meter shows data immediately');
+    }
+
     // Check immediately
     this.checkUsageAndSwap();
 
@@ -959,6 +968,11 @@ export class UsageMonitor extends EventEmitter {
       const usage = await this.fetchUsage(profileId, credential, activeProfile);
       if (!usage) {
         this.debugLog('[UsageMonitor] Failed to fetch usage');
+        // Re-emit best-available data so meter doesn't go gray/stale
+        const bestAvailable = this.currentUsage ?? this.lastGoodUsage;
+        if (bestAvailable) {
+          this.emit('usage-updated', bestAvailable);
+        }
         return;
       }
 
@@ -1935,14 +1949,55 @@ export class UsageMonitor extends EventEmitter {
    * which is complex. For now, we rely on the API method.
    */
   private async fetchUsageViaCLI(
-    _profileId: string,
-    _profileName: string
+    profileId: string,
+    profileName: string
   ): Promise<ClaudeUsageSnapshot | null> {
-    // CLI-based usage fetching is not implemented yet.
-    // The API method should handle most cases. If we need CLI fallback,
-    // we would need to spawn a Claude process with /usage command and parse the output.
-    this.debugLog('[UsageMonitor] CLI fallback not implemented, API method should be used');
-    return null;
+    // Fallback: read Claude Code's own stored credentials and make a direct API call.
+    // This provides a secondary credential source when the primary keychain-based
+    // token has expired or when the main API path is in cooldown.
+    try {
+      const path = require('path');
+      const { readFileSync, existsSync } = require('fs');
+
+      const credPath = path.join(homedir(), '.claude', '.credentials.json');
+      if (!existsSync(credPath)) {
+        this.debugLog('[UsageMonitor] CLI fallback: no credentials file at ' + credPath);
+        return null;
+      }
+
+      const credData = JSON.parse(readFileSync(credPath, 'utf8'));
+      const token = credData?.claudeAiOauth?.accessToken;
+      if (!token) {
+        this.debugLog('[UsageMonitor] CLI fallback: no access token in credentials file');
+        return null;
+      }
+
+      // Make a direct API call with the Claude Code credential
+      const response = await fetch('https://api.anthropic.com/api/oauth/usage', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'anthropic-beta': 'oauth-2025-04-20',
+          'anthropic-version': '2023-06-01',
+        },
+      });
+
+      if (!response.ok) {
+        this.debugLog('[UsageMonitor] CLI fallback: API returned ' + response.status);
+        return null;
+      }
+
+      const rawData = await response.json();
+      const normalized = this.normalizeAnthropicResponse(rawData, profileId, profileName, undefined);
+      if (normalized) {
+        this.debugLog('[UsageMonitor] CLI fallback: successfully fetched usage via Claude Code credentials');
+      }
+      return normalized;
+    } catch (error) {
+      this.debugLog('[UsageMonitor] CLI fallback failed:', error);
+      return null;
+    }
   }
 
   /**
