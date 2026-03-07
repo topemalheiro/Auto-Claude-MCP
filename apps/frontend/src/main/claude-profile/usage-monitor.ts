@@ -1376,6 +1376,24 @@ export class UsageMonitor extends EventEmitter {
    * @param activeProfile - Optional pre-determined active profile info to avoid race conditions
    * @returns Normalized usage snapshot or null on failure
    */
+  private tryNormalizeResponse(
+    data: any, profileId: string, profileName: string,
+    profileEmail: string | undefined, provider: ApiProvider
+  ): ClaudeUsageSnapshot | null {
+    try {
+      if (provider === 'anthropic') {
+        return this.normalizeAnthropicUsage(data, profileId, profileName, profileEmail);
+      }
+      if (provider === 'zai' || provider === 'zhipu') {
+        const inner = data.data ?? data;
+        return this.normalizeQuotaLimitResponse(inner, profileId, profileName, profileEmail, provider);
+      }
+    } catch {
+      // Normalization failed — caller handles fallback
+    }
+    return null;
+  }
+
   private async fetchUsageViaAPI(
     credential: string,
     profileId: string,
@@ -1499,6 +1517,40 @@ export class UsageMonitor extends EventEmitter {
           provider,
           endpoint: usageEndpoint
         });
+
+        // 429 = usage API itself is rate-limited. This strongly correlates with
+        // the account being at its session limit. Try to extract data from the
+        // 429 body; if unavailable, conservatively report 100% session usage.
+        if (response.status === 429) {
+          let bodyData: any;
+          try { bodyData = await response.json(); } catch { /* ignore parse failure */ }
+
+          // Some providers include usage data even in 429 responses
+          if (bodyData) {
+            const parsed = this.tryNormalizeResponse(bodyData, profileId, profileName, profileEmail, provider);
+            if (parsed) {
+              this.debugLog('[UsageMonitor] Extracted usage data from 429 response body');
+              return parsed;
+            }
+          }
+
+          // No usable data in 429 body — synthesize 100% session usage
+          // This prevents the meter from showing a stale lower value
+          console.warn('[UsageMonitor] 429 from usage API — reporting 100% session usage');
+          const lastGood = this.currentUsage ?? this.lastGoodUsage;
+          return {
+            sessionPercent: 100,
+            weeklyPercent: lastGood?.weeklyPercent ?? 0,
+            profileId,
+            profileName,
+            profileEmail,
+            fetchedAt: new Date(),
+            limitType: 'session',
+            sessionResetTimestamp: lastGood?.sessionResetTimestamp,
+            weeklyResetTimestamp: lastGood?.weeklyResetTimestamp,
+            usageWindows: lastGood?.usageWindows,
+          };
+        }
 
         // Check for auth failures via status code (works for all providers)
         if (response.status === 401 || response.status === 403) {
