@@ -19,7 +19,7 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy
 } from '@dnd-kit/sortable';
-import { Plus, Inbox, Loader2, Eye, CheckCircle2, Archive, RefreshCw, GitPullRequest, X, Settings, ListPlus, ChevronLeft, ChevronRight, ChevronsRight, Lock, Unlock, Trash2, Zap, ShieldOff, Shield, Clock } from 'lucide-react';
+import { Plus, Inbox, Loader2, Eye, CheckCircle2, Archive, RefreshCw, GitPullRequest, X, Settings, ListPlus, ChevronLeft, ChevronRight, ChevronsRight, Lock, Unlock, Trash2, Zap, ShieldOff, Shield, Clock, Pause, Play } from 'lucide-react';
 import { Checkbox } from './ui/checkbox';
 import { ScrollArea } from './ui/scroll-area';
 import { Button } from './ui/button';
@@ -32,7 +32,7 @@ import { QueueSettingsModal } from './QueueSettingsModal';
 import { TASK_STATUS_COLUMNS, TASK_STATUS_LABELS } from '../../shared/constants';
 import { debugLog } from '../../shared/utils/debug-logger';
 import { cn } from '../lib/utils';
-import { persistTaskStatus, forceCompleteTask, archiveTasks, deleteTasks, useTaskStore, isQueueAtCapacity, DEFAULT_MAX_PARALLEL_TASKS, startTask } from '../stores/task-store';
+import { persistTaskStatus, forceCompleteTask, archiveTasks, deleteTasks, useTaskStore, isQueueAtCapacity, DEFAULT_MAX_PARALLEL_TASKS, startTask, stopTask } from '../stores/task-store';
 import { updateProjectSettings, useProjectStore } from '../stores/project-store';
 import { useKanbanSettingsStore, DEFAULT_COLUMN_WIDTH, MIN_COLUMN_WIDTH, MAX_COLUMN_WIDTH, COLLAPSED_COLUMN_WIDTH_REM, MIN_COLUMN_WIDTH_REM, MAX_COLUMN_WIDTH_REM, BASE_FONT_SIZE, pxToRem } from '../stores/kanban-settings-store';
 import { useSettingsStore } from '../stores/settings-store';
@@ -1153,6 +1153,8 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
    * Promotes multiple tasks if needed (e.g., after bulk queue)
    */
   const processQueue = useCallback(async () => {
+    if (allPaused) return;
+
     // Check RDR status for held-slot capacity calculations
     const rdrProject = useProjectStore.getState().getActiveProject();
     const rdrActive = rdrProject?.settings?.rdrEnabled ?? false;
@@ -1342,7 +1344,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     } finally {
       isProcessingQueueRef.current = false;
     }
-  }, [maxParallelTasks, projectId, onRefresh]);
+  }, [allPaused, maxParallelTasks, projectId, onRefresh]);
 
   // Register task status change listener for queue auto-promotion and held-slot tracking
   // Failed tasks (in_progress → human_review with errors) hold their slot in heldSlotIdsRef.
@@ -1724,6 +1726,9 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   // Per-project settings for auto-resume and RDR
   const autoResumeEnabled = currentProject?.settings?.autoResumeAfterRateLimit ?? false;
   const rdrEnabled = currentProject?.settings?.rdrEnabled ?? false;
+
+  // Pause All state — stops all agents and prevents queue/auto-resume from starting new ones
+  const [allPaused, setAllPaused] = useState(false);
 
   // VS Code window state for RDR direct sending
   const [vsCodeWindows, setVsCodeWindows] = useState<Array<{ handle: number; title: string; processId: number }>>([]);
@@ -2402,6 +2407,40 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     }
   };
 
+  // Handle Pause All / Resume All — stops every running agent, prevents queue and auto-resume
+  const handlePauseResumeAll = useCallback(async () => {
+    if (!currentProject) return;
+
+    if (!allPaused) {
+      // PAUSE ALL: Stop every running agent
+      const result = await window.electronAPI.queue.getRunningTasksByProfile();
+      if (result.success && result.data) {
+        const runningIds = Object.values(result.data.byProfile).flat();
+        for (const taskId of runningIds) {
+          stopTask(taskId);
+        }
+        console.log(`[PauseAll] Stopped ${runningIds.length} running tasks`);
+      }
+      setAllPaused(true);
+    } else {
+      // RESUME ALL: Restart orphaned tasks (same logic as auto-resume toggle ON)
+      const result = await window.electronAPI.queue.getRunningTasksByProfile();
+      if (result.success && result.data) {
+        const runningIds = new Set(Object.values(result.data.byProfile).flat());
+        const orphanedTasks = tasks.filter(task =>
+          (task.status === 'in_progress' || task.status === 'ai_review') &&
+          !runningIds.has(task.id) &&
+          task.reviewReason !== 'errors'
+        );
+        const capacity = Math.max(0, maxParallelTasks - result.data.totalRunning);
+        const toStart = orphanedTasks.slice(0, capacity);
+        await Promise.all(toStart.map(task => startTaskWithRetry(task.id)));
+        console.log(`[ResumeAll] Restarted ${toStart.length}/${orphanedTasks.length} tasks`);
+      }
+      setAllPaused(false);
+    }
+  }, [allPaused, currentProject, tasks, maxParallelTasks, startTaskWithRetry]);
+
   // Handle RDR (Recover Debug Resend) toggle - when enabled, process stuck/errored tasks
   const handleRdrToggle = async (checked: boolean) => {
     // Update per-project setting
@@ -2538,7 +2577,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   // Auto-resume on mount/reconnect if toggle is already ON
   // Detects orphaned tasks (on active boards but no running agent) and auto-starts them
   useEffect(() => {
-    if (!autoResumeEnabled || tasks.length === 0) return;
+    if (!autoResumeEnabled || allPaused || tasks.length === 0) return;
 
     const detectAndResumeOrphans = async () => {
       // Use existing queue API to get running task IDs
@@ -2577,7 +2616,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     // 3s delay to let agents initialize on fresh startup
     const timer = setTimeout(detectAndResumeOrphans, 3000);
     return () => clearTimeout(timer);
-  }, [autoResumeEnabled, tasks, startTaskWithRetry, maxParallelTasks]);
+  }, [autoResumeEnabled, allPaused, tasks, startTaskWithRetry, maxParallelTasks]);
 
   // Clear the auto-resumed set when toggle is turned OFF (so tasks can be resumed again when turned ON)
   useEffect(() => {
@@ -2625,6 +2664,36 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
               </TooltipTrigger>
               <TooltipContent side="bottom" className="max-w-xs">
                 <p>{t('kanban.autoResumeTooltip')}</p>
+              </TooltipContent>
+            </Tooltip>
+
+            {/* Pause All / Resume All button */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={allPaused ? "default" : "outline"}
+                  size="sm"
+                  onClick={handlePauseResumeAll}
+                  className={cn(
+                    "h-7 px-2 text-xs gap-1",
+                    allPaused && "bg-orange-600 hover:bg-orange-700 text-white"
+                  )}
+                >
+                  {allPaused ? (
+                    <>
+                      <Play className="h-3 w-3" />
+                      {t('kanban.resumeAll')}
+                    </>
+                  ) : (
+                    <>
+                      <Pause className="h-3 w-3" />
+                      {t('kanban.pauseAll')}
+                    </>
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <p>{allPaused ? t('kanban.resumeAllTooltip') : t('kanban.pauseAllTooltip')}</p>
               </TooltipContent>
             </Tooltip>
 
