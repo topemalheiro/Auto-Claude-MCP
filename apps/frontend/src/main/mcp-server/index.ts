@@ -700,26 +700,16 @@ server.tool(
       // Read plan
       const plan = JSON.parse(readFileSync(planPath, 'utf-8'));
 
-      // COMPLETION GUARD: Don't restart QA-approved tasks at 100%
-      // Only check MAIN plan — worktree qa_signoff may be premature (QA agent wrote
-      // approval before rate limit killed the session). Main plan is authoritative.
-      // Exception: reviewReason=stopped means user explicitly stopped — always allow recovery
-      const checkQaComplete = (planData: any): boolean => {
-        if (planData.reviewReason === 'stopped') return false;
-        const allSubtasks = (planData.phases || []).flatMap((p: any) => p.subtasks || []);
-        const total = allSubtasks.length;
-        const completed = allSubtasks.filter((s: any) => s.status === 'completed').length;
-        return planData.qa_signoff?.status === 'approved' && total > 0 && completed === total;
-      };
-
-      if (checkQaComplete(plan)) {
+      // COMPLETION GUARD: Only skip if task is genuinely done (status=done/pr_created).
+      // QA approval on any other board means premature — agent died before pipeline completed.
+      if ((plan.status === 'done' || plan.status === 'pr_created') && plan.qa_signoff?.status === 'approved') {
         return {
           content: [{
             type: 'text' as const,
             text: JSON.stringify({
               success: false,
               taskId,
-              error: 'Task is QA-approved at 100% — already complete. Recovery would restart a finished task.',
+              error: 'Task genuinely done — recovery not needed.',
               qaSignoff: plan.qa_signoff?.status
             }, null, 2)
           }]
@@ -986,30 +976,22 @@ server.tool(
       };
     }
 
-    // COMPLETION GUARD: Don't restart QA-approved tasks at 100%
-    // Only check MAIN plan — worktree qa_signoff may be premature (QA agent wrote
-    // approval before rate limit killed the session). Main plan is authoritative.
-    // Exception: reviewReason=stopped means user explicitly stopped — always allow fix request
-    const checkQaComplete = (planData: any): boolean => {
-      if (planData.reviewReason === 'stopped') return false;
-      const allSubtasks = (planData.phases || []).flatMap((p: any) => p.subtasks || []);
-      const total = allSubtasks.length;
-      const completed = allSubtasks.filter((s: any) => s.status === 'completed').length;
-      return planData.qa_signoff?.status === 'approved' && total > 0 && completed === total;
-    };
+    // COMPLETION GUARD: Only skip if task is genuinely done (status=done/pr_created).
+    // QA approval on any other board means premature — agent died before pipeline completed.
     try {
-      let qaComplete = false;
+      let isGenuinelyDone = false;
       if (existsSync(planPath)) {
-        qaComplete = checkQaComplete(JSON.parse(readFileSync(planPath, 'utf-8')));
+        const planData = JSON.parse(readFileSync(planPath, 'utf-8'));
+        isGenuinelyDone = (planData.status === 'done' || planData.status === 'pr_created') && planData.qa_signoff?.status === 'approved';
       }
-      if (qaComplete) {
+      if (isGenuinelyDone) {
         return {
           content: [{
             type: 'text' as const,
             text: JSON.stringify({
               success: false,
               taskId,
-              error: 'Task is QA-approved at 100% — already complete. Fix request would restart a finished task.'
+              error: 'Task genuinely done — fix request not needed.'
             }, null, 2)
           }]
         };
@@ -1357,31 +1339,33 @@ server.tool(
         }
 
         if (qaGuard.qaApproved) {
-          // User stopped this task — always allow recovery regardless of QA status
-          const isStopped = qaGuard.reviewReason === 'stopped';
-          const hasHardError = qaGuard.exitReason === 'error' || qaGuard.exitReason === 'auth_failure';
-          // qa_signoff=approved = task fully validated. Never restart regardless of board position.
-          // plan.status may be stale (e.g., 'start_requested' from a previous batch run) — trust
-          // qa_signoff as ground truth, not plan.status. Removing onCorrectBoard check prevents the
-          // feedback loop: stale status → guard fails → start_requested written → agent starts → Done.
-          if (!isStopped && !hasHardError) {
-            // Route QA-approved task to human_review if on wrong board (no restart, just UI fix)
-            try {
-              const task = projectStore.getTaskBySpecId(projectId, fix.taskId);
-              if (task && task.status !== 'human_review' && task.status !== 'done' && task.status !== 'pr_created') {
-                projectStore.updateTaskStatus(projectId, fix.taskId, 'human_review' as any);
-                console.log(`[MCP] Board routing QA-approved task ${fix.taskId} → human_review (was ${task.status})`);
-                notifyRendererTaskRefresh(projectId);
-              }
-            } catch (routeErr) {
-              console.warn(`[MCP] Board routing failed for QA-approved ${fix.taskId}:`, routeErr);
-            }
-            console.log(`[MCP] Skipping restart for ${fix.taskId} - QA-approved at 100%, no hard error (status=${qaGuard.status ?? 'unknown'})`);
-            results.push({ taskId: fix.taskId, success: false, action: 'skipped_complete', priority: 0, error: 'Task QA-approved at 100% — skipping to prevent restart loop' });
+          const status = qaGuard.status ?? 'unknown';
+          // Terminal states → skip entirely
+          if (status === 'done' || status === 'pr_created') {
+            console.log(`[MCP] Skipping ${fix.taskId} — genuinely done (status=${status})`);
+            results.push({ taskId: fix.taskId, success: false, action: 'skipped_complete', priority: 0, error: 'Task genuinely done — skipping' });
             continue;
           }
-          // Hard error or stopped — proceed with recovery despite QA approval
-          console.log(`[MCP] ${fix.taskId} QA-approved but recovering (exitReason=${qaGuard.exitReason || 'none'}, stopped=${isStopped})`);
+          // Already on human_review → correct board, skip (user reviews before done)
+          if (status === 'human_review') {
+            console.log(`[MCP] Skipping ${fix.taskId} — QA-approved on human_review, awaiting user review`);
+            results.push({ taskId: fix.taskId, success: false, action: 'skipped_complete', priority: 0, error: 'QA-approved on human_review — awaiting user review' });
+            continue;
+          }
+          // Wrong board (ai_review, in_progress, backlog, etc.) → route to human_review
+          console.log(`[MCP] ${fix.taskId} QA-approved but on wrong board (${status}) — routing to human_review`);
+          try {
+            const task = projectStore.getTaskBySpecId(projectId, fix.taskId);
+            if (task) {
+              projectStore.updateTaskStatus(projectId, fix.taskId, 'human_review' as any);
+              notifyRendererTaskRefresh(projectId);
+              console.log(`[MCP] Board routing: ${fix.taskId} → human_review (was ${status})`);
+            }
+          } catch (routeErr) {
+            console.warn(`[MCP] Board routing failed for QA-approved ${fix.taskId}:`, routeErr);
+          }
+          results.push({ taskId: fix.taskId, success: true, action: 'routed_to_human_review', priority: 1 });
+          continue;
         }
       } catch (guardErr) {
         console.warn(`[MCP] QA guard check failed for ${fix.taskId} — proceeding with caution:`, guardErr);
@@ -1619,11 +1603,17 @@ Batch Type: ${batchType}
             : existsSync(planPath) ? JSON.parse(readFileSync(planPath, 'utf-8')) : null;
 
           if (routingPlan) {
-            // Second-layer qa_signoff guard: never re-route QA-approved tasks.
-            // This catches the case where the primary guard (line 1372) failed silently
-            // due to JSON parse errors or missing plan files.
+            // Second-layer qa_signoff guard: route QA-approved to human_review (not restart).
+            // This catches the case where the primary guard failed silently.
             if (routingPlan.qa_signoff?.status === 'approved') {
-              console.log(`[MCP] Skipping direct board routing for ${fix.taskId} — qa_signoff=approved`);
+              const task = projectStore.getTaskBySpecId(projectId, fix.taskId);
+              if (task && task.status !== 'human_review' && task.status !== 'done' && task.status !== 'pr_created') {
+                projectStore.updateTaskStatus(projectId, fix.taskId, 'human_review' as any);
+                notifyRendererTaskRefresh(projectId);
+                console.log(`[MCP] Second-layer: routed QA-approved ${fix.taskId} → human_review (was ${task.status})`);
+              } else {
+                console.log(`[MCP] Second-layer: ${fix.taskId} QA-approved already on correct board (${task?.status})`);
+              }
             } else {
               const allSubtasks = (routingPlan.phases || []).flatMap((p: any) => p.subtasks || []);
               const total = allSubtasks.length;

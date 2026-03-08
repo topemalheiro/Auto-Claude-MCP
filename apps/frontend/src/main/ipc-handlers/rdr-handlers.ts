@@ -431,6 +431,22 @@ function calculateTaskProgress(task: TaskInfo): number {
  * Path: <project>/.auto-claude/worktrees/tasks/<taskId>/.auto-claude/specs/<taskId>/implementation_plan.json
  */
 function enrichTaskWithWorktreeData(task: TaskInfo, projectPath: string): TaskInfo {
+  // Read qa_signoff from MAIN plan file (authoritative for completion status).
+  // projectStore.loadTasksFromSpecsDir() doesn't extract this field, so task.qaSignoff
+  // is always undefined unless we read it here.
+  const mainPlanPath = path.join(
+    projectPath, '.auto-claude', 'specs', task.specId, 'implementation_plan.json'
+  );
+  try {
+    if (existsSync(mainPlanPath)) {
+      const mainPlan = JSON.parse(readFileSync(mainPlanPath, 'utf-8'));
+      const mainQaSignoff = mainPlan.qa_signoff?.status as string | undefined;
+      if (mainQaSignoff) {
+        task = { ...task, qaSignoff: mainQaSignoff };
+      }
+    }
+  } catch { /* ignore parse errors — main plan may be corrupted */ }
+
   const worktreePlanPath = path.join(
     projectPath, '.auto-claude', 'worktrees', 'tasks', task.specId,
     '.auto-claude', 'specs', task.specId, 'implementation_plan.json'
