@@ -946,18 +946,17 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
 
     const newDisabled = !allSelectedRdrDisabled;
     const taskIds = Array.from(selectedTaskIds);
-    let successCount = 0;
 
-    for (const taskId of taskIds) {
-      const result = await window.electronAPI.toggleTaskRdr(taskId, newDisabled);
-      if (result.success) successCount++;
-    }
+    // Parallel IPC calls instead of sequential (prevents freeze on 60+ tasks)
+    const results = await Promise.all(
+      taskIds.map(taskId => window.electronAPI.toggleTaskRdr(taskId, newDisabled))
+    );
+    const successCount = results.filter(r => r.success).length;
 
     if (successCount > 0) {
       toast({
         title: `RDR ${newDisabled ? 'disabled' : 'enabled'} for ${successCount} task${successCount > 1 ? 's' : ''}`,
       });
-      // Trigger refresh to update task cards
       onRefresh?.();
     }
   }, [selectedTaskIds, allSelectedRdrDisabled, toast, onRefresh]);
@@ -1740,7 +1739,6 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   // → useEffect re-runs → new 5s startup timer → unnecessary send attempts (same pattern as queueBlockedRef)
   const rdrMessageInFlightRef = useRef(false);
   const rdrIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const rdrSkipBusyCheckRef = useRef(false); // Only skip when idle event fires (proven idle)
   const RDR_INTERVAL_MS = 30000; // 30 seconds fallback polling
   const RDR_IN_FLIGHT_TIMEOUT_MS = 120000; // 2 min safety net (activity monitor handles session death sooner)
   const lastRdrSendTimestampRef = useRef<number>(0); // rate limit fallback polls (2-min min interval)
@@ -2104,29 +2102,23 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     // Use window handle for stable matching (title changes when user switches editor tabs)
     const handle = selectedWindow.handle;
 
-    // Check if Claude Code is busy - SKIP only when idle event fires (proven idle)
-    if (rdrSkipBusyCheckRef.current) {
-      console.log('[RDR] Skipping busy check (idle event confirmed)');
-      rdrSkipBusyCheckRef.current = false;
-    } else {
-      // FALLBACK POLL PATH: Rate limit to prevent interruptions even if busy check has gaps
-      // Idle event path skips this (rdrSkipBusyCheckRef was true above)
-      const MIN_SEND_INTERVAL_MS = 120_000; // 2 minutes
-      const timeSinceLastSend = Date.now() - lastRdrSendTimestampRef.current;
-      if (lastRdrSendTimestampRef.current > 0 && timeSinceLastSend < MIN_SEND_INTERVAL_MS) {
-        console.log(`[RDR] Skipping fallback poll - last send was ${Math.round(timeSinceLastSend / 1000)}s ago (min: ${MIN_SEND_INTERVAL_MS / 1000}s)`);
+    // ALWAYS enforce rate limit (both idle event and fallback poll paths)
+    const MIN_SEND_INTERVAL_MS = 120_000; // 2 minutes
+    const timeSinceLastSend = Date.now() - lastRdrSendTimestampRef.current;
+    if (lastRdrSendTimestampRef.current > 0 && timeSinceLastSend < MIN_SEND_INTERVAL_MS) {
+      console.log(`[RDR] Skipping - last send was ${Math.round(timeSinceLastSend / 1000)}s ago (min: ${MIN_SEND_INTERVAL_MS / 1000}s)`);
+      return;
+    }
+
+    // ALWAYS check busy state (idle events from OutputMonitor can't distinguish user vs task agent)
+    try {
+      const busyResult = await window.electronAPI.isClaudeCodeBusy(selectedWindow.processId);
+      if (busyResult.success && busyResult.data) {
+        console.log('[RDR] Skipping auto-send - Claude Code is busy');
         return;
       }
-
-      try {
-        const busyResult = await window.electronAPI.isClaudeCodeBusy(selectedWindow.processId);
-        if (busyResult.success && busyResult.data) {
-          console.log('[RDR] Skipping auto-send - Claude Code is busy');
-          return;
-        }
-      } catch (error) {
-        console.warn('[RDR] Failed to check busy state, proceeding with send:', error);
-      }
+    } catch (error) {
+      console.warn('[RDR] Failed to check busy state, proceeding with send:', error);
     }
 
     // In-flight guard: if a message is already in-flight, don't double-send.
@@ -2218,8 +2210,8 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
         // In-flight cleared by: backup timeout (2min) or activity monitor force-reset only.
         // Min send interval (3min) provides the real protection against re-sending too soon.
 
-        // Skip busy check - the idle event already proves Claude is idle
-        rdrSkipBusyCheckRef.current = true;
+        // Idle event triggers send attempt, but still goes through busy check + rate limit
+        // (OutputMonitor monitors ALL sessions including task agents — can't trust idle events blindly)
         handleAutoRdr();
       };
 
@@ -2230,7 +2222,6 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       const forceResetListener = () => {
         console.warn('[RDR] Force reset from ActivityMonitor — clearing in-flight and re-triggering');
         rdrMessageInFlightRef.current = false;
-        rdrSkipBusyCheckRef.current = true;
         handleAutoRdr();
       };
       // @ts-ignore - electron API exists in renderer
@@ -2294,7 +2285,6 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       console.log('[RDR] Rate limit cleared — triggering RDR:', data.reason);
       setRdrCooldown({ paused: false, warning: false, reason: '', rateLimitResetAt: 0 });
       // Trigger immediate RDR send now that rate limit cleared
-      rdrSkipBusyCheckRef.current = true;
       handleAutoRdr();
     });
 
@@ -2313,7 +2303,6 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       if (remaining <= 0) {
         setRdrCooldown({ paused: false, warning: false, reason: '', rateLimitResetAt: 0 });
         // Trigger RDR immediately on expiry — same as onRdrRateLimitCleared IPC path
-        rdrSkipBusyCheckRef.current = true;
         handleAutoRdr();
       } else {
         // Force re-render to update the displayed minutes
