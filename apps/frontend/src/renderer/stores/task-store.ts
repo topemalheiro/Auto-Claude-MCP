@@ -751,8 +751,8 @@ export function startTask(taskId: string, options?: { parallel?: boolean; worker
 /**
  * Stop a task
  */
-export function stopTask(taskId: string): void {
-  window.electronAPI.stopTask(taskId);
+export function stopTask(taskId: string, options?: { skipRdrDisable?: boolean }): void {
+  window.electronAPI.stopTask(taskId, options);
 }
 
 /**

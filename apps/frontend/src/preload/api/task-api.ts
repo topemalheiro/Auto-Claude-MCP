@@ -56,7 +56,7 @@ export interface TaskAPI {
     updates: { title?: string; description?: string }
   ) => Promise<IPCResult<Task>>;
   startTask: (taskId: string, options?: TaskStartOptions) => void;
-  stopTask: (taskId: string) => void;
+  stopTask: (taskId: string, options?: { skipRdrDisable?: boolean }) => void;
   submitReview: (
     taskId: string,
     approved: boolean,
@@ -186,8 +186,8 @@ export const createTaskAPI = (): TaskAPI => ({
   startTask: (taskId: string, options?: TaskStartOptions): void =>
     ipcRenderer.send(IPC_CHANNELS.TASK_START, taskId, options),
 
-  stopTask: (taskId: string): void =>
-    ipcRenderer.send(IPC_CHANNELS.TASK_STOP, taskId),
+  stopTask: (taskId: string, options?: { skipRdrDisable?: boolean }): void =>
+    ipcRenderer.send(IPC_CHANNELS.TASK_STOP, taskId, options),
 
   submitReview: (
     taskId: string,

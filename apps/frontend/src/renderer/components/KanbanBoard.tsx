@@ -2415,7 +2415,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       if (result.success && result.data) {
         const runningIds = Object.values(result.data.byProfile).flat();
         for (const taskId of runningIds) {
-          stopTask(taskId);
+          stopTask(taskId, { skipRdrDisable: true });
         }
         console.log(`[PauseAll] Stopped ${runningIds.length} running tasks`);
       }

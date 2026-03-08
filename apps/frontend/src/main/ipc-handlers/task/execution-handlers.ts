@@ -301,7 +301,7 @@ export function registerTaskExecutionHandlers(
   /**
    * Stop a task
    */
-  ipcMain.on(IPC_CHANNELS.TASK_STOP, (_, taskId: string) => {
+  ipcMain.on(IPC_CHANNELS.TASK_STOP, (_, taskId: string, options?: { skipRdrDisable?: boolean }) => {
     agentManager.killTask(taskId);
     fileWatcher.unwatch(taskId);
 
@@ -335,7 +335,7 @@ export function registerTaskExecutionHandlers(
     if (hasPlan) {
       const appSettings = (readSettingsFile() || {}) as Partial<import('../../../shared/types').AppSettings>;
       const autoDisableRdr = appSettings.autoDisableRdrOnStop ?? true;
-      if (autoDisableRdr) {
+      if (autoDisableRdr && !options?.skipRdrDisable) {
         const result = projectStore.toggleTaskRdr(taskId, true);
         if (result) {
           console.log(`[TASK_STOP] Auto-disabled RDR for stopped task ${taskId} (going to human_review)`);
