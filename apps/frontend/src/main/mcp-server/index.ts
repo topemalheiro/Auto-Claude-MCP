@@ -37,6 +37,20 @@ import {
 } from './utils.js';
 import { projectStore } from '../project-store.js';
 import { readAndClearSignalFile, categorizeTasks } from '../ipc-handlers/rdr-handlers.js';
+
+/**
+ * Notify the renderer to refresh task list immediately after board routing.
+ * Best-effort: no-op if BrowserWindow unavailable (e.g., standalone MCP mode).
+ */
+function notifyRendererTaskRefresh(projectId: string): void {
+  try {
+    const { BrowserWindow } = require('electron');
+    const mainWindow = BrowserWindow.getAllWindows()[0];
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('task:listRefresh', projectId);
+    }
+  } catch { /* standalone mode — no Electron window */ }
+}
 import type { TaskInfo } from '../ipc-handlers/rdr-handlers.js';
 import { existsSync, readFileSync, unlinkSync } from 'fs';
 import { join } from 'path';
@@ -908,6 +922,7 @@ server.tool(
           if (storeTask && storeTask.status !== targetBoard) {
             projectStore.updateTaskStatus(projectId, taskId, targetBoard as any);
             console.log(`[MCP] Direct board routing: ${taskId} → ${targetBoard} (was ${storeTask.status})`);
+            notifyRendererTaskRefresh(projectId);
           }
         } catch (routeErr) {
           console.warn(`[MCP] Board routing failed for ${taskId}:`, routeErr);
@@ -1384,6 +1399,7 @@ server.tool(
               if (task && task.status !== 'human_review' && task.status !== 'done' && task.status !== 'pr_created') {
                 projectStore.updateTaskStatus(projectId, fix.taskId, 'human_review' as any);
                 console.log(`[MCP] Board routing QA-approved task ${fix.taskId} → human_review (was ${task.status})`);
+                notifyRendererTaskRefresh(projectId);
               }
             } catch (routeErr) {
               console.warn(`[MCP] Board routing failed for QA-approved ${fix.taskId}:`, routeErr);
@@ -1654,6 +1670,7 @@ Batch Type: ${batchType}
                   const routed = projectStore.updateTaskStatus(projectId, fix.taskId, targetBoard as any);
                   if (routed) {
                     console.log(`[MCP] Direct board routing: ${fix.taskId} → ${targetBoard} (was ${task.status})`);
+                    notifyRendererTaskRefresh(projectId);
                   }
                 }
               } else if (task) {
