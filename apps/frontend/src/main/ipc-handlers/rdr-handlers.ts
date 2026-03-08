@@ -476,9 +476,6 @@ function enrichTaskWithWorktreeData(task: TaskInfo, projectPath: string): TaskIn
     };
     const mappedStatus = RAW_TO_KANBAN_STATUS[worktreeStatus] || worktreeStatus;
 
-    // Always read qa_signoff from worktree (authoritative completion signal)
-    const worktreeQaSignoff = worktreePlan.qa_signoff?.status as string | undefined;
-
     // Enrich for ANY non-terminal worktree status that differs from main (using mapped status)
     // Terminal statuses (done, pr_created) already handled above
     // This eliminates the entire class of "missing status" bugs — any new status
@@ -493,20 +490,22 @@ function enrichTaskWithWorktreeData(task: TaskInfo, projectPath: string): TaskIn
         updated_at: worktreePlan.updated_at || worktreePlan.last_updated || task.updated_at,
         exitReason: worktreePlan.exitReason !== undefined ? worktreePlan.exitReason : task.exitReason,
         reviewReason: worktreePlan.reviewReason !== undefined ? worktreePlan.reviewReason : task.reviewReason,
-        qaSignoff: worktreeQaSignoff || task.qaSignoff,
+        // NOTE: Do NOT propagate worktree qaSignoff here — only main plan's qaSignoff
+        // is authoritative for the "legitimate completion" skip in determineInterventionType().
+        // Worktree qa_signoff may be premature (written by QA agent before rate limit crash).
         // Keep task.metadata (from task_metadata.json: stuckSince, rdrAttempts, forceRecovery)
         // Don't overwrite with worktreePlan.metadata (plan's metadata: created_at, complexity)
       };
     }
 
-    // Even if status doesn't match activeStatuses (e.g. start_requested, human_review),
-    // still propagate qa_signoff and exitReason so completion detection works
+    // Even if status matches, propagate exitReason so crash detection works.
+    // NOTE: Do NOT propagate worktree qaSignoff — only main plan's qaSignoff is authoritative.
+    // Worktree qa_signoff may be premature (QA agent wrote approval before rate limit crash).
     const worktreeExitReason = worktreePlan.exitReason as string | undefined;
-    if (worktreeQaSignoff || worktreeExitReason !== undefined) {
+    if (worktreeExitReason !== undefined) {
       return {
         ...task,
-        qaSignoff: worktreeQaSignoff || task.qaSignoff,
-        exitReason: worktreeExitReason !== undefined ? worktreeExitReason : task.exitReason,
+        exitReason: worktreeExitReason,
       };
     }
   } catch (e) {
@@ -608,7 +607,10 @@ function determineInterventionType(task: TaskInfo, hasWorktree?: boolean, rawPla
   const qaApprovedProgress = calculateTaskProgress(task);
   // NOTE: reviewReason='completed' alone is NOT QA approval — it means coder finished subtasks
   // Only qaSignoff='approved' (from main or worktree) counts as actual QA validation
-  const isQaApproved = task.qaSignoff === 'approved' || worktreeInfo?.qaSignoff === 'approved';
+  // Only trust MAIN plan's qaSignoff for skip decisions — worktree qa_signoff may be
+  // premature (written by QA agent before rate limit killed the session).
+  // Worktree signoff is still available via worktreeInfo?.qaSignoff for logging.
+  const isQaApproved = task.qaSignoff === 'approved';
   if (qaApprovedProgress === 100 && isQaApproved) {
     // User explicitly stopped this task — don't skip even if QA approved
     // The QA approval may be from BEFORE the stop; user wants it paused/reviewed
@@ -713,8 +715,8 @@ function determineInterventionType(task: TaskInfo, hasWorktree?: boolean, rawPla
 
     if (worktreeNonTerminal) {
       // Exception: start_requested with QA approved = work IS done, just needs board move
-      if (worktreeInfo!.status === 'start_requested' && worktreeInfo!.qaSignoff === 'approved') {
-        console.log(`[RDR] Task ${task.specId} worktree start_requested but QA approved — skipping`);
+      if (worktreeInfo!.status === 'start_requested' && task.qaSignoff === 'approved') {
+        console.log(`[RDR] Task ${task.specId} worktree start_requested but main plan QA approved — skipping`);
         return null;
       }
       console.log(`[RDR] Task ${task.specId} at 100% but worktree at '${worktreeInfo!.status}' — needs intervention`);
