@@ -701,7 +701,8 @@ server.tool(
       const plan = JSON.parse(readFileSync(planPath, 'utf-8'));
 
       // COMPLETION GUARD: Don't restart QA-approved tasks at 100%
-      // Check both main plan and worktree to prevent restart loops
+      // Only check MAIN plan — worktree qa_signoff may be premature (QA agent wrote
+      // approval before rate limit killed the session). Main plan is authoritative.
       // Exception: reviewReason=stopped means user explicitly stopped — always allow recovery
       const checkQaComplete = (planData: any): boolean => {
         if (planData.reviewReason === 'stopped') return false;
@@ -723,29 +724,6 @@ server.tool(
             }, null, 2)
           }]
         };
-      }
-      // Also check worktree (has the real data)
-      const worktreePlanPath = path.join(
-        resolvedProjectPath, '.auto-claude', 'worktrees', 'tasks', taskId,
-        '.auto-claude', 'specs', taskId, 'implementation_plan.json'
-      );
-      if (existsSync(worktreePlanPath)) {
-        try {
-          const wt = JSON.parse(readFileSync(worktreePlanPath, 'utf-8'));
-          if (checkQaComplete(wt)) {
-            return {
-              content: [{
-                type: 'text' as const,
-                text: JSON.stringify({
-                  success: false,
-                  taskId,
-                  error: 'Task worktree is QA-approved at 100% — already complete. Recovery would restart a finished task.',
-                  qaSignoff: wt.qa_signoff?.status
-                }, null, 2)
-              }]
-            };
-          }
-        } catch { /* ignore worktree read errors */ }
       }
 
       let recovered = false;
@@ -1009,6 +987,8 @@ server.tool(
     }
 
     // COMPLETION GUARD: Don't restart QA-approved tasks at 100%
+    // Only check MAIN plan — worktree qa_signoff may be premature (QA agent wrote
+    // approval before rate limit killed the session). Main plan is authoritative.
     // Exception: reviewReason=stopped means user explicitly stopped — always allow fix request
     const checkQaComplete = (planData: any): boolean => {
       if (planData.reviewReason === 'stopped') return false;
@@ -1021,12 +1001,6 @@ server.tool(
       let qaComplete = false;
       if (existsSync(planPath)) {
         qaComplete = checkQaComplete(JSON.parse(readFileSync(planPath, 'utf-8')));
-      }
-      if (!qaComplete) {
-        const wtPlanPath = path.join(resolvedProjectPath, '.auto-claude', 'worktrees', 'tasks', taskId, '.auto-claude', 'specs', taskId, 'implementation_plan.json');
-        if (existsSync(wtPlanPath)) {
-          qaComplete = checkQaComplete(JSON.parse(readFileSync(wtPlanPath, 'utf-8')));
-        }
       }
       if (qaComplete) {
         return {
@@ -1374,13 +1348,11 @@ server.tool(
           return { qaApproved, exitReason: planData.exitReason as string | undefined, status: planData.status as string | undefined, reviewReason: planData.reviewReason as string | undefined };
         };
 
-        // Check worktree first (source of truth), then main plan
+        // Only check MAIN plan for QA guard — worktree qa_signoff may be premature
+        // (QA agent wrote approval before rate limit killed the session).
+        // Worktree signoff is unreliable; main plan is what the UI/pipeline propagates.
         let qaGuard: { qaApproved: boolean; exitReason?: string; status?: string; reviewReason?: string } = { qaApproved: false };
-        const wtGuardPath = path.join(resolvedProjectPath, '.auto-claude', 'worktrees', 'tasks', fix.taskId, '.auto-claude', 'specs', fix.taskId, 'implementation_plan.json');
-        if (existsSync(wtGuardPath)) {
-          qaGuard = checkQaGuard(JSON.parse(readFileSync(wtGuardPath, 'utf-8')));
-        }
-        if (!qaGuard.qaApproved && existsSync(planPath)) {
+        if (existsSync(planPath)) {
           qaGuard = checkQaGuard(JSON.parse(readFileSync(planPath, 'utf-8')));
         }
 
