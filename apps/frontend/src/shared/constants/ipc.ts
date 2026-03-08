@@ -572,6 +572,12 @@ export const IPC_CHANNELS = {
   DEBUG_SIMULATE_RATE_LIMIT: 'debug:simulateRateLimit',  // Simulate rate limit for testing auto-swap
   DEBUG_TRIGGER_CRASH: 'debug:triggerCrash', // Force native crash for watchdog testing
 
+  // Diagnostics (usage meter + RDR debugging)
+  DIAG_GET_USAGE_STATE: 'diagnostics:getUsageState',       // Get usage monitor internal state
+  DIAG_GET_RDR_STATE: 'diagnostics:getRdrState',           // Get RDR system state (busy check, pause, etc.)
+  DIAG_FORCE_USAGE_FETCH: 'diagnostics:forceUsageFetch',   // Force fresh usage fetch bypassing caches
+  DIAG_SEND_TEST_RDR: 'diagnostics:sendTestRdr',           // Send a test RDR message for pipeline verification
+
   // Claude Code CLI operations
   CLAUDE_CODE_CHECK_VERSION: 'claudeCode:checkVersion',
   CLAUDE_CODE_INSTALL: 'claudeCode:install',

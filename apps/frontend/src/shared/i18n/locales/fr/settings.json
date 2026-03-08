@@ -45,6 +45,10 @@
       "title": "Debug & Logs",
       "description": "Outils de dépannage"
     },
+    "diagnostics": {
+      "title": "Diagnostics",
+      "description": "Compteur d'utilisation & débogage RDR"
+    },
     "terminal-fonts": {
       "title": "Polices de terminal",
       "description": "Personnaliser l'apparence des polices de terminal"
@@ -707,6 +711,14 @@
       "authPrepareFailed": "Échec de la préparation de l'authentification: {{error}}",
       "authStartFailedMessage": "Échec du démarrage de l'authentification. Veuillez réessayer."
     }
+  },
+  "diagnostics": {
+    "usageMeter": "État du compteur d'utilisation",
+    "rdrSystem": "État du système RDR",
+    "forceFetch": "Forcer la récupération",
+    "testRdr": "Tester l'envoi RDR",
+    "loading": "Chargement...",
+    "autoRefresh": "Actualisation automatique toutes les 5 secondes"
   },
   "debug": {
     "title": "Debug & Logs",

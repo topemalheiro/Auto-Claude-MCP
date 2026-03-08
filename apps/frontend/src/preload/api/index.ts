@@ -11,6 +11,7 @@ import { GitHubAPI, createGitHubAPI } from './modules/github-api';
 import type { GitLabAPI } from './modules/gitlab-api';
 import type { HuggingFaceAPI } from './modules/huggingface-api';
 import { DebugAPI, createDebugAPI } from './modules/debug-api';
+import { DiagnosticsAPI, createDiagnosticsAPI } from './modules/diagnostics-api';
 import { ClaudeCodeAPI, createClaudeCodeAPI } from './modules/claude-code-api';
 import { McpAPI, createMcpAPI } from './modules/mcp-api';
 import { ProfileAPI, createProfileAPI } from './profile-api';
@@ -30,6 +31,7 @@ export interface ElectronAPI extends
   GitLabAPI,
   HuggingFaceAPI,
   DebugAPI,
+  DiagnosticsAPI,
   ClaudeCodeAPI,
   McpAPI,
   ProfileAPI,
@@ -50,6 +52,7 @@ export const createElectronAPI = (): ElectronAPI => ({
   ...createAgentAPI(),  // Includes: Roadmap, Ideation, Insights, Changelog, Linear, GitHub, GitLab, HuggingFace, Shell
   ...createAppUpdateAPI(),
   ...createDebugAPI(),
+  ...createDiagnosticsAPI(),
   ...createClaudeCodeAPI(),
   ...createMcpAPI(),
   ...createProfileAPI(),
@@ -72,6 +75,7 @@ export {
   createProfileAPI,
   createGitHubAPI,
   createDebugAPI,
+  createDiagnosticsAPI,
   createClaudeCodeAPI,
   createMcpAPI,
   createScreenshotAPI,
@@ -93,6 +97,7 @@ export type {
   GitLabAPI,
   HuggingFaceAPI,
   DebugAPI,
+  DiagnosticsAPI,
   ClaudeCodeAPI,
   McpAPI,
   ScreenshotAPI,

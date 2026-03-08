@@ -959,6 +959,12 @@ export interface ElectronAPI {
 
   // Queue Routing API (rate limit recovery)
   queue: import('../../preload/api/queue-api').QueueAPI;
+
+  // Diagnostics (usage meter + RDR debugging)
+  getUsageState: () => Promise<import('../../preload/api/modules/diagnostics-api').DiagResult<import('../../preload/api/modules/diagnostics-api').UsageDiagnostics>>;
+  getRdrState: () => Promise<import('../../preload/api/modules/diagnostics-api').DiagResult<import('../../preload/api/modules/diagnostics-api').RdrDiagnostics>>;
+  forceUsageFetch: () => Promise<import('../../preload/api/modules/diagnostics-api').DiagResult<unknown>>;
+  sendTestRdr: () => Promise<import('../../preload/api/modules/diagnostics-api').DiagResult<{ wouldSend: boolean; busyCheckResult: boolean; message: string }>>;
 }
 
 /** Platform information exposed via contextBridge for platform-specific behavior */

@@ -45,6 +45,10 @@
       "title": "Debug & Logs",
       "description": "Troubleshooting tools"
     },
+    "diagnostics": {
+      "title": "Diagnostics",
+      "description": "Usage meter & RDR debugging"
+    },
     "terminal-fonts": {
       "title": "Terminal Fonts",
       "description": "Customize terminal font appearance"
@@ -707,6 +711,14 @@
       "authPrepareFailed": "Failed to prepare authentication: {{error}}",
       "authStartFailedMessage": "Failed to start authentication. Please try again."
     }
+  },
+  "diagnostics": {
+    "usageMeter": "Usage Meter State",
+    "rdrSystem": "RDR System State",
+    "forceFetch": "Force Fetch",
+    "testRdr": "Test RDR Send",
+    "loading": "Loading...",
+    "autoRefresh": "Auto-refreshes every 5 seconds"
   },
   "debug": {
     "title": "Debug & Logs",

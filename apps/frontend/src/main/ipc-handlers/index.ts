@@ -30,6 +30,7 @@ import { registerInsightsHandlers } from './insights-handlers';
 import { registerMemoryHandlers } from './memory-handlers';
 import { registerAppUpdateHandlers } from './app-update-handlers';
 import { registerDebugHandlers } from './debug-handlers';
+import { registerDiagnosticsHandlers } from './diagnostics-handlers';
 import { registerClaudeCodeHandlers } from './claude-code-handlers';
 import { registerMcpHandlers } from './mcp-handlers';
 import { registerProfileHandlers } from './profile-handlers';
@@ -125,6 +126,7 @@ export function setupIpcHandlers(
 
   // Debug handlers (logs, debug info, etc.)
   registerDebugHandlers();
+  registerDiagnosticsHandlers();
 
   // Claude Code CLI handlers (version checking, installation)
   registerClaudeCodeHandlers();
@@ -180,6 +182,7 @@ export {
   registerMemoryHandlers,
   registerAppUpdateHandlers,
   registerDebugHandlers,
+  registerDiagnosticsHandlers,
   registerClaudeCodeHandlers,
   registerMcpHandlers,
   registerProfileHandlers,

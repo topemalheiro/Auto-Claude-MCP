@@ -1743,7 +1743,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   const rdrSkipBusyCheckRef = useRef(false); // Only skip when idle event fires (proven idle)
   const RDR_INTERVAL_MS = 30000; // 30 seconds fallback polling
   const RDR_IN_FLIGHT_TIMEOUT_MS = 120000; // 2 min safety net (activity monitor handles session death sooner)
-  const lastRdrSendTimestampRef = useRef<number>(0); // kept for logging only
+  const lastRdrSendTimestampRef = useRef<number>(0); // rate limit fallback polls (2-min min interval)
 
   // RDR rate limit pause state
   const [rdrCooldown, setRdrCooldown] = useState<{ paused: boolean; warning: boolean; reason: string; rateLimitResetAt: number }>({ paused: false, warning: false, reason: '', rateLimitResetAt: 0 });
@@ -2109,6 +2109,15 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       console.log('[RDR] Skipping busy check (idle event confirmed)');
       rdrSkipBusyCheckRef.current = false;
     } else {
+      // FALLBACK POLL PATH: Rate limit to prevent interruptions even if busy check has gaps
+      // Idle event path skips this (rdrSkipBusyCheckRef was true above)
+      const MIN_SEND_INTERVAL_MS = 120_000; // 2 minutes
+      const timeSinceLastSend = Date.now() - lastRdrSendTimestampRef.current;
+      if (lastRdrSendTimestampRef.current > 0 && timeSinceLastSend < MIN_SEND_INTERVAL_MS) {
+        console.log(`[RDR] Skipping fallback poll - last send was ${Math.round(timeSinceLastSend / 1000)}s ago (min: ${MIN_SEND_INTERVAL_MS / 1000}s)`);
+        return;
+      }
+
       try {
         const busyResult = await window.electronAPI.isClaudeCodeBusy(selectedWindow.processId);
         if (busyResult.success && busyResult.data) {

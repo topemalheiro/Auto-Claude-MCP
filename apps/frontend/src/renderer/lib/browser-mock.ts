@@ -374,7 +374,13 @@ const browserMockAPI: ElectronAPI = {
   openLogsFolder: async () => ({ success: false, error: 'Not available in browser mode' }),
   copyDebugInfo: async () => ({ success: false, error: 'Not available in browser mode' }),
   getRecentErrors: async () => [],
-  listLogFiles: async () => []
+  listLogFiles: async () => [],
+
+  // Diagnostics
+  getUsageState: async () => ({ success: false, error: 'Not available in browser mode' }),
+  getRdrState: async () => ({ success: false, error: 'Not available in browser mode' }),
+  forceUsageFetch: async () => ({ success: false, error: 'Not available in browser mode' }),
+  sendTestRdr: async () => ({ success: false, error: 'Not available in browser mode' })
 };
 
 /**

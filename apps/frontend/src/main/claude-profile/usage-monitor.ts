@@ -324,14 +324,13 @@ export class UsageMonitor extends EventEmitter {
   /**
    * Proactively check usage thresholds and notify RDR system.
    * Called after every successful fetch and on expired startup data.
-   * Ensures orange text appears at 80%+ and RDR pauses at 100% regardless
-   * of whether task agents or RDR processing are active.
+   * Pauses RDR at 100% usage, resumes below 100%.
    */
   private checkRdrThresholds(usage: ClaudeUsageSnapshot): void {
     try {
       // Lazy import to avoid circular dependency at module load time
       // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { pauseRdr, warnRdr, resumeRdr } = require('../ipc-handlers/rdr-handlers');
+      const { pauseRdr, resumeRdr } = require('../ipc-handlers/rdr-handlers');
 
       const sessionPct = usage.sessionPercent;
       const weeklyPct = usage.weeklyPercent;
@@ -346,16 +345,12 @@ export class UsageMonitor extends EventEmitter {
         const reason = weeklyPct > sessionPct
           ? `Weekly at ${weeklyPct}% (resets ${usage.weeklyResetTime || 'in ~7 days'})`
           : `Session at ${sessionPct}% (resets ${usage.sessionResetTime || 'in ~5h'})`;
+        console.log(`[DIAG] checkRdrThresholds: PAUSE RDR — binding ${bindingPct}% >= 100`);
         pauseRdr(reason, resetTimestamp);
         this.lastRdrNotificationState = 'paused';
-      } else if (bindingPct >= 80 && bindingPct < 100 && this.lastRdrNotificationState !== 'warning') {
-        const reason = weeklyPct > sessionPct
-          ? `Weekly at ${weeklyPct}%`
-          : `Session at ${sessionPct}%`;
-        warnRdr(reason, resetTimestamp);
-        this.lastRdrNotificationState = 'warning';
-      } else if (bindingPct < 80 && this.lastRdrNotificationState !== 'none') {
-        resumeRdr('Usage dropped below 80%');
+      } else if (bindingPct < 100 && this.lastRdrNotificationState !== 'none') {
+        console.log(`[DIAG] checkRdrThresholds: RESUME RDR — binding ${bindingPct}% < 100`);
+        resumeRdr('Usage below 100%');
         this.lastRdrNotificationState = 'none';
       }
     } catch (err) {
@@ -462,6 +457,50 @@ export class UsageMonitor extends EventEmitter {
    */
   getCurrentUsage(): ClaudeUsageSnapshot | null {
     return this.currentUsage ?? this.lastGoodUsage;
+  }
+
+  /**
+   * Get diagnostic snapshot for the diagnostics panel.
+   * Exposes internal state for debugging usage meter issues.
+   */
+  getDiagnostics(): {
+    currentUsage: ClaudeUsageSnapshot | null;
+    lastGoodUsage: ClaudeUsageSnapshot | null;
+    currentUsageProfileId: string | null;
+    apiFailureTimestamps: Record<string, number>;
+    lastEmitTimestamp: number;
+    lastRdrNotificationState: string;
+    isChecking: boolean;
+    lastGoodUsagePath: string;
+  } {
+    const failures: Record<string, number> = {};
+    for (const [k, v] of this.apiFailureTimestamps) {
+      failures[k] = v;
+    }
+    return {
+      currentUsage: this.currentUsage,
+      lastGoodUsage: this.lastGoodUsage,
+      currentUsageProfileId: this.currentUsageProfileId,
+      apiFailureTimestamps: failures,
+      lastEmitTimestamp: this.lastEmitTimestamp,
+      lastRdrNotificationState: this.lastRdrNotificationState,
+      isChecking: this.isChecking,
+      lastGoodUsagePath: this.getLastGoodUsagePath(),
+    };
+  }
+
+  /**
+   * Force a fresh usage fetch, bypassing all caches and throttles.
+   * Used by the diagnostics panel "Force Fetch" button.
+   */
+  async forceFetch(): Promise<ClaudeUsageSnapshot | null> {
+    // Clear API failure timestamps so shouldUseApiMethod returns true
+    this.apiFailureTimestamps.clear();
+    // Reset throttle so emission goes through immediately
+    this.lastEmitTimestamp = 0;
+    // Run the normal check
+    await this.checkUsageAndSwap();
+    return this.currentUsage;
   }
 
   /**
@@ -1093,12 +1132,13 @@ export class UsageMonitor extends EventEmitter {
 
       // Step 2: Fetch current usage (pass activeProfile for consistency)
       const credential = await this.getCredential();
+      console.log(`[DIAG] fetchUsage start — credential: ${credential ? 'yes' : 'NO'}, profile: ${profileId}`);
       const usage = await this.fetchUsage(profileId, credential, activeProfile);
       if (!usage) {
-        this.debugLog('[UsageMonitor] Failed to fetch usage');
+        const bestAvailable = this.currentUsage ?? this.lastGoodUsage;
+        console.log(`[DIAG] fetchUsage FAILED — re-emitting cached: S:${bestAvailable?.sessionPercent ?? 'null'}% W:${bestAvailable?.weeklyPercent ?? 'null'}%`);
         // Re-emit best-available data so meter doesn't go gray/stale (throttled).
         // Expire stale percentages first — if session has reset, show ~0% not old 100%.
-        const bestAvailable = this.currentUsage ?? this.lastGoodUsage;
         if (bestAvailable) {
           const fresh = this.expireStaleUsage(bestAvailable);
           this.currentUsage = fresh;
@@ -1106,6 +1146,7 @@ export class UsageMonitor extends EventEmitter {
         }
         return;
       }
+      console.log(`[DIAG] fetchUsage OK — S:${usage.sessionPercent}% W:${usage.weeklyPercent}%`);
 
       // Add needsReauthentication flag to the snapshot for the active profile
       usage.needsReauthentication = this.needsReauthProfiles.has(profileId);
@@ -1131,8 +1172,7 @@ export class UsageMonitor extends EventEmitter {
       this.throttledEmitUsage(usage);
 
       // Step 3.1: Proactively check usage thresholds and notify RDR system.
-      // This ensures orange text appears at 80%+ and RDR pauses at 100% even
-      // when no task agents are running and no RDR tasks need processing.
+      // Pauses RDR at 100%, resumes below 100%.
       this.checkRdrThresholds(usage);
 
       // Step 3.5: Emit all profiles usage for multi-profile display
@@ -2088,16 +2128,10 @@ export class UsageMonitor extends EventEmitter {
     profileId: string,
     profileName: string
   ): Promise<ClaudeUsageSnapshot | null> {
-    // Skip fallback entirely if we already have cached data — avoids double API calls
-    // and redundant I/O that can contribute to main-process stalls under heavy load.
-    if (this.currentUsage) {
-      this.debugLog('[UsageMonitor] CLI fallback: skipped — currentUsage already available');
-      return null;
-    }
-
-    // Fallback: read Claude Code's own stored credentials and make a direct API call.
-    // This provides a secondary credential source when the primary keychain-based
-    // token has expired or when the main API path is in cooldown.
+    // This fallback reads ~/.claude/.credentials.json (same source as CLI `claude /usage`).
+    // It only runs when the primary API method already failed (token expired, 429, etc.),
+    // so there is no "double API call" — the primary call already returned null.
+    console.log('[DIAG] CLI fallback: attempting to read ~/.claude/.credentials.json');
     try {
       const path = require('path');
       const { readFile, access } = require('fs/promises');
@@ -2138,11 +2172,11 @@ export class UsageMonitor extends EventEmitter {
       const rawData = await response.json();
       const normalized = this.normalizeAnthropicResponse(rawData, profileId, profileName, undefined);
       if (normalized) {
-        this.debugLog('[UsageMonitor] CLI fallback: successfully fetched usage via Claude Code credentials');
+        console.log(`[DIAG] CLI fallback SUCCESS — S:${normalized.sessionPercent}% W:${normalized.weeklyPercent}%`);
       }
       return normalized;
     } catch (error) {
-      this.debugLog('[UsageMonitor] CLI fallback failed:', error);
+      console.log('[DIAG] CLI fallback FAILED:', error instanceof Error ? error.message : error);
       return null;
     }
   }
