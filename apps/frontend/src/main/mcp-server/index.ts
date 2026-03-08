@@ -1576,6 +1576,13 @@ Batch Type: ${batchType}
           plan.rdr_batch_type = batchType;
           plan.rdr_priority = priority;
           plan.rdr_iteration = (plan.rdr_iteration || 0) + 1;
+          // Clear stale qa_signoff — QA agents may have written premature approvals
+          // before the task was stopped by rate limits. Without clearing, the file
+          // watcher sees qa_signoff=approved and re-routes back to human_review.
+          if (plan.qa_signoff) {
+            console.log(`[MCP] Clearing stale qa_signoff for ${fix.taskId} (was: ${plan.qa_signoff?.status || 'unknown'})`);
+            delete plan.qa_signoff;
+          }
           // Reset planStatus so RDR/auto-shutdown don't skip this task as "lifecycle done"
           if (plan.planStatus === 'completed' || plan.planStatus === 'approved') {
             plan.planStatus = 'in_progress';
@@ -1599,6 +1606,8 @@ Batch Type: ${batchType}
             worktreePlan.rdr_iteration = (worktreePlan.rdr_iteration || 0) + 1;
             // Clear stale exitReason from previous session crash — prevents false "recovery" flag
             delete worktreePlan.exitReason;
+            // Clear stale qa_signoff (same reason as main plan above)
+            if (worktreePlan.qa_signoff) delete worktreePlan.qa_signoff;
             // Reset planStatus so RDR/auto-shutdown don't skip this task as "lifecycle done"
             if (worktreePlan.planStatus === 'completed' || worktreePlan.planStatus === 'approved') {
               worktreePlan.planStatus = 'in_progress';

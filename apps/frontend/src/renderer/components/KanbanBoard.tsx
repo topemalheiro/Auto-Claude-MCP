@@ -1741,7 +1741,6 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   const rdrIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const RDR_INTERVAL_MS = 30000; // 30 seconds fallback polling
   const RDR_IN_FLIGHT_TIMEOUT_MS = 120000; // 2 min safety net (activity monitor handles session death sooner)
-  const lastRdrSendTimestampRef = useRef<number>(0); // rate limit fallback polls (2-min min interval)
 
   // RDR rate limit pause state
   const [rdrCooldown, setRdrCooldown] = useState<{ paused: boolean; warning: boolean; reason: string; rateLimitResetAt: number }>({ paused: false, warning: false, reason: '', rateLimitResetAt: 0 });
@@ -2102,14 +2101,6 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     // Use window handle for stable matching (title changes when user switches editor tabs)
     const handle = selectedWindow.handle;
 
-    // ALWAYS enforce rate limit (both idle event and fallback poll paths)
-    const MIN_SEND_INTERVAL_MS = 120_000; // 2 minutes
-    const timeSinceLastSend = Date.now() - lastRdrSendTimestampRef.current;
-    if (lastRdrSendTimestampRef.current > 0 && timeSinceLastSend < MIN_SEND_INTERVAL_MS) {
-      console.log(`[RDR] Skipping - last send was ${Math.round(timeSinceLastSend / 1000)}s ago (min: ${MIN_SEND_INTERVAL_MS / 1000}s)`);
-      return;
-    }
-
     // ALWAYS check busy state (idle events from OutputMonitor can't distinguish user vs task agent)
     try {
       const busyResult = await window.electronAPI.isClaudeCodeBusy(selectedWindow.processId);
@@ -2157,7 +2148,6 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
 
       if (sendResult.success) {
         console.log('[RDR] Auto-send successful');
-        lastRdrSendTimestampRef.current = Date.now();
         // Notify main process activity monitor
         window.electronAPI.recordActivity?.('rdr-send-success');
         toast({
