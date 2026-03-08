@@ -142,9 +142,8 @@ function getActiveTaskIds(projectPath: string): string[] {
           // QA approved + successful exit = genuinely done regardless of planStatus
           const isSuccessfulExit = effectiveStatus === 'start_requested' && content.exitReason === 'success';
 
-          // Matches RDR line 515: stopped tasks are NEVER terminal (user wants manual review)
-          if ((isOnCorrectBoard || isCompletedLifecycle || isSuccessfulExit) &&
-              content.reviewReason !== 'stopped') {
+          // QA approved = work done, regardless of reviewReason (stopped is a session artifact)
+          if (isOnCorrectBoard || isCompletedLifecycle || isSuccessfulExit) {
             continue;
           }
         }
@@ -160,7 +159,7 @@ function getActiveTaskIds(projectPath: string): string[] {
           const qaApproved = (content as any).qa_signoff?.status === 'approved';
           const isLegitHumanReview = content.status === 'human_review' &&
             qaApproved &&
-            content.reviewReason !== 'stopped';
+            true; // QA approved = done, regardless of reviewReason (stopped is a session artifact)
           if (content.status === 'done' || content.status === 'pr_created' || isLegitHumanReview) {
             continue;
           }
@@ -195,15 +194,14 @@ function getActiveTaskIds(projectPath: string): string[] {
  * Count tasks that are not in terminal status (done, pr_created) and not archived
  * Returns total count and how many are in human_review
  */
-function countTasksByStatus(projectPath: string): { total: number; humanReview: number } {
+function countTasksByStatus(projectPath: string): { total: number } {
   const specsDir = getProjectSpecsDir(projectPath);
 
   if (!fs.existsSync(specsDir)) {
-    return { total: 0, humanReview: 0 };
+    return { total: 0 };
   }
 
   let total = 0;
-  let humanReview = 0;
 
   const dirs = fs.readdirSync(specsDir, { withFileTypes: true })
     .filter(d => d.isDirectory())
@@ -239,9 +237,8 @@ function countTasksByStatus(projectPath: string): { total: number; humanReview: 
             (content.planStatus === 'completed' || content.planStatus === 'approved');
           const isSuccessfulExit = effectiveStatus === 'start_requested' && content.exitReason === 'success';
 
-          // Matches RDR line 515: stopped tasks are NEVER terminal (user wants manual review)
-          if ((isOnCorrectBoard || isCompletedLifecycle || isSuccessfulExit) &&
-              content.reviewReason !== 'stopped') {
+          // QA approved = work done, regardless of reviewReason (stopped is a session artifact)
+          if (isOnCorrectBoard || isCompletedLifecycle || isSuccessfulExit) {
             continue;
           }
         }
@@ -257,7 +254,7 @@ function countTasksByStatus(projectPath: string): { total: number; humanReview: 
           const qaApproved = (content as any).qa_signoff?.status === 'approved';
           const isLegitHumanReview = content.status === 'human_review' &&
             qaApproved &&
-            content.reviewReason !== 'stopped';
+            true; // QA approved = done, regardless of reviewReason (stopped is a session artifact)
           if (content.status === 'done' || content.status === 'pr_created' || isLegitHumanReview) {
             continue;
           }
@@ -285,8 +282,8 @@ function countTasksByStatus(projectPath: string): { total: number; humanReview: 
     }
   }
 
-  console.log(`[AutoShutdown] Total incomplete tasks: ${total}, in human_review: ${humanReview}`);
-  return { total, humanReview };
+  console.log(`[AutoShutdown] Total incomplete tasks: ${total}`);
+  return { total };
 }
 
 /**

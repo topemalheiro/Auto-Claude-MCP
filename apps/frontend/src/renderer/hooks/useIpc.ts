@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { unstable_batchedUpdates } from 'react-dom';
 import { useTaskStore, loadTasks } from '../stores/task-store';
 import { useRoadmapStore } from '../stores/roadmap-store';
@@ -374,15 +374,22 @@ export function useIpcListeners(): void {
     );
 
     // Task list refresh listener (for MCP-created tasks)
+    // Debounced to coalesce rapid-fire refresh events (main + worktree file writes)
     // Note: loadTasks is imported directly from task-store.ts (it's a standalone function, not a store method)
+    let refreshTimer: ReturnType<typeof setTimeout> | null = null;
     const cleanupTaskListRefresh = window.electronAPI.onTaskListRefresh(
       (projectId: string) => {
         // Only refresh if this is for the currently selected project
         if (isTaskForCurrentProject(projectId)) {
-          console.log('[IPC] Task list refresh requested for project:', projectId);
-          // Light refresh: cache already invalidated in main process by agent-events handler
-          // Do NOT use forceRefresh — it calls clearAllTasks() which destroys running XState actors
-          loadTasks(projectId);
+          // Debounce: coalesce multiple rapid refresh events into one
+          if (refreshTimer) clearTimeout(refreshTimer);
+          refreshTimer = setTimeout(() => {
+            refreshTimer = null;
+            console.log('[IPC] Task list refresh (debounced) for project:', projectId);
+            // Light refresh: cache already invalidated in main process by agent-events handler
+            // Do NOT use forceRefresh — it calls clearAllTasks() which destroys running XState actors
+            loadTasks(projectId);
+          }, 500);
         }
       }
     );
@@ -463,6 +470,7 @@ export function useIpcListeners(): void {
       cleanupSDKRateLimit();
       cleanupAuthFailure();
       cleanupTaskListRefresh();
+      if (refreshTimer) clearTimeout(refreshTimer);
       cleanupTaskAutoStart();
       cleanupTaskStatusChanged();
       cleanupRateLimitAutoResume();

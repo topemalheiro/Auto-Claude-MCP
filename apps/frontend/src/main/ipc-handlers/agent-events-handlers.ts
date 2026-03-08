@@ -437,27 +437,26 @@ export function registerAgenteventsHandlers(
   // (For MCP-created tasks to trigger auto-refresh)
   // ============================================
 
+  // Throttle TASK_LIST_REFRESH: coalesce rapid specs-changed events (main + worktree writes)
+  // into a single renderer refresh. Without this, writing to both main AND worktree plans
+  // fires 2 specs-changed events → 4 loadTasks() calls → 4 full kanban re-renders → freeze.
+  const pendingRefreshTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  const REFRESH_THROTTLE_MS = 2_000;
+
   fileWatcher.on("specs-changed", (data: { projectId: string; projectPath: string; specDir: string; specId: string }) => {
-    console.log(`[AgentEvents] specs-changed event received!`);
-    console.log(`[AgentEvents] - specId: ${data.specId}`);
-    console.log(`[AgentEvents] - projectId: ${data.projectId}`);
-    console.log(`[AgentEvents] - specDir: ${data.specDir}`);
+    console.log(`[AgentEvents] specs-changed event received! specId=${data.specId}`);
 
-    // Invalidate the project's task cache
-    projectStore.invalidateTasksCache(data.projectId);
-    console.log(`[AgentEvents] Task cache invalidated for project ${data.projectId}`);
+    // Coalesce rapid-fire specs-changed events into one refresh per project
+    const existingTimer = pendingRefreshTimers.get(data.projectId);
+    if (existingTimer) clearTimeout(existingTimer);
 
-    // Notify renderer to refresh task list
-    console.log(`[AgentEvents] Sending TASK_LIST_REFRESH to renderer for project ${data.projectId}`);
-    safeSendToRenderer(getMainWindow, IPC_CHANNELS.TASK_LIST_REFRESH, data.projectId);
-
-    // Trigger auto-refresh if enabled in settings
-    console.log(`[AgentEvents] Sending TASK_AUTO_REFRESH_TRIGGER for specs-changed`);
-    safeSendToRenderer(getMainWindow, IPC_CHANNELS.TASK_AUTO_REFRESH_TRIGGER, {
-      reason: 'specs-changed',
-      projectId: data.projectId,
-      specId: data.specId
-    });
+    pendingRefreshTimers.set(data.projectId, setTimeout(() => {
+      pendingRefreshTimers.delete(data.projectId);
+      // Invalidate cache and notify renderer (single coalesced refresh)
+      projectStore.invalidateTasksCache(data.projectId);
+      console.log(`[AgentEvents] Sending coalesced TASK_LIST_REFRESH for project ${data.projectId}`);
+      safeSendToRenderer(getMainWindow, IPC_CHANNELS.TASK_LIST_REFRESH, data.projectId);
+    }, REFRESH_THROTTLE_MS));
   });
 
   // Handle MCP-requested task starts (task-start-requested event from file watcher)

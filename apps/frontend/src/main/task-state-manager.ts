@@ -89,7 +89,7 @@ export class TaskStateManager {
     } satisfies TaskEvent);
   }
 
-  handleUiEvent(taskId: string, event: TaskEvent, task: Task, project: Project): void {
+  handleUiEvent(taskId: string, event: TaskEvent, task: Task, project: Project): boolean {
     console.debug(`[TaskStateManager] handleUiEvent: ${event.type} for task ${taskId}`);
     this.setTaskContext(taskId, task, project);
     const actor = this.getOrCreateActor(taskId);
@@ -97,50 +97,41 @@ export class TaskStateManager {
     console.debug(`[TaskStateManager] Sending UI event ${event.type} to actor in state: ${stateBefore}`);
     actor.send(event);
     const stateAfter = String(actor.getSnapshot().value);
-    console.debug(`[TaskStateManager] After UI event ${event.type}: state ${stateBefore} -> ${stateAfter}`);
+    const transitioned = stateBefore !== stateAfter;
+    console.debug(`[TaskStateManager] After UI event ${event.type}: state ${stateBefore} -> ${stateAfter}${transitioned ? '' : ' (NO-OP)'}`);
+    return transitioned;
   }
 
   handleManualStatusChange(taskId: string, status: TaskStatus, task: Task, project: Project): boolean {
     switch (status) {
       case 'done':
-        this.handleUiEvent(taskId, { type: 'MARK_DONE' }, task, project);
-        return true;
+        return this.handleUiEvent(taskId, { type: 'MARK_DONE' }, task, project);
       case 'pr_created':
-        this.handleUiEvent(
+        return this.handleUiEvent(
           taskId,
           { type: 'PR_CREATED', prUrl: task.metadata?.prUrl ?? '' },
           task,
           project
         );
-        return true;
       case 'in_progress': {
         // Use XState as source of truth for determining correct event
         const currentState = this.getCurrentState(taskId);
         if (currentState === 'plan_review') {
-          this.handleUiEvent(taskId, { type: 'PLAN_APPROVED' }, task, project);
+          return this.handleUiEvent(taskId, { type: 'PLAN_APPROVED' }, task, project);
         } else if (currentState === 'human_review' || currentState === 'error') {
-          this.handleUiEvent(taskId, { type: 'USER_RESUMED' }, task, project);
+          return this.handleUiEvent(taskId, { type: 'USER_RESUMED' }, task, project);
         } else if (!currentState && task.reviewReason === 'plan_review') {
-          // Fallback: No actor exists (e.g., after app restart), use task data
-          this.handleUiEvent(taskId, { type: 'PLAN_APPROVED' }, task, project);
+          return this.handleUiEvent(taskId, { type: 'PLAN_APPROVED' }, task, project);
         } else {
-          this.handleUiEvent(taskId, { type: 'USER_RESUMED' }, task, project);
+          return this.handleUiEvent(taskId, { type: 'USER_RESUMED' }, task, project);
         }
-        return true;
       }
       case 'backlog':
-        // Force-move to backlog from any state (USER_STOPPED only goes to backlog from planning)
-        this.handleUiEvent(taskId, { type: 'FORCE_BACKLOG' }, task, project);
-        return true;
+        return this.handleUiEvent(taskId, { type: 'FORCE_BACKLOG' }, task, project);
       case 'human_review':
-        // Force-move to human_review via XState transition (not just emitStatus)
-        // so the state persists across refreshes
-        this.handleUiEvent(taskId, { type: 'FORCE_HUMAN_REVIEW' }, task, project);
-        return true;
+        return this.handleUiEvent(taskId, { type: 'FORCE_HUMAN_REVIEW' }, task, project);
       case 'ai_review':
-        // Force-move to ai_review (qa_review XState state) via XState transition
-        this.handleUiEvent(taskId, { type: 'FORCE_AI_REVIEW' }, task, project);
-        return true;
+        return this.handleUiEvent(taskId, { type: 'FORCE_AI_REVIEW' }, task, project);
       default:
         return false;
     }

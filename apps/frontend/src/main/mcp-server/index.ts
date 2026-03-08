@@ -758,6 +758,11 @@ server.tool(
         }
       }
 
+      const worktreePlanPath = path.join(
+        resolvedProjectPath, '.auto-claude', 'worktrees', 'tasks', taskId,
+        '.auto-claude', 'specs', taskId, 'implementation_plan.json'
+      );
+
       // ALREADY-CORRECT GUARD: Don't restart tasks that are on the right board
       // Skip ONLY if: (1) on correct board AND (2) no stuck/recovery flags were present
       // If stuck flags were cleared (recovered=true), still restart to exit recovery state
@@ -810,7 +815,10 @@ server.tool(
         plan.rdr_batch_type = 'recovery';
         plan.rdr_priority = 1;
         plan.rdr_iteration = (plan.rdr_iteration || 0) + 1;
-        // NOTE: Do NOT reset planStatus — file watcher and other systems use it
+        // Reset planStatus so RDR/auto-shutdown don't skip this task as "lifecycle done"
+        if (plan.planStatus === 'completed' || plan.planStatus === 'approved') {
+          plan.planStatus = 'in_progress';
+        }
         action += (action ? ' + ' : '') + 'set_start_requested';
       } else {
         // Update lastActivity to refresh task (without restarting)
@@ -841,7 +849,10 @@ server.tool(
             worktreePlan.rdr_batch_type = 'recovery';
             worktreePlan.rdr_priority = 1;
             worktreePlan.rdr_iteration = (worktreePlan.rdr_iteration || 0) + 1;
-            // NOTE: Do NOT reset planStatus — file watcher and other systems use it
+            // Reset planStatus so RDR/auto-shutdown don't skip this task as "lifecycle done"
+            if (worktreePlan.planStatus === 'completed' || worktreePlan.planStatus === 'approved') {
+              worktreePlan.planStatus = 'in_progress';
+            }
           } else {
             worktreePlan.updated_at = new Date().toISOString();
             if (!worktreePlan.metadata) worktreePlan.metadata = {};
@@ -1009,7 +1020,10 @@ Source: Claude Code MCP Tool (Priority 2: Request Changes)
         plan.rdr_priority = 2; // Priority 2: Request Changes
         plan.mcp_feedback = feedback;
         plan.mcp_iteration = (plan.mcp_iteration || 0) + 1;
-        // NOTE: Do NOT reset planStatus — file watcher and other systems use it
+        // Reset planStatus so RDR/auto-shutdown don't skip this task as "lifecycle done"
+        if (plan.planStatus === 'completed' || plan.planStatus === 'approved') {
+          plan.planStatus = 'in_progress';
+        }
         writeFileSync(planPath, JSON.stringify(plan, null, 2));
       }
 
@@ -1023,7 +1037,10 @@ Source: Claude Code MCP Tool (Priority 2: Request Changes)
           worktreePlan.rdr_priority = 2;
           worktreePlan.mcp_feedback = feedback;
           worktreePlan.mcp_iteration = (worktreePlan.mcp_iteration || 0) + 1;
-          // NOTE: Do NOT reset planStatus — file watcher and other systems use it
+          // Reset planStatus so RDR/auto-shutdown don't skip this task as "lifecycle done"
+          if (worktreePlan.planStatus === 'completed' || worktreePlan.planStatus === 'approved') {
+            worktreePlan.planStatus = 'in_progress';
+          }
           writeFileSync(worktreePlanPath, JSON.stringify(worktreePlan, null, 2));
           console.log(`[MCP] Also updated worktree plan for ${taskId}`);
         } catch (err) {
@@ -1285,42 +1302,28 @@ server.tool(
           return { qaApproved, exitReason: planData.exitReason as string | undefined, status: planData.status as string | undefined, reviewReason: planData.reviewReason as string | undefined };
         };
 
-        // Only check MAIN plan for QA guard — worktree qa_signoff may be premature
-        // (QA agent wrote approval before rate limit killed the session).
-        // Worktree signoff is unreliable; main plan is what the UI/pipeline propagates.
+        // Check worktree first (QA agent writes qa_signoff there), then main plan
         let qaGuard: { qaApproved: boolean; exitReason?: string; status?: string; reviewReason?: string } = { qaApproved: false };
-        if (existsSync(planPath)) {
+        const wtGuardPath = path.join(resolvedProjectPath, '.auto-claude', 'worktrees', 'tasks', fix.taskId, '.auto-claude', 'specs', fix.taskId, 'implementation_plan.json');
+        if (existsSync(wtGuardPath)) {
+          qaGuard = checkQaGuard(JSON.parse(readFileSync(wtGuardPath, 'utf-8')));
+        }
+        if (!qaGuard.qaApproved && existsSync(planPath)) {
           qaGuard = checkQaGuard(JSON.parse(readFileSync(planPath, 'utf-8')));
         }
 
         if (qaGuard.qaApproved) {
-          const status = qaGuard.status ?? 'unknown';
-          // Terminal states → skip entirely
-          if (status === 'done' || status === 'pr_created') {
-            console.log(`[MCP] Skipping ${fix.taskId} — genuinely done (status=${status})`);
-            results.push({ taskId: fix.taskId, success: false, action: 'skipped_complete', priority: 0, error: 'Task genuinely done — skipping' });
+          const hasHardError = qaGuard.exitReason === 'error' || qaGuard.exitReason === 'auth_failure';
+          const terminalStatuses = ['human_review', 'done', 'pr_created', 'approved'];
+          const onCorrectBoard = terminalStatuses.includes(qaGuard.status || '');
+
+          if (!hasHardError && onCorrectBoard) {
+            console.log(`[MCP] Skipping ${fix.taskId} — QA-approved at 100% on ${qaGuard.status}, no hard error`);
+            results.push({ taskId: fix.taskId, success: false, action: 'skipped_complete', priority: 0, error: 'Task QA-approved at 100% — skipping to prevent restart loop' });
             continue;
           }
-          // Already on human_review → correct board, skip (user reviews before done)
-          if (status === 'human_review') {
-            console.log(`[MCP] Skipping ${fix.taskId} — QA-approved on human_review, awaiting user review`);
-            results.push({ taskId: fix.taskId, success: false, action: 'skipped_complete', priority: 0, error: 'QA-approved on human_review — awaiting user review' });
-            continue;
-          }
-          // Wrong board (ai_review, in_progress, backlog, etc.) → route to human_review
-          console.log(`[MCP] ${fix.taskId} QA-approved but on wrong board (${status}) — routing to human_review`);
-          try {
-            const task = projectStore.getTaskBySpecId(projectId, fix.taskId);
-            if (task) {
-              projectStore.updateTaskStatus(projectId, fix.taskId, 'human_review' as any);
-              notifyRendererTaskRefresh(projectId);
-              console.log(`[MCP] Board routing: ${fix.taskId} → human_review (was ${status})`);
-            }
-          } catch (routeErr) {
-            console.warn(`[MCP] Board routing failed for QA-approved ${fix.taskId}:`, routeErr);
-          }
-          results.push({ taskId: fix.taskId, success: true, action: 'routed_to_human_review', priority: 1 });
-          continue;
+          // Wrong board or hard error → fall through to start_requested (file watcher routes)
+          console.log(`[MCP] ${fix.taskId} QA-approved but needs recovery (exitReason=${qaGuard.exitReason || 'none'}, status=${qaGuard.status || 'unknown'})`);
         }
       } catch (guardErr) {
         console.warn(`[MCP] QA guard check failed for ${fix.taskId} — proceeding with caution:`, guardErr);
@@ -1489,7 +1492,10 @@ Batch Type: ${batchType}
           plan.rdr_iteration = (plan.rdr_iteration || 0) + 1;
           // NOTE: Do NOT clear qa_signoff here. File watcher needs it to correctly
           // route QA-approved tasks to human_review and skip agent restart.
-          // NOTE: Do NOT reset planStatus here. File watcher and other systems use it.
+          // Reset planStatus so RDR/auto-shutdown don't skip this task as "lifecycle done"
+          if (plan.planStatus === 'completed' || plan.planStatus === 'approved') {
+            plan.planStatus = 'in_progress';
+          }
           writeFileSync(planPath, JSON.stringify(plan, null, 2));
         }
 
@@ -1509,7 +1515,11 @@ Batch Type: ${batchType}
             worktreePlan.rdr_iteration = (worktreePlan.rdr_iteration || 0) + 1;
             // Clear stale exitReason from previous session crash — prevents false "recovery" flag
             delete worktreePlan.exitReason;
-            // NOTE: Do NOT clear qa_signoff or reset planStatus — file watcher needs them
+            // NOTE: Do NOT clear qa_signoff — file watcher needs it for routing
+            // Reset planStatus so RDR/auto-shutdown don't skip this task as "lifecycle done"
+            if (worktreePlan.planStatus === 'completed' || worktreePlan.planStatus === 'approved') {
+              worktreePlan.planStatus = 'in_progress';
+            }
             writeFileSync(worktreePlanPath, JSON.stringify(worktreePlan, null, 2));
             console.log(`[MCP] Also updated worktree plan for ${fix.taskId}`);
           } catch (err) {
