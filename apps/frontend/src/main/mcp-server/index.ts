@@ -810,10 +810,7 @@ server.tool(
         plan.rdr_batch_type = 'recovery';
         plan.rdr_priority = 1;
         plan.rdr_iteration = (plan.rdr_iteration || 0) + 1;
-        // Reset planStatus so RDR/auto-shutdown don't skip this task as "lifecycle done"
-        if (plan.planStatus === 'completed' || plan.planStatus === 'approved') {
-          plan.planStatus = 'in_progress';
-        }
+        // NOTE: Do NOT reset planStatus — file watcher and other systems use it
         action += (action ? ' + ' : '') + 'set_start_requested';
       } else {
         // Update lastActivity to refresh task (without restarting)
@@ -844,10 +841,7 @@ server.tool(
             worktreePlan.rdr_batch_type = 'recovery';
             worktreePlan.rdr_priority = 1;
             worktreePlan.rdr_iteration = (worktreePlan.rdr_iteration || 0) + 1;
-            // Reset planStatus so RDR/auto-shutdown don't skip this task as "lifecycle done"
-            if (worktreePlan.planStatus === 'completed' || worktreePlan.planStatus === 'approved') {
-              worktreePlan.planStatus = 'in_progress';
-            }
+            // NOTE: Do NOT reset planStatus — file watcher and other systems use it
           } else {
             worktreePlan.updated_at = new Date().toISOString();
             if (!worktreePlan.metadata) worktreePlan.metadata = {};
@@ -861,41 +855,9 @@ server.tool(
         }
       }
 
-      // Direct board routing: Update ProjectStore status based on subtask progress
-      // This bypasses file watcher race conditions and gives immediate UI feedback
-      let targetBoard: string | undefined;
-      if (autoRestart) {
-        try {
-          const routingPlan = existsSync(worktreePlanPath)
-            ? JSON.parse(readFileSync(worktreePlanPath, 'utf-8'))
-            : plan;
-
-          const allSubtasks = (routingPlan.phases || []).flatMap((p: any) => p.subtasks || []);
-          const total = allSubtasks.length;
-          const completed = allSubtasks.filter((s: any) => s.status === 'completed').length;
-
-          if (total === 0) {
-            targetBoard = 'backlog';
-          } else if (completed === total) {
-            targetBoard = 'ai_review';
-          } else {
-            const implPhase = (routingPlan.phases || []).find((p: any) => p.name === 'Implementation');
-            const validationPhase = (routingPlan.phases || []).find((p: any) => p.name === 'Validation');
-            const implDone = implPhase?.subtasks?.length > 0 && implPhase.subtasks.every((s: any) => s.status === 'completed');
-            const valIncomplete = validationPhase?.subtasks?.some((s: any) => s.status !== 'completed');
-            targetBoard = (implDone && valIncomplete) ? 'ai_review' : 'in_progress';
-          }
-
-          const storeTask = projectStore.getTaskBySpecId(projectId, taskId);
-          if (storeTask && storeTask.status !== targetBoard) {
-            projectStore.updateTaskStatus(projectId, taskId, targetBoard as any);
-            console.log(`[MCP] Direct board routing: ${taskId} → ${targetBoard} (was ${storeTask.status})`);
-            notifyRendererTaskRefresh(projectId);
-          }
-        } catch (routeErr) {
-          console.warn(`[MCP] Board routing failed for ${taskId}:`, routeErr);
-        }
-      }
+      // Board routing delegated to file watcher (single source of truth).
+      // File watcher detects start_requested, checks qa_signoff, calls
+      // determineResumeStatus(), and routes to the correct board.
 
       return {
         content: [{
@@ -906,9 +868,8 @@ server.tool(
             recovered,
             autoRestart,
             action,
-            targetBoard,
             message: autoRestart
-              ? `Task ${taskId} recovered and routed to ${targetBoard || 'unknown'}. File watcher will auto-start within 2-3 seconds.`
+              ? `Task ${taskId} recovered. File watcher will route to correct board and auto-start within 2-3 seconds.`
               : `Task ${taskId} recovered (exit recovery mode). Task will not auto-restart - manually start if needed.`
           }, null, 2)
         }]
@@ -1048,10 +1009,7 @@ Source: Claude Code MCP Tool (Priority 2: Request Changes)
         plan.rdr_priority = 2; // Priority 2: Request Changes
         plan.mcp_feedback = feedback;
         plan.mcp_iteration = (plan.mcp_iteration || 0) + 1;
-        // Reset planStatus so RDR/auto-shutdown don't skip this task as "lifecycle done"
-        if (plan.planStatus === 'completed' || plan.planStatus === 'approved') {
-          plan.planStatus = 'in_progress';
-        }
+        // NOTE: Do NOT reset planStatus — file watcher and other systems use it
         writeFileSync(planPath, JSON.stringify(plan, null, 2));
       }
 
@@ -1065,10 +1023,7 @@ Source: Claude Code MCP Tool (Priority 2: Request Changes)
           worktreePlan.rdr_priority = 2;
           worktreePlan.mcp_feedback = feedback;
           worktreePlan.mcp_iteration = (worktreePlan.mcp_iteration || 0) + 1;
-          // Reset planStatus so RDR/auto-shutdown don't skip this task as "lifecycle done"
-          if (worktreePlan.planStatus === 'completed' || worktreePlan.planStatus === 'approved') {
-            worktreePlan.planStatus = 'in_progress';
-          }
+          // NOTE: Do NOT reset planStatus — file watcher and other systems use it
           writeFileSync(worktreePlanPath, JSON.stringify(worktreePlan, null, 2));
           console.log(`[MCP] Also updated worktree plan for ${taskId}`);
         } catch (err) {
@@ -1532,17 +1487,9 @@ Batch Type: ${batchType}
           plan.rdr_batch_type = batchType;
           plan.rdr_priority = priority;
           plan.rdr_iteration = (plan.rdr_iteration || 0) + 1;
-          // Clear stale qa_signoff — QA agents may have written premature approvals
-          // before the task was stopped by rate limits. Without clearing, the file
-          // watcher sees qa_signoff=approved and re-routes back to human_review.
-          if (plan.qa_signoff) {
-            console.log(`[MCP] Clearing stale qa_signoff for ${fix.taskId} (was: ${plan.qa_signoff?.status || 'unknown'})`);
-            delete plan.qa_signoff;
-          }
-          // Reset planStatus so RDR/auto-shutdown don't skip this task as "lifecycle done"
-          if (plan.planStatus === 'completed' || plan.planStatus === 'approved') {
-            plan.planStatus = 'in_progress';
-          }
+          // NOTE: Do NOT clear qa_signoff here. File watcher needs it to correctly
+          // route QA-approved tasks to human_review and skip agent restart.
+          // NOTE: Do NOT reset planStatus here. File watcher and other systems use it.
           writeFileSync(planPath, JSON.stringify(plan, null, 2));
         }
 
@@ -1562,12 +1509,7 @@ Batch Type: ${batchType}
             worktreePlan.rdr_iteration = (worktreePlan.rdr_iteration || 0) + 1;
             // Clear stale exitReason from previous session crash — prevents false "recovery" flag
             delete worktreePlan.exitReason;
-            // Clear stale qa_signoff (same reason as main plan above)
-            if (worktreePlan.qa_signoff) delete worktreePlan.qa_signoff;
-            // Reset planStatus so RDR/auto-shutdown don't skip this task as "lifecycle done"
-            if (worktreePlan.planStatus === 'completed' || worktreePlan.planStatus === 'approved') {
-              worktreePlan.planStatus = 'in_progress';
-            }
+            // NOTE: Do NOT clear qa_signoff or reset planStatus — file watcher needs them
             writeFileSync(worktreePlanPath, JSON.stringify(worktreePlan, null, 2));
             console.log(`[MCP] Also updated worktree plan for ${fix.taskId}`);
           } catch (err) {
@@ -1592,66 +1534,10 @@ Batch Type: ${batchType}
           console.warn(`[MCP] Failed to increment rdrAttempts for ${fix.taskId}:`, err);
         }
 
-        // ─────────────────────────────────────────────────────────────────
-        // DIRECT BOARD ROUTING: Update ProjectStore status based on subtask progress
-        // This bypasses the file watcher race condition and ensures correct board placement
-        // ─────────────────────────────────────────────────────────────────
-        try {
-          // Read the best available plan (worktree preferred) for routing
-          const routingPlan = existsSync(worktreePlanPath)
-            ? JSON.parse(readFileSync(worktreePlanPath, 'utf-8'))
-            : existsSync(planPath) ? JSON.parse(readFileSync(planPath, 'utf-8')) : null;
-
-          if (routingPlan) {
-            // Second-layer qa_signoff guard: route QA-approved to human_review (not restart).
-            // This catches the case where the primary guard failed silently.
-            if (routingPlan.qa_signoff?.status === 'approved') {
-              const task = projectStore.getTaskBySpecId(projectId, fix.taskId);
-              if (task && task.status !== 'human_review' && task.status !== 'done' && task.status !== 'pr_created') {
-                projectStore.updateTaskStatus(projectId, fix.taskId, 'human_review' as any);
-                notifyRendererTaskRefresh(projectId);
-                console.log(`[MCP] Second-layer: routed QA-approved ${fix.taskId} → human_review (was ${task.status})`);
-              } else {
-                console.log(`[MCP] Second-layer: ${fix.taskId} QA-approved already on correct board (${task?.status})`);
-              }
-            } else {
-              const allSubtasks = (routingPlan.phases || []).flatMap((p: any) => p.subtasks || []);
-              const total = allSubtasks.length;
-              const completed = allSubtasks.filter((s: any) => s.status === 'completed').length;
-
-              let targetBoard: string;
-              if (total === 0) {
-                targetBoard = 'backlog';
-              } else if (completed === total) {
-                targetBoard = 'ai_review';
-              } else {
-                const implPhase = (routingPlan.phases || []).find((p: any) => p.name === 'Implementation');
-                const validationPhase = (routingPlan.phases || []).find((p: any) => p.name === 'Validation');
-                const implDone = implPhase?.subtasks?.length > 0 && implPhase.subtasks.every((s: any) => s.status === 'completed');
-                const valIncomplete = validationPhase?.subtasks?.some((s: any) => s.status !== 'completed');
-                targetBoard = (implDone && valIncomplete) ? 'ai_review' : 'in_progress';
-              }
-
-              const task = projectStore.getTaskBySpecId(projectId, fix.taskId);
-              if (task && task.status !== targetBoard) {
-                // Never route FROM done/pr_created (terminal states) — only route non-terminal tasks
-                if (task.status === 'done' || task.status === 'pr_created') {
-                  console.log(`[MCP] Skipping direct board routing for ${fix.taskId} — already in terminal state (${task.status})`);
-                } else {
-                  const routed = projectStore.updateTaskStatus(projectId, fix.taskId, targetBoard as any);
-                  if (routed) {
-                    console.log(`[MCP] Direct board routing: ${fix.taskId} → ${targetBoard} (was ${task.status})`);
-                    notifyRendererTaskRefresh(projectId);
-                  }
-                }
-              } else if (task) {
-                console.log(`[MCP] Task ${fix.taskId} already on correct board (${targetBoard})`);
-              }
-            }
-          }
-        } catch (routeErr) {
-          console.warn(`[MCP] Board routing failed for ${fix.taskId}:`, routeErr);
-        }
+        // Board routing delegated to file watcher (single source of truth).
+        // File watcher detects start_requested, checks qa_signoff, calls
+        // determineResumeStatus(), and routes to the correct board.
+        // No direct ProjectStore routing here — prevents race conditions.
 
         results.push({ taskId: fix.taskId, success: true, action, priority });
       } catch (error) {
