@@ -1542,10 +1542,9 @@ export class UsageMonitor extends EventEmitter {
         return apiUsage;
       }
 
-      // API failed - record timestamp for cooldown-based retry
-      this.debugLog('[UsageMonitor] API method failed, recording failure timestamp for cooldown retry');
-      this.debugLog('[UsageMonitor:FETCH] API fetch failed, will retry after cooldown');
-      this.apiFailureTimestamps.set(profileId, Date.now());
+      // API failed — fetchUsageViaAPI records cooldown timestamp internally for
+      // non-transient errors. 429s are transient and skip cooldown, so next poll retries immediately.
+      this.debugLog('[UsageMonitor:FETCH] API fetch failed, will retry based on error type');
     } else if (!credential) {
       this.debugLog('[UsageMonitor:FETCH] No credential available, skipping API method');
     }
@@ -1720,6 +1719,13 @@ export class UsageMonitor extends EventEmitter {
           const error = new Error(`API Auth Failure: ${response.status} (${provider})`);
           (error as any).statusCode = response.status;
           throw error;
+        }
+
+        // 429 is transient rate-limiting — DON'T record failure timestamp.
+        // Let it retry on the very next poll cycle (30s) instead of waiting 2-minute cooldown.
+        if (response.status === 429) {
+          this.debugLog('[UsageMonitor] 429 rate-limited — will retry on next poll (no cooldown)');
+          return null;
         }
 
         // For other error statuses, try to parse response body to detect auth failures
