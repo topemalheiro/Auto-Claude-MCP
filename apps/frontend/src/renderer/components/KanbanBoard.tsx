@@ -737,6 +737,9 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   const [queueBlocked, setQueueBlocked] = useState(false);
   const [queueBlockReason, setQueueBlockReason] = useState<string | null>(null);
 
+  // Pause All state — stops all agents and prevents queue/auto-resume from starting new ones
+  const [allPaused, setAllPaused] = useState(false);
+
   // Calculate archived count for Done column button
   const archivedCount = useMemo(() =>
     tasks.filter(t => t.metadata?.archivedAt).length,
@@ -1726,9 +1729,6 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   // Per-project settings for auto-resume and RDR
   const autoResumeEnabled = currentProject?.settings?.autoResumeAfterRateLimit ?? false;
   const rdrEnabled = currentProject?.settings?.rdrEnabled ?? false;
-
-  // Pause All state — stops all agents and prevents queue/auto-resume from starting new ones
-  const [allPaused, setAllPaused] = useState(false);
 
   // VS Code window state for RDR direct sending
   const [vsCodeWindows, setVsCodeWindows] = useState<Array<{ handle: number; title: string; processId: number }>>([]);
