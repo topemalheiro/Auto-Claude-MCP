@@ -49,6 +49,10 @@ export class AutoClaudeWatchdog extends EventEmitter {
   private settingsPath: string;
   private appDataDir: string;
   private logStream: fs.WriteStream | null = null;
+  // Buffered Electron log writer (flush every 2s to avoid disk thrashing)
+  private electronLogBuffer: string[] = [];
+  private electronLogFlushTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly ELECTRON_LOG_FLUSH_MS = 2_000;
   // Heartbeat monitoring for freeze detection (Layer 2)
   private heartbeatCheckInterval: ReturnType<typeof setInterval> | null = null;
   private readonly HEARTBEAT_CHECK_INTERVAL_MS = 15_000;  // Check every 15s
@@ -86,12 +90,14 @@ export class AutoClaudeWatchdog extends EventEmitter {
    */
   private initLogFile(): void {
     const logPath = path.join(this.appDataDir, 'watchdog.log');
+    const prevPath = path.join(this.appDataDir, 'watchdog.log.1');
     try {
-      // Truncate if > 1MB
+      // Rotate at 5MB: current → .log.1 (previous session always recoverable)
       if (fs.existsSync(logPath)) {
         const stat = fs.statSync(logPath);
-        if (stat.size > 1_000_000) {
-          fs.unlinkSync(logPath);
+        if (stat.size > 5_000_000) {
+          if (fs.existsSync(prevPath)) fs.unlinkSync(prevPath);
+          fs.renameSync(logPath, prevPath);
         }
       }
       this.logStream = fs.createWriteStream(logPath, { flags: 'a' });
@@ -118,6 +124,40 @@ export class AutoClaudeWatchdog extends EventEmitter {
 
     try {
       this.logStream?.write(line + '\n');
+    } catch { /* ignore write errors */ }
+  }
+
+  /**
+   * Buffer an Electron stdout/stderr line for batched disk write.
+   * Flushes every 2s to avoid thrashing on high-frequency output.
+   */
+  private writeElectronLog(line: string): void {
+    this.electronLogBuffer.push(`[${new Date().toISOString()}] ${line}`);
+
+    if (!this.electronLogFlushTimer) {
+      this.electronLogFlushTimer = setTimeout(() => {
+        this.flushElectronLogs();
+      }, this.ELECTRON_LOG_FLUSH_MS);
+      this.electronLogFlushTimer.unref();
+    }
+  }
+
+  /**
+   * Flush buffered Electron logs to disk immediately.
+   * Called on timer, and also on crash/freeze/shutdown to avoid data loss.
+   */
+  private flushElectronLogs(): void {
+    if (this.electronLogFlushTimer) {
+      clearTimeout(this.electronLogFlushTimer);
+      this.electronLogFlushTimer = null;
+    }
+    if (this.electronLogBuffer.length === 0) return;
+
+    const batch = this.electronLogBuffer.join('\n') + '\n';
+    this.electronLogBuffer = [];
+
+    try {
+      this.logStream?.write(batch);
     } catch { /* ignore write errors */ }
   }
 
@@ -213,6 +253,9 @@ export class AutoClaudeWatchdog extends EventEmitter {
       return;
     }
 
+    this.log('INFO', '='.repeat(60));
+    this.log('INFO', `SESSION START — ${new Date().toISOString()}`);
+    this.log('INFO', '='.repeat(60));
     this.log('INFO', 'Starting Auto-Claude process...');
     this.log('INFO', 'Electron path:', electronPath);
     this.log('INFO', 'App path:', appPath);
@@ -247,25 +290,27 @@ export class AutoClaudeWatchdog extends EventEmitter {
       this.handleProcessExit(code, signal);
     });
 
-    // Monitor stdout for logs - forward to console for developer visibility
+    // Monitor stdout for logs - forward to console AND persist to disk
     if (this.process.stdout) {
       this.process.stdout.on('data', (data) => {
         const line = data.toString().trim();
         if (line) {
-          console.log(line); // Forward Electron logs to watchdog terminal
+          console.log(line);
           this.addLog(line);
+          this.writeElectronLog(line);
           this.checkForCrashIndicators(line);
         }
       });
     }
 
-    // Monitor stderr for errors - forward to console for developer visibility
+    // Monitor stderr for errors - forward to console AND persist to disk
     if (this.process.stderr) {
       this.process.stderr.on('data', (data) => {
         const line = data.toString().trim();
         if (line) {
-          console.error(line); // Forward Electron errors to watchdog terminal
+          console.error(line);
           this.addLog(`[ERROR] ${line}`);
+          this.writeElectronLog(`[ERROR] ${line}`);
           this.checkForCrashIndicators(line);
         }
       });
@@ -316,6 +361,9 @@ export class AutoClaudeWatchdog extends EventEmitter {
    * Handle process exit (normal or crash)
    */
   private async handleProcessExit(code: number | null, signal: NodeJS.Signals | null): Promise<void> {
+    // Flush buffered Electron logs before processing exit (preserve final output)
+    this.flushElectronLogs();
+
     if (this.isShuttingDown) {
       console.log('[Watchdog] Clean shutdown detected');
       return;
@@ -625,6 +673,9 @@ export class AutoClaudeWatchdog extends EventEmitter {
    * Handle detected freeze — kill frozen process and trigger restart via existing exit handler
    */
   private handleFreezeDetected(frozenPid: number, staleAge: number): void {
+    // Flush buffered Electron logs before processing freeze (preserve final output)
+    this.flushElectronLogs();
+
     // Stop heartbeat monitoring to prevent duplicate detections
     this.stopHeartbeatMonitoring();
 
@@ -714,7 +765,8 @@ export class AutoClaudeWatchdog extends EventEmitter {
 
     this.process = null;
     this.log('INFO', 'Stopped');
-    // Close log stream
+    // Flush any remaining Electron logs, then close log stream
+    this.flushElectronLogs();
     try { this.logStream?.end(); } catch { /* ignore */ }
   }
 
