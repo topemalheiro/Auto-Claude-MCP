@@ -351,6 +351,146 @@ ipcMain.handle(
 );
 
 /**
+ * Start the shutdown monitor process across all projects.
+ * Extracted so it can be called from both the IPC handler and initAutoShutdown().
+ */
+async function startMonitorProcess(persistSetting = true): Promise<IPCResult<AutoShutdownStatus>> {
+  const projects = projectStore.getProjects();
+
+  if (projects.length === 0) {
+    return {
+      success: false,
+      error: 'No projects available to monitor'
+    };
+  }
+
+  // Count total active tasks across all projects
+  const projectPaths = projects.map(p => p.path);
+  let totalActiveTasks = 0;
+
+  for (const projectPath of projectPaths) {
+    const activeTaskIds = getActiveTaskIds(projectPath);
+    totalActiveTasks += activeTaskIds.length;
+  }
+
+  if (totalActiveTasks === 0) {
+    console.log('[AutoShutdown] No active tasks - monitor will trigger shutdown on first poll');
+  }
+
+  // Kill existing global process if any
+  const existingProcess = monitorProcesses.get('global');
+  if (existingProcess) {
+    existingProcess.kill();
+    monitorProcesses.delete('global');
+  }
+
+  // Get script path
+  const appPath = app.getAppPath();
+  console.log(`[AutoShutdown] App path: ${appPath}`);
+
+  const scriptPath = app.isPackaged
+    ? path.join(process.resourcesPath, 'scripts', 'shutdown-monitor.ts')
+    : path.resolve(appPath, '..', '..', '..', '..', 'scripts', 'shutdown-monitor.ts');
+
+  console.log(`[AutoShutdown] Script path: ${scriptPath}`);
+  console.log(`[AutoShutdown] Script exists: ${fs.existsSync(scriptPath)}`);
+
+  if (!fs.existsSync(scriptPath)) {
+    return {
+      success: false,
+      error: `Shutdown monitor script not found at: ${scriptPath}`
+    };
+  }
+
+  // Build args for monitor script with ALL project paths
+  // Use Node's built-in TypeScript support (--experimental-strip-types)
+  // No tsx dependency needed, no shell = no terminal popup on Windows
+  const args = [
+    '--experimental-strip-types',
+    '--no-warnings',
+    scriptPath,
+    '--delay-seconds', '120',
+    ...projectPaths.flatMap(p => ['--project-path', p])
+  ];
+
+  // Spawn via Electron as Node (ELECTRON_RUN_AS_NODE=1)
+  const monitorProcess = spawn(
+    process.execPath,
+    args,
+    {
+      cwd: projectPaths[0],
+      detached: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+      env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' }
+    }
+  );
+
+  // Suppress normal polling output (only log errors via stderr)
+  monitorProcess.stdout?.on('data', () => {
+    // Suppress to reduce noise
+  });
+
+  monitorProcess.stderr?.on('data', (data) => {
+    console.error(`[AutoShutdown:global]`, data.toString().trim());
+  });
+
+  monitorProcess.on('exit', (code, signal) => {
+    console.log(`[AutoShutdown:global] Monitor exited with code ${code}, signal ${signal}`);
+    monitorProcesses.delete('global');
+
+    if (code === 0) {
+      // Monitor detected all tasks complete and triggered shutdown
+      if (Notification.isSupported()) {
+        new Notification({
+          title: 'Auto-Shutdown Armed',
+          body: 'All tasks complete! System will shut down in 2 minutes. Run "shutdown /a" to abort.',
+          urgency: 'critical'
+        }).show();
+      }
+    }
+
+    const status: AutoShutdownStatus = {
+      enabled: false,
+      monitoring: false,
+      tasksRemaining: 0,
+      shutdownPending: false
+    };
+    monitorStatuses.set('global', status);
+  });
+
+  monitorProcess.unref();
+  monitorProcesses.set('global', monitorProcess);
+
+  // Get initial task count across all projects
+  let totalTasks = 0;
+  for (const project of projects) {
+    const { total } = countTasksByStatus(project.path);
+    totalTasks += total;
+  }
+
+  const status: AutoShutdownStatus = {
+    enabled: true,
+    monitoring: true,
+    tasksRemaining: totalTasks,
+    shutdownPending: false
+  };
+  monitorStatuses.set('global', status);
+
+  if (persistSetting) {
+    const settings = readSettingsFile() || {};
+    writeSettingsFile({
+      ...settings,
+      autoShutdownEnabled: true
+    });
+  }
+
+  console.log(`[AutoShutdown] Monitoring ${projects.length} projects with ${totalActiveTasks} active tasks`);
+
+  return { success: true, data: status };
+}
+
+/**
  * Enable/disable auto-shutdown GLOBALLY across ALL projects
  */
 ipcMain.handle(
@@ -358,139 +498,8 @@ ipcMain.handle(
   async (_, enabled: boolean): Promise<IPCResult<AutoShutdownStatus>> => {
     try {
       if (enabled) {
-        // Get ALL projects
-        const projects = projectStore.getProjects();
-
-        if (projects.length === 0) {
-          return {
-            success: false,
-            error: 'No projects available to monitor'
-          };
-        }
-
-        // Count total active tasks across all projects
-        const projectPaths = projects.map(p => p.path);
-        let totalActiveTasks = 0;
-
-        for (const projectPath of projectPaths) {
-          const activeTaskIds = getActiveTaskIds(projectPath);
-          totalActiveTasks += activeTaskIds.length;
-        }
-
-        if (totalActiveTasks === 0) {
-          console.log('[AutoShutdown] No active tasks - monitor will trigger shutdown on first poll');
-        }
-
-        // Kill existing global process if any
-        const existingProcess = monitorProcesses.get('global');
-        if (existingProcess) {
-          existingProcess.kill();
-          monitorProcesses.delete('global');
-        }
-
-        // Get script path
-        const appPath = app.getAppPath();
-        console.log(`[AutoShutdown] App path: ${appPath}`);
-
-        const scriptPath = app.isPackaged
-          ? path.join(process.resourcesPath, 'scripts', 'shutdown-monitor.ts')
-          : path.resolve(appPath, '..', '..', '..', '..', 'scripts', 'shutdown-monitor.ts');
-
-        console.log(`[AutoShutdown] Script path: ${scriptPath}`);
-        console.log(`[AutoShutdown] Script exists: ${fs.existsSync(scriptPath)}`);
-
-        if (!fs.existsSync(scriptPath)) {
-          return {
-            success: false,
-            error: `Shutdown monitor script not found at: ${scriptPath}`
-          };
-        }
-
-        // Build args for monitor script with ALL project paths
-        // Use Node's built-in TypeScript support (--experimental-strip-types)
-        // No tsx dependency needed, no shell = no terminal popup on Windows
-        const args = [
-          '--experimental-strip-types',
-          '--no-warnings',
-          scriptPath,
-          '--delay-seconds', '120',
-          ...projectPaths.flatMap(p => ['--project-path', p])
-        ];
-
-        // Spawn via Electron as Node (ELECTRON_RUN_AS_NODE=1)
-        const monitorProcess = spawn(
-          process.execPath,
-          args,
-          {
-            cwd: projectPaths[0],
-            detached: true,
-            stdio: ['ignore', 'pipe', 'pipe'],
-            windowsHide: true,
-            env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' }
-          }
-        );
-
-        // Suppress normal polling output (only log errors via stderr)
-        monitorProcess.stdout?.on('data', () => {
-          // Suppress to reduce noise
-        });
-
-        monitorProcess.stderr?.on('data', (data) => {
-          console.error(`[AutoShutdown:global]`, data.toString().trim());
-        });
-
-        monitorProcess.on('exit', (code, signal) => {
-          console.log(`[AutoShutdown:global] Monitor exited with code ${code}, signal ${signal}`);
-          monitorProcesses.delete('global');
-
-          if (code === 0) {
-            // Monitor detected all tasks complete and triggered shutdown
-            if (Notification.isSupported()) {
-              new Notification({
-                title: 'Auto-Shutdown Armed',
-                body: 'All tasks complete! System will shut down in 2 minutes. Run "shutdown /a" to abort.',
-                urgency: 'critical'
-              }).show();
-            }
-          }
-
-          const status: AutoShutdownStatus = {
-            enabled: false,
-            monitoring: false,
-            tasksRemaining: 0,
-            shutdownPending: false
-          };
-          monitorStatuses.set('global', status);
-        });
-
-        monitorProcess.unref();
-        monitorProcesses.set('global', monitorProcess);
-
-        // Get initial task count across all projects
-        let totalTasks = 0;
-        for (const project of projects) {
-          const { total } = countTasksByStatus(project.path);
-          totalTasks += total;
-        }
-
-        const status: AutoShutdownStatus = {
-          enabled: true,
-          monitoring: true,
-          tasksRemaining: totalTasks,
-          shutdownPending: false
-        };
-        monitorStatuses.set('global', status);
-
-        // Persist to settings
-        const settings = readSettingsFile() || {};
-        writeSettingsFile({
-          ...settings,
-          autoShutdownEnabled: true
-        });
-
-        console.log(`[AutoShutdown] Monitoring ${projects.length} projects with ${totalActiveTasks} active tasks`);
-
-        return { success: true, data: status };
+        const result = await startMonitorProcess();
+        return result;
       } else {
         // Stop monitoring
         const process = monitorProcesses.get('global');
@@ -568,3 +577,17 @@ app.on('before-quit', () => {
   }
   monitorProcesses.clear();
 });
+
+/**
+ * Restore auto-shutdown on app startup if it was previously enabled.
+ * Called from ipc-handlers/index.ts after all handlers are registered.
+ */
+export function initAutoShutdown(): void {
+  const settings = readSettingsFile();
+  if (!settings?.autoShutdownEnabled) return;
+
+  console.log('[AutoShutdown] Restoring from saved settings...');
+  startMonitorProcess(false).catch(err =>
+    console.error('[AutoShutdown] Failed to restore monitor on startup:', err)
+  );
+}

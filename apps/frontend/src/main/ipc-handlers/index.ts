@@ -46,6 +46,7 @@ import { activityMonitor } from '../activity-monitor';
 
 // Auto-shutdown handlers (self-registering on import)
 import './auto-shutdown-handlers';
+import { initAutoShutdown } from './auto-shutdown-handlers';
 
 /**
  * Setup all IPC handlers across all domains
@@ -156,6 +157,9 @@ export function setupIpcHandlers(
   ipcMain.on('activity:record', (_event, source: string) => {
     activityMonitor.recordActivity(source);
   });
+
+  // Restore auto-shutdown monitor if it was enabled before last close
+  initAutoShutdown();
 
   console.warn('[IPC] All handler modules registered successfully');
 }
