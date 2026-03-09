@@ -2,6 +2,32 @@
 
 **🚨 Auto-invoke when:** RDR notification "[Auto-Claude RDR]"
 
+## Launching Auto-Claude from VS Code / Claude Code (Windows 11)
+
+**CRITICAL: ALWAYS use the .bat file to launch Auto-Claude. NEVER open a terminal directly.**
+
+### Killing Auto-Claude (MUST kill watchdog, not just Electron)
+
+**CRITICAL: The external watchdog is a separate node.exe process. If you only kill electron.exe, the watchdog thinks it crashed and RESPAWNS it. Kill the bat terminal window instead.**
+
+```bash
+# Kill the bat terminal (kills watchdog + electron together)
+taskkill.exe //F //FI "WINDOWTITLE eq *Auto-Claude*" 2>/dev/null
+# Safety: also kill any orphaned electron processes
+taskkill.exe //F //IM "electron.exe" 2>/dev/null
+```
+
+### Starting Auto-Claude
+
+```bash
+sleep 2  # Wait for processes to die
+powershell.exe -Command "Remove-Item Env:ELECTRON_RUN_AS_NODE -ErrorAction SilentlyContinue; Start-Process 'C:\Users\topem\source\repos\Auto-Claude-MCP\Auto-Claude-MCP.bat'"
+```
+
+**Why clear ELECTRON_RUN_AS_NODE:** VS Code / Claude Code sets this env var which makes Electron run as plain Node.js instead of a GUI app.
+
+---
+
 ## What is "Recovery"?
 
 RDR handles TWO types of recovery:

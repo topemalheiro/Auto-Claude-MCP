@@ -2,6 +2,44 @@
 
 **🚨 Auto-invoke when:** RDR notification "[Auto-Claude RDR]" or user says "fix/recover/resume tasks"
 
+## Launching Auto-Claude from VS Code / Claude Code (Windows 11)
+
+**CRITICAL: ALWAYS use the .bat file to launch Auto-Claude. NEVER open a terminal directly.**
+
+### Killing Auto-Claude (MUST kill watchdog, not just Electron)
+
+**CRITICAL: The external watchdog is a separate node.exe process. If you only kill electron.exe, the watchdog thinks it crashed and RESPAWNS it. You must kill the watchdog process too.**
+
+```bash
+# Kill BOTH Electron AND the watchdog node.exe processes
+taskkill.exe //F //IM "electron.exe" 2>/dev/null; taskkill.exe //F //FI "WINDOWTITLE eq Auto-Claude*" 2>/dev/null; taskkill.exe //F //FI "IMAGENAME eq node.exe" //FI "WINDOWTITLE eq *watchdog*" 2>/dev/null
+```
+
+The safest approach: close the terminal/cmd window running `Auto-Claude-MCP.bat` — that kills the watchdog (parent) which kills Electron (child).
+
+### Starting Auto-Claude
+
+```bash
+powershell.exe -Command "Remove-Item Env:ELECTRON_RUN_AS_NODE -ErrorAction SilentlyContinue; Start-Process 'C:\Users\topem\source\repos\Auto-Claude-MCP\Auto-Claude-MCP.bat'"
+```
+
+**Why clear ELECTRON_RUN_AS_NODE:** VS Code / Claude Code sets this env var which makes Electron run as plain Node.js instead of a GUI app.
+
+### Full Kill + Restart Sequence
+
+```bash
+# 1. Kill the bat terminal (kills watchdog + electron)
+taskkill.exe //F //FI "WINDOWTITLE eq *Auto-Claude*" 2>/dev/null
+# 2. Safety: also kill any orphaned electron processes
+taskkill.exe //F //IM "electron.exe" 2>/dev/null
+# 3. Wait for processes to die
+sleep 2
+# 4. Start fresh via .bat (includes watchdog)
+powershell.exe -Command "Remove-Item Env:ELECTRON_RUN_AS_NODE -ErrorAction SilentlyContinue; Start-Process 'C:\Users\topem\source\repos\Auto-Claude-MCP\Auto-Claude-MCP.bat'"
+```
+
+---
+
 Use this skill when the user wants to:
 
 - Queue coding tasks for Auto-Claude to implement
