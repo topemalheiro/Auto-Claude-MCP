@@ -1119,6 +1119,7 @@ export class UsageMonitor extends EventEmitter {
           const fresh = this.expireStaleUsage(bestAvailable);
           this.currentUsage = fresh;
           this.throttledEmitUsage(fresh);
+          this.checkRdrThresholds(fresh);
         }
         return;
       }

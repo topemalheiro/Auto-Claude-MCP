@@ -918,12 +918,15 @@ function isSessionLimitReached(): { limited: boolean; warning: boolean; resetTim
 
   // Use whichever limit is more constrained (higher %) as the binding constraint
   if (weeklyPct > sessionPct) {
-    const resetTime = usage.weeklyResetTimestamp
-      ? new Date(usage.weeklyResetTimestamp).getTime()
-      : Date.now() + 7 * 24 * 60 * 60 * 1000; // fallback: 7 days
-    // If reset time is already past, the cached data is stale — treat as not limited
-    if (Number.isFinite(resetTime) && resetTime <= Date.now()) {
-      console.log(`[RDR] isSessionLimitReached: weekly reset time already passed (stale cache) — treating as not limited`);
+    if (!usage.weeklyResetTimestamp) {
+      // No real reset timestamp — stale cached data. Don't re-pause with fabricated timestamps.
+      // Without a real timestamp, Date.now()+7d creates an infinite re-pause loop.
+      console.log(`[RDR] isSessionLimitReached: no weeklyResetTimestamp — stale cache, not limited`);
+      return { limited: false, warning: false };
+    }
+    const resetTime = new Date(usage.weeklyResetTimestamp).getTime();
+    if (!Number.isFinite(resetTime) || resetTime <= Date.now()) {
+      console.log(`[RDR] isSessionLimitReached: weekly reset time already passed (stale cache) — not limited`);
       return { limited: false, warning: false };
     }
     return {
@@ -934,13 +937,16 @@ function isSessionLimitReached(): { limited: boolean; warning: boolean; resetTim
     };
   }
 
-  const resetTime = usage.sessionResetTimestamp
-    ? new Date(usage.sessionResetTimestamp).getTime()
-    : Date.now() + 5 * 60 * 60 * 1000; // fallback: 5h
-  // If reset time is already past, the cached data is stale — treat as not limited
-  // This prevents re-pausing RDR from stale UsageMonitor cache after the limit resets
-  if (Number.isFinite(resetTime) && resetTime <= Date.now()) {
-    console.log(`[RDR] isSessionLimitReached: session reset time already passed (stale cache) — treating as not limited`);
+  if (!usage.sessionResetTimestamp) {
+    // No real reset timestamp — stale cached data. Don't re-pause with fabricated timestamps.
+    // Without a real timestamp, Date.now()+5h creates an infinite re-pause loop:
+    // pause expires → isSessionLimitReached re-pauses with new Date.now()+5h → repeat forever.
+    console.log(`[RDR] isSessionLimitReached: no sessionResetTimestamp — stale cache, not limited`);
+    return { limited: false, warning: false };
+  }
+  const resetTime = new Date(usage.sessionResetTimestamp).getTime();
+  if (!Number.isFinite(resetTime) || resetTime <= Date.now()) {
+    console.log(`[RDR] isSessionLimitReached: session reset time already passed (stale cache) — not limited`);
     return { limited: false, warning: false };
   }
   return {
