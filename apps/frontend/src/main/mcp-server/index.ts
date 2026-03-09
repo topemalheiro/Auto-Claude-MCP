@@ -686,6 +686,10 @@ server.tool(
     const resolvedProjectPath = resolved.projectPath;
     const specDir = path.join(resolvedProjectPath, '.auto-claude', 'specs', taskId);
     const planPath = path.join(specDir, 'implementation_plan.json');
+    const worktreePlanPath = path.join(
+      resolvedProjectPath, '.auto-claude', 'worktrees', 'tasks', taskId,
+      '.auto-claude', 'specs', taskId, 'implementation_plan.json'
+    );
 
     if (!existsSync(planPath)) {
       return {
@@ -757,11 +761,6 @@ server.tool(
           } catch { /* Best-effort cleanup */ }
         }
       }
-
-      const worktreePlanPath = path.join(
-        resolvedProjectPath, '.auto-claude', 'worktrees', 'tasks', taskId,
-        '.auto-claude', 'specs', taskId, 'implementation_plan.json'
-      );
 
       // ALREADY-CORRECT GUARD: Don't restart tasks that are on the right board
       // Skip ONLY if: (1) on correct board AND (2) no stuck/recovery flags were present
