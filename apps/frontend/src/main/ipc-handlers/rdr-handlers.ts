@@ -545,10 +545,9 @@ function enrichTaskWithWorktreeData(task: TaskInfo, projectPath: string): TaskIn
 function isLegitimateHumanReview(task: TaskInfo): boolean {
   const progress = calculateTaskProgress(task);
 
-  // User explicitly stopped this task — it's NEVER a legitimate review
-  // reviewReason=stopped means user clicked Stop, regardless of QA approval status
-  // If user wants to opt out of RDR, they use "Disable Auto-Recovery" in the three-dot menu
-  if (task.reviewReason === 'stopped') {
+  // User explicitly stopped this task without QA approval — not a legitimate review
+  // But if QA already approved the work, the stop is just a session artifact
+  if (task.reviewReason === 'stopped' && task.qaSignoff !== 'approved') {
     return false;
   }
 
@@ -572,12 +571,6 @@ function isLegitimateHumanReview(task: TaskInfo): boolean {
       task.exitReason === 'prompt_loop' ||
       task.exitReason === 'rate_limit_crash') {
     return false;  // Flag for intervention - crashed/errored
-  }
-
-  // Tasks stopped by user (reviewReason='stopped') without QA signoff are NOT legitimate
-  // They were interrupted mid-validation and need to complete QA
-  if (progress === 100 && task.reviewReason === 'stopped' && task.qaSignoff !== 'approved') {
-    return false;  // Flag for intervention — stopped before QA completed
   }
 
   // Tasks at 100% with error/failure reviewReasons are NOT legitimate
@@ -628,12 +621,7 @@ function determineInterventionType(task: TaskInfo, hasWorktree?: boolean, rawPla
   // Worktree signoff is still available via worktreeInfo?.qaSignoff for logging.
   const isQaApproved = task.qaSignoff === 'approved';
   if (qaApprovedProgress === 100 && isQaApproved) {
-    // User explicitly stopped this task — don't skip even if QA approved
-    // The QA approval may be from BEFORE the stop; user wants it paused/reviewed
-    if (task.reviewReason === 'stopped') {
-      console.log(`[RDR] Task ${task.specId} QA-approved but user stopped it (reviewReason=stopped) — needs intervention`);
-      // Fall through to normal detection
-    } else if (task.status === 'human_review') {
+    if (task.status === 'human_review') {
       // Check worktree — if stuck at non-standard status (e.g. 'approved'), task needs board movement
       const worktreeTerminal = !worktreeInfo?.status ||
         worktreeInfo.status === 'human_review' || worktreeInfo.status === 'done' || worktreeInfo.status === 'pr_created';

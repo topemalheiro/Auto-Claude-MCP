@@ -1,0 +1,619 @@
+c9e20547 fix: RDR reads qa_signoff from main plan, MCP routes QA-approved to human_review
+1ae5ea4b fix: usage meter stuck at 0% after re-auth — clear API failure cooldown on cache reset
+c4a7de4d fix: 429 on usage API no longer triggers 2-min cooldown, retries on next 30s poll
+943cbfdf fix: MCP Auto-Continue tool: only check the MAIN plan's qa_signoff, not the worktree's
+c2b6fbcf fix: RDR detection no longer skips tasks with worktree-only qa_signoff
+e781bac6 fix: clear stale qa_signoff on MCP restart, remove 2-min RDR send interval
+dd6f277e fix: Pause All no longer disables per-task RDR toggles
+4696a70f fix: enforce busy check + rate limit on ALL RDR paths, parallelize bulk toggle
+ade728d9 fix: usage meter freeze, RDR busy detection, diagnostics panel
+cf3a1668 fix: notify renderer immediately after MCP board routing
+3e790006 fix: move allPaused useState before processQueue to avoid TDZ error
+631a862b feat: add Pause All / Resume All button to kanban header
+06c3a6c3 fix: route QA-approved tasks to human_review board even when skipped_complete
+6f17c683 fix: expire stale usage cache, proactive RDR pause/resume, trailing-edge throttle fix: prevent MCP auto-continue from routing QA-approved tasks to Done board
+2ebed3e1 fix: prevent main-process freeze from sync I/O and emission floods in usage monitor
+4d2417f7 fix: usage meter resilience — emit lastGoodUsage on startup, credential fallback, re-emit on failure
+7f14610a fix: register queue routing IPC handlers — was never called from setupIpcHandlers
+21fe4dff fix: add missing queue. prefix to getRunningTasksByProfile calls
+01ca982c fix: remove 429 special block — restore 2-min cooldown from generic error handler
+a5a497aa fix: enrich warm-start snapshot with reset timestamps from lastGoodUsage
+79f3f6e6 fix: revert broken 429=100% synthesis — restore meter display + RDR
+91f1e5f0 fix: usage meter shows 100% on 429 instead of stale cached value
+4a89a163 fix: prevent RDR zombie pause after rate limit reset — stale cache re-pause race condition
+7741cb81 fix: auto-resume toggle now detects orphaned tasks on active boards
+7b8f7df8 session metre fix and task progress calculation functions fixed
+9cbb82ed fix: warm-start session meter from persisted profile cache on startup
+6728b6be fix: auto-shutdown isQaApprovedComplete must not skip stopped tasks
+9a1bb927 fix: auto-shutdown isLegitHumanReview requires qa_signoff=approved
+f390ee4b fix: sync auto-shutdown isLegitHumanReview with RDR completion semantics
+d9ac5447 fix: improve freeze detection — fix isPackaged bug, add renderer responsiveness check
+22ebb3ac fix: recover from grey/N/A meter after rate limit — trigger checkNow + retry every 5s until data returns
+93611f48 fix: trigger RDR immediately when rate-limit countdown expires (not just on next 30s poll)
+9494d765 fix: allow manual drag out of done board — remove XState final type, add FORCE overrides
+765e5235 fix: remove 3-min RDR cooldown — in-flight guard alone prevents spam loop
+d0e78550 fix: bulletproof Done board regression — two-layer qa_signoff guard
+22f297d0 fix: skip agent restart for terminal-state tasks (done/pr_created)
+22d29c6c fix: guard against re-running QA on approved tasks — prevents auto-Done via start_requested
+bad9d3b2 fix: route human_review tasks to ai_review on RDR auto-continue; revert wrong isLegitimateHumanReview fix
+cb3625dd fix: prevent RDR from flagging completed tasks as illegitimate + queue UI false positive
+6e24094d fix: remove bogus 95% statistic from README RDR priority table
+c65f1fa4 fix: remove bogus 95%/4% statistics from RDR priority descriptions
+a9bf34b0 fix: improve watchdog monitoring — agent staleness detection, faster timers, disk logging
+f68e68e9 fix: detect first-time planning regressions via execution artifacts
+47d34207 fix: detect backlog task regressions via preserved rdrAttempts
+8301c302 fix: convert rdrMessageInFlight useState→useRef to stop useEffect cascade
+65bdbd30 fix: add 3-min minimum send interval to stop RDR re-send loop
+85cfb50c fix: revert busy check from trigger back to guard-only (stop 30s re-send loop)
+4774ca55 feat: functional freeze detector — self-healing activity monitor
+11fc199d fix: RDR in-flight flag blocks sending after Claude Code session dies
+45d33e8b fix: RDR false positives from raw worktree status bypassing active task check
+f28a5556 fix: queue held-slots + auto-shutdown both mishandle human_review+errors
+fd29e7eb fix: RDR weekly rate limit not respected + auto-expire pause on reset
+102ecded Update README for clarity on branch instructions
+c9fc9c1e Update README for clarity on develop branch changes
+4d24527e Update README to clarify branch information
+6e0b64f8 Revise README for branch clarity and instructions
+9f8c4b2e fix: RDR false P2 detection for running agents + stop interruption loop
+7e30fe06 fix: RDR idle event loop causing repeated interruptions + sync skill files
+984a1725 fix: queue held-slot false positive for ai_review transitions
+7d09fb49 Remove redundant text from README.md
+41fa75f6 fix: RDR false positive for reviewReason=completed without QA signoff
+0e04e537 feat: add freeze detection and auto-restart to watchdog
+e939a2c6 docs: add critical RDR rate limit lesson to project skill files
+279b7907 fix: split RDR rate limit into warning (80%) and pause (100%) thresholds
+7c201b3d fix: RDR rate limit detection uses Usage Monitor instead of stale task logs
+b2b68e9e Update README with main branch stability note
+5242064b chore: remove messaging system from public fork
+310aaf1e chore: add session limit checklist entries to merge testing checklist
+d6de6383 fix: session limit keeps tasks on board, pauses RDR, reverts stale handle logic
+61b90e8d fix: remove auto-build on task agent crash, fix RDR stale window handle
+ed50d227 fix: RDR detects planning-phase regressions from master LLM starts
+fcc0562e fix: guard execution-progress from overwriting ai_review when XState in QA
+2c444a72 fix: file watcher persists resolved status to disk after board routing
+48cdddfc fix: TASK_START respects file watcher ai_review routing over stale XState
+e324644b fix: P2 recovery split, P5/P6 escalation, window enum JSON safety
+df65c796 fix: RDR detection gap, priority system split, and rate limit pause from task logs
+f0a765f6 fix: preserve exitReason on plan load/save round-trip
+72d47e06 fix: add missing prepareForRestart() + PLANNING_STARTED recovery transitions
+fbcd6de8 fix: deduplicate rate limit log spam + add missing rmSync import
+5d29cf5a chore: remove accidental MERGE-TESTING-CHECKLIST screenshots
+1329e765 Refactor README to eliminate redundancy
+56d223da docs: add MCP setup instructions to dev-next README
+aa5053ea fix: stop RDR flooding when session rate limit is reached
+a3e7f617 fix: stop RDR flooding when session rate limit is reached
+55388d6b fix: wire up messaging panel visibility, navigation, and kanban layout
+30e3bb35 feat: add MCP Messaging System with tag-triggered notifications
+27306a1d chore: update merge testing checklist checkboxes
+c473578e fix: address bot review feedback (ruff format, duplicate nul, version comment)
+c0e6a51b fix: Windows Path casing + exitReason timing for RDR false positives
+6a4cd7ac Update README with branch and feature information
+e08ab173 chore: restore fork README on dev-next
+dcf96f36 Preparing to PR to Upstream
+dcda89f3 merge: integrate upstream/develop (2e4b5ac6) — profiles, OOM fix, tests, PR review
+1db8fe88 Kanban Column Widths Fix Undo
+816f15b4 Auto Shutdown Collapsed UI
+40e5c682 General UI Fix 3
+e518f5fa General UI Fix 2
+0d1e3377 General UI Fix
+65faa38a rdr-message-sender.ts Fix
+c3511e3a rdr-message-sender.ts Script Fix 2
+53e4ef9a rdr-message-sender.ts Script Fix
+74c4221c rdr-message-sender.ts UI Fix
+11cd95ca rdr-message-sender.ts
+fe68e3d2 AC MCP Settings update
+77387ef6 RDR Queue Block Fix
+a0ea913b AC MCP System Settings Toggle and UI updated
+15b720e9 Automatic Single Task RDR Toggle offing if landed on Human Review
+c8a11fc0 ckpt
+c36202a5 ckpt
+04f58f01 fix: RDR regression detection for stopped tasks + queue auto-advance when RDR disabled
+de22f15a File watcher fix, and tasks not stopping fix
+65abbc05 Toggling RDR off on a single task that was in In Progress makes it lose it's place its previous place when RDR on
+f25e8c88 Auto-Restart fix
+1e177828 Queue still blocked if a task regresses from In Progress to Planning
+dd52a9d0 RDR Queue board Blocking Fix 4
+54f757a0 Startup crash fix and startup-crash.log set up
+d1f90529 RDR Queue board Blocking Fix 3
+29377e6c RDR Queue board Blocking Fix 2
+2e4b5ac6 docs: add Awesome Claude Code badge to README (#1838)
+f5f11bfb Skills updated
+9d73b42e Queue Block Fix
+b977243b RDR getting Queue tasks Fix and Queue Blocking
+f6682ea7 Testing block Queue with RDR on
+d3c0e688 ckpt
+ebb10800 ckpt
+272cdddf Queue Blocking logic When RDR is on, needs to be tested. Todo: Might need to have tasks that stop into HR get RDR task toggle offed and/or MCP LLM throws it in Queue
+385f0441 test: achieve 100% test coverage for backend CLI commands (#1772)
+00199747 ckpt
+7b0f3a2c fix: cap terminal paste size to 1MB to prevent GPU context exhaustion
+1452ecbc MCP tools fix
+adebbb04 ckpt
+8c27f42d ckpt
+08c1df05 RDR task toggles on multi-selector toolbar Fix
+2dd3a1bf RDR task toggles on multi-selector toolbar
+3a7c4ca7 hotfix/terminal-chunk-size
+e72d7bdf ckpt
+7fd93d23 ckpt
+9fd47ecf RDR task toggles Fix 2
+6b236024 RDR task toggles Fix
+f7b143b5 RDR task toggles
+4091d1d4 fix: prevent OOM, orphaned agents, and unbounded growth during overnight builds (#1813)
+04b527a7 fix: RDR now detects stopped tasks with QA approval (Zeta fix)
+6e0d6c58 RDR fix 2
+77bba990 ckpt
+6702f92c RDR fix
+1b461edf ckpt
+32cf4eed Tasks not stopping when stopped in In Progress board and go to HR one FIX
+0bb405c0 Force Recovery fix number 5?
+3e1cdc91 fix: instant force recovery — clear forceRecovery before XState event
+3b0d6488 ckpt
+53b16eac Fix README feature branch description formatting
+f1739354 Update README to reflect develop branch status
+f40f79a2 chore: bump version to 2.7.6-beta.5
+603b9a24 sponsor sidebar item
+ecb61580 docs: add instructions for resetting PR review state in CLAUDE.md
+ae13ce14 auto-claude: 217-investigate-symlink-issues-in-work-tree-creation-f (#1808)
+e3b21928 auto-claude: 218-enable-claude-code-features-in-worktree-terminals (#1809)
+6204d5fc auto-claude: 219-investigate-and-fix-authentication-subscription-sy (#1810)
+f735f0b4 feat(roadmap): add expand/collapse functionality for phase features (#1796)
+a4870fa0 auto-claude: 216-display-ongoing-pr-review-logs-in-progress (#1807)
+f1b8cd3a fix(pr-review): reduce structured output failures and preserve findings in recovery (#1806)
+4d423437 fix(sentry): enable Sentry for Python subprocesses and add diagnostic instrumentation (#1804)
+bcde0af2 Force Recovery Test Fix 6/auto-claude-rdr
+
+[Auto-Claude RDR] Tasks needing intervention:
+
+**Project UUID:** 5d5889f3-9896-4f1a-a24d-f4a96a000d2b
+**Project Path:** C:\Users\topem\Desktop\CV Project
+
+**Recovery Summary:**
+
+### Priority 1: Auto-CONTINUE — 4 tasks
+
+- 957-fix-mithril-rv-file-upload-multi-select-submit: Human Review (7/7)
+- 959-fix-qwik-rv-multi-select-bug-file-upload-submit: Human Review (4/4)
+- 960-fix-react-add-multi-select-fix-submit: Human Review (3/3)
+- 988-fix-twig-rv-file-uploads-submit: AI Review → **Human Review** (6/6)
+
+### Priority 2: Auto-RECOVER — 2 tasks
+
+- 937-fix-bamboohr-testdata-selector-mismatch-proxy-pref: In Progress (0/1, exited: stuckRetry_loop)
+- 983-fix-svelte-rv-add-submit-button: In Progress (0/1, exited: stuckRetry_loop)
+
+**Task Details:**
+
+## 937-fix-bamboohr-testdata-selector-mismatch-proxy-pref: Fix bamboohr testData selector mismatch (proxy- prefix) [P2]
+Board: In Progress (coding) | Expected: In Progress
+Status: in_progress | Exit: stuckRetry_loop | Attempts: 0
+Subtasks: 0/1 complete
+Pending: Global replace '#bamboo-' with '#proxy-' in ffm.js testData object (all 35 selectors)
+Recent Logs:
+  [00:48:08] (coding) File validation failed: Planned files do not exist: Fine-Tuning/training-data/frameworks/05-iframe-e
+  [00:48:05] (coding) File validation failed: Planned files do not exist: Fine-Tuning/training-data/frameworks/05-iframe-e
+  [00:48:02] (coding) File validation failed: Planned files do not exist: Fine-Tuning/training-data/frameworks/05-iframe-e
+
+## 957-fix-mithril-rv-file-upload-multi-select-submit: Fix and enrich Mithril RV training page form elements [P1]
+Board: Human Review (validation) | Expected: Human Review
+Status: stopped | Exit: none | Attempts: 0
+Subtasks: 7/7 complete
+Recent Logs:
+  [05:32:56] (validation) QA validation passed - all criteria met
+  [05:32:39] (validation) You're out of extra usage · resets 8am (Europe/Lisbon)
+  [05:32:22] (validation) Starting QA validation...
+
+## 959-fix-qwik-rv-multi-select-bug-file-upload-submit: Fix Qwik Training Page Form Interaction Bugs [P1]
+Board: Human Review (validation) | Expected: Human Review
+Status: stopped | Exit: none | Attempts: 0
+Subtasks: 4/4 complete
+Recent Logs:
+  [05:32:41] (validation) QA validation passed - all criteria met
+  [05:32:37] (validation) You're out of extra usage · resets 8am (Europe/Lisbon)
+  [05:32:36] (validation) [Read] Done
+
+## 960-fix-react-add-multi-select-fix-submit: Add form submit() function to React FFM [P1]
+Board: Human Review (validation) | Expected: Human Review
+Status: stopped | Exit: none | Attempts: 0
+Subtasks: 3/3 complete
+Recent Logs:
+  [05:32:51] (validation) QA validation passed - all criteria met
+  [05:32:35] (validation) You're out of extra usage · resets 8am (Europe/Lisbon)
+  [05:32:35] (validation) [Bash] Done
+
+## 983-fix-svelte-rv-add-submit-button: Add Submit Button to Svelte RV Page [P2]
+Board: In Progress (coding) | Expected: In Progress
+Status: in_progress | Exit: stuckRetry_loop | Attempts: 0
+Subtasks: 0/1 complete
+Pending: Add submit button to Svelte RV form following existing page patterns
+Recent Logs:
+  [00:48:08] (coding) File validation failed: Planned files do not exist: CV-Project/Fine-Tuning/training-data/frameworks/
+  [00:48:05] (coding) File validation failed: Planned files do not exist: CV-Project/Fine-Tuning/training-data/frameworks/
+  [00:48:02] (coding) File validation failed: Planned files do not exist: CV-Project/Fine-Tuning/training-data/frameworks/
+
+## 988-fix-twig-rv-file-uploads-submit: Fix Twig RV File Uploads and Submit Button [P1]
+Board: AI Review (coding) | Expected: Human Review | **WRONG BOARD**
+Status: ai_review | Exit: none | Attempts: 0
+Subtasks: 6/6 complete
+Recent Logs:
+  [20:06:35] (coding) ## Summary
+
+I have successfully completed **Subtask 2-2: Test other form elements for regressions**.
+  [20:06:29] (coding) [Bash] Done
+  [20:06:27] (coding) [Bash] git log --oneline -3
+
+---
+**Recovery Instructions:**
+
+**Priority 1: Auto-CONTINUE** (4 tasks):
+
+  mcp__auto-claude-manager__process_rdr_batch({
+    projectId: "5d5889f3-9896-4f1a-a24d-f4a96a000d2b",
+    projectPath: "C:\Users\topem\Desktop\CV Project",
+    batchType: "errors",
+    fixes: [{ taskId: "957-fix-mithril-rv-file-upload-multi-select-submit" }, { taskId: "959-fix-qwik-rv-multi-select-bug-file-upload-submit" }, { taskId: "960-fix-react-add-multi-select-fix-submit" }, { taskId: "988-fix-twig-rv-file-uploads-submit" }]
+  })
+
+**Priority 2: Auto-RECOVER** (2 tasks in recovery mode):
+
+  mcp__auto-claude-manager__recover_stuck_task({
+    projectId: "5d5889f3-9896-4f1a-a24d-f4a96a000d2b",
+    projectPath: "C:\Users\topem\Desktop\CV Project",
+    taskId: "937-fix-bamboohr-testdata-selector-mismatch-proxy-pref",
+    autoRestart: true
+  })
+
+  mcp__auto-claude-manager__recover_stuck_task({
+    projectId: "5d5889f3-9896-4f1a-a24d-f4a96a000d2b",
+    projectPath: "C:\Users\topem\Desktop\CV Project",
+    taskId: "983-fix-svelte-rv-add-submit-button",
+    autoRestart: true
+  })
+
+**Escalation (attempt-based):** P1 → P3 (3+) → P5 (5+) → P6 (7+)
+**Situational:** P2 (dead agent recovery), P4 (corrupted JSON)
+
+**Available MCP Tools:**
+- `mcp__auto-claude-manager__process_rdr_batch` — P1/P4: Auto-continue or fix JSON
+- `mcp__auto-claude-manager__recover_stuck_task` — P2: Recover stuck task
+- `mcp__auto-claude-manager__submit_task_fix_request` — P3/P5: Request changes with fix guidance
+- `mcp__auto-claude-manager__get_task_error_details` — P5: Investigate task errors
+- `mcp__auto-claude-manager__defer_task` — P6: Park task for manual review
+- `mcp__auto-claude-manager__get_rdr_batches` — Get all recovery batches
+
+318df802 Force Recovery Test Fix 5
+e4430f9f Force Recovery Test Fix 4
+a8501b0e Auto-Recover working with Max Parallel Tasks Fix
+b67638f8 Force Recovery Test Fix 3
+e28d6d8e Force Recovery Test Fix 2
+9191f07b Force Recovery Test Fix
+439b45e6 Validation task in In Progress board start clicked edge case, resumes in ai_review 2
+3bdfacb5 Validation task in In Progress board start clicked edge case, resumes in ai_review
+e3643c27 Task Progression stubborness fix
+77b50102 fix: stop ProjectStore auto-correction from overriding FORCE_BACKLOG
+241e9a45 fix: stop auto-refresh from destroying running XState actors
+502c6dfd fix: 6 recovery system bugs - forceRecovery cleanup, board routing, XState events, EBUSY delete
+c292272e fix: Windows worktree EBUSY deletion + checklist updates
+d458073e fix: restore processQueue merge regression + auto-promote on settings change
+5a3e01e0 fix: MCP phase name mapping + OutputMonitor false idle detection
+03abe5c2 fix: watchdog crash loop from double-quoted electron path on Windows
+e797a237 fix: worktree cleanup fallback + rdrAttempts '0' rendering bug
+053be09a Project Sidebar usability bug fix
+a4ea1ec4 ckpt
+28e12e02 ckpt
+914698af fix: allow MARK_DONE from all XState states (board movement bug)
+efa37e6f fix: remove MCP config caching crash + add missing writeFileSync import
+d1fbccde fix(pr-review): add three-tier recovery for structured output validation failure (#1797)
+e41b64e7 fix: WinError 206 command line too long on Windows
+c45ab893 merge: integrate remote develop changes
+e8387b95 fix: resolve Claude Code not found error on Windows 2
+5ef512b4 Update README with clearer task creation instructions
+ed93df69 test: improve backend agent test coverage to 94% (#1779)
+8872d33e fix(github): use UTC timestamps for reviewed_at to fix comment detection (#1795)
+3b3ad75c chore: bump version to 2.7.6-beta.4
+8ece0009 feat: add user-friendly GitHub API error handling (#1790)
+115576e8 fix(roadmap): sync roadmap features with task lifecycle (#1791)
+3791b37b fix(github): resolve PR review hanging in bundled app (#1793)
+28238735 feat(profiles): implement unified profile swapping across OAuth and API accounts (#1794)
+b1b0754a fix: resolve Claude Code not found error on Windows
+59e52536 AC MCP fixed
+90ffa4b1 ckpt
+6b28e503 ckpt
+4f1b7b2a test: improve backend memory system test coverage to 100% (#1780)
+99e1a940 Update README with develop branch features and setup info
+f5e18f69 fix: auto-select active project in Settings modal
+81e335b8 Testing markdown
+76053d7b fix: add missing useCallback import in TaskCard
+0202b095 fix: correct preload script path from .js to .mjs
+b771f6c9 fix: add missing projectStore import in agent-events-handlers
+70f4e63f fix: replace require('electron') with ESM imports to fix require2 TDZ error
+05273cc3 merge: integrate main (RDR/MCP/auto-shutdown mods) into develop
+5e78d748 fix(ideation): guard against non-string properties in IdeaCard badges
+aa5fc7f9 fix(updater): convert HTML release notes to markdown before rendering
+1d646152 211-when-a-task-is-set-to-planning-column-on-the-kanba__JSON_ERROR_SUFFIX__ (#1786)
+cd891470 fix(pr-review): simplify structured output schema to reduce validation failures (#1787)
+ded6aad4 Fix Title Generation Production Build & Add Sentry Observability (#1781)
+f149a7fb fix(qa): enforce visual verification for UI changes and inject startup commands (#1784)
+c2245b81 fix(plan-files): use atomic writes to prevent 0-byte corruption (#1785)
+950da45e fix(terminal): make worktree dropdown scrollable and show all items
+25acf282 auto-claude: subtask-1-1 - Add adaptive thinking badge to thinking level label (#1782)
+827686c0 fix: prevent RDR false positives for backlog tasks with running agents
+5ac40f57 feat(subtasks): prevent text overflow in task modal
+39aa0887 auto-claude: subtask-1-1 - Add overflow-hidden and break-words to subtask cards
+8de8039d refactor(app-updater): disable automatic downloads and allow intentional downgrades
+68e782df fix terminal grids/resize
+6f751e5e chore: bump version to 2.7.6-beta.3
+76a71f2b Emphasize tool benefits in README
+30a31062 Update README with additional project details
+8581315c docs: change 'copy' to 'rename' for example bat setup
+39fa2265 Merge branch 'main' of https://github.com/topemalheiro/Auto-Claude-MCP
+747080cc feat: add example watchdog launcher and setup guide
+9ec80fe8 Change header from H1 to H2 in README.md
+01c1d4f5 Update README formatting for Master LLM instructions
+f8082a4e Correct skills folder path in README
+4cd9bc26 Fix README instructions for copying skills folder
+8bcec81d Update README with Master LLM setup instructions
+f8f5b063 Update README with Master LLM setup instructions
+db87be7a feat: add MCP and RDR skills to .claude dir
+f4788e4a fix(auth): detect auth errors in AI response text and prevent retry loops (#1776)
+3f95765c test: achieve 100% coverage for backend core workspace module (#1774)
+923880f5 fix(title-generator): add production path resolution for backend source (#1778)
+60a04bd2 Update README.md
+842231e6 Update README.md
+abad81d1 Update README.md
+0a46c211 Update README.md
+5aadfaf5 README Updated 2
+304a38f4 fix: README watchdog heading anchor and OS note link
+d7dfd4e8 Merge branch 'main' of https://github.com/topemalheiro/Auto-Claude-MCP
+50eb90bc README Updated
+9119f39e Revise README for clarity on MCP features
+162a70b0 Enhance README with project summary and features
+45c1543f Enhance README with MCP system details
+8b0c4aab Update README with badges and project details
+66843043 Add project badges to README
+1ec7b28a README Updated
+8122a461 Update README to reflect development fork status
+fac7e9be Update README to include original repo link
+be6fb99e Remove extensive sections from README
+29154e0a chore: remove junk files and update gitignore
+083d8c27 chore: sanitize repo for public visibility
+390ba6a5 fix(fast-mode): use setting_sources instead of env var for CLI fast mode (#1771)
+aa7f56e5 fix(windows): complete System32 executable path fixes for where.exe and taskkill.exe (#1715)
+5be43685 Merge remote-tracking branch 'upstream/main'
+073eab75 Auto Refresh fix
+6f0103e3 Dynamic RDR Task Logs fixed 10
+19b71bb1 Dynamic RDR Task Logs fixed 9
+e1d3e95b Dynamic RDR Task Logs fixed 8
+b48d55ec Dynamic RDR Task Logs fixed 7
+adb2859c Dynamic RDR Task Logs fixed 6
+1f07f9ee Dynamic RDR Task Logs fixed 5
+9c0d4fbf Dynamic RDR Task Logs fixed 4
+8c207b1e Dynamic RDR Task Logs fixed 3
+351d784d Dynamic RDR Task Logs fixed 2
+e4ba4349 Dynamic RDR Task Logs fixed
+7015e421 Auto-Continue MCP Tool fix
+275fe1d0 fix: hard vs transient errors, enrichment fallback, 6-priority RDR message
+824ff5f5 fix: RDR detects error-exit tasks on human_review, auto-shutdown uses correct terminal logic
+80eabd2d RDR Task logs fixed
+2b29a57c fix: QA-approved check respects board position, auto-shutdown uses qa_signoff
+e4b4867f Checkpoint
+a9b93e6d chore: remove .auto-claude spec files from git tracking
+cec8e65e fix(worktree): remove auto-commit on deletion and add uncommitted changes warning
+8ca73249 RDR MCP Tools fix
+c3cdb139 fix: RDR detection for missed tasks and false positives
+48d5f7a3 Smart PR Status Polling System (#1766)
+bb7e1893 feat: simplify thinking system and remove opus-1m model variant (#1760)
+7589f8e4 auto-claude: 203-fix-pr-review-ui-update-issue (#1732)
+57e38a69 auto-claude: subtask-2-1 - Create isAPIProfileAuthenticated() function to val (#1745)
+d09ebb85 auto-claude: 202-fix-kanban-board-scaling-collisions (#1731)
+087091ce auto-claude: 204-fix-pr-review-ui-not-updating-without-manual-navig (#1734)
+f085c08b auto-claude: 203-fix-ui-not-updating-during-pr-review-operations (#1733)
+f121f9cd auto-claude: 205-fix-insights-chat-only-shows-last-task-suggestion- (#1735)
+f41f15e5 auto-claude: 197-roadmap-generation-stuck-at-50-file-locking-race-c (#1746)
+bdff9141 auto-claude: 193-fix-update-context7-mcp-tool-name-from-get-library (#1744)
+5fa0476d fix: reset planStatus when writing start_requested to prevent RDR/shutdown skip
+8c9a504d auto-claude: 192-changelog-generation-multiple-critical-bugs-tasks- (#1725)
+8a7443d2 auto-claude: 194-bug-rate-limit-during-task-execution-causes-subtas (#1726)
+e0d53adb auto-claude: 201-bug-pr-review-logs-and-analysis (#1730)
+323b0d3b auto-claude: 196-fix-worktrees-dialog-auto-close-race-condition-and (#1727)
+c0dc7400 fix: CONTINUE tasks now restart agents, RECOVER tasks preserve board routing
+f4ac612e RDR Message update and Recovery
+87e07eb9 RDR Continuing tasks fix
+8cbdf4b8 Backend fix
+50eb3bc3 Prompt Loop from MCP LLM Manager latched polling timer updated
+b8428cdc Testing RDR for Recovery
+37380299 Auto Shutdown and RDR Task Counts fixed
+4fbb239b RDR message fixed Auto Shutdown to go
+590ccedb fix: RDR now catches prompt_loop tasks and tasks at 100% with no reviewReason
+90e2752c Checkpoint
+d6215251 fix: RDR now catches all plan_review tasks regardless of status
+0d2dc891 Auto Shutdown Fix 5
+119661f1 Auto Shutdown Toggle fix after triggering
+adae9f58 RDR and Auto Shutdown Fixes
+538d56f3 More fixes
+c02b339e Auto Shutdown Fix 3
+d639f6ef auto-claude: 199-bug-logs-disappear-after-restart (#1728)
+4438c0b1 auto-claude: 198-critical-oauth-token-revocation-causes-infinite-40 (#1747)
+32bf353d Fix Panel Constraints Error During Terminal Exit (#1757)
+e74a0fe8 feat: MCP projectPath fallback + task regression detection
+187d6811 RDR detection mechanisms
+2db36982 auto-claude: 190-bug-context-page-crash-multiple-root-causes-when-v (#1724)
+f85236e3 fix: RDR detects regressed tasks (backlog with worktree)
+6bc2c0eb Auto Shutdown Fix and UI bugs
+450d2b3d fix: RDR false positives for active tasks + auto-shutdown completion detection
+09f059ca feat: add search/filter to WorktreeSelector dropdown (#1754)
+b5de0d9f fix(terminal): push worktree branch to remote with tracking on creation (#1753)
+445da186 auto-claude: 189-subtask-execution-stuck-in-infinite-retry-loop-whe (#1723)
+f8499e96 auto-claude: 188-terminal-claude-sessions-require-manual-click-to-r (#1743)
+ad1735a3 Auto Shutdown Fix 2
+95f5f010 Checkpoint
+979248ec Auto Shutdown Fix
+00ea60cf Recovery working
+826583b8 auto-claude: 200-bug-changelog-and-release-generation (#1729)
+ac4fe4f4 fix(terminal): use each terminal's cwd for invoke Claude all button (#1756)
+4c028482 Checkpoint
+9bfc1bfa Bugfixes
+56618c0f fix: MCP recovery now uses worktree plan for correct board routing
+e2401c68 Updated UI
+dc726858 getCurrentPhase implemented for tasks
+0d83bb45 Last 3 logs in RDR Recovery Batches
+c5147377 RDR Updated Fix 5
+5b6400ea fix: MCP server now reads same store as Electron app for matching UUIDs
+152e5409 feat(terminal): read Claude Code CLI settings and inject env vars into PTY sessions (#1750)
+96e93980 fix: RDR message includes /auto-claude-rdr skill, project path, and correct MCP format
+2c2a8a75 fix: correct .auto-claude path mismatch causing discovery phase timeout (#1748)
+7e799ee5 fix: remove incorrect /v1 suffix from OpenRouter API URL (#1749)
+ce5b2a61 fix: RDR skips busy check on first send and idle events for reliable delivery
+ac1f6be8 fix: RDR matches VS Code windows by process ID instead of title pattern
+3ef23438 Revert "fix: RDR event-driven path now enriches tasks with worktree data"
+7bebf623 hotfix/display-settings
+ffe0d976 fix: RDR event-driven path now enriches tasks with worktree data
+54bc717a fix: auto-shutdown recalculates task count live on each status poll
+8096b8db fix: RDR enriches tasks with worktree data before intervention check
+e1b1fd8e fix: auto-shutdown reads worktree plans + RDR broadens task detection
+3f7d4503 fix: auto-shutdown counts tasks by status instead of subtask progress
+b79d390d Tasks moving around bug fix
+03256f8c RDR Updated Fix 4
+490d3d12 RDR Updated Fix 3
+44bd859a RDR Updated Fix 2
+01020cb0 fix: RDR messages now send by fixing idle detection pipeline
+216b58bc fix: prevent terminal worktree crash with race condition fixes (#1586) (#1658)
+0ddd740b hotfix/beta2 readme
+2e2b8236 fix: correct log order sorting and add configurable log order setting (#1720)
+acb131b7 fix(ollama): stop infinite subprocess spawning from useEffect re-render loop (#1716)
+df528f06 fix(graphiti): migrate graphiti_memory imports to canonical paths (#1714)
+ff91a1af fix: improve auto-updater for beta releases and DMG installs (#1681)
+31e085be fix: RDR now includes phases field for correct task detection
+b83c3f28 fix: RDR bypasses busy check when triggered by idle event
+1351876a fix: RDR checks 100% progress BEFORE error/exit status
+1b50b03c fix: RDR only flags incomplete tasks (< 100% subtask completion)
+93572290 fix: RDR now flags plan_review tasks + event-driven messaging
+d0352399 RDR Updated Fix
+c3e1385c RDR Updated
+92f51383 External Terminal shutting with AC
+8421c68c Crash Recovery distinction between crash and user exit
+2394be7a Kanban UI changes 2
+b621b8cc Kanban UI changes
+6d0222fa feat: unified operation registry for intelligent auth/rate limit recovery (#1698)
+c5594983 Auto Shutdown
+cc87796e Task Completion function
+8b60d2fa Crash Recovery testiing and debugging
+fe08c644 fix: Prevent stale worktree data from overriding correct task status (#1710)
+a5e3cc9a feat: add subscriptionType and rateLimitTier to ClaudeProfile (#1688)
+4587162e auto-claude: subtask-1-1 - Add useTaskStore import and update task state after successful PR creation (#1683)
+b4e6b2fe auto-claude: 182-implement-pagination-and-filtering-for-github-pr-l (#1654)
+d9cd300f auto-claude: 181-add-expand-button-for-long-task-descriptions (#1653)
+238081d8 fix: forward Electron logs to watchdog terminal
+256276f0 feat: implement crash recovery watchdog with MCP notification
+f5a7e26d fix(terminal): resolve text alignment issues on expand/minimize (#1650)
+5f63daa3 fix(windows): use full path to where.exe for reliable executable lookup (#1659)
+e6e8da17 fix: resolve ideation stuck at 3/6 types bug (#1660)
+9317148b Clarify Local and Origin Branch Distinction (#1652)
+47302062 auto-claude: 186-set-default-dark-mode-on-startup (#1656)
+ae703be9 auto-claude: subtask-1-1 - Add min-h-0 to enable scrolling in Roadmap tabs (#1655)
+d7ea70e2 refactor: Clarify MCP system descriptions - IDE/CLI specific and LLM Manager terminology
+03791dcf Developer Tools MCP system settings clarified
+7a0dc247 Dev Tools checkpoint
+f302d6b7 fix: MCP spawn on Windows - use ComSpec and inherit env
+bbe5404c fix: MCP restart standalone mode - remove Electron dependencies
+7baed15c fix: MCP restart - optional chaining and standalone electron mock
+d6c38d42 Developer Tools MCP system update
+6c0a4be9 Checkpoint
+77f8e949 Toggle reorganisation
+6a67ac91 Checkpoint
+c719e31d Skills updated for 'Auto-Build'
+b8e889c7 Let LLM Manager build and restart toggle
+5425985d Toggle cleanup
+c3d3187c Auto-Refresh and Auto-Recovery in right place
+4d51b15b RDR Prompting refixed
+7f039dba I think all tasks in recover mode show up
+c5007ad4 Auto-Refresh Toggle on General Settings
+82b5601a Auto-refresh
+25a950a5 Archive back working
+89abf703 Merge remote changes - keep local RDR fix (no 30s wait)
+1f7e940a Recovery test still due, need to enfore Auto-Refresh on MCP
+5293fb39 fix: XState status lifecycle & cross-project contamination fixes (#1647)
+8030c59f hotfix: fix test_integration_phase4 dataclass import error
+ab91f7ba fix: restore version 2.7.6-beta.2 after accidental revert
+a2c3507d hotfix/pr-review-bug
+4d34cf1a fix: allow RDR notifications when Claude is AT_PROMPT state
+1c787c64 fix: allow RDR notifications when Claude is AT_PROMPT state
+8dccdb88 fix: skip 30s idle wait for aged-out sessions in RDR busy detection
+8b9dc4b0 RDR: UUID and Recovery needed logged
+6aeb0500 RDR DETECTING BUSY STATE!
+ea985349 RDR DETECTING BUSY STATE
+dbbd08df fix: add 30-second minimum idle time check to RDR busy detection
+41d19c68 fix: resolve RDR false positives by including phases array in task data
+463a9ce3 fix: backend now writes exitReason to implementation_plan.json for RDR detection
+90e83a1c Checkpoint, RDR triggered with AR on Limit - RDR prompt loop detection broke
+70c91e06 RDR with Prompt Loop detection (I think)
+c8633d9b fix: resolve RDR window handle race condition
+e3e55a4e docs: add CV Project path and RDR→MCP auto-recovery workflow
+7547b3be fix: resolve agentManager dependency injection in restart handlers
+951d76ad feat: add crash detection and MCP restart tool (Phases 4-5)
+ae62a5de feat: implement auto-restart core (Phases 2-3)
+db8af783 feat: add auto-restart on loop/crash settings (Phase 1)
+cd9f970a fix: RDR now detects stuck tasks in 'in_progress' state
+7b6c86b0 docs: add comprehensive RDR troubleshooting to Auto-Claude MCP skill
+902d41aa docs: add RDR (Recover, Debug, Resend) recovery procedures to CLAUDE.md
+524f5b5c fix: resolve RDR module resolution by converting static requires to dynamic imports
+5cf6f6e5 fix: improve RDR recovery with fail-safe handling and documentation
+bdd53ae8 Prompt Loop detection
+ef4976ef fix: handle old messages with undefined stop_reason as completed, not streaming
+502362f1 fix: RDR busy check now blocks on PROCESSING state, not just AT_PROMPT
+93f90c37 fix: replace time-based RDR detection with JSONL conversation state parsing
+6002a3e3 fix: extend LLM processing detection window from 10s to 90s
+743c0db2 fix: detect when LLM is actively thinking/generating responses
+1c9e333c fix: remove undefined isClaudeSessionActive call in RDR
+36a9a60d fix: add busy check to manual RDR trigger (TRIGGER_RDR_PROCESSING)
+70e46324 fix: add busy check to RDR batch processing to prevent prompt loop
+0e5ef18a fix: detect Claude Code prompt state by file modification time
+0810c580 fix: correct JSONL parsing in output monitor
+6b2b2ab5 fix: increase JSONL file age window from 60s to 5min
+1f4c6770 fix: remove log spam and skip 100% complete tasks in RDR
+f559e219 fix: add diagnostic logging to output monitor and remove emojis from RDR logs
+30dde1d4 fix: use static import for output monitor to ensure Vite bundles it
+92729c12 fix: switch output monitor to JSONL transcripts for prompt detection
+d1725be9 feat: add /auto-claude-mcp skill invocation to RDR prompt
+1b0f367a fix: add null checks for RDR module imports to prevent crashes
+e88b412d feat: add RDR per-task toggle and automatic attempt tracking
+d1aff0d3 feat: improve RDR prompt and add unlatch toggle
+a82fa2fd fix: resolve RDR automation and Electron app startup issues
+789d625d fix: correct withMonitoring wrapper syntax in MCP server
+8b9e3d4d fix: improve RDR busy detection and bypass permissions
+df2ab954 feat: add auto-shutdown monitoring and MCP integration with bypass permissions
+97432769 fix: resolve RDR command line length error and add immediate auto-send
+38be4a41 feat: add VS Code window selector for direct RDR message sending
+16e05883 feat: add automatic RDR processing loop with timer-based batching
+c66c7826 feat: implement batched RDR processing with MCP integration
+d430b284 fix: correct projectStore import in rdr-handlers.ts
+fce6005d feat: add RDR (Recover Debug Resend) toggle for auto-recovery of stuck tasks
+004a5d79 feat: redesign auto-resume toggle with compact AR layout
+5745cb14 docs: update README to v2.7.6-beta.1 [skip ci]
+26134c28 chore: bump version to 2.7.6-beta.2
+303b3781 fix: bundle xstate in main process for packaged Electron app (#1637)
+1d2f47b0 hotfix(ci): install libarchive-tools for Linux package verification
+985c7967 chore: release 2.7.6-beta.1 (#1630)
+9b38eb34 ready for beta
+e2f9abad refactor(frontend): complete XState task state machine migration (#1338) (#1575)
+d16be307 Merge conflict resolution progress bar and log viewer (#1620)
+bad1a9b2 fix: align Linux package builds (AppImage/deb/Flatpak) with target-specific extraResources (#1623)
+cd423c65 Fix/gitlab bugs (#1519 and #1521) (#1544)
+02ed91c9 feat(kanban): add bulk task delete and worktree cleanup improvements (#1588)
+fe5cc582 fix: add worktree isolation warning to prevent agent escape (#1528)
+8f02a512 feat(ui): add spell check support for text inputs (#1304)
+1e199716 fix(windows): complete Windows credential fixes with path normalization (#1585)
+900dd436 AI-Powered GitHub PR Template Generation (#1618)
+f355e09d Fix pty.node SIGABRT crash on macOS shutdown (#1619)
+bde2ca4b fix(merge): use git merge for diverged branches with progress tracking (#1605)
+7bf12e85 Surface Billing/Credit Exhaustion Errors to UI (Issue #1580) (#1617)
+54d0cd2f auto-claude: subtask-1-1 - Change $teamId type from ID! to String! in the team query (#1627)
+f8cc63af fix(auth): support API profile mode without OAuth requirement (#1616)
+0aea4fb5 fix: agent retry loop for tool concurrency errors (#1546) [v3] (#1606)
+4070a4c2 fix(queue): enforce max parallel tasks and auto-refresh UI (#1594)
+a1114664 Persist Kanban column collapse state per project via main process (#1579)
+bfc23282 feat(pr-review): evidence-based validation and trigger-driven exploration (#1593)
+db1c5c32 fix: auto-resume now waits for tasks to load before resuming
+c2b1bbe6 feat: add retry logic to auto-resume for failed task starts
+843bc1bf fix: use correct saveSettings function for auto-resume toggle
+b162fcb3 feat: add auto-resume toggle to Kanban board for rate-limited tasks
+eee97e7e fix(ui): smart auto-scroll for Insights streaming responses (#1591)

@@ -327,8 +327,9 @@ export async function isClaudeCodeBusy(identifier: number | string): Promise<boo
     }
 
     // PRIMARY: Check window title for busy patterns
+    // NOTE: ● (modified indicator) removed — VS Code shows it for ANY unsaved file,
+    // not Claude-specific. With task agents modifying files, it's always present.
     const busyPatterns = [
-      /●/,                     // Modified indicator (unsaved changes, may indicate typing)
       /thinking/i,             // "Claude is thinking..."
       /generating/i,           // "Generating response..."
       /processing/i,           // "Processing..."
@@ -338,7 +339,7 @@ export async function isClaudeCodeBusy(identifier: number | string): Promise<boo
     const titleIndicatesBusy = busyPatterns.some(pattern => pattern.test(targetWindow.title));
 
     if (titleIndicatesBusy) {
-      console.log(`[WindowManager] ⏸️  BUSY: Window title indicates busy - "${targetWindow.title}"`);
+      console.log(`[WindowManager] BUSY: Window title indicates busy - "${targetWindow.title}"`);
       return true;
     }
 
@@ -355,13 +356,21 @@ export async function isClaudeCodeBusy(identifier: number | string): Promise<boo
       // MCP monitor not available
     }
 
-    // NOTE: OutputMonitor intentionally NOT used here.
-    // It scans ALL ~/.claude/projects/ JSONL files and cannot distinguish the user's
-    // interactive session from task agent sessions. With 10+ task agents running,
-    // their JSONL files are constantly modified → OutputMonitor always returns PROCESSING
-    // → RDR never sends. Window title + MCP are sufficient for busy detection.
+    // TERTIARY: Check OutputMonitor for JSONL activity
+    // May produce false positives from task agents, but false positives (delay RDR)
+    // are much safer than false negatives (interrupt user while busy).
+    try {
+      const { outputMonitor } = await import('../../claude-code/output-monitor');
+      const state = outputMonitor?.getCurrentState();
+      if (state === 'PROCESSING') {
+        console.log('[WindowManager] BUSY: OutputMonitor reports PROCESSING');
+        return true;
+      }
+    } catch {
+      // OutputMonitor not available
+    }
 
-    console.log('[WindowManager] ✅ All checks passed - Claude Code is IDLE');
+    console.log('[WindowManager] All checks passed - Claude Code is IDLE');
     return false;
   } catch (error) {
     console.error('[WindowManager] Error checking busy state:', error);
