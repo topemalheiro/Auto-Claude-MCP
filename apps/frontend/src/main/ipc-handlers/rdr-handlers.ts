@@ -949,9 +949,8 @@ function getLastLogEntries(projectPath: string, specId: string, count: number = 
 
 /**
  * Check session usage using the Usage Monitor (real-time API data).
- * Two thresholds:
- *   - 80%+: warning = true (show orange timer, RDR keeps sending)
- *   - 100%: limited = true (pause RDR, stop sending until reset)
+ * Single threshold:
+ *   - 100%: limited = true, warning = true (pause RDR + show orange timer until reset)
  */
 function isSessionLimitReached(): { limited: boolean; warning: boolean; resetTime?: number; reason?: string } {
   const monitor = getUsageMonitor();
@@ -961,7 +960,8 @@ function isSessionLimitReached(): { limited: boolean; warning: boolean; resetTim
   const sessionPct = usage.sessionPercent;
   const weeklyPct = usage.weeklyPercent;
 
-  if (sessionPct < 80 && weeklyPct < 80) return { limited: false, warning: false };
+  // Only trigger at 100%+ (pause RDR). No 80% warning tier — user explicitly removed it.
+  if (sessionPct < 100 && weeklyPct < 100) return { limited: false, warning: false };
 
   // Use whichever limit is more constrained (higher %) as the binding constraint
   if (weeklyPct > sessionPct) {
