@@ -534,6 +534,7 @@ export class AutoClaudeWatchdog extends EventEmitter {
 
   // Track consecutive renderer-not-responding checks for fast renderer freeze detection
   private rendererNotRespondingCount = 0;
+  private heartbeatCheckCount = 0;
   private readonly RENDERER_NOT_RESPONDING_THRESHOLD = 2; // 2 × 15s = 30s before declaring freeze
 
   /**
@@ -555,13 +556,22 @@ export class AutoClaudeWatchdog extends EventEmitter {
 
       try {
         if (!fs.existsSync(heartbeatPath)) {
-          // No heartbeat file yet — process may still be starting up
+          this.log('WARN', 'Heartbeat file not found:', heartbeatPath);
           return;
         }
 
         const content = fs.readFileSync(heartbeatPath, 'utf-8');
         const heartbeat = JSON.parse(content);
         const age = Date.now() - heartbeat.timestamp;
+
+        // Log heartbeat status every ~60s (every 4th check at 15s interval)
+        this.heartbeatCheckCount++;
+        if (this.heartbeatCheckCount % 4 === 0) {
+          this.log('INFO',
+            `Heartbeat OK: age=${Math.round(age / 1000)}s, pid=${heartbeat.pid}, ` +
+            `renderer=${heartbeat.rendererResponding}, agents=${heartbeat.activity?.runningAgents ?? '?'}`
+          );
+        }
 
         if (age > this.HEARTBEAT_STALE_THRESHOLD_MS) {
           this.log('ERROR',

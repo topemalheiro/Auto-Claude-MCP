@@ -63,8 +63,8 @@ export function AutoShutdownToggle({ isCollapsed = false }: AutoShutdownTogglePr
 
     loadStatus();
 
-    // Poll status every 5 seconds
-    const interval = setInterval(loadStatus, 5000);
+    // Poll status every 30 seconds (5s was causing excessive I/O from countTasksByStatus)
+    const interval = setInterval(loadStatus, 30_000);
     return () => clearInterval(interval);
   }, []);
 

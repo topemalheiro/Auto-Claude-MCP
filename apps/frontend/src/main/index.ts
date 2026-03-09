@@ -37,7 +37,7 @@ for (const envPath of possibleEnvPaths) {
 
 import { app, BrowserWindow, shell, nativeImage, session, screen, Menu, MenuItem } from 'electron';
 import { join } from 'path';
-import { accessSync, readFileSync, writeFileSync, rmSync } from 'fs';
+import { accessSync, readFileSync, writeFileSync, rmSync, mkdirSync } from 'fs';
 import { optimizer } from '@electron-toolkit/utils';
 
 // Custom safe implementation to avoid module-level electron.app access
@@ -235,6 +235,11 @@ function startHeartbeat(): void {
   const userData = app.getPath('userData');
   const heartbeatPath = join(userData, 'heartbeat.json');
 
+  // Ensure userData directory exists (should always exist, but verify)
+  if (!existsSync(userData)) {
+    mkdirSync(userData, { recursive: true });
+  }
+
   const writeHeartbeat = (): void => {
     try {
       const win = mainWindow;
@@ -251,12 +256,20 @@ function startHeartbeat(): void {
           selfHealAttempts: activityMonitor.getSelfHealAttempts(),
         },
       }), 'utf-8');
-    } catch {
-      // Ignore write errors — watchdog will detect stale heartbeat
+    } catch (err) {
+      console.error('[main] Heartbeat write FAILED:', err);
     }
   };
 
   writeHeartbeat(); // Write immediately
+
+  // Verify first write succeeded — if not, watchdog freeze detection is disabled
+  if (!existsSync(heartbeatPath)) {
+    console.error('[main] CRITICAL: heartbeat.json NOT created at', heartbeatPath);
+  } else {
+    console.log('[main] Heartbeat file verified at:', heartbeatPath);
+  }
+
   heartbeatInterval = setInterval(writeHeartbeat, HEARTBEAT_INTERVAL_MS);
   heartbeatInterval.unref(); // Don't prevent process exit
   console.log('[main] Heartbeat writer started (interval:', HEARTBEAT_INTERVAL_MS, 'ms)');

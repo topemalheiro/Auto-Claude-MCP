@@ -1311,6 +1311,27 @@ export function categorizeTasks(tasks: TaskInfo[], projectPath?: string): RdrBat
     console.log(`[RDR] Batch 2c - Complete but stalled on active board (P2 recovery): ${completeStalledOnActiveBoard.length} tasks`);
   }
 
+  // Batch 2d: Tasks on active boards with dead agents and no progress
+  // Agent started and died before producing any subtasks/phases (e.g., bad file paths in spec)
+  const deadAgentNoProgress = rdrEnabledTasks.filter(t => {
+    if (categorized.has(t.specId)) return false;
+    if (t.description?.startsWith(JSON_ERROR_PREFIX)) return false;
+    if (t.reviewReason === 'errors' || t.reviewReason === 'qa_rejected' || t.reviewReason === 'stopped') return false;
+    if (t.exitReason === 'error' || t.exitReason === 'auth_failure') return false;
+    if (t.status !== 'in_progress' && t.status !== 'ai_review') return false;
+    if (isTaskAgentRunning(t.specId)) return false; // Agent must be dead
+
+    // No subtasks AND no meaningful phases = agent died before doing anything
+    const hasSubtasks = t.subtasks && t.subtasks.length > 0;
+    const hasPhases = t.phases && t.phases.length > 0 && t.phases.some((p: any) => p.status !== 'pending');
+    return !hasSubtasks && !hasPhases;
+  });
+  if (deadAgentNoProgress.length > 0) {
+    batches.push({ type: 'recovery', taskIds: deadAgentNoProgress.map(t => t.specId), tasks: deadAgentNoProgress });
+    deadAgentNoProgress.forEach(t => categorized.add(t.specId));
+    console.log(`[RDR] Batch 2d - Dead agent, no progress (P2 recovery): ${deadAgentNoProgress.length} tasks`);
+  }
+
   // Batch 3: QA Rejected
   const qaRejected = rdrEnabledTasks.filter(t =>
     !categorized.has(t.specId) &&

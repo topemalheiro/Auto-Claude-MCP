@@ -1526,12 +1526,8 @@ export class UsageMonitor extends EventEmitter {
     }
 
     // Attempt 2: CLI /usage command (fallback)
-    // Skip if API is in 429 cooldown — CLI hits the same endpoint with the same token,
-    // so it will also 429 and just waste a request.
-    if (!this.shouldUseApiMethod(profileId)) {
-      this.debugLog('[UsageMonitor:FETCH] Skipping CLI fallback — API in cooldown (same endpoint)');
-      return null;
-    }
+    // NEVER skip CLI fallback based on API failure state — CLI reads ~/.claude/.credentials.json
+    // which may have a different token. Blocking CLI during 429 cooldown killed the meter 3 times.
     this.debugLog('[UsageMonitor:FETCH] Attempting CLI fallback method');
     return await this.fetchUsageViaCLI(profileId, profileName);
   }

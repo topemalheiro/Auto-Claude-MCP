@@ -2079,76 +2079,58 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
    * Skips if a message is already in-flight (Claude Code is processing)
    */
   const handleAutoRdr = useCallback(async () => {
-    // Skip if RDR is paused due to rate limit
-    if (rdrCooldownRef.current.paused) {
-      console.log('[RDR] Skipping auto-send - paused (rate limit active)');
+    // CRITICAL: In-flight guard MUST be first, before ANY await.
+    // When app freezes, queued setInterval callbacks fire simultaneously on unfreeze.
+    // If this check is after an await, all concurrent calls pass it before any sets the flag,
+    // causing 20+ PowerShell spawns → freeze loop. (Bug from 2026-03-09)
+    if (rdrMessageInFlightRef.current) {
       return;
     }
 
-    // Skip if no window selected
-    if (!selectedWindowHandle) {
-      console.log('[RDR] Skipping auto-send - no window selected');
+    if (rdrCooldownRef.current.paused || !selectedWindowHandle || !projectId) {
       return;
     }
 
-    // Find window from selected handle to get process ID
     const selectedWindow = vsCodeWindows.find(w => w.handle === selectedWindowHandle);
     if (!selectedWindow) {
-      console.log('[RDR] Selected window not found in list');
       return;
     }
 
-    // Use window handle for stable matching (title changes when user switches editor tabs)
+    // LOCK immediately — before any async work
+    rdrMessageInFlightRef.current = true;
+
     const handle = selectedWindow.handle;
 
-    // ALWAYS check busy state (idle events from OutputMonitor can't distinguish user vs task agent)
     try {
-      const busyResult = await window.electronAPI.isClaudeCodeBusy(selectedWindow.processId);
-      if (busyResult.success && busyResult.data) {
-        console.log('[RDR] Skipping auto-send - Claude Code is busy');
-        return;
+      // Check busy state
+      try {
+        const busyResult = await window.electronAPI.isClaudeCodeBusy(selectedWindow.processId);
+        if (busyResult.success && busyResult.data) {
+          console.log('[RDR] Skipping auto-send - Claude Code is busy');
+          rdrMessageInFlightRef.current = false;
+          return;
+        }
+      } catch (error) {
+        console.warn('[RDR] Failed to check busy state, proceeding with send:', error);
       }
-    } catch (error) {
-      console.warn('[RDR] Failed to check busy state, proceeding with send:', error);
-    }
 
-    // In-flight guard: if a message is already in-flight, don't double-send.
-    // Cleared by: (1) activity monitor force-reset, (2) backup timeout. NOT by idle event (causes loop).
-    if (rdrMessageInFlightRef.current) {
-      console.log('[RDR] Message still in-flight, will retry next poll');
-      return;
-    }
+      console.log('[RDR] Auto-send triggered - getting batch details...');
 
-    // Skip if no project
-    if (!projectId) {
-      console.log('[RDR] Skipping auto-send - no project');
-      return;
-    }
-
-    console.log('[RDR] Auto-send triggered - getting batch details...');
-
-    try {
-      // Get detailed task info via IPC
       const result = await window.electronAPI.getRdrBatchDetails(projectId);
 
       if (!result.success || !result.data?.taskDetails?.length) {
         console.log('[RDR] No tasks needing intervention');
+        rdrMessageInFlightRef.current = false;
         return;
       }
 
-      // Build detailed message
       const message = buildRdrMessage({ ...result.data, projectId, projectPath: result.data.projectPath });
       console.log(`[RDR] Sending detailed message with ${result.data.taskDetails.length} tasks`);
 
-      // Mark message as in-flight (ref = synchronous, no React render cascade)
-      rdrMessageInFlightRef.current = true;
-
-      // Send to VS Code window using window handle (stable regardless of active editor tab)
       const sendResult = await window.electronAPI.sendRdrToWindow(handle, message);
 
       if (sendResult.success) {
         console.log('[RDR] Auto-send successful');
-        // Notify main process activity monitor
         window.electronAPI.recordActivity?.('rdr-send-success');
         toast({
           title: t('kanban.rdrSendSuccess'),
@@ -2156,12 +2138,16 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
         });
       } else {
         console.error('[RDR] Auto-send failed:', sendResult.data?.error);
-        rdrMessageInFlightRef.current = false;
-        // Refresh windows on failure (handle may be stale after session reset)
         loadVsCodeWindows();
+        // Clear in-flight on send failure — safe now that guard is synchronous (before any await).
+        // 10s cooldown prevents rapid retries without blocking for full 2min timeout.
+        setTimeout(() => {
+          rdrMessageInFlightRef.current = false;
+        }, 10_000);
+        return;
       }
 
-      // Reset in-flight flag after timeout (assume Claude Code processed by then)
+      // Keep in-flight locked until timeout on SUCCESS — prevents rapid re-sends
       setTimeout(() => {
         rdrMessageInFlightRef.current = false;
         console.log('[RDR] In-flight timeout - ready for next message');
@@ -2169,7 +2155,10 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
 
     } catch (error) {
       console.error('[RDR] Auto-send error:', error);
-      rdrMessageInFlightRef.current = false;
+      // 10s cooldown on exception — prevents tight retry loop
+      setTimeout(() => {
+        rdrMessageInFlightRef.current = false;
+      }, 10_000);
     }
   }, [selectedWindowHandle, projectId, buildRdrMessage, toast, t, vsCodeWindows]);
 
@@ -2211,6 +2200,9 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       // ACTIVITY MONITOR: Force-reset RDR when main process detects functional stall
       const forceResetListener = () => {
         console.warn('[RDR] Force reset from ActivityMonitor — clearing in-flight and re-triggering');
+        // Force-reset is a deliberate external signal from ActivityMonitor detecting a stall.
+        // Safe to clear in-flight since the guard is now synchronous (before any await),
+        // which prevents the concurrent spawn issue that originally motivated keeping it locked.
         rdrMessageInFlightRef.current = false;
         handleAutoRdr();
       };
