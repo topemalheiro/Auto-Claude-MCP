@@ -1519,14 +1519,19 @@ export class UsageMonitor extends EventEmitter {
         return apiUsage;
       }
 
-      // API failed — fetchUsageViaAPI records cooldown timestamp internally for
-      // non-transient errors. 429s are transient and skip cooldown, so next poll retries immediately.
-      this.debugLog('[UsageMonitor:FETCH] API fetch failed, will retry based on error type');
+      // API failed — fetchUsageViaAPI records cooldown timestamp for all errors (including 429).
+      this.debugLog('[UsageMonitor:FETCH] API fetch failed, will retry after cooldown');
     } else if (!credential) {
       this.debugLog('[UsageMonitor:FETCH] No credential available, skipping API method');
     }
 
     // Attempt 2: CLI /usage command (fallback)
+    // Skip if API is in 429 cooldown — CLI hits the same endpoint with the same token,
+    // so it will also 429 and just waste a request.
+    if (!this.shouldUseApiMethod(profileId)) {
+      this.debugLog('[UsageMonitor:FETCH] Skipping CLI fallback — API in cooldown (same endpoint)');
+      return null;
+    }
     this.debugLog('[UsageMonitor:FETCH] Attempting CLI fallback method');
     return await this.fetchUsageViaCLI(profileId, profileName);
   }
@@ -1698,10 +1703,12 @@ export class UsageMonitor extends EventEmitter {
           throw error;
         }
 
-        // 429 is transient rate-limiting — DON'T record failure timestamp.
-        // Let it retry on the very next poll cycle (30s) instead of waiting 2-minute cooldown.
+        // 429 means Anthropic is rate-limiting the usage API endpoint itself.
+        // Record failure timestamp so shouldUseApiMethod() skips API for 2 minutes.
+        // Without this, we spam the endpoint every 30s and never recover (the 429 never clears).
         if (response.status === 429) {
-          this.debugLog('[UsageMonitor] 429 rate-limited — will retry on next poll (no cooldown)');
+          console.log('[UsageMonitor] 429 rate-limited on usage API — applying 2-min cooldown');
+          this.apiFailureTimestamps.set(profileId, Date.now());
           return null;
         }
 

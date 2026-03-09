@@ -2153,6 +2153,31 @@ export function registerRdrHandlers(agentManager?: AgentManager): void {
   // Start event-driven RDR processing
   setupEventDrivenProcessing();
 
+  // Schedule a startup RDR check — don't rely solely on idle events.
+  // After 45s (enough for file watcher and agents to initialize), notify renderer
+  // to trigger an RDR scan regardless of OutputMonitor state.
+  setTimeout(() => {
+    if (rdrPauseState.paused) {
+      console.log('[RDR] Startup check skipped — RDR is paused');
+      return;
+    }
+    console.log('[RDR] ⏰ Startup RDR check — notifying renderer to scan for stuck tasks');
+    try {
+      const allWindows = BrowserWindow?.getAllWindows() || [];
+      for (const win of allWindows) {
+        if (!win.isDestroyed()) {
+          win.webContents.send('claude-code-idle', {
+            from: 'startup',
+            to: 'startup-check',
+            timestamp: Date.now()
+          });
+        }
+      }
+    } catch (err) {
+      console.error('[RDR] Startup check failed:', err);
+    }
+  }, 45_000);
+
   // Renderer queries current RDR pause state (e.g. on mount)
   ipcMain.handle(IPC_CHANNELS.RDR_GET_COOLDOWN_STATUS, () => {
     return {
