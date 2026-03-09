@@ -335,6 +335,53 @@ function isTaskAgentRunning(taskId: string): boolean {
   return agentManagerRef?.isRunning(taskId) ?? false;
 }
 
+/** Staleness threshold: if agent process exists but plan hasn't been updated in this many ms, consider stalled.
+ *  15 minutes is generous — even planning phase updates updated_at within the first few minutes. */
+const STALE_AGENT_THRESHOLD_MS = 15 * 60 * 1000;
+
+/** Minimum agent age before staleness check applies. Don't flag freshly-started agents. */
+const STALE_AGENT_MIN_AGE_MS = 10 * 60 * 1000;
+
+/** Check if an agent process exists but is stalled (alive but making no progress).
+ *  Rate-limited agents may keep their process alive while the SDK retries internally,
+ *  making isTaskAgentRunning() return true even though the agent is effectively dead.
+ *  Uses plan file updated_at + agent startedAt to detect this. */
+function isTaskAgentStalled(taskId: string, taskUpdatedAt?: string): boolean {
+  if (!agentManagerRef) return false;
+  if (!agentManagerRef.isRunning(taskId)) return false; // Not running = not stalled (it's dead)
+
+  const procInfo = agentManagerRef.getProcessInfo(taskId);
+  if (!procInfo) return false;
+
+  const now = Date.now();
+  const agentAge = now - procInfo.startedAt.getTime();
+
+  // Don't flag agents that just started — give them time to produce first plan update
+  if (agentAge < STALE_AGENT_MIN_AGE_MS) return false;
+
+  // If we have updated_at from the plan file, check how stale it is
+  if (taskUpdatedAt) {
+    const lastUpdate = new Date(taskUpdatedAt).getTime();
+    if (!Number.isNaN(lastUpdate)) {
+      const staleDuration = now - lastUpdate;
+      if (staleDuration > STALE_AGENT_THRESHOLD_MS) {
+        console.log(`[RDR] Agent for ${taskId} is STALLED: process alive for ${Math.round(agentAge / 60_000)}min, plan last updated ${Math.round(staleDuration / 60_000)}min ago`);
+        return true;
+      }
+      return false; // Plan was updated recently — agent is active
+    }
+  }
+
+  // No updated_at available — fall back to agent age alone
+  // If the agent has been running for >30 min with no plan update data, it's suspicious
+  if (agentAge > STALE_AGENT_THRESHOLD_MS * 2) {
+    console.log(`[RDR] Agent for ${taskId} is STALLED: process alive for ${Math.round(agentAge / 60_000)}min with no updated_at data`);
+    return true;
+  }
+
+  return false;
+}
+
 /** Check if a task was previously started by looking for execution artifacts in the raw plan.
  *  Detects planning-phase regressions where no worktree/exitReason/planStatus signals exist.
  *  These fields are written by the agent/file-watcher when a task enters execution. */
@@ -1221,7 +1268,8 @@ export function categorizeTasks(tasks: TaskInfo[], projectPath?: string): RdrBat
     t.status !== 'in_progress' && t.status !== 'ai_review'
   );
   const incompleteP2 = incomplete.filter(t =>
-    (t.status === 'in_progress' || t.status === 'ai_review') && !isTaskAgentRunning(t.specId)
+    (t.status === 'in_progress' || t.status === 'ai_review') &&
+    (!isTaskAgentRunning(t.specId) || isTaskAgentStalled(t.specId, t.updated_at))
   );
 
   // Mark ALL incomplete tasks as categorized (including running-agent gap between P1/P2)
@@ -1245,7 +1293,7 @@ export function categorizeTasks(tasks: TaskInfo[], projectPath?: string): RdrBat
     if (t.reviewReason === 'errors' || t.reviewReason === 'qa_rejected' || t.reviewReason === 'stopped') return false;
     if (t.exitReason === 'error' || t.exitReason === 'auth_failure') return false;
     if (t.status !== 'in_progress' && t.status !== 'ai_review') return false;
-    if (isTaskAgentRunning(t.specId)) return false;
+    if (isTaskAgentRunning(t.specId) && !isTaskAgentStalled(t.specId, t.updated_at)) return false;
 
     // Both progress sources must agree when both are available
     const progress = calculateTaskProgress(t);

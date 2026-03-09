@@ -527,6 +527,15 @@ export class AgentManager extends EventEmitter {
   }
 
   /**
+   * Get the process info for a task (start time, spawn ID, etc.)
+   */
+  getProcessInfo(taskId: string): { startedAt: Date; spawnId: number } | undefined {
+    const proc = this.state.getProcess(taskId);
+    if (!proc) return undefined;
+    return { startedAt: proc.startedAt, spawnId: proc.spawnId };
+  }
+
+  /**
    * Get all running task IDs
    */
   getRunningTasks(): string[] {
