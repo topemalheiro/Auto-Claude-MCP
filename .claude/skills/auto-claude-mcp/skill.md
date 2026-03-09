@@ -691,6 +691,41 @@ Priority 6 has two options depending on where the problem is:
 - **6C**: Task keeps failing but isn't urgent — park it, deal with it later
 - See auto-claude-rdr skill for full RDR priority system documentation
 
+## MCP Server Restart & projectPath Fallback
+
+### Restarting the MCP Server
+
+The MCP server runs as a **standalone tsx process** (stdio subprocess). There is **no hot restart** — you must restart Claude Code entirely:
+
+1. Exit Claude Code (`/exit` or close terminal)
+2. Re-open Claude Code
+3. Run `/mcp` to verify server reconnected
+
+**Why restart is needed:** The MCP server holds an in-memory project store. After Auto-Claude restarts or projects change, the UUID lookup (`projectId`) may return "Project not found". Restarting Claude Code respawns the MCP server with fresh state.
+
+### ALWAYS Pass projectPath Fallback
+
+**CRITICAL:** When calling ANY MCP tool, ALWAYS include `projectPath` alongside `projectId`. The UUID lookup can fail (stale cache, Auto-Claude restart), but `projectPath` always works:
+
+```typescript
+// CORRECT — always include projectPath
+mcp__auto-claude-manager__process_rdr_batch({
+  projectId: "5d5889f3-...",
+  projectPath: "C:\\Users\\topem\\Desktop\\CV Project",  // Fallback
+  batchType: "errors",
+  fixes: [{ taskId: "989-fix-ejs" }]
+})
+
+// WRONG — UUID-only fails after Auto-Claude restart
+mcp__auto-claude-manager__process_rdr_batch({
+  projectId: "5d5889f3-...",
+  batchType: "errors",
+  fixes: [{ taskId: "989-fix-ejs" }]
+})
+```
+
+**The RDR notification always includes both** `Project UUID` and `Project Path` — use both.
+
 ## MCP Connection & Troubleshooting
 
 ### How the MCP Server Connects
