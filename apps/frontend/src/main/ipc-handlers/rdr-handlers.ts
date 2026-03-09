@@ -1224,14 +1224,16 @@ export function categorizeTasks(tasks: TaskInfo[], projectPath?: string): RdrBat
     (t.status === 'in_progress' || t.status === 'ai_review') && !isTaskAgentRunning(t.specId)
   );
 
+  // Mark ALL incomplete tasks as categorized (including running-agent gap between P1/P2)
+  // to prevent re-evaluation in Batch 2c, 3, 4, or 5
+  incomplete.forEach(t => categorized.add(t.specId));
+
   if (incompleteP1.length > 0) {
     batches.push({ type: 'incomplete', taskIds: incompleteP1.map(t => t.specId), tasks: incompleteP1 });
-    incompleteP1.forEach(t => categorized.add(t.specId));
     console.log(`[RDR] Batch 2a - Incomplete (P1 restart): ${incompleteP1.length} tasks`);
   }
   if (incompleteP2.length > 0) {
     batches.push({ type: 'recovery', taskIds: incompleteP2.map(t => t.specId), tasks: incompleteP2 });
-    incompleteP2.forEach(t => categorized.add(t.specId));
     console.log(`[RDR] Batch 2b - Incomplete (P2 recovery): ${incompleteP2.length} tasks`);
   }
 
@@ -1240,13 +1242,19 @@ export function categorizeTasks(tasks: TaskInfo[], projectPath?: string): RdrBat
   const completeStalledOnActiveBoard = rdrEnabledTasks.filter(t => {
     if (categorized.has(t.specId)) return false;
     if (t.description?.startsWith(JSON_ERROR_PREFIX)) return false;
-    if (t.reviewReason === 'errors' || t.reviewReason === 'qa_rejected') return false;
+    if (t.reviewReason === 'errors' || t.reviewReason === 'qa_rejected' || t.reviewReason === 'stopped') return false;
     if (t.exitReason === 'error' || t.exitReason === 'auth_failure') return false;
     if (t.status !== 'in_progress' && t.status !== 'ai_review') return false;
     if (isTaskAgentRunning(t.specId)) return false;
 
+    // Both progress sources must agree when both are available
     const progress = calculateTaskProgress(t);
     const allSubtasksDone = t.subtasks && t.subtasks.length > 0 && t.subtasks.every(s => s.status === 'completed');
+    const hasSubtasks = t.subtasks && t.subtasks.length > 0;
+    const hasPhases = t.phases && t.phases.length > 0;
+    if (hasSubtasks && hasPhases) {
+      return progress === 100 && allSubtasksDone;
+    }
     return progress === 100 || allSubtasksDone;
   });
   if (completeStalledOnActiveBoard.length > 0) {
