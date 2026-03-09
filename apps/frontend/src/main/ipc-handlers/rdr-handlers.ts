@@ -1235,6 +1235,26 @@ export function categorizeTasks(tasks: TaskInfo[], projectPath?: string): RdrBat
     console.log(`[RDR] Batch 2b - Incomplete (P2 recovery): ${incompleteP2.length} tasks`);
   }
 
+  // Batch 2c: Complete tasks stuck on active boards (agent died after finishing work)
+  // These are 100% complete but never transitioned to human_review
+  const completeStalledOnActiveBoard = rdrEnabledTasks.filter(t => {
+    if (categorized.has(t.specId)) return false;
+    if (t.description?.startsWith(JSON_ERROR_PREFIX)) return false;
+    if (t.reviewReason === 'errors' || t.reviewReason === 'qa_rejected') return false;
+    if (t.exitReason === 'error' || t.exitReason === 'auth_failure') return false;
+    if (t.status !== 'in_progress' && t.status !== 'ai_review') return false;
+    if (isTaskAgentRunning(t.specId)) return false;
+
+    const progress = calculateTaskProgress(t);
+    const allSubtasksDone = t.subtasks && t.subtasks.length > 0 && t.subtasks.every(s => s.status === 'completed');
+    return progress === 100 || allSubtasksDone;
+  });
+  if (completeStalledOnActiveBoard.length > 0) {
+    batches.push({ type: 'recovery', taskIds: completeStalledOnActiveBoard.map(t => t.specId), tasks: completeStalledOnActiveBoard });
+    completeStalledOnActiveBoard.forEach(t => categorized.add(t.specId));
+    console.log(`[RDR] Batch 2c - Complete but stalled on active board (P2 recovery): ${completeStalledOnActiveBoard.length} tasks`);
+  }
+
   // Batch 3: QA Rejected
   const qaRejected = rdrEnabledTasks.filter(t =>
     !categorized.has(t.specId) &&
