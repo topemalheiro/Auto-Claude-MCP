@@ -192,7 +192,8 @@ let isQuitting = false;
  */
 function writeFreezeNotification(type: string, reason: string): void {
   try {
-    const userData = app.getPath('userData');
+    // Use deterministic path matching watchdog's APP_DATA_DIR_NAME constant.
+    const userData = join(app.getPath('appData'), 'auto-claude-ui');
 
     // Write crash-flag.json (read by crash-recovery-handler on next startup)
     const flagPath = join(userData, 'crash-flag.json');
@@ -230,9 +231,12 @@ function writeFreezeNotification(type: string, reason: string): void {
 // --- Freeze Detection: Layer 2 (Main Process Heartbeat) ---
 let heartbeatInterval: ReturnType<typeof setInterval> | null = null;
 const HEARTBEAT_INTERVAL_MS = 10_000; // Write heartbeat every 10 seconds
+let rendererResponding = true; // Tracked via BrowserWindow unresponsive/responsive events
 
 function startHeartbeat(): void {
-  const userData = app.getPath('userData');
+  // Use deterministic path matching watchdog's APP_DATA_DIR_NAME constant.
+  // app.getPath('userData') returns %APPDATA%/Electron/ in dev mode — wrong directory.
+  const userData = join(app.getPath('appData'), 'auto-claude-ui');
   const heartbeatPath = join(userData, 'heartbeat.json');
 
   // Ensure userData directory exists (should always exist, but verify)
@@ -248,7 +252,7 @@ function startHeartbeat(): void {
         timestamp: Date.now(),
         // rendererResponding: false means the renderer is hung. Watchdog uses this
         // for fast freeze detection without waiting for the 45s stale threshold.
-        rendererResponding: win && !win.isDestroyed() ? win.webContents.isResponding() : null,
+        rendererResponding: win && !win.isDestroyed() ? rendererResponding : null,
         activity: {
           lastActivityAt: activityMonitor.getLastActivityAt(),
           lastActivitySource: activityMonitor.getLastActivitySource(),
@@ -282,7 +286,7 @@ function stopHeartbeat(): void {
   }
   // Delete heartbeat file to signal clean shutdown
   try {
-    const heartbeatPath = join(app.getPath('userData'), 'heartbeat.json');
+    const heartbeatPath = join(app.getPath('appData'), 'auto-claude-ui', 'heartbeat.json');
     if (existsSync(heartbeatPath)) {
       rmSync(heartbeatPath);
     }
@@ -488,6 +492,7 @@ function createWindow(): void {
 
   mainWindow.webContents.on('unresponsive', () => {
     console.error('[main] Renderer became unresponsive (potential freeze)');
+    rendererResponding = false;
     if (!rendererFreezeTimer) {
       rendererFreezeTimer = setTimeout(() => {
         console.error('[main] Renderer still unresponsive after grace period — forcing restart');
@@ -498,6 +503,7 @@ function createWindow(): void {
   });
 
   mainWindow.webContents.on('responsive', () => {
+    rendererResponding = true;
     if (rendererFreezeTimer) {
       console.warn('[main] Renderer recovered from unresponsive state');
       clearTimeout(rendererFreezeTimer);
@@ -506,6 +512,7 @@ function createWindow(): void {
   });
 
   mainWindow.webContents.on('render-process-gone', (_event, details) => {
+    rendererResponding = false;
     console.error('[main] Renderer process gone:', details.reason, 'exitCode:', details.exitCode);
     writeFreezeNotification('renderer_crash', `Renderer process gone: ${details.reason} (exit: ${details.exitCode})`);
     app.exit(1);
