@@ -477,7 +477,7 @@ function calculateTaskProgress(task: TaskInfo): number {
  *
  * Path: <project>/.auto-claude/worktrees/tasks/<taskId>/.auto-claude/specs/<taskId>/implementation_plan.json
  */
-function enrichTaskWithWorktreeData(task: TaskInfo, projectPath: string): TaskInfo {
+export function enrichTaskWithWorktreeData(task: TaskInfo, projectPath: string): TaskInfo {
   // Read qa_signoff from MAIN plan file (authoritative for completion status).
   // projectStore.loadTasksFromSpecsDir() doesn't extract this field, so task.qaSignoff
   // is always undefined unless we read it here.

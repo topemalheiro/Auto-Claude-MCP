@@ -30,6 +30,8 @@ Auto Claude is a desktop application (+ CLI) where users describe a goal and AI 
 
 ## Critical Rules
 
+**Fix the system, not the symptom** — When the user reports Auto-Claude task problems (stuck tasks, wrong board, missing RDR detection, incomplete validation), NEVER apply manual one-off fixes (editing JSON files, changing statuses by hand). Instead, fix the underlying system (RDR detection logic, board routing, file watcher, MCP tools) so it handles the case automatically. Manual file edits are acceptable ONLY as a temporary workaround while the systemic fix is being implemented. The goal is always: RDR and the automation pipeline should handle it without human intervention.
+
 **Claude Agent SDK only** — All AI interactions use `claude-agent-sdk`. NEVER use `anthropic.Anthropic()` directly. Always use `create_client()` from `core.client`.
 
 **i18n required** — All frontend user-facing text MUST use `react-i18next` translation keys. Never hardcode strings in JSX/TSX. Add keys to both `en/*.json` and `fr/*.json`.

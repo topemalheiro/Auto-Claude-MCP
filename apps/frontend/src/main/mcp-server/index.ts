@@ -36,7 +36,7 @@ import {
   resolveProjectPath
 } from './utils.js';
 import { projectStore } from '../project-store.js';
-import { readAndClearSignalFile, categorizeTasks } from '../ipc-handlers/rdr-handlers.js';
+import { readAndClearSignalFile, categorizeTasks, enrichTaskWithWorktreeData } from '../ipc-handlers/rdr-handlers.js';
 
 /**
  * Notify the renderer to refresh task list immediately after board routing.
@@ -1138,8 +1138,10 @@ server.tool(
     projectPath: z.string().optional().describe('Fallback filesystem path if projectId UUID not found')
   },
   withMonitoring('get_rdr_batches', async ({ projectId, projectPath }) => {
-    // Resolve project path via UUID or fallback
+    // Resolve project path via UUID or fallback (single call, reused below)
     const resolved = resolveProjectPath(projectId, projectPath);
+    const project = !('error' in resolved) ? resolved.project : null;
+    const projectPathResolved = !('error' in resolved) ? resolved.projectPath : projectPath;
     let signalData = null;
 
     if (!('error' in resolved)) {
@@ -1150,25 +1152,39 @@ server.tool(
       }
     }
 
-    const tasksResult = await listTasks(projectId, undefined, projectPath);
+    // Get tasks directly from project store (same approach as IPC RDR handler).
+    // listTasks() returns TaskSummary[] which lacks subtasks, phases, qaSignoff, etc.
+    // needed for RDR detection. projectStore.getTasks() returns full TaskInfo objects.
 
-    if (!tasksResult.success || !tasksResult.data) {
+    if (!project) {
       return {
         content: [{
           type: 'text' as const,
           text: JSON.stringify({
             success: false,
-            error: tasksResult.error || 'Failed to list tasks',
-            signal: signalData // Include signal even if task list fails
+            error: 'error' in resolved ? resolved.error : 'Project not found',
+            signal: signalData
           })
         }]
       };
     }
 
-    const rawTasks = tasksResult.data.tasks || [];
+    const allTasks = projectStore.getTasks(project.id);
 
-    // Map raw tasks to TaskInfo format (same as RDR messaging system uses)
-    const taskInfos: TaskInfo[] = rawTasks.map((task: any) => ({
+    // Filter out archived and rdrDisabled tasks (same as IPC handler)
+    const nonArchivedTasks = allTasks.filter(t => {
+      if (t.metadata?.archivedAt) return false;
+      if (t.metadata?.rdrDisabled) return false;
+      return true;
+    });
+
+    // Enrich with worktree data — reads qa_signoff from plan files,
+    // gets actual worktree status (agent progress may differ from main)
+    const enrichedTasks = projectPathResolved
+      ? nonArchivedTasks.map(t => enrichTaskWithWorktreeData(t, projectPathResolved))
+      : nonArchivedTasks;
+
+    const taskInfos: TaskInfo[] = enrichedTasks.map((task: any) => ({
       specId: task.specId,
       title: task.title,
       status: task.status,
@@ -1185,7 +1201,7 @@ server.tool(
 
     // Use the SAME categorization logic as RDR messaging system
     // This ensures get_rdr_batches returns identical results to RDR notifications
-    const rdrBatches = categorizeTasks(taskInfos, !('error' in resolved) ? resolved.projectPath : undefined);
+    const rdrBatches = categorizeTasks(taskInfos, projectPathResolved);
 
     // Format batches for MCP response
     const batches = rdrBatches.map(batch => ({

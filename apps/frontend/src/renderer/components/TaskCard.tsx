@@ -656,6 +656,7 @@ export const TaskCard = memo(function TaskCard({
               phaseProgress={task.executionProgress?.phaseProgress}
               isStuck={isStuck}
               isRunning={isRunning}
+              qaCompleted={task.qaReport?.status === 'passed' || task.executionProgress?.completedPhases?.includes('qa_review')}
             />
           </div>
         )}

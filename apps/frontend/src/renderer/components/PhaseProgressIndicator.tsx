@@ -12,6 +12,8 @@ interface PhaseProgressIndicatorProps {
   phaseProgress?: number;
   isStuck?: boolean;
   isRunning?: boolean;
+  /** Whether QA validation actually completed (has qa_signoff). False = show warning on QA phase. */
+  qaCompleted?: boolean;
   className?: string;
 }
 
@@ -56,6 +58,7 @@ export const PhaseProgressIndicator = memo(function PhaseProgressIndicator({
   phaseProgress,
   isStuck = false,
   isRunning = false,
+  qaCompleted,
   className,
 }: PhaseProgressIndicatorProps) {
   const { t } = useTranslation('tasks');
@@ -256,7 +259,7 @@ export const PhaseProgressIndicator = memo(function PhaseProgressIndicator({
 
       {/* Phase steps indicator (shows overall flow) */}
       {(isRunning || phase !== 'idle') && (
-        <PhaseStepsIndicator currentPhase={phase} isStuck={isStuck} isVisible={isVisible} />
+        <PhaseStepsIndicator currentPhase={phase} isStuck={isStuck} isVisible={isVisible} qaCompleted={qaCompleted} />
       )}
     </div>
   );
@@ -269,10 +272,12 @@ const PhaseStepsIndicator = memo(function PhaseStepsIndicator({
   currentPhase,
   isStuck,
   isVisible = true,
+  qaCompleted,
 }: {
   currentPhase: ExecutionPhase;
   isStuck: boolean;
   isVisible?: boolean;
+  qaCompleted?: boolean;
 }) {
   const { t } = useTranslation('tasks');
 
@@ -288,7 +293,13 @@ const PhaseStepsIndicator = memo(function PhaseStepsIndicator({
     const phaseIndex = phaseOrder.indexOf(phaseKey);
 
     if (currentPhase === 'failed') return 'failed';
-    if (currentPhase === 'complete') return 'complete';
+    if (currentPhase === 'complete') {
+      // QA phase: only show green if QA validation actually completed (has qa_signoff)
+      if (phaseKey === 'qa_review' && qaCompleted === false) {
+        return 'stuck'; // Orange/warning — QA didn't finish
+      }
+      return 'complete';
+    }
     if (phaseKey === currentPhase || (phaseKey === 'qa_review' && currentPhase === 'qa_fixing')) {
       return isStuck ? 'stuck' : 'active';
     }
