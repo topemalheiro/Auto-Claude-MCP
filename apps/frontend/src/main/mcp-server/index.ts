@@ -1332,13 +1332,21 @@ server.tool(
           const terminalStatuses = ['human_review', 'done', 'pr_created', 'approved'];
           const onCorrectBoard = terminalStatuses.includes(qaGuard.status || '');
 
-          if (!hasHardError && onCorrectBoard) {
-            console.log(`[MCP] Skipping ${fix.taskId} — QA-approved at 100% on ${qaGuard.status}, no hard error`);
+          // qa_report.md is the authoritative signal that QA validation actually completed.
+          // qa_signoff can be set prematurely by the QA fixer before the QA reviewer runs.
+          const qaReportPath = path.join(resolvedProjectPath, '.auto-claude', 'specs', fix.taskId, 'qa_report.md');
+          const hasQaReport = existsSync(qaReportPath);
+
+          if (!hasHardError && onCorrectBoard && hasQaReport) {
+            console.log(`[MCP] Skipping ${fix.taskId} — QA-approved with qa_report.md on ${qaGuard.status}`);
             results.push({ taskId: fix.taskId, success: false, action: 'skipped_complete', priority: 0, error: 'Task QA-approved at 100% — skipping to prevent restart loop' });
             continue;
           }
-          // Wrong board or hard error → fall through to start_requested (file watcher routes)
-          console.log(`[MCP] ${fix.taskId} QA-approved but needs recovery (exitReason=${qaGuard.exitReason || 'none'}, status=${qaGuard.status || 'unknown'})`);
+          if (!hasQaReport) {
+            console.log(`[MCP] ${fix.taskId} qa_signoff=approved but NO qa_report.md — QA validation incomplete, proceeding with restart`);
+          }
+          // Wrong board, hard error, or missing qa_report → fall through to start_requested
+          console.log(`[MCP] ${fix.taskId} QA-approved but needs recovery (exitReason=${qaGuard.exitReason || 'none'}, status=${qaGuard.status || 'unknown'}, hasQaReport=${hasQaReport})`);
         }
       } catch (guardErr) {
         console.warn(`[MCP] QA guard check failed for ${fix.taskId} — proceeding with caution:`, guardErr);

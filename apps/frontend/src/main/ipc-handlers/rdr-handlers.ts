@@ -651,37 +651,42 @@ function isLegitimateHumanReview(task: TaskInfo): boolean {
  * - 'stuck': Task bounced to human_review with incomplete subtasks (no clear exit reason)
  * - 'incomplete': Task has pending subtasks in active boards (in_progress, ai_review)
  */
-function determineInterventionType(task: TaskInfo, hasWorktree?: boolean, rawPlanStatus?: string, worktreeInfo?: WorktreeInfo, wasStartedBefore?: boolean): InterventionType | null {
+function determineInterventionType(task: TaskInfo, hasWorktree?: boolean, rawPlanStatus?: string, worktreeInfo?: WorktreeInfo, wasStartedBefore?: boolean, projectPath?: string): InterventionType | null {
   // Skip completed/archived tasks - these never need intervention
   if (task.status === 'done' || task.status === 'pr_created') {
     return null;
   }
 
-  // QA-approved tasks at 100% on CORRECT FINAL BOARD — skip them
-  // Only skip if task is on human_review (the correct final board after QA approval)
-  // Tasks stuck at ai_review/in_progress with QA approved still need RECOVERY to move to human_review
+  // QA completion check: qa_report.md is the authoritative signal that QA validation actually completed.
+  // qa_signoff can be set prematurely by the QA fixer agent before the QA reviewer runs.
   const qaApprovedProgress = calculateTaskProgress(task);
-  // NOTE: reviewReason='completed' alone is NOT QA approval — it means coder finished subtasks
-  // Only qaSignoff='approved' (from main or worktree) counts as actual QA validation
-  // Only trust MAIN plan's qaSignoff for skip decisions — worktree qa_signoff may be
-  // premature (written by QA agent before rate limit killed the session).
-  // Worktree signoff is still available via worktreeInfo?.qaSignoff for logging.
   const isQaApproved = task.qaSignoff === 'approved';
-  if (qaApprovedProgress === 100 && isQaApproved) {
+  const hasQaReport = projectPath
+    ? existsSync(path.join(projectPath, '.auto-claude', 'specs', task.specId, 'qa_report.md'))
+    : false;
+
+  if (qaApprovedProgress === 100 && (isQaApproved || hasQaReport)) {
     if (task.status === 'human_review') {
-      // Check worktree — if stuck at non-standard status (e.g. 'approved'), task needs board movement
       const worktreeTerminal = !worktreeInfo?.status ||
         worktreeInfo.status === 'human_review' || worktreeInfo.status === 'done' || worktreeInfo.status === 'pr_created';
-      if (worktreeTerminal) {
-        // QA approved + human_review + 100% = work IS done
-        // exitReason is a session-level artifact (e.g. crash after QA wrote approval), not a work-quality signal
-        // If QA found real issues, it would write qa_rejected, not qa_signoff: approved
-        console.log(`[RDR] Task ${task.specId} QA-approved at 100% on human_review — skipping (exit=${task.exitReason || 'none'})`);
+
+      if (worktreeTerminal && hasQaReport) {
+        // qa_report.md exists — QA validation actually completed. Genuinely done.
+        console.log(`[RDR] Task ${task.specId} has qa_report.md at 100% on human_review — skipping (genuinely complete)`);
         return null;
       }
-      // Worktree stuck at non-standard status — needs recovery to proper terminal board
-      console.log(`[RDR] Task ${task.specId} QA-approved but worktree stuck at '${worktreeInfo?.status}' — needs recovery`);
-      return 'incomplete';
+      if (worktreeTerminal && isQaApproved && !hasQaReport) {
+        // qa_signoff exists but NO qa_report.md — QA fixer self-signed, validation never completed
+        console.log(`[RDR] Task ${task.specId} qa_signoff=approved but NO qa_report.md — QA validation incomplete, needs restart`);
+        return 'incomplete';
+      }
+      if (worktreeTerminal && !isQaApproved && !hasQaReport) {
+        // Neither signal — not QA complete, fall through to normal detection
+      } else {
+        // Worktree stuck at non-standard status — needs recovery
+        console.log(`[RDR] Task ${task.specId} QA-approved but worktree stuck at '${worktreeInfo?.status}' — needs recovery`);
+        return 'incomplete';
+      }
     } else {
       // Task is QA-approved but stuck on wrong board (e.g. ai_review, start_requested)
       // Don't return null — let it fall through to normal detection which will flag for recovery
@@ -1075,7 +1080,7 @@ function gatherRichTaskInfo(task: TaskInfo, projectPath: string): RichTaskInfo {
   const rawPlanStatus = getRawPlanStatus(projectPath, task.specId);
   const worktreeInfo = getWorktreeInfo(projectPath, task.specId);
   const wasStarted = wasTaskPreviouslyStarted(projectPath, task.specId);
-  const interventionType = determineInterventionType(task, hasWorktree, rawPlanStatus, worktreeInfo, wasStarted);
+  const interventionType = determineInterventionType(task, hasWorktree, rawPlanStatus, worktreeInfo, wasStarted, projectPath);
 
   // Get last logs
   const lastLogs = getLastLogEntries(projectPath, task.specId, 3);
@@ -1365,7 +1370,7 @@ export function categorizeTasks(tasks: TaskInfo[], projectPath?: string): RdrBat
     const hasWt = Boolean(wtInfo?.status);
     const rawStatus = projectPath ? getRawPlanStatus(projectPath, t.specId) : undefined;
     const wasStarted = projectPath ? wasTaskPreviouslyStarted(projectPath, t.specId) : false;
-    const intervention = determineInterventionType(t, hasWt, rawStatus, wtInfo, wasStarted);
+    const intervention = determineInterventionType(t, hasWt, rawStatus, wtInfo, wasStarted, projectPath);
     return intervention !== null;
   });
   if (uncategorized.length > 0) {
@@ -2544,7 +2549,7 @@ export function registerRdrHandlers(agentManager?: AgentManager): void {
           const rawStatus = projectPath ? getRawPlanStatus(projectPath, task.specId) : undefined;
           const wtInfo = projectPath ? getWorktreeInfo(projectPath, task.specId) : undefined;
           const wasStarted = projectPath ? wasTaskPreviouslyStarted(projectPath, task.specId) : false;
-          const interventionType = determineInterventionType(task, hasWt, rawStatus, wtInfo, wasStarted);
+          const interventionType = determineInterventionType(task, hasWt, rawStatus, wtInfo, wasStarted, projectPath);
 
           if (interventionType) {
             console.log(`[RDR] ✅ Task ${task.specId} needs intervention: type=${interventionType}`);
@@ -2662,7 +2667,7 @@ export function registerRdrHandlers(agentManager?: AgentManager): void {
           const taskRawStatus = projectPath ? getRawPlanStatus(projectPath, task.specId) : undefined;
           const taskWtInfo = projectPath ? getWorktreeInfo(projectPath, task.specId) : undefined;
           const taskWasStarted = projectPath ? wasTaskPreviouslyStarted(projectPath, task.specId) : false;
-          const interventionType = determineInterventionType(taskInfo, taskHasWt, taskRawStatus, taskWtInfo, taskWasStarted);
+          const interventionType = determineInterventionType(taskInfo, taskHasWt, taskRawStatus, taskWtInfo, taskWasStarted, projectPath);
 
           // Determine board and phase for display grouping
           const currentPhase = projectPath ? getCurrentPhase(projectPath, task.specId) : undefined;
@@ -2830,7 +2835,7 @@ export function registerRdrHandlers(agentManager?: AgentManager): void {
             const recoverRawStatus = getRawPlanStatus(project.path, task.specId);
             const recoverWtInfo = getWorktreeInfo(project.path, task.specId);
             const recoverWasStarted = wasTaskPreviouslyStarted(project.path, task.specId);
-            const interventionType = determineInterventionType(taskInfoForCheck, recoverHasWt, recoverRawStatus, recoverWtInfo, recoverWasStarted);
+            const interventionType = determineInterventionType(taskInfoForCheck, recoverHasWt, recoverRawStatus, recoverWtInfo, recoverWasStarted, project.path);
 
             if (!interventionType) {
               console.log(`[RDR] ⏭️  Skipping ${task.specId} - no intervention needed (status=${task.status})`);
