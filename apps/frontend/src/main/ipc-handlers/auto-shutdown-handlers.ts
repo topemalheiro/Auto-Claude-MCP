@@ -52,9 +52,37 @@ function getWorktreePlan(projectPath: string, taskDir: string): Record<string, u
 }
 
 /**
+ * Check if QA validation phase completed ("all criteria met") for a task.
+ * Reads task_logs.json validation phase status — written by QA loop when all
+ * acceptance criteria pass. This is the definitive signal that QA actually ran
+ * and approved, not just a stale qa_signoff from a previous cycle.
+ * Falls back to qa_report.md existence if task_logs.json is unavailable.
+ */
+function isQaValidationComplete(specsDir: string, taskDir: string): boolean {
+  // Primary: check task_logs.json validation phase
+  const logsPath = path.join(specsDir, taskDir, 'task_logs.json');
+  if (fs.existsSync(logsPath)) {
+    try {
+      const logs = JSON.parse(fs.readFileSync(logsPath, 'utf-8'));
+      const validationPhase = logs?.phases?.validation;
+      if (validationPhase?.status === 'completed' && validationPhase?.completed_at) {
+        return true;
+      }
+    } catch {
+      // Fall through to qa_report.md check
+    }
+  }
+
+  // Fallback: qa_report.md written by QA reviewer when it validates
+  const qaReportPath = path.join(specsDir, taskDir, 'qa_report.md');
+  return fs.existsSync(qaReportPath);
+}
+
+/**
  * Check if a task is QA-approved at 100% completion (all subtasks done).
- * This is the authoritative completion signal — a task with qa_signoff.status='approved'
- * and all subtasks completed is definitively DONE regardless of other status fields.
+ * NOTE: This checks plan data only. Callers should ALSO verify qa_report.md
+ * exists (via hasQaReport) to confirm QA validation actually ran — qa_signoff
+ * can be stale from a previous cycle.
  */
 function isQaApprovedComplete(content: Record<string, unknown>): boolean {
   const qaSignoff = content.qa_signoff as { status?: string } | undefined;
@@ -132,44 +160,36 @@ function getActiveTaskIds(projectPath: string): string[] {
             content.exitReason === 'prompt_loop' || content.exitReason === 'rate_limit_crash';
 
         // QA-approved at 100% — terminal if on correct board or completed lifecycle
-        // exitReason is a session-level artifact, not work-quality — if QA approved, work IS done
-        if (isQaApprovedComplete(content)) {
+        // ALSO requires qa_report.md to confirm QA validation actually ran (qa_signoff can be stale)
+        const qaValidationPassed = isQaValidationComplete(specsDir, dir);
+        if (isQaApprovedComplete(content) && qaValidationPassed) {
           const effectiveStatus = String(content.status || '');
           const isOnCorrectBoard = effectiveStatus === 'human_review' || effectiveStatus === 'done' || effectiveStatus === 'pr_created';
           const isCompletedLifecycle =
             (effectiveStatus === 'start_requested' || effectiveStatus === 'complete' || effectiveStatus === 'completed') &&
             (content.planStatus === 'completed' || content.planStatus === 'approved');
-          // QA approved + successful exit = genuinely done regardless of planStatus
           const isSuccessfulExit = effectiveStatus === 'start_requested' && content.exitReason === 'success';
 
-          // QA approved = work done, regardless of reviewReason (stopped is a session artifact)
           if (isOnCorrectBoard || isCompletedLifecycle || isSuccessfulExit) {
             continue;
           }
         }
 
-        // Note: 'approved' is a non-standard worktree status — NOT treated as terminal here.
-        // The isQaApprovedComplete() check above handles QA-approved tasks properly
-        // (requires correct board position or completed lifecycle).
-
         if (!hasErrorExit) {
-          // NOTE: human_review is ONLY terminal when qa_signoff='approved' AND user didn't stop it.
-          // Matches RDR isLegitimateHumanReview: QA approval is the authoritative completion signal.
-          // Any other human_review state (no signoff, stopped, errors, partial work) = needs attention.
+          // human_review + qa_signoff=approved + qa_report.md = QA validated and complete
+          // qa_signoff alone can be stale from a previous cycle — qa_report.md proves QA ran
           const qaApproved = (content as any).qa_signoff?.status === 'approved';
-          const isLegitHumanReview = content.status === 'human_review' &&
-            qaApproved &&
-            true; // QA approved = done, regardless of reviewReason (stopped is a session artifact)
+          const qaValidated = qaApproved && qaValidationPassed;
+          const isLegitHumanReview = content.status === 'human_review' && qaValidated;
           if (content.status === 'done' || content.status === 'pr_created' || isLegitHumanReview) {
             continue;
           }
 
-          // start_requested + completed planStatus + QA approved = task lifecycle done
-          // Without qaSignoff, start_requested means RDR queued a restart — NOT terminal
-          // (RDR detects rawPlanStatus='start_requested' and flags it as needing restart)
+          // start_requested + completed planStatus + QA approved + qa_report.md = lifecycle done
           if (content.status === 'start_requested' &&
               (content.planStatus === 'completed' || content.planStatus === 'approved') &&
-              (content as any).qa_signoff?.status === 'approved') {
+              (content as any).qa_signoff?.status === 'approved' &&
+              qaValidationPassed) {
             continue;
           }
 
@@ -228,8 +248,9 @@ function countTasksByStatus(projectPath: string): { total: number } {
             content.exitReason === 'prompt_loop' || content.exitReason === 'rate_limit_crash';
 
         // QA-approved at 100% — terminal if on correct board or completed lifecycle
-        // exitReason is session-level, not work-quality — if QA approved, work IS done
-        if (isQaApprovedComplete(content)) {
+        // ALSO requires qa_report.md to confirm QA validation actually ran (qa_signoff can be stale)
+        const qaValidationPassed = isQaValidationComplete(specsDir, dir);
+        if (isQaApprovedComplete(content) && qaValidationPassed) {
           const effectiveStatus = String(content.status || '');
           const isOnCorrectBoard = effectiveStatus === 'human_review' || effectiveStatus === 'done' || effectiveStatus === 'pr_created';
           const isCompletedLifecycle =
@@ -237,34 +258,26 @@ function countTasksByStatus(projectPath: string): { total: number } {
             (content.planStatus === 'completed' || content.planStatus === 'approved');
           const isSuccessfulExit = effectiveStatus === 'start_requested' && content.exitReason === 'success';
 
-          // QA approved = work done, regardless of reviewReason (stopped is a session artifact)
           if (isOnCorrectBoard || isCompletedLifecycle || isSuccessfulExit) {
             continue;
           }
         }
 
-        // Note: 'approved' is a non-standard worktree status — NOT treated as terminal here.
-        // The isQaApprovedComplete() check above handles QA-approved tasks properly
-        // (requires correct board position or completed lifecycle).
-
         if (!hasErrorExit) {
-          // NOTE: human_review is ONLY terminal when qa_signoff='approved' AND user didn't stop it.
-          // Matches RDR isLegitimateHumanReview: QA approval is the authoritative completion signal.
-          // Any other human_review state (no signoff, stopped, errors, partial work) = needs attention.
+          // human_review + qa_signoff=approved + qa_report.md = QA validated and complete
+          // qa_signoff alone can be stale from a previous cycle — qa_report.md proves QA ran
           const qaApproved = (content as any).qa_signoff?.status === 'approved';
-          const isLegitHumanReview = content.status === 'human_review' &&
-            qaApproved &&
-            true; // QA approved = done, regardless of reviewReason (stopped is a session artifact)
+          const qaValidated = qaApproved && qaValidationPassed;
+          const isLegitHumanReview = content.status === 'human_review' && qaValidated;
           if (content.status === 'done' || content.status === 'pr_created' || isLegitHumanReview) {
             continue;
           }
 
-          // start_requested + completed planStatus + QA approved = task lifecycle done
-          // Without qaSignoff, start_requested means RDR queued a restart — NOT terminal
-          // (RDR detects rawPlanStatus='start_requested' and flags it as needing restart)
+          // start_requested + completed planStatus + QA approved + qa_report.md = lifecycle done
           if (content.status === 'start_requested' &&
               (content.planStatus === 'completed' || content.planStatus === 'approved') &&
-              (content as any).qa_signoff?.status === 'approved') {
+              (content as any).qa_signoff?.status === 'approved' &&
+              qaValidationPassed) {
             continue;
           }
 
