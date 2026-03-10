@@ -327,13 +327,12 @@ export async function isClaudeCodeBusy(identifier: number | string): Promise<boo
     }
 
     // PRIMARY: Check window title for busy patterns
-    // NOTE: ● (modified indicator) removed — VS Code shows it for ANY unsaved file,
-    // not Claude-specific. With task agents modifying files, it's always present.
     const busyPatterns = [
       /thinking/i,             // "Claude is thinking..."
       /generating/i,           // "Generating response..."
       /processing/i,           // "Processing..."
       /claude.*working/i,      // "Claude is working..."
+      /claude's plan/i,        // "Claude's Plan - ..." (plan mode active in VS Code)
     ];
 
     const titleIndicatesBusy = busyPatterns.some(pattern => pattern.test(targetWindow.title));
@@ -356,14 +355,18 @@ export async function isClaudeCodeBusy(identifier: number | string): Promise<boo
       // MCP monitor not available
     }
 
-    // TERTIARY: Check OutputMonitor for JSONL activity
-    // May produce false positives from task agents, but false positives (delay RDR)
-    // are much safer than false negatives (interrupt user while busy).
+    // TERTIARY: Check OutputMonitor + ● combo
+    // ● alone is unreliable (task agents cause unsaved files → always present)
+    // But ● combined with non-IDLE OutputMonitor indicates active user session
     try {
       const { outputMonitor } = await import('../../claude-code/output-monitor');
       const state = outputMonitor?.getCurrentState();
       if (state === 'PROCESSING') {
         console.log('[WindowManager] BUSY: OutputMonitor reports PROCESSING');
+        return true;
+      }
+      if (/●/.test(targetWindow.title) && state !== 'IDLE') {
+        console.log(`[WindowManager] BUSY: Modified indicator (●) + OutputMonitor ${state}`);
         return true;
       }
     } catch {
