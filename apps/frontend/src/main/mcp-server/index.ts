@@ -1327,26 +1327,23 @@ server.tool(
           qaGuard = checkQaGuard(JSON.parse(readFileSync(planPath, 'utf-8')));
         }
 
-        if (qaGuard.qaApproved) {
+        // Check qa_report.md as additional "genuinely complete" signal
+        const qaReportPath = path.join(resolvedProjectPath, '.auto-claude', 'specs', fix.taskId, 'qa_report.md');
+        const hasQaReport = existsSync(qaReportPath);
+        const terminalStatuses = ['human_review', 'done', 'pr_created', 'approved'];
+        const onCorrectBoard = terminalStatuses.includes(qaGuard.status || '');
+
+        if (qaGuard.qaApproved || hasQaReport) {
           const hasHardError = qaGuard.exitReason === 'error' || qaGuard.exitReason === 'auth_failure';
-          const terminalStatuses = ['human_review', 'done', 'pr_created', 'approved'];
-          const onCorrectBoard = terminalStatuses.includes(qaGuard.status || '');
 
-          // qa_report.md is the authoritative signal that QA validation actually completed.
-          // qa_signoff can be set prematurely by the QA fixer before the QA reviewer runs.
-          const qaReportPath = path.join(resolvedProjectPath, '.auto-claude', 'specs', fix.taskId, 'qa_report.md');
-          const hasQaReport = existsSync(qaReportPath);
-
-          if (!hasHardError && onCorrectBoard && hasQaReport) {
-            console.log(`[MCP] Skipping ${fix.taskId} — QA-approved with qa_report.md on ${qaGuard.status}`);
+          if (!hasHardError && onCorrectBoard) {
+            // qa_signoff=approved OR qa_report.md + correct board + no hard error → genuinely complete
+            console.log(`[MCP] Skipping ${fix.taskId} — QA-complete on ${qaGuard.status} (qa_signoff=${qaGuard.qaApproved}, qa_report=${hasQaReport})`);
             results.push({ taskId: fix.taskId, success: false, action: 'skipped_complete', priority: 0, error: 'Task QA-approved at 100% — skipping to prevent restart loop' });
             continue;
           }
-          if (!hasQaReport) {
-            console.log(`[MCP] ${fix.taskId} qa_signoff=approved but NO qa_report.md — QA validation incomplete, proceeding with restart`);
-          }
-          // Wrong board, hard error, or missing qa_report → fall through to start_requested
-          console.log(`[MCP] ${fix.taskId} QA-approved but needs recovery (exitReason=${qaGuard.exitReason || 'none'}, status=${qaGuard.status || 'unknown'}, hasQaReport=${hasQaReport})`);
+          // Wrong board or hard error → fall through to start_requested
+          console.log(`[MCP] ${fix.taskId} QA-approved but needs recovery (exitReason=${qaGuard.exitReason || 'none'}, status=${qaGuard.status || 'unknown'})`);
         }
       } catch (guardErr) {
         console.warn(`[MCP] QA guard check failed for ${fix.taskId} — proceeding with caution:`, guardErr);

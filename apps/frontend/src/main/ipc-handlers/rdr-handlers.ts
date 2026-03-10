@@ -657,8 +657,8 @@ function determineInterventionType(task: TaskInfo, hasWorktree?: boolean, rawPla
     return null;
   }
 
-  // QA completion check: qa_report.md is the authoritative signal that QA validation actually completed.
-  // qa_signoff can be set prematurely by the QA fixer agent before the QA reviewer runs.
+  // QA completion check: either qa_signoff=approved OR qa_report.md means genuinely complete.
+  // qa_report.md is an additional signal (written on manual user approval or by QA pipeline).
   const qaApprovedProgress = calculateTaskProgress(task);
   const isQaApproved = task.qaSignoff === 'approved';
   const hasQaReport = projectPath
@@ -670,19 +670,12 @@ function determineInterventionType(task: TaskInfo, hasWorktree?: boolean, rawPla
       const worktreeTerminal = !worktreeInfo?.status ||
         worktreeInfo.status === 'human_review' || worktreeInfo.status === 'done' || worktreeInfo.status === 'pr_created';
 
-      if (worktreeTerminal && hasQaReport) {
-        // qa_report.md exists — QA validation actually completed. Genuinely done.
-        console.log(`[RDR] Task ${task.specId} has qa_report.md at 100% on human_review — skipping (genuinely complete)`);
+      if (worktreeTerminal && (isQaApproved || hasQaReport)) {
+        // Either qa_signoff=approved OR qa_report.md exists — genuinely complete
+        console.log(`[RDR] Task ${task.specId} QA-complete at 100% on human_review — skipping (qa_signoff=${isQaApproved}, qa_report=${hasQaReport})`);
         return null;
       }
-      if (worktreeTerminal && isQaApproved && !hasQaReport) {
-        // qa_signoff exists but NO qa_report.md — QA fixer self-signed, validation never completed
-        console.log(`[RDR] Task ${task.specId} qa_signoff=approved but NO qa_report.md — QA validation incomplete, needs restart`);
-        return 'incomplete';
-      }
-      if (worktreeTerminal && !isQaApproved && !hasQaReport) {
-        // Neither signal — not QA complete, fall through to normal detection
-      } else {
+      if (!worktreeTerminal) {
         // Worktree stuck at non-standard status — needs recovery
         console.log(`[RDR] Task ${task.specId} QA-approved but worktree stuck at '${worktreeInfo?.status}' — needs recovery`);
         return 'incomplete';
