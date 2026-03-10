@@ -30,6 +30,7 @@ import { startRateLimitWaitForTask } from "../rate-limit-waiter";
 import { queueTaskForRdr } from "./rdr-handlers";
 import { activityMonitor } from "../activity-monitor";
 import { projectStore } from "../project-store";
+import { getUsageMonitor } from "../claude-profile/usage-monitor";
 
 /**
  * Register all agent-events-related IPC handlers
@@ -96,6 +97,9 @@ export function registerAgenteventsHandlers(
       setRateLimitForTask(rateLimitInfo.taskId, rateLimitInfo);
     }
     safeSendToRenderer(getMainWindow, IPC_CHANNELS.CLAUDE_SDK_RATE_LIMIT, rateLimitInfo);
+
+    // Force usage meter to 100% immediately — closes polling gap
+    getUsageMonitor().forceSessionLimit();
   });
 
   // Handle SDK rate limit events from title generator

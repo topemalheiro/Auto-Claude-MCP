@@ -504,6 +504,34 @@ export class UsageMonitor extends EventEmitter {
   }
 
   /**
+   * Force usage to 100% when a task agent detects rate limiting.
+   * Closes the polling gap where meter shows <100% but account is rate-limited.
+   * Idempotent — safe to call from every rate-limited task agent.
+   */
+  forceSessionLimit(): void {
+    const base = this.currentUsage ?? this.lastGoodUsage;
+    if (!base) {
+      console.warn('[UsageMonitor] forceSessionLimit: no base usage snapshot — skipping');
+      return;
+    }
+
+    // Already at 100% — no-op
+    if (base.sessionPercent >= 100) return;
+
+    console.log(`[UsageMonitor] forceSessionLimit: forcing ${base.sessionPercent}% → 100%`);
+
+    const forced: ClaudeUsageSnapshot = {
+      ...base,
+      sessionPercent: 100,
+    };
+
+    this.currentUsage = forced;
+    this.lastEmitTimestamp = 0; // Force through throttle
+    this.throttledEmitUsage(forced);
+    this.checkRdrThresholds(forced);
+  }
+
+  /**
    * Clear the usage cache for a specific profile.
    * Called after re-authentication to ensure fresh usage data is fetched.
    *
