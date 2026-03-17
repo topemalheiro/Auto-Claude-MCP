@@ -139,17 +139,28 @@ export function ModelSearchableSelect({
       }
     } catch (err) {
       if (err instanceof Error && err.name !== 'AbortError') {
-        // Check if it's specifically "not supported" or a general error
-        if (err.message.includes('does not support model listing') ||
-            err.message.includes('not_supported')) {
-          setModelDiscoveryNotSupported(true);
+        // Check if there are hardcoded models for this API - show them even if discovery fails
+        const normalizedUrl = baseUrl.replace(/\/$/, '');
+        const extra = ADDITIONAL_MODELS[normalizedUrl];
+        
+        if (extra && extra.length > 0) {
+          // We have hardcoded models for this API - use them
+          console.log('[ModelSearchableSelect] Using hardcoded models for:', normalizedUrl);
+          setModels(extra);
+          setIsOpen(true);
         } else {
-          // For other errors, also treat as "not supported" for better UX
-          // User can still type manually
-          setModelDiscoveryNotSupported(true);
-          console.warn('[ModelSearchableSelect] Model discovery failed:', err.message);
+          // No hardcoded models - fall back to manual input
+          if (err.message.includes('does not support model listing') ||
+              err.message.includes('not_supported')) {
+            setModelDiscoveryNotSupported(true);
+          } else {
+            // For other errors, also treat as "not supported" for better UX
+            // User can still type manually
+            setModelDiscoveryNotSupported(true);
+            console.warn('[ModelSearchableSelect] Model discovery failed:', err.message);
+          }
+          setIsOpen(false);
         }
-        setIsOpen(false); // Close dropdown - user should type directly
       }
     } finally {
       setIsLoading(false);
@@ -160,12 +171,29 @@ export function ModelSearchableSelect({
   /**
    * Handle dropdown open.
    * Triggers model fetch on first open.
-   * If model discovery is not supported, don't open dropdown - just allow typing.
+   * If model discovery is not supported but we have hardcoded models, show those.
    */
   const handleOpen = () => {
     if (disabled) return;
 
-    // If we already know model discovery isn't supported, don't open dropdown
+    // If we already have models (including hardcoded ones), open dropdown
+    if (models.length > 0) {
+      setIsOpen(true);
+      setSearchQuery('');
+      return;
+    }
+
+    // If model discovery is not supported but we have hardcoded models for this URL, use them
+    const normalizedUrl = baseUrl.replace(/\/$/, '');
+    const extra = ADDITIONAL_MODELS[normalizedUrl];
+    if (modelDiscoveryNotSupported && extra && extra.length > 0) {
+      setModels(extra);
+      setIsOpen(true);
+      setSearchQuery('');
+      return;
+    }
+
+    // If we already know model discovery isn't supported and no hardcoded models, don't open dropdown
     if (modelDiscoveryNotSupported) {
       setIsManualInput(true);
       return;
@@ -249,14 +277,19 @@ export function ModelSearchableSelect({
             handleManualInputChange(e.target.value);
           }}
           onFocus={() => {
-            // Only open dropdown if we have models or haven't tried fetching yet
-            if (!modelDiscoveryNotSupported) {
+            // Open dropdown if we have models or hardcoded models for this URL
+            const normalizedUrl = baseUrl.replace(/\/$/, '');
+            const hasHardcodedModels = !!ADDITIONAL_MODELS[normalizedUrl];
+            if (models.length > 0 || hasHardcodedModels || !modelDiscoveryNotSupported) {
               handleOpen();
             }
           }}
-          placeholder={modelDiscoveryNotSupported
-            ? t('settings:modelSelect.placeholderManual')
-            : resolvedPlaceholder}
+          placeholder={
+            // Show normal placeholder if we have models (including hardcoded ones)
+            models.length > 0 || !modelDiscoveryNotSupported
+              ? resolvedPlaceholder
+              : t('settings:modelSelect.placeholderManual')
+          }
           disabled={disabled}
           className="pr-10"
         />
@@ -264,7 +297,7 @@ export function ModelSearchableSelect({
         <div className="absolute right-0 top-0 h-full flex items-center px-3">
           {isLoading ? (
             <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-          ) : !modelDiscoveryNotSupported ? (
+          ) : (models.length > 0 || !modelDiscoveryNotSupported) ? (
             <Button
               type="button"
               variant="ghost"
@@ -280,7 +313,7 @@ export function ModelSearchableSelect({
       </div>
 
       {/* Dropdown panel - only show when we have models to display */}
-      {isOpen && !isLoading && !modelDiscoveryNotSupported && models.length > 0 && (
+      {isOpen && !isLoading && models.length > 0 && (
         <div
           className="absolute z-50 w-full bottom-full mb-1 bg-background border rounded-md shadow-lg max-h-60 overflow-hidden flex flex-col"
           data-testid="model-select-dropdown"
@@ -331,13 +364,13 @@ export function ModelSearchableSelect({
       )}
 
       {/* Info/error messages below input */}
-      {modelDiscoveryNotSupported && (
+      {modelDiscoveryNotSupported && models.length === 0 && (
         <p className="text-sm text-muted-foreground mt-1 flex items-center gap-1">
           <Info className="h-3 w-3" />
           {t('settings:modelSelect.discoveryNotAvailable')}
         </p>
       )}
-      {error && !modelDiscoveryNotSupported && (
+      {error && models.length === 0 && (
         <p className="text-sm text-destructive mt-1">{error}</p>
       )}
     </div>
