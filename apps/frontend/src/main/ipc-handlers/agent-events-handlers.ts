@@ -604,20 +604,81 @@ export function registerAgenteventsHandlers(
     });
 
     // Detect task regression: was started/running but went back to backlog
+    // Only fire warning if task actually did meaningful work (not user manual actions)
     if (data.newStatus === 'backlog' && data.oldStatus !== 'backlog') {
-      console.warn(`[AgentEvents] REGRESSION DETECTED: Task ${data.specId} went ${data.oldStatus} → backlog`);
-      safeSendToRenderer(getMainWindow, IPC_CHANNELS.TASK_REGRESSION_DETECTED, {
-        projectId: data.projectId,
-        specId: data.specId,
-        oldStatus: data.oldStatus,
-        newStatus: data.newStatus,
-        timestamp: new Date().toISOString()
-      });
+      // Check if task has evidence of meaningful work before showing regression warning
+      const hasMeaningfulWork = checkTaskHadMeaningfulWork(data.projectId, data.specId);
+      
+      if (hasMeaningfulWork) {
+        console.warn(`[AgentEvents] REGRESSION DETECTED: Task ${data.specId} went ${data.oldStatus} → backlog (had meaningful work)`);
+        safeSendToRenderer(getMainWindow, IPC_CHANNELS.TASK_REGRESSION_DETECTED, {
+          projectId: data.projectId,
+          specId: data.specId,
+          oldStatus: data.oldStatus,
+          newStatus: data.newStatus,
+          timestamp: new Date().toISOString()
+        });
+      } else {
+        console.log(`[AgentEvents] Task ${data.specId} went ${data.oldStatus} → backlog (no meaningful work, skipping regression warning)`);
+      }
     }
   });
 
   // Start watching specs directories for all existing projects
   startWatchingAllProjectSpecs();
+}
+
+/**
+ * Check if a task had meaningful work before regressing to backlog.
+ * Uses same logic as RDR's wasTaskPreviouslyStarted to determine if agent actually ran.
+ * This prevents regression warnings for user manual actions (stop/drag).
+ */
+function checkTaskHadMeaningfulWork(projectId: string, specId: string): boolean {
+  try {
+    const { project } = findTaskAndProject(specId, projectId);
+    if (!project || !project.path) return false;
+
+    const planPath = path.join(project.path, '.auto-claude', 'specs', specId, 'implementation_plan.json');
+    if (!existsSync(planPath)) return false;
+
+    const plan = JSON.parse(readFileSync(planPath, 'utf-8'));
+
+    // Check for evidence of meaningful work:
+    // 1. start_requested_at - task was started
+    // 2. executionPhase - agent was in a phase
+    // 3. lastEvent - XState processed events
+    // 4. phases with subtasks - agent created work items
+    // 5. exitReason - agent crashed/errored
+    // 6. Has worktree directory
+    const hasStartRequested = !!plan.start_requested_at;
+    const hasExecutionPhase = !!plan.executionPhase;
+    const hasLastEvent = !!plan.lastEvent;
+    const hasPhasesWithSubtasks = plan.phases && plan.phases.length > 0 && 
+      plan.phases.some((phase: any) => phase.subtasks && phase.subtasks.length > 0);
+    const hasExitReason = !!plan.exitReason;
+
+    // Also check for worktree (agent created one)
+    const worktreePath = findTaskWorktree(project.path, specId);
+    const hasWorktree = !!worktreePath;
+
+    const hadMeaningfulWork = hasStartRequested || hasExecutionPhase || hasLastEvent || 
+      hasPhasesWithSubtasks || hasExitReason || hasWorktree;
+
+    console.log(`[AgentEvents] checkTaskHadMeaningfulWork for ${specId}:`, {
+      hasStartRequested,
+      hasExecutionPhase,
+      hasLastEvent,
+      hasPhasesWithSubtasks,
+      hasExitReason,
+      hasWorktree,
+      result: hadMeaningfulWork
+    });
+
+    return hadMeaningfulWork;
+  } catch (error) {
+    console.error(`[AgentEvents] Error checking meaningful work for ${specId}:`, error);
+    return false;
+  }
 }
 
 /**
