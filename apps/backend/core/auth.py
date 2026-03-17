@@ -952,10 +952,17 @@ def get_sdk_env_vars() -> dict[str, str]:
     Returns:
         Dict of env var name -> value for non-empty vars
     """
+    _debug = os.environ.get("DEBUG", "").lower() in ("true", "1")
+    
     env = {}
     for var in SDK_ENV_VARS:
         value = os.environ.get(var)
         if value:
+            # Mask API key for logging
+            if _debug and var == "ANTHROPIC_AUTH_TOKEN":
+                logger.info(f"[SDK Env] {var} = {value[:10]}...{value[-4:]}")
+            elif _debug:
+                logger.info(f"[SDK Env] {var} = {value}")
             env[var] = value
 
     # On Windows, auto-detect git-bash path if not already set
@@ -974,6 +981,9 @@ def get_sdk_env_vars() -> dict[str, str]:
     # PYTHONPATH to an empty string here overrides any inherited value.
     # The empty string ensures Python doesn't add any extra paths to sys.path.
     env["PYTHONPATH"] = ""
+
+    if _debug and env.get("ANTHROPIC_BASE_URL"):
+        logger.info(f"[SDK Env] MiniMax/API Profile mode enabled - BASE_URL: {env.get('ANTHROPIC_BASE_URL')}, MODEL: {env.get('ANTHROPIC_MODEL', 'not set')}")
 
     return env
 
