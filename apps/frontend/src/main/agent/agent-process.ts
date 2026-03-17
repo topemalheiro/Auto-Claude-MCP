@@ -728,6 +728,7 @@ export class AgentProcessManager {
       // spawn() failed synchronously (e.g., command not found, permission denied)
       // Clean up tracking entry and propagate error
       this.state.deleteProcess(taskId);
+      this.state.clearTaskProfileAssignment(taskId);
       this.emitter.emit('error', taskId, err instanceof Error ? err.message : String(err), projectId);
       throw err;
     }
@@ -757,6 +758,7 @@ export class AgentProcessManager {
         debug: process.env.DEBUG === 'true' || process.env.NODE_ENV === 'development'
       });
       this.state.deleteProcess(taskId);
+      this.state.clearTaskProfileAssignment(taskId);
       this.state.clearKilledSpawn(currentSpawnId);
       return; // Do not proceed with this spawn
     }
@@ -903,6 +905,8 @@ export class AgentProcessManager {
 
     childProcess.on('exit', (code: number | null, signal: NodeJS.Signals | null) => {
       this.state.deleteProcess(taskId);
+      // Clear profile assignment when process exits
+      this.state.clearTaskProfileAssignment(taskId);
       deletePidFile(taskId);
 
       // Check killed FIRST — don't process any output from killed processes
@@ -1012,6 +1016,8 @@ export class AgentProcessManager {
     childProcess.on('error', (err: Error) => {
       console.error('[AgentProcess] Process error:', err.message);
       this.state.deleteProcess(taskId);
+      // Clear profile assignment when process errors
+      this.state.clearTaskProfileAssignment(taskId);
 
       this.emitter.emit('execution-progress', taskId, {
         phase: 'failed',
@@ -1042,6 +1048,8 @@ export class AgentProcessManager {
     // will be terminated by the post-spawn wasSpawnKilled() check (see spawnProcess() after updateProcess).
     if (!agentProcess.process) {
       this.state.deleteProcess(taskId);
+      // Clear profile assignment to free up the profile slot for other tasks
+      this.state.clearTaskProfileAssignment(taskId);
       return true;
     }
 
@@ -1052,6 +1060,8 @@ export class AgentProcessManager {
     });
 
     this.state.deleteProcess(taskId);
+    // Clear profile assignment to free up the profile slot for other tasks
+    this.state.clearTaskProfileAssignment(taskId);
     return true;
   }
 

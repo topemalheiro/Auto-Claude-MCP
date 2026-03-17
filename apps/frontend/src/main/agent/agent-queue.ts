@@ -571,6 +571,8 @@ export class AgentQueueManager {
       const processInfo = this.state.getProcess(projectId);
       const storedProjectPath = processInfo?.projectPath;
       this.state.deleteProcess(projectId);
+      // Clear profile assignment when ideation process exits
+      this.state.clearTaskProfileAssignment(projectId);
 
       // Check for rate limit if process failed
       if (code !== 0) {
@@ -647,6 +649,8 @@ export class AgentQueueManager {
     childProcess.on('error', (err: Error) => {
       console.error('[Ideation] Process error:', err.message);
       this.state.deleteProcess(projectId);
+      // Clear profile assignment when ideation process errors
+      this.state.clearTaskProfileAssignment(projectId);
       this.emitter.emit('ideation-error', projectId, err.message);
     });
   }
@@ -867,6 +871,8 @@ export class AgentQueueManager {
       const processInfo = this.state.getProcess(projectId);
       const storedProjectPath = processInfo?.projectPath;
       this.state.deleteProcess(projectId);
+      // Clear profile assignment when roadmap process exits
+      this.state.clearTaskProfileAssignment(projectId);
 
       // Check for rate limit if process failed
       if (code !== 0) {
@@ -948,6 +954,8 @@ export class AgentQueueManager {
     childProcess.on('error', (err: Error) => {
       console.error('[Roadmap] Process error:', err.message);
       this.state.deleteProcess(projectId);
+      // Clear profile assignment when roadmap process errors
+      this.state.clearTaskProfileAssignment(projectId);
       // Clear progress file on process error
       this.clearRoadmapProgress(projectPath);
       this.emitter.emit('roadmap-error', projectId, err.message);

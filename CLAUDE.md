@@ -1,5 +1,7 @@
 # CLAUDE.md
 
+## Build: npm run build
+
 This file provides guidance to Claude Code when working with this repository.
 
 Auto Claude is an autonomous multi-agent coding framework that plans, builds, and validates software for you. It's a monorepo with a Python backend (CLI + agent logic) and an Electron/React frontend (desktop UI).
@@ -114,6 +116,7 @@ autonomous-coding/
 ## Commands Quick Reference
 
 ### Setup
+
 ```bash
 npm run install:all              # Install all dependencies from root
 # Or separately:
@@ -123,14 +126,15 @@ cd apps/frontend && npm install
 
 ### Testing
 
-| Stack | Command | Tool |
-|-------|---------|------|
-| Backend | `apps/backend/.venv/bin/pytest tests/ -v` | pytest |
-| Frontend unit | `cd apps/frontend && npm test` | Vitest |
-| Frontend E2E | `cd apps/frontend && npm run test:e2e` | Playwright |
-| All backend | `npm run test:backend` (from root) | pytest |
+| Stack         | Command                                     | Tool       |
+| ------------- | ------------------------------------------- | ---------- |
+| Backend       | `apps/backend/.venv/bin/pytest tests/ -v` | pytest     |
+| Frontend unit | `cd apps/frontend && npm test`            | Vitest     |
+| Frontend E2E  | `cd apps/frontend && npm run test:e2e`    | Playwright |
+| All backend   | `npm run test:backend` (from root)        | pytest     |
 
 ### Releases
+
 ```bash
 node scripts/bump-version.js patch|minor|major  # Bump version
 git push && gh pr create --base main             # PR to main triggers release
@@ -148,13 +152,13 @@ Model and thinking level are user-configurable (via the Electron UI settings or 
 
 ### Agent Prompts (`apps/backend/prompts/`)
 
-| Prompt | Purpose |
-|--------|---------|
-| planner.md | Implementation plan with subtasks |
-| coder.md / coder_recovery.md | Subtask implementation / recovery |
-| qa_reviewer.md / qa_fixer.md | Acceptance validation / issue fixes |
-| spec_gatherer/researcher/writer/critic.md | Spec creation pipeline |
-| complexity_assessor.md | AI-based complexity assessment |
+| Prompt                                    | Purpose                             |
+| ----------------------------------------- | ----------------------------------- |
+| planner.md                                | Implementation plan with subtasks   |
+| coder.md / coder_recovery.md              | Subtask implementation / recovery   |
+| qa_reviewer.md / qa_fixer.md              | Acceptance validation / issue fixes |
+| spec_gatherer/researcher/writer/critic.md | Spec creation pipeline              |
+| complexity_assessor.md                    | AI-based complexity assessment      |
 
 ### Spec Directory Structure
 
@@ -172,15 +176,15 @@ React 19, TypeScript (strict), Electron 39, Zustand 5, Tailwind CSS v4, Radix UI
 
 ### Path Aliases (tsconfig.json)
 
-| Alias | Maps to |
-|-------|---------|
-| `@/*` | `src/renderer/*` |
-| `@shared/*` | `src/shared/*` |
-| `@preload/*` | `src/preload/*` |
-| `@features/*` | `src/renderer/features/*` |
+| Alias             | Maps to                              |
+| ----------------- | ------------------------------------ |
+| `@/*`           | `src/renderer/*`                   |
+| `@shared/*`     | `src/shared/*`                     |
+| `@preload/*`    | `src/preload/*`                    |
+| `@features/*`   | `src/renderer/features/*`          |
 | `@components/*` | `src/renderer/shared/components/*` |
-| `@hooks/*` | `src/renderer/shared/hooks/*` |
-| `@lib/*` | `src/renderer/shared/lib/*` |
+| `@hooks/*`      | `src/renderer/shared/hooks/*`      |
+| `@lib/*`        | `src/renderer/shared/lib/*`        |
 
 ### State Management (Zustand)
 
@@ -204,6 +208,7 @@ This project is used for testing the RDR (Recover, Debug, Resend) system with MC
 ### What RDR Does
 
 RDR is Auto-Claude's automatic recovery system that:
+
 1. **Monitors tasks** for JSON errors, incomplete work, and failures
 2. **Auto-fixes JSON** errors in `implementation_plan.json` files
 3. **Auto-resumes** stuck tasks by updating their status
@@ -213,16 +218,20 @@ RDR is Auto-Claude's automatic recovery system that:
 ### RDR Recovery Priority System (6 Levels)
 
 **P1: Auto-CONTINUE** — Set `start_requested` to restart tasks. They usually self-recover.
+
 - Use `process_rdr_batch` → file watcher auto-starts within 2-3 seconds
 
 **P2: Auto-RECOVER** — P1 failed, task in recovery mode (yellow outline). Click Recover button.
+
 - Use `recover_stuck_task(taskId, autoRestart: true)`
 
 **P3: Request Changes** — Tasks with persistent errors need troubleshooting context.
+
 - Use `submit_task_fix_request(taskId, feedback)` with error analysis
 
 **P4: Auto-fix JSON** — Fix corrupted/empty JSON files (can run anytime):
-  ```json
+
+```json
   {
     "feature": "Auto-recovery task",
     "description": "Task recovered by RDR system",
@@ -231,7 +240,7 @@ RDR is Auto-Claude's automatic recovery system that:
     "status": "start_requested",
     "phases": []
   }
-  ```
+```
 
 **P5: Manual Debug (RARE)** — Pattern detection, root cause investigation, manual edits
 
@@ -306,6 +315,7 @@ The watchdog (`src/main/watchdog/auto-claude-watchdog.ts`) runs as an external N
 **CRITICAL**: The watchdog directory constant `APP_DATA_DIR_NAME` MUST match `package.json` `name` field. A mismatch causes crash flags to be written to the wrong path and never read.
 
 **Startup error visibility**: The `app.whenReady()` handler in `index.ts` is wrapped in a try-catch that:
+
 1. Logs `[FATAL] Startup crash:` to console (visible in watchdog terminal)
 2. Writes stack trace to `startup-crash.log`
 3. Calls `app.exit(1)` to trigger watchdog restart
@@ -313,6 +323,7 @@ The watchdog (`src/main/watchdog/auto-claude-watchdog.ts`) runs as an external N
 ### RDR Troubleshooting
 
 **RDR not sending messages:**
+
 - Check startup logs for module resolution errors:
   ```
   [RDR] Failed to load window-manager (Windows-specific)
@@ -321,11 +332,13 @@ The watchdog (`src/main/watchdog/auto-claude-watchdog.ts`) runs as an external N
 - If you see these errors, the RDR module imports are broken (fixed in commit 524f5b5c)
 
 **Tasks still showing errors after recovery:**
+
 - Verify BOTH main and worktree JSON files are fixed
 - Auto-Claude prefers worktree versions over main project versions
 - Check file watcher is running: `[FileWatcher] Specs watcher READY`
 
 **RDR sending messages but not processing:**
+
 - Check if Claude Code is busy: `[RDR] BUSY: Claude Code is processing...`
 - RDR waits for idle state before sending messages
 - Verify MCP monitor is loaded: `[RDR] BUSY: Claude Code is busy (MCP connection active)`
@@ -333,6 +346,7 @@ The watchdog (`src/main/watchdog/auto-claude-watchdog.ts`) runs as an external N
 ### When to Use RDR
 
 **ALWAYS use RDR for:**
+
 - JSON parse errors in `implementation_plan.json`
 - Tasks stuck in `plan_review` or `human_review`
 - Tasks showing `errors` status with no progress
@@ -345,6 +359,7 @@ The watchdog (`src/main/watchdog/auto-claude-watchdog.ts`) runs as an external N
 **CRITICAL: When Claude Code receives RDR notifications, it should automatically invoke the `/auto-claude-mcp` skill to recover tasks.**
 
 **RDR Notification Format:**
+
 ```
 [Auto-Claude RDR] Tasks needing intervention:
 
@@ -357,6 +372,7 @@ Use MCP tools: get_task_error_details, submit_task_fix_request, process_rdr_batc
 ```
 
 **Automatic Response Flow:**
+
 1. **Claude Code receives RDR notification** via MCP message
 2. **Invoke `/auto-claude-mcp` skill** automatically
 3. **Determine project path** from context or ask user
@@ -383,11 +399,13 @@ Use MCP tools: get_task_error_details, submit_task_fix_request, process_rdr_batc
 6. **Confirm recovery** to user
 
 **Project Path Resolution:**
+
 - CV Project: `C:\Users\USER\Desktop\CV Project`
 - Auto-Claude-MCP: `C:\Users\USER\source\repos\Auto-Claude-MCP`
 - Ask user if path is unclear
 
 **MCP Tools Usage:**
+
 - Use file-based recovery (sed/cat) for direct task fixing
 - Use MCP tools (`get_rdr_batches`, `submit_task_fix_request`) when project UUID is available
 - Prefer P1 (auto-continue) over P2/P3 when possible
@@ -399,6 +417,7 @@ Auto-Claude uses Dependabot to keep dependencies up-to-date. **NEVER blindly mer
 ### Dependabot Configuration
 
 Located at [.github/dependabot.yml](.github/dependabot.yml):
+
 - Python dependencies: Weekly scans of `/apps/backend`
 - npm dependencies: Weekly scans of `/apps/frontend`
 - GitHub Actions: Weekly scans of workflows
@@ -409,6 +428,7 @@ Located at [.github/dependabot.yml](.github/dependabot.yml):
 Before merging ANY Dependabot PR:
 
 #### 1. Verify Package Legitimacy
+
 ```bash
 # Check package exists and matches expected maintainer
 npm view <package>@<version>
@@ -421,11 +441,13 @@ npm view dotenv@17.2.3
 #### 2. Check for Breaking Changes
 
 **Semantic Versioning:**
+
 - **Patch** (16.6.1 → 16.6.2): Bug fixes only - usually safe
 - **Minor** (16.6.1 → 16.7.0): New features, backward compatible - review changes
 - **Major** (16.6.1 → 17.0.0): Breaking changes - MUST test before merging
 
 **Check changelog:**
+
 ```bash
 npm view <package>@<version> homepage
 # Read CHANGELOG.md or release notes
@@ -455,18 +477,19 @@ npm audit
 
 ### When to Accept vs Reject
 
-| Update Type | Action |
-|-------------|--------|
-| **Patch updates** (16.6.1 → 16.6.2) | ✅ Usually safe - review and merge |
-| **Minor updates** (16.6.0 → 16.7.0) | ⚠️ Review changes, test, then merge |
-| **Major updates** (16.x → 17.x) | 🛑 DO NOT auto-merge - requires thorough testing |
-| **Pre-release** (17.0.0-rc1) | 🛑 Reject unless actively testing |
+| Update Type                                | Action                                           |
+| ------------------------------------------ | ------------------------------------------------ |
+| **Patch updates** (16.6.1 → 16.6.2) | ✅ Usually safe - review and merge               |
+| **Minor updates** (16.6.0 → 16.7.0) | ⚠️ Review changes, test, then merge            |
+| **Major updates** (16.x → 17.x)     | 🛑 DO NOT auto-merge - requires thorough testing |
+| **Pre-release** (17.0.0-rc1)         | 🛑 Reject unless actively testing                |
 
 ### Red Flags (Potential Supply Chain Attacks)
 
 🚨 **DO NOT MERGE** if you see:
 
 1. **Unknown maintainer**:
+
    ```bash
    # Check current maintainer
    npm view <package>@<old-version>
@@ -474,23 +497,23 @@ npm audit
    npm view <package>@<new-version>
    # Maintainer should be the same
    ```
-
 2. **Suspicious package name** (typosquatting):
+
    - `dottenv` instead of `dotenv`
    - `reacct` instead of `react`
    - Similar-looking names
-
 3. **Unusual version jump**:
+
    - 16.6.1 → 99.0.0 (suspicious large jump)
    - 16.6.1 → 16.5.0 (downgrade - very suspicious)
-
 4. **Package not on official registry**:
+
    ```bash
    npm view <package>@<version>
    # Should return package info, not "404 Not Found"
    ```
-
 5. **Recently published with no history**:
+
    ```bash
    npm view <package> time
    # Check publication dates - new packages with no history are suspicious
@@ -501,6 +524,7 @@ npm audit
 **Dependabot PR**: Bump dotenv from 16.6.1 to 17.2.3
 
 **Review process:**
+
 ```bash
 # 1. Verify package legitimacy
 $ npm view dotenv@17.2.3
@@ -539,6 +563,7 @@ This allows Dependabot to update minor/patch versions while blocking major versi
 ### Security Model
 
 Three-layer defense:
+
 1. **OS Sandbox** - Bash command isolation
 2. **Filesystem Permissions** - Operations restricted to project directory
 3. **Command Allowlist** - Dynamic allowlist from project analysis (security.py + project_analyzer.py)
@@ -558,6 +583,7 @@ Main process also has stores: `src/main/project-store.ts`, `src/main/terminal-se
 ### IPC Communication
 
 Main ↔ Renderer communication via Electron IPC:
+
 - **Handlers:** `src/main/ipc-handlers/` — organized by domain (github, gitlab, ideation, context, etc.)
 - **Preload:** `src/preload/` — exposes safe APIs to renderer
 - Pattern: renderer calls via `window.electronAPI.*`, main handles in IPC handler modules
@@ -565,6 +591,7 @@ Main ↔ Renderer communication via Electron IPC:
 ### Agent Management (`src/main/agent/`)
 
 The frontend manages agent lifecycle end-to-end:
+
 - **`agent-queue.ts`** — Queue routing, prioritization, spec number locking
 - **`agent-process.ts`** — Spawns and manages agent subprocess communication
 - **`agent-state.ts`** — Tracks running agent state and status
@@ -573,6 +600,7 @@ The frontend manages agent lifecycle end-to-end:
 ### Claude Profile System (`src/main/claude-profile/`)
 
 Multi-profile credential management for switching between Claude accounts:
+
 - **`credential-utils.ts`** — OS credential storage (Keychain/Windows Credential Manager)
 - **`token-refresh.ts`** — OAuth token lifecycle and automatic refresh
 - **`usage-monitor.ts`** — API usage tracking and rate limiting per profile
@@ -581,6 +609,7 @@ Multi-profile credential management for switching between Claude accounts:
 ### Terminal System (`src/main/terminal/`)
 
 Full PTY-based terminal integration:
+
 - **`pty-daemon.ts`** / **`pty-manager.ts`** — Background PTY process management
 - **`terminal-lifecycle.ts`** — Session creation, cleanup, event handling
 - **`claude-integration-handler.ts`** — Claude SDK integration within terminals
@@ -589,12 +618,14 @@ Full PTY-based terminal integration:
 ## Code Quality
 
 ### Frontend
+
 - **Linting:** Biome (`npm run lint` / `npm run lint:fix`)
 - **Type checking:** `npm run typecheck` (strict mode)
 - **Pre-commit:** Husky + lint-staged runs Biome on staged `.ts/.tsx/.js/.jsx/.json`
 - **Testing:** Vitest + React Testing Library + jsdom
 
 ### Backend
+
 - **Linting:** Ruff
 - **Testing:** pytest (`apps/backend/.venv/bin/pytest tests/ -v`)
 
@@ -623,12 +654,12 @@ Supports Windows, macOS, Linux. CI tests all three.
 
 **Platform modules:** `apps/frontend/src/main/platform/` and `apps/backend/core/platform/`
 
-| Function | Purpose |
-|----------|---------|
-| `isWindows()` / `isMacOS()` / `isLinux()` | OS detection |
-| `getPathDelimiter()` | `;` (Win) or `:` (Unix) |
-| `findExecutable(name)` | Cross-platform executable lookup |
-| `requiresShell(command)` | `.cmd/.bat` shell detection (Win) |
+| Function                                        | Purpose                             |
+| ----------------------------------------------- | ----------------------------------- |
+| `isWindows()` / `isMacOS()` / `isLinux()` | OS detection                        |
+| `getPathDelimiter()`                          | `;` (Win) or `:` (Unix)         |
+| `findExecutable(name)`                        | Cross-platform executable lookup    |
+| `requiresShell(command)`                      | `.cmd/.bat` shell detection (Win) |
 
 Never hardcode paths. Use `findExecutable()` and `joinPaths()`. See [ARCHITECTURE.md](shared_docs/ARCHITECTURE.md#cross-platform-development) for extended guide.
 
@@ -658,18 +689,21 @@ npm run dev:mcp    # Electron MCP server for AI debugging
 ```
 
 **With the Electron frontend**:
+
 ```bash
 npm start        # Build and run desktop app
 npm run dev      # Run in development mode (includes --remote-debugging-port=9222 for E2E testing)
 ```
 
 **For E2E Testing with QA Agents:**
+
 1. Start the Electron app: `npm run dev`
 2. Enable Electron MCP in `apps/backend/.env`: `ELECTRON_MCP_ENABLED=true`
 3. Run QA: `python run.py --spec 001 --qa`
 4. QA agents will automatically interact with the running app for testing
 
 **Project data storage:**
+
 - `.auto-claude/specs/` - Per-project data (specs, plans, QA reports, memory) - gitignored
 
 ## Auto-Claude MCP Integration (For Claude Code)
@@ -700,11 +734,13 @@ EOF
 ```
 
 **Critical requirements:**
+
 - `status` MUST be `"pending"` (maps to Planning/backlog column)
 - The target project MUST be selected in the Auto-Claude UI
 - File watcher triggers refresh within 2-3 seconds
 
 **Status mapping:**
+
 - `"pending"` → Planning (backlog)
 - `"in_progress"` → In Progress
 - `"ai_review"` → AI Review
@@ -714,6 +750,7 @@ EOF
 ### When to Use Auto-Claude MCP
 
 Use the Auto-Claude MCP tools when the user says things like:
+
 - "Create a task for Auto-Claude"
 - "Queue this for Auto-Claude"
 - "Run this overnight in Auto-Claude"
@@ -726,8 +763,8 @@ Use the Auto-Claude MCP tools when the user says things like:
 When creating Auto-Claude tasks, follow this workflow automatically:
 
 1. **Get the project ID** from the Auto-Claude UI or use `list_tasks` to find it
-
 2. **Create the task(s)** using `create_task` or `start_batch`:
+
    ```json
    {
      "projectId": "<project-uuid>",
@@ -738,8 +775,8 @@ When creating Auto-Claude tasks, follow this workflow automatically:
      }
    }
    ```
-
 3. **Set up shutdown monitoring** (if user wants overnight/batch runs):
+
    ```json
    {
      "projectId": "<project-uuid>",
@@ -754,12 +791,12 @@ When creating Auto-Claude tasks, follow this workflow automatically:
 
 ### Profile Selection
 
-| User Says | Profile | Reason |
-|-----------|---------|--------|
-| "simple", "quick", "fast" | `quick` | Low thinking, fast iterations |
-| "complex", "deep", "architectural" | `complex` | Maximum reasoning |
-| "overnight", "batch" | `balanced` | Cost-efficient for multiple tasks |
-| Nothing specific | `auto` | Smart defaults |
+| User Says                          | Profile      | Reason                            |
+| ---------------------------------- | ------------ | --------------------------------- |
+| "simple", "quick", "fast"          | `quick`    | Low thinking, fast iterations     |
+| "complex", "deep", "architectural" | `complex`  | Maximum reasoning                 |
+| "overnight", "batch"               | `balanced` | Cost-efficient for multiple tasks |
+| Nothing specific                   | `auto`     | Smart defaults                    |
 
 ### Shutdown Feature
 
@@ -784,13 +821,13 @@ Claude Code should automatically:
 
 ### MCP Tools Reference
 
-| Tool | Purpose |
-|------|---------|
-| `create_task` | Create single task with full configuration |
-| `list_tasks` | List tasks for a project |
-| `get_task_status` | Check task status |
-| `start_task` | Start task execution |
-| `start_batch` | Create and start multiple tasks |
+| Tool                      | Purpose                                                    |
+| ------------------------- | ---------------------------------------------------------- |
+| `create_task`           | Create single task with full configuration                 |
+| `list_tasks`            | List tasks for a project                                   |
+| `get_task_status`       | Check task status                                          |
+| `start_task`            | Start task execution                                       |
+| `start_batch`           | Create and start multiple tasks                            |
 | `wait_for_human_review` | Monitor tasks and run callback when all reach Human Review |
 
 ### Direct File Triggering (Without MCP)
@@ -829,11 +866,13 @@ Add a `chain` field to auto-start the next task when the current one completes:
 ```
 
 **Chain fields:**
+
 - `next_task_id` - Spec ID of the next task
 - `on_completion` - Set to `"auto_start"` for automatic triggering
 - `require_approval` - If `true`, waits for human approval
 
 **Example: A → B → C chain**
+
 ```
 065-task-a (chains to 066) → completes → auto-triggers
 066-task-b (chains to 067) → completes → auto-triggers
