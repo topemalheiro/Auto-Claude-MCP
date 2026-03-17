@@ -2,6 +2,7 @@ export type ApiProviderPreset = {
   id: string;
   baseUrl: string;
   labelKey: string;
+  defaultModel?: string;
 };
 
 export const API_PROVIDER_PRESETS: readonly ApiProviderPreset[] = [
@@ -29,5 +30,11 @@ export const API_PROVIDER_PRESETS: readonly ApiProviderPreset[] = [
     id: 'zai-cn',
     baseUrl: 'https://open.bigmodel.cn/api/anthropic',
     labelKey: 'settings:apiProfiles.presets.zaiChina'
+  },
+  {
+    id: 'minimax',
+    baseUrl: 'https://api.minimax.io/anthropic',
+    labelKey: 'settings:apiProfiles.presets.minimax',
+    defaultModel: 'MiniMax-M2.5-highspeed'
   }
 ];

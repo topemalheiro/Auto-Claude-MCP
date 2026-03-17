@@ -399,15 +399,21 @@ export async function testConnection(
       maxRetries: 0, // Disable retries for immediate feedback
     });
 
+    console.log('[testConnection] Testing connection to:', normalizedUrl);
+
     // Make minimal request to test connection (pass signal for cancellation)
     // Try models.list first, but some Anthropic-compatible APIs don't support it
     try {
+      console.log('[testConnection] Trying /v1/models endpoint...');
       await client.models.list({ limit: 1 }, { signal: signal ?? undefined });
+      console.log('[testConnection] /v1/models endpoint succeeded');
     } catch (modelsError) {
+      console.log('[testConnection] /v1/models failed, checking error type:', modelsError instanceof Error ? modelsError.name : 'unknown');
       // If models endpoint returns 404, try messages endpoint instead
       // Many Anthropic-compatible APIs (e.g., MiniMax) only support /v1/messages
       const modelsErrorName = modelsError instanceof Error ? modelsError.name : '';
       if (modelsErrorName === 'NotFoundError' || modelsError instanceof NotFoundError) {
+        console.log('[testConnection] 404 received, trying /v1/messages endpoint...');
         // Fall back to messages endpoint with minimal request
         // This will fail with 400 (invalid request) but proves the endpoint is reachable
         try {
@@ -418,14 +424,18 @@ export async function testConnection(
           }, { signal: signal ?? undefined });
         } catch (messagesError) {
           const messagesErrorName = messagesError instanceof Error ? messagesError.name : '';
+          const messagesStatus = messagesError instanceof Error && 'status' in messagesError 
+            ? (messagesError as { status?: number }).status 
+            : undefined;
+          console.log('[testConnection] /v1/messages error:', messagesErrorName, 'status:', messagesStatus);
           // 400/422 errors mean the endpoint is valid, just our test request was invalid
           // This is expected - we're just testing connectivity
           if (messagesErrorName === 'BadRequestError' ||
               messagesErrorName === 'InvalidRequestError' ||
-              (messagesError instanceof Error && 'status' in messagesError &&
-               ((messagesError as { status?: number }).status === 400 ||
-                (messagesError as { status?: number }).status === 422))) {
+              messagesStatus === 400 ||
+              messagesStatus === 422) {
             // Endpoint is valid, connection successful
+            console.log('[testConnection] Connection successful (400/422 on /v1/messages means endpoint is valid)');
             return {
               success: true,
               message: 'Connection successful'
@@ -435,6 +445,7 @@ export async function testConnection(
           throw messagesError;
         }
         // If messages.create somehow succeeded, connection is valid
+        console.log('[testConnection] /v1/messages succeeded');
         return {
           success: true,
           message: 'Connection successful'
@@ -444,11 +455,13 @@ export async function testConnection(
       throw modelsError;
     }
 
+    console.log('[testConnection] Connection test passed');
     return {
       success: true,
       message: 'Connection successful'
     };
   } catch (error) {
+    console.error('[testConnection] Final error:', error instanceof Error ? error.message : String(error));
     // Map SDK errors to TestConnectionResult error types
     // Use error.name for instanceof-like checks (works with mocks that set this.name)
     const errorName = error instanceof Error ? error.name : '';
@@ -564,8 +577,12 @@ export async function discoverModels(
       maxRetries: 0, // Disable retries for immediate feedback
     });
 
+    console.log('[discoverModels] Fetching models from:', normalizedUrl);
+
     // Fetch models with pagination (1000 limit to get all), pass signal for cancellation
     const response = await client.models.list({ limit: 1000 }, { signal: signal ?? undefined });
+
+    console.log('[discoverModels] Response received, model count:', response.data.length);
 
     // Extract model information from SDK response
     const models: ModelInfo[] = response.data
@@ -575,8 +592,17 @@ export async function discoverModels(
       }))
       .filter((model) => model.id.length > 0);
 
+    console.log('[discoverModels] Parsed models:', models.slice(0, 5).map(m => m.id));
+
     return { models };
   } catch (error) {
+    // Log detailed error info for debugging
+    console.error('[discoverModels] Error details:', {
+      error: error instanceof Error ? error.message : String(error),
+      errorName: error instanceof Error ? error.name : 'unknown',
+      baseUrl: normalizedUrl,
+      apiKeyPrefix: apiKey.substring(0, 10) + '...'
+    });
     // Map SDK errors to thrown errors with errorType property
     // Use error.name for instanceof-like checks (works with mocks that set this.name)
     const errorName = error instanceof Error ? error.name : '';

@@ -153,6 +153,10 @@ export function ProfileEditDialog({ open, onOpenChange, onSaved, profile }: Prof
     if (!name.trim()) {
       setName(t(preset.labelKey));
     }
+    // Set default model from preset if available
+    if (preset.defaultModel) {
+      setDefaultModel(preset.defaultModel);
+    }
   };
 
   // Validate form

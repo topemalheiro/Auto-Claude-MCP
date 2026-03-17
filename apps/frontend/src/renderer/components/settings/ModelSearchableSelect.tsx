@@ -24,6 +24,22 @@ import { cn } from '../../lib/utils';
 import { useSettingsStore } from '../../stores/settings-store';
 import type { ModelInfo } from '@shared/types/profile';
 
+/**
+ * Additional models to include for specific APIs that don't return all available models.
+ * OpenRouter doesn't return MiniMax M2.5 Highspeed in their /v1/models response.
+ * MiniMax API may not support model listing, so we provide known models.
+ */
+const ADDITIONAL_MODELS: Record<string, ModelInfo[]> = {
+  'https://openrouter.ai/api': [
+    { id: 'minimax/MiniMax-M2.5-highspeed', display_name: 'MiniMax M2.5 Highspeed' },
+  ],
+  'https://api.minimax.io/anthropic': [
+    { id: 'MiniMax-M2.1-highspeed', display_name: 'MiniMax M2.1 Highspeed' },
+    { id: 'MiniMax-M2.5', display_name: 'MiniMax M2.5' },
+    { id: 'MiniMax-M2.5-highspeed', display_name: 'MiniMax M2.5 Highspeed' },
+  ],
+};
+
 interface ModelSearchableSelectProps {
   /** Currently selected model ID */
   value: string;
@@ -106,9 +122,15 @@ export function ModelSearchableSelect({
 
       if (result && Array.isArray(result)) {
         setModels(result);
-        // If no models returned, close dropdown
-        if (result.length === 0) {
-          setIsOpen(false);
+        // Add extra models for specific APIs (e.g., MiniMax M2.5 Highspeed for OpenRouter)
+        const normalizedUrl = baseUrl.replace(/\/$/, '');
+        const extra = ADDITIONAL_MODELS[normalizedUrl];
+        if (extra) {
+          const existingIds = new Set(result.map(m => m.id));
+          const newModels = extra.filter(m => !existingIds.has(m.id));
+          if (newModels.length > 0) {
+            setModels([...result, ...newModels]);
+          }
         }
       } else {
         // No result - treat as not supported
