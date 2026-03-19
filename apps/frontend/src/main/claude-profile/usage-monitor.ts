@@ -2152,20 +2152,27 @@ export class UsageMonitor extends EventEmitter {
   /**
    * Normalize MiniMax Coding Plan response to ClaudeUsageSnapshot
    *
-   * Expected endpoint: https://www.minimax.io/v1/api/openplatform/coding_plan/remains
+   * Endpoint: https://api.minimax.io/v1/api/openplatform/coding_plan/remains
    *
-   * Response format:
+   * Actual response format:
    * {
-   *   code: 0,
-   *   msg: "success",
-   *   data: {
-   *     remains: number,    // Remaining prompts in current 5-hour window
-   *     total: number,      // Total prompts in 5-hour window
-   *     next_reset_time?: number  // Unix timestamp in ms for next reset
-   *   }
+   *   "model_remains": [
+   *     {
+   *       "model_name": "MiniMax-M2.5",
+   *       "current_interval_total_count": 15000,
+   *       "current_interval_usage_count": 15000,
+   *       "remains_time": 16470770,          // ms until session reset
+   *       "current_weekly_total_count": 525000,
+   *       "current_weekly_usage_count": 523971,
+   *       "weekly_remains_time": 290070770,   // ms until weekly reset
+   *       "start_time": 1773932400000,
+   *       "end_time": 1773950400000
+   *     }, ...
+   *   ],
+   *   "base_resp": {"status_code": 0, "status_msg": "success"}
    * }
    *
-   * MiniMax Coding Plan has a 5-hour session window (no weekly limit).
+   * MiniMax has BOTH 5-hour session AND weekly limits (shared across models).
    */
   private normalizeMiniMaxResponse(
     data: any,
@@ -2175,80 +2182,66 @@ export class UsageMonitor extends EventEmitter {
   ): ClaudeUsageSnapshot | null {
     const logPrefix = 'MINIMAX';
 
-    if (this.isDebug) {
-      console.warn(`[UsageMonitor:${logPrefix}_NORMALIZATION] Starting normalization:`, {
-        profileId,
-        profileName,
-        responseKeys: Object.keys(data),
-        hasData: !!data.data
-      });
-    }
-
     try {
-      // Extract inner data
-      const inner = data.data ?? data;
+      const modelRemains = data.model_remains ?? data.data?.model_remains;
 
-      if (!inner) {
-        console.warn(`[UsageMonitor:${logPrefix}] Invalid response format - missing data:`, {
-          hasData: !!data,
-          responseKeys: Object.keys(data || {})
+      if (!Array.isArray(modelRemains) || modelRemains.length === 0) {
+        console.warn(`[UsageMonitor:${logPrefix}] Invalid response - missing model_remains array:`, {
+          responseKeys: Object.keys(data || {}),
+          hasModelRemains: !!data.model_remains
         });
         return null;
       }
 
-      // Extract remains and total
-      const remains = inner.remains;
-      const total = inner.total;
+      // Use the first model entry — limits are shared across all models
+      const model = modelRemains[0];
 
-      if (remains === undefined || total === undefined) {
-        console.warn(`[UsageMonitor:${logPrefix}] Invalid response format - missing remains/total:`, {
-          hasRemains: remains !== undefined,
-          hasTotal: total !== undefined,
-          innerKeys: Object.keys(inner)
-        });
-        return null;
-      }
+      const sessionTotal = model.current_interval_total_count;
+      const sessionUsed = model.current_interval_usage_count;
+      const weeklyTotal = model.current_weekly_total_count;
+      const weeklyUsed = model.current_weekly_usage_count;
 
-      // Calculate percentage used
-      const used = total - remains;
-      const sessionPercent = total > 0 ? Math.round((used / total) * 100) : 0;
+      const sessionPercent = sessionTotal > 0 ? Math.round((sessionUsed / sessionTotal) * 100) : 0;
+      const weeklyPercent = weeklyTotal > 0 ? Math.round((weeklyUsed / weeklyTotal) * 100) : 0;
+
+      // Reset timestamps from remains_time (ms from now)
+      const now = Date.now();
+      const sessionResetTimestamp = model.remains_time
+        ? new Date(now + model.remains_time).toISOString()
+        : new Date(model.end_time).toISOString();
+      const weeklyResetTimestamp = model.weekly_remains_time
+        ? new Date(now + model.weekly_remains_time).toISOString()
+        : undefined;
 
       if (this.isDebug) {
-        console.warn(`[UsageMonitor:${logPrefix}_NORMALIZATION] Extracted usage:`, {
-          remains,
-          total,
-          used,
-          sessionPercent
+        console.warn(`[UsageMonitor:${logPrefix}_NORMALIZATION] Extracted:`, {
+          model: model.model_name,
+          sessionPercent, weeklyPercent,
+          sessionUsed, sessionTotal,
+          weeklyUsed, weeklyTotal
         });
-      }
-
-      // Extract reset time
-      const now = new Date();
-      let sessionResetTimestamp: string;
-
-      if (inner.next_reset_time && typeof inner.next_reset_time === 'number') {
-        // Unix timestamp in milliseconds
-        sessionResetTimestamp = new Date(inner.next_reset_time).toISOString();
-      } else {
-        // Fallback: 5 hours from now
-        sessionResetTimestamp = new Date(now.getTime() + 5 * 60 * 60 * 1000).toISOString();
       }
 
       return {
         sessionPercent,
-        weeklyPercent: 0, // MiniMax has no weekly limit
+        weeklyPercent,
         sessionResetTime: undefined,
         weeklyResetTime: undefined,
         sessionResetTimestamp,
-        weeklyResetTimestamp: undefined, // No weekly reset for MiniMax
+        weeklyResetTimestamp,
         profileId,
         profileName,
         profileEmail,
         fetchedAt: new Date(),
-        limitType: 'session',
+        limitType: weeklyPercent > sessionPercent ? 'weekly' : 'session',
         usageWindows: {
-          sessionWindowLabel: 'common:usage.window5HoursQuota'
-        }
+          sessionWindowLabel: 'common:usage.window5HoursQuota',
+          weeklyWindowLabel: 'common:usage.window7Day'
+        },
+        sessionUsageValue: sessionUsed,
+        sessionUsageLimit: sessionTotal,
+        weeklyUsageValue: weeklyUsed,
+        weeklyUsageLimit: weeklyTotal,
       };
     } catch (error) {
       console.error(`[UsageMonitor:${logPrefix}] Failed to parse response:`, error, 'Raw data:', data);
