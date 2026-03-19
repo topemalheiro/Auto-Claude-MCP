@@ -104,6 +104,17 @@ export function getProviderLabel(provider: ApiProvider): string {
  * @param provider - The provider type
  * @returns CSS classes for badge styling
  */
+/**
+ * Check if a provider has usage monitoring configured
+ * Providers with known usage endpoints return true (not "unlimited")
+ */
+export function hasUsageMonitoring(baseUrl: string): boolean {
+  const provider = detectProvider(baseUrl);
+  // All known providers except 'unknown' and 'anthropic' (OAuth-only) have usage APIs
+  // 'anthropic' is handled via OAuth, not API key — so only custom endpoint providers count
+  return provider === 'minimax' || provider === 'zai' || provider === 'zhipu';
+}
+
 export function getProviderBadgeColor(provider: ApiProvider): string {
   switch (provider) {
     case 'anthropic':

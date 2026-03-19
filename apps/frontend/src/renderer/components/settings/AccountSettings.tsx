@@ -44,6 +44,7 @@ import { AuthTerminal } from './AuthTerminal';
 import { ProfileEditDialog } from './ProfileEditDialog';
 import { AccountPriorityList, type UnifiedAccount } from './AccountPriorityList';
 import { maskApiKey } from '../../lib/profile-utils';
+import { hasUsageMonitoring } from '../../../shared/utils/provider-detection';
 import { loadClaudeProfiles as loadGlobalClaudeProfiles } from '../../stores/claude-profile-store';
 import { useSettingsStore } from '../../stores/settings-store';
 import { useToast } from '../../hooks/use-toast';
@@ -183,6 +184,9 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
 
     // Add API profiles
     apiProfiles.forEach((profile) => {
+      const monitored = hasUsageMonitoring(profile.baseUrl);
+      // For monitored providers (MiniMax, z.ai, Zhipu), pull usage from profileUsageData if available
+      const apiUsage = monitored ? profileUsageData?.find(u => u.profileId === profile.id) : undefined;
       unifiedList.push({
         id: `api-${profile.id}`,
         name: profile.name,
@@ -192,9 +196,9 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
         isActive: profile.id === activeApiProfileId,
         isNext: false, // Will be computed by AccountPriorityList
         isAvailable: true, // API profiles are always considered available
-        hasUnlimitedUsage: true, // API profiles have no rate limits
-        sessionPercent: undefined,
-        weeklyPercent: undefined,
+        hasUnlimitedUsage: !monitored, // Only unknown providers are truly unlimited
+        sessionPercent: apiUsage?.sessionPercent,
+        weeklyPercent: apiUsage?.weeklyPercent,
       });
     });
 
