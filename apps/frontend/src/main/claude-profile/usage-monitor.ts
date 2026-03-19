@@ -598,10 +598,12 @@ export class UsageMonitor extends EventEmitter {
 
   /**
    * Trigger an immediate usage check.
-   * Called after re-authentication to give the user immediate feedback.
+   * Called after re-authentication or profile switch to give immediate feedback.
+   * Resets the emit throttle so the result is sent to the renderer immediately.
    */
   checkNow(): void {
     this.debugLog('[UsageMonitor] Immediate check triggered');
+    this.lastEmitTimestamp = 0; // Bypass throttle so emit goes through immediately
     this.checkUsageAndSwap().catch(error => {
       console.error('[UsageMonitor] Immediate check failed:', error);
     });

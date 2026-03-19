@@ -13,6 +13,7 @@
 import { ipcMain } from 'electron';
 import { IPC_CHANNELS } from '../../shared/constants';
 import type { IPCResult } from '../../shared/types';
+import { getUsageMonitor } from '../claude-profile/usage-monitor';
 import type { APIProfile, ProfileFormData, ProfilesFile, TestConnectionResult, DiscoverModelsResult } from '@shared/types/profile';
 import {
   loadProfilesFile,
@@ -160,6 +161,15 @@ export function registerProfileHandlers(): void {
           file.activeProfileId = profileId;
           return file;
         });
+
+        // Trigger immediate usage fetch for the new active profile
+        // checkNow() detects the new active profile, fetches its usage,
+        // and emits 'usage-updated' — UsageIndicator listens to this event
+        try {
+          getUsageMonitor().checkNow();
+        } catch {
+          // Non-critical — usage will update on next poll cycle
+        }
 
         return { success: true };
       } catch (error) {
