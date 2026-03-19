@@ -2196,13 +2196,12 @@ export class UsageMonitor extends EventEmitter {
       // Use the first model entry — limits are shared across all models
       const model = modelRemains[0];
 
+      // The endpoint is "remains" — usage_count fields are REMAINING, not consumed
       const sessionTotal = model.current_interval_total_count;
-      const sessionUsed = model.current_interval_usage_count;
-      const weeklyTotal = model.current_weekly_total_count;
-      const weeklyUsed = model.current_weekly_usage_count;
+      const sessionRemaining = model.current_interval_usage_count;
+      const sessionUsed = sessionTotal - sessionRemaining;
 
       const sessionPercent = sessionTotal > 0 ? Math.round((sessionUsed / sessionTotal) * 100) : 0;
-      const weeklyPercent = weeklyTotal > 0 ? Math.round((weeklyUsed / weeklyTotal) * 100) : 0;
 
       // Reset timestamps from remains_time (ms from now)
       const now = Date.now();
@@ -2216,32 +2215,29 @@ export class UsageMonitor extends EventEmitter {
       if (this.isDebug) {
         console.warn(`[UsageMonitor:${logPrefix}_NORMALIZATION] Extracted:`, {
           model: model.model_name,
-          sessionPercent, weeklyPercent,
-          sessionUsed, sessionTotal,
-          weeklyUsed, weeklyTotal
+          sessionPercent,
+          sessionUsed, sessionRemaining, sessionTotal
         });
       }
 
       return {
         sessionPercent,
-        weeklyPercent,
+        weeklyPercent: 0, // MiniMax Coding Plan has no weekly limit
         sessionResetTime: undefined,
         weeklyResetTime: undefined,
         sessionResetTimestamp,
-        weeklyResetTimestamp,
+        weeklyResetTimestamp: undefined,
         profileId,
         profileName,
         profileEmail,
         fetchedAt: new Date(),
-        limitType: weeklyPercent > sessionPercent ? 'weekly' : 'session',
+        limitType: 'session',
         usageWindows: {
-          sessionWindowLabel: 'common:usage.window5HoursQuota',
-          weeklyWindowLabel: 'common:usage.window7Day'
+          sessionWindowLabel: 'common:usage.window5HoursQuota'
+          // No weeklyWindowLabel — hides weekly section in UsageIndicator
         },
         sessionUsageValue: sessionUsed,
         sessionUsageLimit: sessionTotal,
-        weeklyUsageValue: weeklyUsed,
-        weeklyUsageLimit: weeklyTotal,
       };
     } catch (error) {
       console.error(`[UsageMonitor:${logPrefix}] Failed to parse response:`, error, 'Raw data:', data);
