@@ -126,10 +126,7 @@ export function getUsageEndpoint(provider: ApiProvider, baseUrl: string): string
     const url = new URL(baseUrl);
     const originalPath = url.pathname;
 
-    // MiniMax usage API is on www.minimax.io, not api.minimax.io
-    if (provider === 'minimax') {
-      url.hostname = 'www.minimax.io';
-    }
+    // MiniMax usage API works on api.minimax.io (www.minimax.io blocked by Cloudflare WAF)
 
     // Replace the path with the usage endpoint path
     url.pathname = endpointConfig.usagePath;
