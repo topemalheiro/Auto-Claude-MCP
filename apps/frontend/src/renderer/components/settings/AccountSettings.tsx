@@ -186,7 +186,7 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
     apiProfiles.forEach((profile) => {
       const monitored = hasUsageMonitoring(profile.baseUrl);
       // For monitored providers (MiniMax, z.ai, Zhipu), pull usage from profileUsageData if available
-      const apiUsage = monitored ? profileUsageData?.find(u => u.profileId === profile.id) : undefined;
+      const apiUsage = monitored ? profileUsageData.get(profile.id) : undefined;
       unifiedList.push({
         id: `api-${profile.id}`,
         name: profile.name,
