@@ -125,6 +125,12 @@ export function getUsageEndpoint(provider: ApiProvider, baseUrl: string): string
   try {
     const url = new URL(baseUrl);
     const originalPath = url.pathname;
+
+    // MiniMax usage API is on www.minimax.io, not api.minimax.io
+    if (provider === 'minimax') {
+      url.hostname = 'www.minimax.io';
+    }
+
     // Replace the path with the usage endpoint path
     url.pathname = endpointConfig.usagePath;
 

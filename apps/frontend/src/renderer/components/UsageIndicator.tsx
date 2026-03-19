@@ -446,7 +446,9 @@ export function UsageIndicator() {
   const limitingPercent = Math.max(sessionPercent, weeklyPercent);
 
   // Session-only providers (e.g., MiniMax) have no weekly limit
-  const isSessionOnly = usage.limitType === 'session' || (weeklyPercent === 0 && !usage.weeklyResetTimestamp);
+  // Only trust explicit limitType — the fallback heuristic (weeklyPercent===0 && no timestamp)
+  // incorrectly hides weekly for Claude Code profiles early in the week
+  const isSessionOnly = usage.limitType === 'session';
 
   // Badge color based on the limiting (higher) percentage
   // Override to red/destructive when re-auth is needed
