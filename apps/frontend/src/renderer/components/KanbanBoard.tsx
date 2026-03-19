@@ -1357,14 +1357,13 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
         const projectState = useProjectStore.getState().getActiveProject();
         const rdrEnabled = projectState?.settings?.rdrEnabled ?? false;
 
-        // Track held slots: Departures from in_progress hold a slot when RDR is on
+        // Track held slots: Tasks failing to human_review hold a slot when RDR is on
         // EXCEPT user-stopped tasks (reviewReason='stopped') — those have RDR auto-disabled
-        // This covers: → human_review (errors), → backlog (no plan), → ai_review, etc.
-        // The held slot reserves the in_progress capacity for RDR to restart the task.
+        // Only human_review failures hold slots — user-initiated moves (drag, stop→backlog) never hold.
         const task = tasks.find(t => t.id === taskId);
         const isUserStopped = task?.reviewReason === 'stopped';
 
-        if (rdrEnabled && oldStatus === 'in_progress' && newStatus !== 'in_progress' && !isUserStopped) {
+        if (rdrEnabled && oldStatus === 'in_progress' && newStatus === 'human_review' && !isUserStopped) {
           heldSlotIdsRef.current = new Set([...heldSlotIdsRef.current, taskId]);
           debugLog(`[Queue] Task ${taskId} left in_progress (→ ${newStatus}), holding slot (${heldSlotIdsRef.current.size} held)`);
         } else if (isUserStopped) {
@@ -1375,7 +1374,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
         // or reaches a terminal state (done/pr_created). human_review is included because:
         // - QA-approved path: work is done, slot no longer needed
         // - Error path (rate limit crash): RDR will re-queue the task when recovered
-        if (heldSlotIdsRef.current.has(taskId) && (newStatus === 'in_progress' || newStatus === 'ai_review' || newStatus === 'human_review' || newStatus === 'done' || newStatus === 'pr_created')) {
+        if (heldSlotIdsRef.current.has(taskId) && (newStatus === 'in_progress' || newStatus === 'ai_review' || newStatus === 'human_review' || newStatus === 'done' || newStatus === 'pr_created' || newStatus === 'backlog' || newStatus === 'queue')) {
           const newSet = new Set(heldSlotIdsRef.current);
           newSet.delete(taskId);
           heldSlotIdsRef.current = newSet;
