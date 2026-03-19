@@ -14,7 +14,7 @@ All versions using the XState task state machine (PR #1575 and later).
 
 ## Steps to Reproduce
 
-1. Open Auto Claude and load two projects (e.g., "Project A" and "Project B")
+1. Open Aperant-MCP and load two projects (e.g., "Project A" and "Project B")
 2. In Project A, create a task with a specific name (e.g., "write wtf to text file") - this generates specId `016-write-wtf-to-text-file`
 3. In Project B, create a task with the same name - this generates the same specId `016-write-wtf-to-text-file`
 4. Start both tasks simultaneously (or start Project A's task first, let it reach QA, then start Project B's task)

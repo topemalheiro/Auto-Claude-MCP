@@ -26,7 +26,7 @@ def get_specs_dir(project_dir: Path) -> Path:
 
     IMPORTANT: Only .auto-claude/ is considered an "installed" auto-claude.
     The auto-claude/ folder (if it exists) is SOURCE CODE being developed,
-    not an installation. This allows Auto Claude to be used to develop itself.
+    not an installation. This allows Aperant-MCP to be used to develop itself.
 
     This function also ensures .auto-claude is added to .gitignore on first use.
 

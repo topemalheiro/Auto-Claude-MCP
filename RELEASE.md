@@ -1,10 +1,10 @@
 # Release Process
 
-This document describes how releases are created for Auto Claude.
+This document describes how releases are created for Aperant-MCP.
 
 ## Overview
 
-Auto Claude uses an automated release pipeline that ensures releases are only published after all builds succeed. This prevents version mismatches between documentation and actual releases.
+Aperant-MCP uses an automated release pipeline that ensures releases are only published after all builds succeed. This prevents version mismatches between documentation and actual releases.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐

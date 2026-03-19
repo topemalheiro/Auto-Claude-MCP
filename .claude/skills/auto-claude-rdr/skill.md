@@ -21,7 +21,7 @@ taskkill.exe //F //IM "electron.exe" 2>/dev/null
 
 ```bash
 sleep 2  # Wait for processes to die
-powershell.exe -Command "Remove-Item Env:ELECTRON_RUN_AS_NODE -ErrorAction SilentlyContinue; Start-Process 'C:\Users\topem\source\repos\Auto-Claude-MCP\Auto-Claude-MCP.bat'"
+powershell.exe -Command "Remove-Item Env:ELECTRON_RUN_AS_NODE -ErrorAction SilentlyContinue; Start-Process 'C:\Users\topem\source\repos\Aperant-MCP\Aperant-MCP.bat'"
 ```
 
 **Why clear ELECTRON_RUN_AS_NODE:** VS Code / Claude Code sets this env var which makes Electron run as plain Node.js instead of a GUI app.
@@ -746,8 +746,8 @@ Auto-Claude's MCP server runs as a **stdio** subprocess spawned by Claude Code. 
       "command": "npx",
       "args": [
         "--yes", "tsx",
-        "--import", "file:///C:/Users/topem/source/repos/Auto-Claude-MCP/apps/frontend/src/main/mcp-server/register-loader.mjs",
-        "C:/Users/topem/source/repos/Auto-Claude-MCP/apps/frontend/src/main/mcp-server/index.ts"
+        "--import", "file:///C:/Users/topem/source/repos/Aperant-MCP/apps/frontend/src/main/mcp-server/register-loader.mjs",
+        "C:/Users/topem/source/repos/Aperant-MCP/apps/frontend/src/main/mcp-server/index.ts"
       ]
     }
   }

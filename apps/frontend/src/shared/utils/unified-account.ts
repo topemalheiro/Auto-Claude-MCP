@@ -81,15 +81,27 @@ export function claudeProfileToUnified(
  * @param profile - The API profile to convert
  * @param isActive - Whether this is the currently active account
  * @param isAuthenticated - Whether the API key is valid (has been tested). Defaults to false for safety.
+ * @param usage - Optional usage data for rate-limited API profiles (e.g., MiniMax Coding Plan)
  */
 export function apiProfileToUnified(
   profile: APIProfile,
   isActive: boolean,
-  isAuthenticated: boolean = false
+  isAuthenticated: boolean = false,
+  usage?: {
+    sessionPercent?: number;
+    weeklyPercent?: number;
+    isRateLimited?: boolean;
+    rateLimitType?: RateLimitType;
+  }
 ): UnifiedAccount {
+  // Check if this is a rate-limited API profile (e.g., MiniMax Coding Plan)
+  // These profiles have usage limits like OAuth accounts
+  const isRateLimitedAPI = profile.id === 'minimax' && usage?.isRateLimited;
+  
   // API profiles are available if they have a valid API key
-  // They have unlimited usage (pay-per-use)
-  const isAvailable = isAuthenticated && !!profile.apiKey;
+  // They have unlimited usage unless it's a rate-limited API (like MiniMax Coding Plan)
+  const hasUnlimitedUsage = !isRateLimitedAPI;
+  const isAvailable = isAuthenticated && !!profile.apiKey && !isRateLimitedAPI;
 
   return {
     id: `${API_ID_PREFIX}${profile.id}`,
@@ -100,11 +112,11 @@ export function apiProfileToUnified(
     isActive,
     isNext: false, // Computed later based on priority order
     isAvailable,
-    hasUnlimitedUsage: true, // API profiles are pay-per-use with no rate limits
-    sessionPercent: undefined, // Not applicable to API profiles
-    weeklyPercent: undefined, // Not applicable to API profiles
-    isRateLimited: false, // API profiles don't have rate limits
-    rateLimitType: undefined,
+    hasUnlimitedUsage,
+    sessionPercent: usage?.sessionPercent, // May be defined for rate-limited APIs
+    weeklyPercent: usage?.weeklyPercent, // May be defined for rate-limited APIs
+    isRateLimited: isRateLimitedAPI,
+    rateLimitType: usage?.rateLimitType,
     isAuthenticated,
     needsReauthentication: false
   };

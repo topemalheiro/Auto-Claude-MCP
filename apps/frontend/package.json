@@ -2,7 +2,7 @@
   "name": "auto-claude-ui",
   "version": "2.7.6-beta.5",
   "type": "module",
-  "description": "Desktop UI for Auto Claude autonomous coding framework",
+  "description": "Desktop UI for Aperant-MCP autonomous coding framework",
   "homepage": "https://github.com/AndyMik90/Auto-Claude",
   "repository": {
     "type": "git",
@@ -10,7 +10,7 @@
   },
   "main": "./out/main/index.js",
   "author": {
-    "name": "Auto Claude Team",
+    "name": "Aperant-MCP Team",
     "email": "119136210+AndyMik90@users.noreply.github.com"
   },
   "license": "AGPL-3.0",
@@ -146,7 +146,7 @@
   },
   "build": {
     "appId": "com.autoclaude.ui",
-    "productName": "Auto-Claude",
+    "productName": "Aperant-MCP",
     "npmRebuild": false,
     "artifactName": "${productName}-${version}-${platform}-${arch}.${ext}",
     "publish": [

@@ -1,5 +1,5 @@
 """
-Auto Claude project initialization utilities.
+Aperant-MCP project initialization utilities.
 
 Handles first-time setup of .auto-claude directory and ensures proper gitignore configuration.
 """
@@ -69,14 +69,14 @@ def ensure_gitignore_entry(project_dir: Path, entry: str = ".auto-claude/") -> b
             content += "\n"
 
         # Add a comment and the entry
-        content += "\n# Auto Claude data directory\n"
+        content += "\n# Aperant-MCP data directory\n"
         content += entry + "\n"
 
         gitignore_path.write_text(content, encoding="utf-8")
         return True
     else:
         # Create new .gitignore with the entry
-        content = "# Auto Claude data directory\n"
+        content = "# Aperant-MCP data directory\n"
         content += entry + "\n"
 
         gitignore_path.write_text(content, encoding="utf-8")
@@ -198,7 +198,7 @@ def ensure_all_gitignore_entries(
     if content and not content.endswith("\n"):
         content += "\n"
 
-    content += "\n# Auto Claude generated files\n"
+    content += "\n# Aperant-MCP generated files\n"
     for entry in entries_to_add:
         content += entry + "\n"
         added_entries.append(entry)

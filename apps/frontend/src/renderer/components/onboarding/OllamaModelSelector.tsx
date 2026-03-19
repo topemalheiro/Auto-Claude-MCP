@@ -31,7 +31,7 @@ interface OllamaModelSelectorProps {
   baseUrl?: string;
 }
 
-// Recommended embedding models for Auto Claude Memory
+// Recommended embedding models for Aperant-MCP Memory
 // qwen3-embedding:4b is first as the recommended default (balanced quality/speed)
 const RECOMMENDED_MODELS: OllamaModel[] = [
   {

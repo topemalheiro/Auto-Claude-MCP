@@ -1,5 +1,5 @@
 """
-Auto Claude Backend - Autonomous Coding Framework
+Aperant-MCP Backend - Autonomous Coding Framework
 ==================================================
 
 Multi-agent autonomous coding framework that builds software through
@@ -20,4 +20,4 @@ See README.md for full documentation.
 """
 
 __version__ = "2.7.6-beta.5"
-__author__ = "Auto Claude Team"
+__author__ = "Aperant-MCP Team"

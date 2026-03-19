@@ -6,7 +6,7 @@
  * - LivePreviewTerminal.tsx (settings preview terminal)
  *
  * The theme uses a dark color scheme with muted pastel colors
- * that match the Auto Claude application design.
+ * that match the Aperant-MCP application design.
  */
 export const DEFAULT_TERMINAL_THEME = {
   background: '#0B0B0F',

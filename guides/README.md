@@ -1,6 +1,6 @@
-# Auto Claude Guides
+# Aperant-MCP Guides
 
-Detailed documentation for Auto Claude setup and usage.
+Detailed documentation for Aperant-MCP setup and usage.
 
 ## Available Guides
 

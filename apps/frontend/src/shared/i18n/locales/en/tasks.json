@@ -118,7 +118,7 @@
     "columnLocked": "Column width is locked",
     "expandAll": "Expand all columns",
     "autoResume": "Auto-Resume",
-    "autoResumeHeader": "Auto Claude MCP System",
+    "autoResumeHeader": "Aperant-MCP MCP System",
     "arLimitReset": "Auto Resume",
     "arLimitResetSub": "(on Limit Reset)",
     "autoResumeTooltip": "When enabled, tasks paused due to rate limits will automatically resume when the limit resets.",

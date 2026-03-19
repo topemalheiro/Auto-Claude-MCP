@@ -65,10 +65,10 @@ tests/
 # Exception: Allow colocated tests within integrations/graphiti
 !integrations/graphiti/tests/
 
-# Auto Claude data directory
+# Aperant-MCP data directory
 .auto-claude/
 
-# Auto Claude generated files
+# Aperant-MCP generated files
 .auto-claude-security.json
 .auto-claude-status
 .security-key

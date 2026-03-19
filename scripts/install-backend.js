@@ -13,7 +13,7 @@ const isWindows = os.platform() === 'win32';
 const backendDir = path.join(__dirname, '..', 'apps', 'backend');
 const venvDir = path.join(backendDir, '.venv');
 
-console.log('Installing Auto Claude backend dependencies...\n');
+console.log('Installing Aperant-MCP backend dependencies...\n');
 
 // Helper to run commands
 function run(cmd, options = {}) {

@@ -46,7 +46,7 @@ const WIZARD_STEPS: { id: WizardStepId; labelKey: string }[] = [
 /**
  * Main onboarding wizard component.
  * Provides a full-screen, multi-step wizard experience for new users
- * to configure their Auto Claude environment.
+ * to configure their Aperant-MCP environment.
  *
  * Features:
  * - Step progress indicator

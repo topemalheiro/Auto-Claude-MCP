@@ -1,4 +1,4 @@
-# Ruff configuration for Auto Claude
+# Ruff configuration for Aperant-MCP
 
 [lint]
 # Enable common rule sets

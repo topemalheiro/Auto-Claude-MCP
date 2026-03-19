@@ -124,7 +124,7 @@ export class InsightsService extends EventEmitter {
     // Validate auto-claude source
     const autoBuildSource = this.config.getAutoBuildSourcePath();
     if (!autoBuildSource) {
-      this.emit('error', projectId, 'Auto Claude source not found');
+      this.emit('error', projectId, 'Aperant-MCP source not found');
       return;
     }
 

@@ -2,7 +2,7 @@
 """
 Quick test to demonstrate provider-specific database naming.
 
-Shows how Auto Claude automatically generates provider-specific database names
+Shows how Aperant-MCP automatically generates provider-specific database names
 to prevent embedding dimension mismatches.
 """
 

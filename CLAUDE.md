@@ -4,13 +4,13 @@
 
 This file provides guidance to Claude Code when working with this repository.
 
-Auto Claude is an autonomous multi-agent coding framework that plans, builds, and validates software for you. It's a monorepo with a Python backend (CLI + agent logic) and an Electron/React frontend (desktop UI).
+Aperant-MCP is an autonomous multi-agent coding framework that plans, builds, and validates software for you. It's a monorepo with a Python backend (CLI + agent logic) and an Electron/React frontend (desktop UI).
 
 > **Deep-dive reference:** [ARCHITECTURE.md](shared_docs/ARCHITECTURE.md) | **Frontend contributing:** [apps/frontend/CONTRIBUTING.md](apps/frontend/CONTRIBUTING.md)
 
 ## Product Overview
 
-Auto Claude is a desktop application (+ CLI) where users describe a goal and AI agents autonomously handle planning, implementation, and QA validation. All work happens in isolated git worktrees so the main branch stays safe.
+Aperant-MCP is a desktop application (+ CLI) where users describe a goal and AI agents autonomously handle planning, implementation, and QA validation. All work happens in isolated git worktrees so the main branch stays safe.
 
 **Core workflow:** User creates a task → Spec creation pipeline assesses complexity and writes a specification → Planner agent breaks it into subtasks → Coder agent implements (can spawn parallel subagents) → QA reviewer validates → QA fixer resolves issues → User reviews and merges.
 
@@ -27,7 +27,7 @@ Auto Claude is a desktop application (+ CLI) where users describe a goal and AI 
 - **Memory System** — Graphiti-based knowledge graph retains insights across sessions
 - **Isolated Workspaces** — Git worktree isolation for every build; AI-powered semantic merge
 - **Flexible Authentication** — Use a Claude Code subscription (OAuth) or API profiles with any Anthropic-compatible endpoint (e.g., Anthropic API, z.ai for GLM models)
-- **Multi-Account Swapping** — Register multiple Claude accounts; when one hits a rate limit, Auto Claude automatically switches to an available account
+- **Multi-Account Swapping** — Register multiple Claude accounts; when one hits a rate limit, Aperant-MCP automatically switches to an available account
 - **Cross-Platform** — Native desktop app for Windows, macOS, and Linux with auto-updates
 
 ## Critical Rules
@@ -401,7 +401,7 @@ Use MCP tools: get_task_error_details, submit_task_fix_request, process_rdr_batc
 **Project Path Resolution:**
 
 - CV Project: `C:\Users\USER\Desktop\CV Project`
-- Auto-Claude-MCP: `C:\Users\USER\source\repos\Auto-Claude-MCP`
+- Aperant-MCP: `C:\Users\USER\source\repos\Aperant-MCP`
 - Ask user if path is unclear
 
 **MCP Tools Usage:**

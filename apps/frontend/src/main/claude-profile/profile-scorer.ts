@@ -273,10 +273,13 @@ export function getBestAvailableUnifiedAccount(
   }
 
   // Convert API profiles
+  // Note: Some API profiles (like MiniMax Coding Plan) have rate limits.
+  // Usage data would need to be passed for full support.
   for (const profile of apiProfiles) {
     const isActive = profile.id === activeAPIId;
     // TODO: API profiles are considered authenticated if they have an API key.
     // Add validation tracking to distinguish "has key" from "key is confirmed valid".
+    // For rate-limited APIs (like MiniMax), we'd need to pass usage data here.
     const isAuthenticated = !!profile.apiKey;
     unifiedAccounts.push(apiProfileToUnified(profile, isActive, isAuthenticated));
   }

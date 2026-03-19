@@ -46,6 +46,8 @@ const ALLOWED_USAGE_API_DOMAINS = new Set([
   'api.anthropic.com',
   'api.z.ai',
   'open.bigmodel.cn',
+  'www.minimax.io',
+  'api.minimax.io',
 ]);
 
 /**
@@ -69,6 +71,10 @@ const PROVIDER_USAGE_ENDPOINTS: readonly ProviderUsageEndpoint[] = [
   {
     provider: 'zhipu',
     usagePath: '/api/monitor/usage/quota/limit'
+  },
+  {
+    provider: 'minimax',
+    usagePath: '/v1/api/openplatform/coding_plan/remains'
   }
 ] as const;
 
@@ -1590,6 +1596,9 @@ export class UsageMonitor extends EventEmitter {
         const inner = data.data ?? data;
         return this.normalizeQuotaLimitResponse(inner, profileId, profileName, profileEmail, provider);
       }
+      if (provider === 'minimax') {
+        return this.normalizeMiniMaxResponse(data, profileId, profileName, profileEmail);
+      }
     } catch {
       // Normalization failed — caller handles fallback
     }
@@ -1833,6 +1842,9 @@ export class UsageMonitor extends EventEmitter {
           break;
         case 'zhipu':
           normalizedUsage = this.normalizeZhipuResponse(responseData, profileId, profileName, profileEmail);
+          break;
+        case 'minimax':
+          normalizedUsage = this.normalizeMiniMaxResponse(rawData, profileId, profileName, profileEmail);
           break;
         default:
           this.debugLog('[UsageMonitor] Unsupported provider for usage normalization: ' + provider);
@@ -2130,6 +2142,113 @@ export class UsageMonitor extends EventEmitter {
   ): ClaudeUsageSnapshot | null {
     // Delegate to shared quota/limit response normalization
     return this.normalizeQuotaLimitResponse(data, profileId, profileName, profileEmail, 'zhipu');
+  }
+
+  /**
+   * Normalize MiniMax Coding Plan response to ClaudeUsageSnapshot
+   *
+   * Expected endpoint: https://www.minimax.io/v1/api/openplatform/coding_plan/remains
+   *
+   * Response format:
+   * {
+   *   code: 0,
+   *   msg: "success",
+   *   data: {
+   *     remains: number,    // Remaining prompts in current 5-hour window
+   *     total: number,      // Total prompts in 5-hour window
+   *     next_reset_time?: number  // Unix timestamp in ms for next reset
+   *   }
+   * }
+   *
+   * MiniMax Coding Plan has a 5-hour session window (no weekly limit).
+   */
+  private normalizeMiniMaxResponse(
+    data: any,
+    profileId: string,
+    profileName: string,
+    profileEmail?: string
+  ): ClaudeUsageSnapshot | null {
+    const logPrefix = 'MINIMAX';
+
+    if (this.isDebug) {
+      console.warn(`[UsageMonitor:${logPrefix}_NORMALIZATION] Starting normalization:`, {
+        profileId,
+        profileName,
+        responseKeys: Object.keys(data),
+        hasData: !!data.data
+      });
+    }
+
+    try {
+      // Extract inner data
+      const inner = data.data ?? data;
+
+      if (!inner) {
+        console.warn(`[UsageMonitor:${logPrefix}] Invalid response format - missing data:`, {
+          hasData: !!data,
+          responseKeys: Object.keys(data || {})
+        });
+        return null;
+      }
+
+      // Extract remains and total
+      const remains = inner.remains;
+      const total = inner.total;
+
+      if (remains === undefined || total === undefined) {
+        console.warn(`[UsageMonitor:${logPrefix}] Invalid response format - missing remains/total:`, {
+          hasRemains: remains !== undefined,
+          hasTotal: total !== undefined,
+          innerKeys: Object.keys(inner)
+        });
+        return null;
+      }
+
+      // Calculate percentage used
+      const used = total - remains;
+      const sessionPercent = total > 0 ? Math.round((used / total) * 100) : 0;
+
+      if (this.isDebug) {
+        console.warn(`[UsageMonitor:${logPrefix}_NORMALIZATION] Extracted usage:`, {
+          remains,
+          total,
+          used,
+          sessionPercent
+        });
+      }
+
+      // Extract reset time
+      const now = new Date();
+      let sessionResetTimestamp: string;
+
+      if (inner.next_reset_time && typeof inner.next_reset_time === 'number') {
+        // Unix timestamp in milliseconds
+        sessionResetTimestamp = new Date(inner.next_reset_time).toISOString();
+      } else {
+        // Fallback: 5 hours from now
+        sessionResetTimestamp = new Date(now.getTime() + 5 * 60 * 60 * 1000).toISOString();
+      }
+
+      return {
+        sessionPercent,
+        weeklyPercent: 0, // MiniMax has no weekly limit
+        sessionResetTime: undefined,
+        weeklyResetTime: undefined,
+        sessionResetTimestamp,
+        weeklyResetTimestamp: undefined, // No weekly reset for MiniMax
+        profileId,
+        profileName,
+        profileEmail,
+        fetchedAt: new Date(),
+        limitType: 'session',
+        usageWindows: {
+          sessionWindowLabel: 'common:usage.window5HoursQuota'
+        }
+      };
+    } catch (error) {
+      console.error(`[UsageMonitor:${logPrefix}] Failed to parse response:`, error, 'Raw data:', data);
+      return null;
+    }
   }
 
   /**

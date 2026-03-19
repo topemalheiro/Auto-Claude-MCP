@@ -70,7 +70,7 @@ export class InsightsExecutor extends EventEmitter {
 
     const autoBuildSource = this.config.getAutoBuildSourcePath();
     if (!autoBuildSource) {
-      throw new Error('Auto Claude source not found');
+      throw new Error('Aperant-MCP source not found');
     }
 
     const runnerPath = path.join(autoBuildSource, 'runners', 'insights_runner.py');

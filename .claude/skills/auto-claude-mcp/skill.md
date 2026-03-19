@@ -15,12 +15,12 @@
 taskkill.exe //F //IM "electron.exe" 2>/dev/null; taskkill.exe //F //FI "WINDOWTITLE eq Auto-Claude*" 2>/dev/null; taskkill.exe //F //FI "IMAGENAME eq node.exe" //FI "WINDOWTITLE eq *watchdog*" 2>/dev/null
 ```
 
-The safest approach: close the terminal/cmd window running `Auto-Claude-MCP.bat` — that kills the watchdog (parent) which kills Electron (child).
+The safest approach: close the terminal/cmd window running `Aperant-MCP.bat` — that kills the watchdog (parent) which kills Electron (child).
 
 ### Starting Auto-Claude
 
 ```bash
-powershell.exe -Command "Remove-Item Env:ELECTRON_RUN_AS_NODE -ErrorAction SilentlyContinue; Start-Process 'C:\Users\topem\source\repos\Auto-Claude-MCP\Auto-Claude-MCP.bat'"
+powershell.exe -Command "Remove-Item Env:ELECTRON_RUN_AS_NODE -ErrorAction SilentlyContinue; Start-Process 'C:\Users\topem\source\repos\Aperant-MCP\Aperant-MCP.bat'"
 ```
 
 **Why clear ELECTRON_RUN_AS_NODE:** VS Code / Claude Code sets this env var which makes Electron run as plain Node.js instead of a GUI app.
@@ -35,7 +35,7 @@ taskkill.exe //F //IM "electron.exe" 2>/dev/null
 # 3. Wait for processes to die
 sleep 2
 # 4. Start fresh via .bat (includes watchdog)
-powershell.exe -Command "Remove-Item Env:ELECTRON_RUN_AS_NODE -ErrorAction SilentlyContinue; Start-Process 'C:\Users\topem\source\repos\Auto-Claude-MCP\Auto-Claude-MCP.bat'"
+powershell.exe -Command "Remove-Item Env:ELECTRON_RUN_AS_NODE -ErrorAction SilentlyContinue; Start-Process 'C:\Users\topem\source\repos\Aperant-MCP\Aperant-MCP.bat'"
 ```
 
 ---
@@ -777,8 +777,8 @@ Auto-Claude's MCP server runs as a **stdio** subprocess spawned by Claude Code. 
       "command": "npx",
       "args": [
         "--yes", "tsx",
-        "--import", "file:///C:/Users/topem/source/repos/Auto-Claude-MCP/apps/frontend/src/main/mcp-server/register-loader.mjs",
-        "C:/Users/topem/source/repos/Auto-Claude-MCP/apps/frontend/src/main/mcp-server/index.ts"
+        "--import", "file:///C:/Users/topem/source/repos/Aperant-MCP/apps/frontend/src/main/mcp-server/register-loader.mjs",
+        "C:/Users/topem/source/repos/Aperant-MCP/apps/frontend/src/main/mcp-server/index.ts"
       ]
     }
   }

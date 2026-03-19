@@ -118,7 +118,7 @@
     "columnLocked": "La largeur de la colonne est verrouillée",
     "expandAll": "Développer toutes les colonnes",
     "autoResume": "Reprise auto",
-    "autoResumeHeader": "Système MCP Auto Claude",
+    "autoResumeHeader": "Système MCP Aperant-MCP",
     "arLimitReset": "Reprise Auto",
     "arLimitResetSub": "(réinit. limite)",
     "autoResumeTooltip": "Si activé, les tâches pausées par limites de taux reprendront automatiquement.",

@@ -130,14 +130,14 @@ export function registerTaskExecutionHandlers(
         return;
       }
 
-      // Check git status - Auto Claude requires git for worktree-based builds
+      // Check git status - Aperant-MCP requires git for worktree-based builds
       const gitStatus = checkGitStatus(project.path);
       if (!gitStatus.isGitRepo) {
         console.warn('[TASK_START] Project is not a git repository:', project.path);
         mainWindow.webContents.send(
           IPC_CHANNELS.TASK_ERROR,
           taskId,
-          'Git repository required. Please run "git init" in your project directory. Auto Claude uses git worktrees for isolated builds.'
+          'Git repository required. Please run "git init" in your project directory. Aperant-MCP uses git worktrees for isolated builds.'
         );
         return;
       }

@@ -341,7 +341,7 @@ export function DevToolsSettings({ settings, onSettingsChange }: DevToolsSetting
             </SelectContent>
           </Select>
           <p className="text-xs text-muted-foreground">
-            {t('devtools.ide.description', 'Auto Claude will open worktrees in this editor')}
+            {t('devtools.ide.description', 'Aperant-MCP will open worktrees in this editor')}
           </p>
 
           {/* Custom IDE Path */}
@@ -403,7 +403,7 @@ export function DevToolsSettings({ settings, onSettingsChange }: DevToolsSetting
             </SelectContent>
           </Select>
           <p className="text-xs text-muted-foreground">
-            {t('devtools.terminal.description', 'Auto Claude will open terminal sessions here')}
+            {t('devtools.terminal.description', 'Aperant-MCP will open terminal sessions here')}
           </p>
 
           {/* Custom Terminal Path */}
@@ -749,7 +749,7 @@ export function DevToolsSettings({ settings, onSettingsChange }: DevToolsSetting
                   {t('devtools.crashRecovery.label', 'Crash Recovery')}
                 </Label>
                 <p className="text-xs text-muted-foreground">
-                  {t('devtools.crashRecovery.description', 'Automatically restart Auto Claude when crashes are detected (via external watchdog)')}
+                  {t('devtools.crashRecovery.description', 'Automatically restart Aperant-MCP when crashes are detected (via external watchdog)')}
                 </p>
               </div>
               <Switch

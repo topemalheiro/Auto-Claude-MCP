@@ -1,4 +1,4 @@
-# Auto Claude MCP development fork
+# Aperant-MCP MCP development fork
 
 [![License](https://img.shields.io/badge/license-AGPL--3.0-green?style=flat-square)](./agpl-3.0.txt)
 [![Discord](https://img.shields.io/badge/Discord-Join%20Community-5865F2?style=flat-square&logo=discord&logoColor=white)](https://discord.gg/KCXaPBr4Dj)
@@ -28,7 +28,7 @@ To manage Auto-Claude tasks from Claude Code in any project, add the MCP server 
 **Option A: CLI command (recommended)**
 
 ```bash
-claude mcp add auto-claude-manager --scope user -- npx --yes tsx --import "file:///<path-to>/Auto-Claude-MCP/apps/frontend/src/main/mcp-server/register-loader.mjs" "<path-to>/Auto-Claude-MCP/apps/frontend/src/main/mcp-server/index.ts"
+claude mcp add auto-claude-manager --scope user -- npx --yes tsx --import "file:///<path-to>/Aperant-MCP/apps/frontend/src/main/mcp-server/register-loader.mjs" "<path-to>/Aperant-MCP/apps/frontend/src/main/mcp-server/index.ts"
 ```
 
 **Option B: Manual config** — add to `~/.claude.json` under `"mcpServers"`:
@@ -39,8 +39,8 @@ claude mcp add auto-claude-manager --scope user -- npx --yes tsx --import "file:
     "command": "npx",
     "args": [
       "--yes", "tsx", "--import",
-      "file:///<path-to>/Auto-Claude-MCP/apps/frontend/src/main/mcp-server/register-loader.mjs",
-      "<path-to>/Auto-Claude-MCP/apps/frontend/src/main/mcp-server/index.ts"
+      "file:///<path-to>/Aperant-MCP/apps/frontend/src/main/mcp-server/register-loader.mjs",
+      "<path-to>/Aperant-MCP/apps/frontend/src/main/mcp-server/index.ts"
     ]
   }
 }
@@ -125,15 +125,15 @@ External wrapper process that monitors Auto-Claude health, detects crashes, and 
 <details>
 <summary><strong>Quick Setup (Windows)</strong></summary>
 
-1. Rename `Auto-Claude-MCP.example.bat` to `Auto-Claude-MCP.bat`
+1. Rename `Aperant-MCP.example.bat` to `Aperant-MCP.bat`
 2. Edit the path in the `.bat` to point to your install directory:
    ```bat
-   set AUTO_CLAUDE_DIR=C:\Users\YourName\path\to\Auto-Claude-MCP
+   set AUTO_CLAUDE_DIR=C:\Users\YourName\path\to\Aperant-MCP
    ```
 3. Double-click the `.bat` to launch with watchdog
 4. **Optional — pin to taskbar:** Create a shortcut with target:
    ```
-   cmd.exe /c "C:\Users\YourName\path\to\Auto-Claude-MCP\Auto-Claude-MCP.bat"
+   cmd.exe /c "C:\Users\YourName\path\to\Aperant-MCP\Aperant-MCP.bat"
    ```
    Then right-click the shortcut → Pin to taskbar. You can set the icon to `apps\frontend\resources\icon.ico` from the repo.
 
@@ -169,7 +169,7 @@ PowerShell-based message delivery that sends RDR recovery prompts directly to Cl
 
 **Autonomous multi-agent coding framework that plans, builds, and validates software for you. Check the original repo:** https://github.com/AndyMik90/Auto-Claude
 
-![Auto Claude Kanban Board](.github/assets/Auto-Claude-Kanban.png)
+![Aperant-MCP Kanban Board](.github/assets/Auto-Claude-Kanban.png)
 
 ### Stable Release
 
@@ -237,7 +237,7 @@ Auto-Claude/
 
 **AGPL-3.0** - GNU Affero General Public License v3.0
 
-Auto Claude is free to use. If you modify and distribute it, or run it as a service, your code must also be open source under AGPL-3.0.
+Aperant-MCP is free to use. If you modify and distribute it, or run it as a service, your code must also be open source under AGPL-3.0.
 
 Commercial licensing available for closed-source use cases.
 

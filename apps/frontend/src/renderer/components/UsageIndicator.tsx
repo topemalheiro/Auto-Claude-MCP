@@ -445,6 +445,9 @@ export function UsageIndicator() {
   const weeklyPercent = usage.weeklyPercent;
   const limitingPercent = Math.max(sessionPercent, weeklyPercent);
 
+  // Session-only providers (e.g., MiniMax) have no weekly limit
+  const isSessionOnly = usage.limitType === 'session' || (weeklyPercent === 0 && !usage.weeklyResetTimestamp);
+
   // Badge color based on the limiting (higher) percentage
   // Override to red/destructive when re-auth is needed
   const badgeColorClasses = usage.needsReauthentication
@@ -494,10 +497,14 @@ export function UsageIndicator() {
               <span className={sessionColorClass} title={t('common:usage.sessionShort')}>
                 {Math.round(sessionPercent)}
               </span>
-              <span className="text-muted-foreground/50">│</span>
-              <span className={weeklyColorClass} title={t('common:usage.weeklyShort')}>
-                {Math.round(weeklyPercent)}
-              </span>
+              {!isSessionOnly && (
+                <>
+                  <span className="text-muted-foreground/50">│</span>
+                  <span className={weeklyColorClass} title={t('common:usage.weeklyShort')}>
+                    {Math.round(weeklyPercent)}
+                  </span>
+                </>
+              )}
             </div>
           )}
         </button>
@@ -576,40 +583,42 @@ export function UsageIndicator() {
                 )}
               </div>
 
-              {/* Weekly/Monthly usage */}
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground font-medium text-[11px] flex items-center gap-1">
-                    <TrendingUp className="h-3 w-3" />
-                    {weeklyLabel}
-                  </span>
-                  <span className={`font-semibold tabular-nums text-xs ${getColorClass(usage.weeklyPercent).replace('500', '600')}`}>
-                    {Math.round(usage.weeklyPercent)}%
-                  </span>
-                </div>
-                {weeklyResetTime && (
-                  <div className="text-[10px] text-muted-foreground pl-4 flex items-center gap-1">
-                    <Info className="h-2.5 w-2.5" />
-                    {weeklyResetTime}
-                  </div>
-                )}
-                <div className="h-2 bg-muted rounded-full overflow-hidden shadow-inner">
-                  <div
-                    className={`h-full rounded-full transition-all duration-500 ease-out relative overflow-hidden ${getGradientClass(usage.weeklyPercent)}`}
-                    style={{ width: `${Math.min(usage.weeklyPercent, 100)}%` }}
-                  >
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent motion-safe:animate-pulse" />
-                  </div>
-                </div>
-                {usage.weeklyUsageValue != null && usage.weeklyUsageLimit != null && (
-                  <div className="flex items-center justify-between text-[10px]">
-                    <span className="text-muted-foreground">{t('common:usage.used')}</span>
-                    <span className="font-medium tabular-nums">
-                      {formatUsageValue(usage.weeklyUsageValue)} <span className="text-muted-foreground mx-1">/</span> {formatUsageValue(usage.weeklyUsageLimit)}
+              {/* Weekly/Monthly usage - hidden for session-only providers (e.g., MiniMax) */}
+              {!isSessionOnly && (
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground font-medium text-[11px] flex items-center gap-1">
+                      <TrendingUp className="h-3 w-3" />
+                      {weeklyLabel}
+                    </span>
+                    <span className={`font-semibold tabular-nums text-xs ${getColorClass(usage.weeklyPercent).replace('500', '600')}`}>
+                      {Math.round(usage.weeklyPercent)}%
                     </span>
                   </div>
-                )}
-              </div>
+                  {weeklyResetTime && (
+                    <div className="text-[10px] text-muted-foreground pl-4 flex items-center gap-1">
+                      <Info className="h-2.5 w-2.5" />
+                      {weeklyResetTime}
+                    </div>
+                  )}
+                  <div className="h-2 bg-muted rounded-full overflow-hidden shadow-inner">
+                    <div
+                      className={`h-full rounded-full transition-all duration-500 ease-out relative overflow-hidden ${getGradientClass(usage.weeklyPercent)}`}
+                      style={{ width: `${Math.min(usage.weeklyPercent, 100)}%` }}
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent motion-safe:animate-pulse" />
+                    </div>
+                  </div>
+                  {usage.weeklyUsageValue != null && usage.weeklyUsageLimit != null && (
+                    <div className="flex items-center justify-between text-[10px]">
+                      <span className="text-muted-foreground">{t('common:usage.used')}</span>
+                      <span className="font-medium tabular-nums">
+                        {formatUsageValue(usage.weeklyUsageValue)} <span className="text-muted-foreground mx-1">/</span> {formatUsageValue(usage.weeklyUsageLimit)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
             </>
           )}
 

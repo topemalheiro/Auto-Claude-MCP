@@ -2,7 +2,7 @@
 Core Framework Module
 =====================
 
-Core components for the Auto Claude autonomous coding framework.
+Core components for the Aperant-MCP autonomous coding framework.
 """
 
 # Note: We use lazy imports here because the full agent module has many dependencies

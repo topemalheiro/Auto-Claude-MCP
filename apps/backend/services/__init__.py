@@ -2,7 +2,7 @@
 Services Module
 ===============
 
-Background services and orchestration for Auto Claude.
+Background services and orchestration for Aperant-MCP.
 """
 
 from .context import ServiceContext

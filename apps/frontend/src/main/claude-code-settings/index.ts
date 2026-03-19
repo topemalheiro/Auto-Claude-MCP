@@ -2,7 +2,7 @@
  * Claude Code CLI Settings Module
  *
  * Reads and merges Claude Code CLI settings files from the user's system.
- * These settings are separate from Auto Claude's own settings (settings-utils.ts).
+ * These settings are separate from Aperant-MCP's own settings (settings-utils.ts).
  *
  * Usage:
  *   import { getClaudeCodeEnv, readAllSettings } from './claude-code-settings';

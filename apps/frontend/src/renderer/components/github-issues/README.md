@@ -1,6 +1,6 @@
 # GitHub Issues Module
 
-A well-structured, modular implementation of the GitHub Issues feature for the Auto Claude UI.
+A well-structured, modular implementation of the GitHub Issues feature for the Aperant-MCP UI.
 
 ## Quick Stats
 
@@ -279,4 +279,4 @@ When contributing to this module:
 
 ## License
 
-Part of the Auto Claude project.
+Part of the Aperant-MCP project.

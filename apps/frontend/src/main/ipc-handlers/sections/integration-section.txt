@@ -91,8 +91,8 @@
     }
 
     // Generate content with sections
-    let content = `# Auto Claude Framework Environment Variables
-# Managed by Auto Claude UI
+    let content = `# Aperant-MCP Framework Environment Variables
+# Managed by Aperant-MCP UI
 
 # Claude Code OAuth Token (REQUIRED)
 CLAUDE_CODE_OAUTH_TOKEN=${existingVars['CLAUDE_CODE_OAUTH_TOKEN'] || ''}

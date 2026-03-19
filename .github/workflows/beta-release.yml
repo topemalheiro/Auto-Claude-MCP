@@ -640,7 +640,7 @@ jobs:
             This is a **beta release** for testing new features. It may contain bugs or incomplete functionality.
 
             ### How to opt-in to beta updates
-            1. Open Auto Claude
+            1. Open Aperant-MCP
             2. Go to Settings > Updates
             3. Enable "Beta Updates" toggle
 

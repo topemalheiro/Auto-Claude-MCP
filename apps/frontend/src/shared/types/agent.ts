@@ -66,8 +66,8 @@ export interface ClaudeUsageSnapshot {
   usageWindows?: {
     /** Label for the session window (e.g., '5-hour', '5-hour window') */
     sessionWindowLabel: string;
-    /** Label for the weekly window (e.g., '7-day', 'monthly', 'calendar month') */
-    weeklyWindowLabel: string;
+    /** Label for the weekly window (e.g., '7-day', 'monthly', 'calendar month'). Optional for session-only providers. */
+    weeklyWindowLabel?: string;
   };
   /** Raw session usage value (e.g., tokens used) */
   sessionUsageValue?: number;
