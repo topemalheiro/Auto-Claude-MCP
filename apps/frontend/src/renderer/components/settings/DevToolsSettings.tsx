@@ -438,10 +438,10 @@ export function DevToolsSettings({ settings, onSettingsChange }: DevToolsSetting
           )}
         </div>
 
-        {/* Auto-Claude MCP System Section */}
+        {/* Aperant-MCP System Section */}
         <div className="space-y-4 pt-6 border-t border-border">
           <div>
-            <h3 className="text-sm font-semibold text-foreground">Auto-Claude MCP System</h3>
+            <h3 className="text-sm font-semibold text-foreground">Aperant-MCP System</h3>
             <p className="text-xs text-muted-foreground mt-1">
               LLM Manager restart control and crash recovery settings
             </p>
